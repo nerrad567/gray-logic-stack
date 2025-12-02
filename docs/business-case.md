@@ -1,4 +1,4 @@
-# Business Case – Gray Logic Stack (v0.3)
+# Business Case – Gray Logic Stack (v0.4)
 
 ## 1. Purpose
 
@@ -9,6 +9,7 @@ This document explains **why** the Gray Logic Stack exists as a commercial offer
 - How it makes money.
 - Where it sits relative to existing platforms (Loxone, Crestron, Control4, “just use Home Assistant”, traditional BMS/SCADA).
 - How its **offline-first, internal vs external design** supports both reliability and premium upsells.
+- How **Predictive Health Monitoring (PHM)** and long-term trends create a clear premium story.
 - What success looks like and when I should walk away.
 
 It is written **for me**, not for clients.
@@ -28,6 +29,7 @@ In the UK market, I see a gap between:
      - Opaque to non-certified installers.
      - Painful to support or change if the original integrator disappears.
      - Increasing reliance on vendor clouds for “smart” features.
+     - A “**Golden Handcuffs**” effect: once you’re in the ecosystem, the cost of leaving is high.
 
 2. **DIY / enthusiast smart home setups** (Home Assistant, openHAB, etc.)
 
@@ -49,6 +51,7 @@ Clients with **high-end homes or small leisure/commercial sites** want BMS-like 
 - Don’t want (or can’t justify) full industrial BMS/SCADA.
 - Don’t want to be locked into a single proprietary vendor.
 - Need something that **keeps working offline**, while still giving them modern remote features where it makes sense.
+- Increasingly want **early warning** (predictive insight into plant health), not just “is it on/off?”.
 
 ---
 
@@ -60,6 +63,7 @@ From my side:
 - I already have skills in:
   - Linux, Docker, VPNs, networking.
   - Documentation, runbooks, backup/restore.
+  - Real-world monitoring and logging in my own lab/production systems.
 
 Right now there is no **“Darren-grade”, open-standards, offline-first automation product** I can sell repeatedly and support.
 
@@ -68,7 +72,8 @@ The **Gray Logic Stack** is my attempt to turn my **hybrid electrician + infra s
 - A **repeatable product** (not just day-rate engineering).
 - With **recurring revenue** (support/maintenance).
 - That can grow without me doing only raw labour forever.
-- With remote bonuses (monitoring, updates, tweaks) that **add income** without putting core reliability at risk.
+- With remote bonuses (monitoring, updates, tweaks, long-term analytics) that **add income** without putting core reliability at risk.
+- With **Predictive Health Monitoring** as a clear, defensible premium differentiator rather than generic “we do monitoring too”.
 
 ---
 
@@ -112,6 +117,7 @@ It delivers:
    - **Internal / on-site:**
      - Local Linux/Docker node hosting openHAB, Node-RED, dashboards.
      - Scenes, schedules, modes, local UI, plant and lighting integration.
+     - Local data logging and **short-to-medium-term history** for key metrics (plant run hours, temps, currents).
      - Designed so that **99%+ of everyday features** keep working even if the internet is down.
    - **External / remote:**
      - Optional VPS (my “remote NOC”) accessed via WireGuard.
@@ -119,11 +125,23 @@ It delivers:
        - Remote monitoring and alerts.
        - Remote updates and config tweaks.
        - Aggregated trends and multi-site views.
+       - **Long-term historical data retention** (years) for energy and plant health trends.
      - If the internet or VPS goes down, the building continues to run; only these **bonuses** pause.
+
+6. **Predictive Health Monitoring (PHM) – Early Warning, Not Magic**
+
+   - For suitable plant (pumps, AHUs, boilers/heat pumps, pool kit), the stack:
+     - Learns a **baseline “heartbeat”** (current draw, temperature, run time, etc.).
+     - Watches for **deviation from that baseline** over hours/days.
+     - Raises **“Early Warning”** flags (e.g. “Pump 1 is running hotter and drawing more current than normal for 2+ hours”) before outright failure.
+   - Basic PHM runs on-site; remote services add:
+     - Long-term trends.
+     - Pretty dashboards.
+     - Cross-site or seasonal comparisons.
 
 In short:
 
-> **“Mini-BMS quality, using open standards, for sites that are too small or too specialised for full BMS/SCADA, and too serious for toy smart home setups – designed offline-first, with optional remote bonuses layered on top.”**
+> **“Mini-BMS quality, using open standards, for sites that are too small or too specialised for full BMS/SCADA, and too serious for toy smart home setups – designed offline-first, with optional remote and predictive-health bonuses layered on top.”**
 
 ---
 
@@ -138,6 +156,7 @@ In short:
    - Already spending on kitchens, AV, pools, etc.
    - Want **long-term maintainability**, not just a flashy app.
    - Appreciate that the house still works normally when the internet goes down.
+   - Are willing to pay extra for **“tell me before it breaks”** in key plant rooms (pool, plant, services).
 
 2. **Leisure / pool / spa sites**
 
@@ -145,18 +164,22 @@ In short:
    - Have plant (boilers, filters, pumps), ventilation, and tight temperature/humidity needs.
    - Want simple dashboards, alarms, and remote access without paying for full BMS.
    - Need offline reliability because guests don’t care about internet status.
+   - Benefit directly from PHM:
+     - Early warning on pumps/fans.
+     - Evidence for maintenance decisions.
 
 3. **Small mixed-use / light commercial**
 
    - Offices with showrooms, small multi-use buildings.
    - Need lighting control, environment monitoring, plant visibility, CCTV/alarm integration.
    - Often lack in-house IT/controls teams; want something robust and maintainable.
+   - Can justify premium tiers where downtime or plant failure is expensive.
 
 ### 4.2 Stakeholders
 
-- **End clients / owners** – care about comfort, reliability, remote visibility, and having “one person to call”.
+- **End clients / owners** – care about comfort, reliability, remote visibility, **early warning on plant**, and having “one person to call”.
 - **Architects / builders / M&E designers** – care about clear scope, standards, and someone who can bridge electrical + IT.
-- **Facilities/maintenance** – care about safe operation, documentation, and not being locked out of the system.
+- **Facilities/maintenance** – care about safe operation, documentation, and not being locked out of the system; PHM helps them look proactive, not reactive.
 
 ---
 
@@ -184,10 +207,11 @@ Compared to “just smart home gadgets”:
     - CCTV health.
     - Alarm states.
     - Environment trends.
+    - Key plant “heartbeat” metrics in premium tiers.
 
 - **Clear stance on security devices**
 
-  - I’m happy to integrate **proper, local-capable doorbells and CCTV** (RTSP/ONVIF/SIP) as part of the core system –
+  - I’m happy to integrate **proper, local-capable doorbells and CCTV** (RTSP/ONVIF/SIP) as part of the core system –  
     e.g. Amcrest, DoorBird, Uniview and similar ranges.
   - Purely cloud-dependent doorbells/CCTV (Ring/Nest-style) are **not** treated as core integrations:
     they can stay as separate apps if the client wants them, but Gray Logic won’t depend on them for alarm or access logic.
@@ -198,12 +222,23 @@ Compared to “just smart home gadgets”:
     - Work with poor or intermittent internet.
     - Carry on during outages, with remote alerts simply pausing.
 
+- **Early warning instead of false promises**
+
+  - I **do not** promise “no breakdowns”.
+  - I **do** aim to:
+    - Watch how key plant behaves over time.
+    - Flag when a pump/boiler/fan is behaving differently from its normal pattern.
+    - Provide evidence (“this is what it looked like in the week before the fault”) so maintenance isn’t guesswork.
+
 Compared to proprietary platforms (Loxone, Crestron, etc.):
 
 - **Less lock-in**
 
   - Field gear is KNX/DALI/Modbus where possible.
-  - Replacement parts and support are not tied to one brand.
+  - Replacement parts and support are not tied to one brand or one dealer.
+  - The “Golden Handcuffs” effect is reduced because:
+    - Project files, configs, and logic are documented.
+    - A handover pack exists if someone else needs to take over.
 
 - **More transparent**
 
@@ -223,6 +258,7 @@ The **Consumer Overlay** adds:
     - Design (architecture, controls, network).
     - Implementation/commissioning.
     - Documentation.
+    - PHM design and tuning on suitable sites.
   - Not just “labour to run cables”.
 
 - **Recurring revenue without compromising the core**
@@ -231,6 +267,7 @@ The **Consumer Overlay** adds:
     - Monitoring and alerts.
     - Scheduled updates.
     - Remote tweaks and Consumer Overlay changes.
+    - Long-term data retention and PHM dashboards (Enhanced/Premium tiers).
   - If a VPS goes down, clients still have a working system:
     - Fewer 3am calls.
     - Clear boundaries about what’s premium vs core.
@@ -239,12 +276,19 @@ The **Consumer Overlay** adds:
 
   - I can use the same Gray Logic Stack patterns across multiple sites.
   - Room, plant, CCTV and overlay patterns can be reused.
+  - PHM patterns can be templated by asset type (standard pool pump, typical boiler, etc.).
   - Jobs get faster and more profitable as the patterns mature.
 
 - **Strategic positioning**
 
-  - I’m no longer “just an electrician”; I’m an **open-standards, offline-first automation provider**.
+  - I’m no longer “just an electrician”; I’m an **open-standards, offline-first automation provider** with a **predictive health story**.
   - That keeps the door open for collaborating with consultants, M&E firms, and OT/ICS-type clients later, if I choose.
+
+- **Portfolio value**
+
+  - Even if the product never becomes huge, the work:
+    - Demonstrates serious infra/OT thinking.
+    - Builds a portfolio for potential infra/OT/ICS roles.
 
 ---
 
@@ -256,53 +300,71 @@ The **Consumer Overlay** adds:
 
    - Site survey, requirements, network and controls design.
    - Fixed fee or day rate with clear deliverables (drawings, spec, I/O list).
+   - PHM feasibility: identify which assets are worth monitoring and what sensors/VFDs are needed.
 
 2. **Implementation & commissioning**
 
    - On-site wiring (if I’m the spark) or supervision if others do the cabling.
    - Panel build, Gray Logic node installation.
    - openHAB/Node-RED configuration, testing, client sign-off.
+   - Baseline PHM setup where applicable (initial thresholds, rolling averages).
 
 3. **Documentation & handover**
 
    - Runbook, I/O maps, network diagrams, backup/restore procedure.
+   - “Heartbeat” overview for any PHM-enabled plant (what’s monitored, what “early warning” means).
    - Training session for client / FM.
+   - Inclusion of a **“Doomsday / Handover” section** explaining the exit strategy if Gray Logic disappears.
 
 4. **Optional modules & remote setup**
 
    - Consumer Integration Overlay configuration.
    - Deeper CCTV/analytics integration.
+   - PHM-intensive integrations (VFDs, Modbus meters, more sensors).
    - **Remote server setup**:
      - WireGuard to VPS.
      - Initial monitoring and dashboard.
      - Remote backup jobs.
+     - Long-term data retention for trends and PHM.
 
 ### 6.2 Recurring revenue
 
-Support tiers can mirror the **internal/external** split:
+Support tiers can mirror the **internal/external** split and PHM complexity:
+
+| Tier             | What it includes (conceptually)                                                                 | Technical basis                                 | Client story                                                     |
+| ---------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
+| **Core Support** | Basic support, annual health check, local backups, simple email alerts (“device offline/OK”).   | Binary states + simple thresholds.              | “System is safe, documented and looked after.”                   |
+| **Enhanced**     | Everything in Core + **Predictive Health Monitoring alerts** and simple trends per site.        | PHM logic (rolling averages, deviation checks). | “We get **early warning** on key plant before it fails.”         |
+| **Premium**      | Everything in Enhanced + VFD/Modbus deep metrics, multi-year history, reports, multi-site view. | Digital plant data (VFD, meters, rich Modbus).  | “We get **industrial-grade insight**, history and optimisation.” |
+
+Rephrase in plain language:
 
 - **Core Support (on-site focused)**
 
   - Basic phone/email support in working hours.
   - Annual or semi-annual health check.
   - Local backup/restore tests.
-  - No remote VPS required.
+  - No VPS required.
+  - Very light monitoring (“is the node alive?”, “are core services up?”).
 
-- **Enhanced Support (adds remote monitoring)**
+- **Enhanced Support (adds PHM and remote monitoring)**
 
   - Everything in Core.
   - Remote monitoring of:
     - Host and container health.
     - Basic device status.
+    - PHM early-warning flags from Node-RED/openHAB.
   - Email/Telegram-style alerts when something goes wrong.
   - Occasional remote tweaks via VPN (small config changes).
+  - Short-to-medium term trend views per site.
 
-- **Premium Support (full remote bonuses)**
+- **Premium Support (full remote bonuses + deep PHM)**
 
   - Everything in Enhanced.
   - Scheduled updates (OS, Docker images, openHAB/Node-RED) with rollback plans.
   - Remote additions/changes to Consumer Overlay devices.
-  - Aggregated trends and periodic reports.
+  - Aggregated trends and periodic reports (e.g. quarterly/annual health reports).
+  - Deep PHM: VFD/Modbus registers, energy meters, multi-year history.
   - Possibly multi-site dashboards (for estate clients).
 
 Even a few sites on support contracts gives:
@@ -315,13 +377,14 @@ Even a few sites on support contracts gives:
 
 These are **internal targets**, not promises to clients.
 
-For a typical high-end home with lighting, some plant, CCTV health and a modest Consumer Overlay:
+For a typical high-end home with lighting, some plant, CCTV health, a modest Consumer Overlay and basic PHM on a couple of pumps/boilers:
 
 - Core design + implementation: **~£10–20k**.
-- Optional modules (e.g. Consumer Overlay, extra CCTV/plant integration, remote setup): **~£2–5k+**.
-- Ongoing support:
+- Optional modules (e.g. Consumer Overlay, extra CCTV/plant integration, PHM sensors/VFDs, remote setup): **~£2–5k+**.
+- Ongoing support (rough internal targets only):
   - Core: **from low £/month** (or an annual fee).
-  - Enhanced/Premium: **from £X–£Y/month** depending on scope.
+  - Enhanced: **£X–£Y/month** (adds PHM alerts and trends).
+  - Premium: **£Y+–£Z/month** (deep PHM, reporting, multi-site view).
 
 I should track:
 
@@ -330,8 +393,9 @@ I should track:
 - Recurring revenue per site.
 - Effective hourly rate per project (total income ÷ total hours).
 - Premium uptake rate:
-  - How many clients choose Enhanced/Premium for remote bonuses?
+  - How many clients choose Enhanced/Premium for PHM and remote bonuses?
   - Are they happy with reliability during outages?
+  - Are they actually reading/using the reports?
 
 Aim: effective day rate **as good as or better than** my best electrical work, with a realistic future path to more recurring income and fewer hours on the tools.
 
@@ -355,14 +419,15 @@ category, not at the heart of the system.
 
 - **Weaknesses (from my viewpoint)**
 
-  - Vendor lock-in and licence models.
+  - Vendor lock-in and licence models – the **“Golden Handcuffs”** problem:
+    once a client commits, leaving the platform is painful and costly.
   - Proprietary tools and training requirements.
   - Harder for a non-certified engineer to support or extend.
   - Sometimes cloud/remote features are tightly coupled to the vendor’s infrastructure.
 
 **Gray Logic position:**
 
-> “Open, documented, infra-first and offline-first system for people who care about standards and long-term ownership more than brand logos.”
+> “Open, documented, infra-first and offline-first system for people who care about standards and long-term ownership more than brand logos – with a clear exit path and handover package to avoid Golden Handcuffs.”
 
 ### 7.2 DIY / enthusiast open-source setups
 
@@ -379,10 +444,11 @@ category, not at the heart of the system.
   - Weak or no documentation.
   - No proper network design, safety boundaries, or runbooks.
   - Hard to charge professional rates for “I put HA on a NUC”.
+  - No clear PHM story or support tiers.
 
 **Gray Logic position:**
 
-> “Professionalised, documented, supportable open-source stack, delivered as a productised service, not a hobby build.”
+> “Professionalised, documented, supportable open-source stack, delivered as a productised service, not a hobby build – with defined support tiers and a predictive health angle.”
 
 ### 7.3 Traditional BMS / SCADA
 
@@ -403,7 +469,7 @@ category, not at the heart of the system.
 
 **Gray Logic position:**
 
-> “Mini-BMS philosophy for sites that are too small for full BMS/SCADA but too serious for a random ‘smart home’ install – using open standards and an offline-first design.”
+> “Mini-BMS philosophy for sites that are too small for full BMS/SCADA but too serious for a random ‘smart home’ install – using open standards and an offline-first design, with just enough PHM to be genuinely useful.”
 
 If a site genuinely needs:
 
@@ -447,6 +513,12 @@ If a site genuinely needs:
   - Use a reputable VPS provider with sensible SLAs.
   - Be honest with clients: remote features are bonuses, not hard requirements.
 
+- **Risk:** PHM over-promises (clients expect “no failures”).  
+  **Mitigation:**
+  - Be explicit that PHM is **early warning, not magic**.
+  - Show simple examples of what PHM can and can’t catch.
+  - Keep PHM rules understandable and documented so they can be tuned over time.
+
 ### 8.2 Market risks
 
 - **Risk:** Clients default to known brands (Loxone, Control4).  
@@ -454,12 +526,12 @@ If a site genuinely needs:
 
   - Target clients and architects who value openness and ownership.
   - Deliver 1–2 flagship Gray Logic sites and build a strong story around them.
+  - Emphasise the no-Golden-Handcuffs angle and handover/exit plan.
 
 - **Risk:** Price pressure from “guy who will just install smart bulbs + Alexa”.  
   **Mitigation:**
-
   - Be explicit that this is **not the same product**.
-  - Emphasise safety boundaries, plant integration, long-term support, and documentation.
+  - Emphasise safety boundaries, plant integration, long-term support, documentation, and PHM.
   - Use the Consumer Overlay as a safe, segregated way to add smart gadgets where needed.
 
 ### 8.3 Personal/business capacity
@@ -467,12 +539,11 @@ If a site genuinely needs:
 - **Risk:** Too many custom one-offs, not enough standardisation.  
   **Mitigation:**
 
-  - Keep refining patterns and templates (configs, flows, runbooks).
+  - Keep refining patterns and templates (configs, flows, PHM rules, runbooks).
   - Say no to jobs that fight the architecture too hard.
 
 - **Risk:** I can’t personally do all the roles as the business grows.  
   **Mitigation:**
-
   - Be open to partnering with:
     - Panel builders.
     - Controls engineers.
@@ -483,11 +554,45 @@ If a site genuinely needs:
 
 - **Risk:** Falling foul of regulations or insurance expectations.  
   **Mitigation:**
-
   - Keep intruder, fire and access control systems as primary, certified systems.
   - Ensure the Gray Logic Stack does not undermine their safety or compliance.
   - Treat personal data carefully (e.g. logs focus on technical signals, not detailed personal profiles).
   - Be aware of UK electrical regs and basic GDPR expectations for monitoring/logging.
+
+### 8.5 Trust & “One-man band” risk – The Doomsday / Handover Package
+
+- **Risk:** Client worries “what happens if Darren gets hit by a bus / disappears?”.
+- **Mitigation:** Turn this into a **trust advantage** by offering a structured **Doomsday / Handover Package**:
+
+  - **“God mode” exports (sealed & encrypted)**:
+
+    - Root/admin credentials for Linux, Docker, VPN.
+    - KNX project file, openHAB configs, Node-RED flows.
+    - Any VFD/Modbus config files where appropriate.
+
+  - **Source + infra docs**:
+
+    - `docker-compose.yml` and any supporting config.
+    - Network diagrams, VLAN plan, IP addressing.
+
+  - **Safety breaker document (printed)**:
+
+    - Clear steps for:
+      - Gracefully shutting down the Gray Logic host.
+      - Reverting to purely physical controls where possible.
+
+  - **Yellow Pages page**:
+
+    - Contact details for 2–3 alternative, non-competing KNX/automation firms.
+    - Explanation that any competent controls engineer can take over using the docs.
+
+  - **Dead Man’s Switch clause (contract)**:
+    - If Gray Logic is unresponsive for N days (e.g. 72 hours for critical faults, longer for normal support),  
+      client is explicitly allowed to:
+      - Open the sealed package.
+      - Engage alternative support using the provided docs.
+
+This **reduces Golden Handcuffs**, builds trust, and aligns with the open-standards positioning.
 
 ---
 
@@ -511,6 +616,7 @@ Rather than fixed dates, I’ll use **milestones**. The Gray Logic Stack is doin
   - When I look at hours vs. income for Gray Logic jobs:
     - The effective day rate is **as good as or better than** good-quality electrical work.
     - I’m clearly being paid for **design + integration + documentation**, not just “fitting bits”.
+    - PHM and support tiers actually move the needle, not just add complexity.
 
 - **There is some recurring income**
 
@@ -528,6 +634,7 @@ Rather than fixed dates, I’ll use **milestones**. The Gray Logic Stack is doin
     - Security/CCTV integration that isn’t a bodge.
     - Consumer Overlay behaviour that’s predictable and bounded.
     - Internal vs external behaviour that behaves as expected under outages.
+    - At least **one PHM pattern** that works well enough to be worth selling (e.g. pool pump early warning).
 
 - **Clients feel the offline benefits**
 
@@ -536,6 +643,7 @@ Rather than fixed dates, I’ll use **milestones**. The Gray Logic Stack is doin
     - Edge cases.
     - Overlay devices.
     - Things that can be handled within support tiers.
+  - For PHM-enabled sites, at least some issues are caught early (“we fixed it because the system warned us”).
 
 If those boxes slowly tick up over time, the Gray Logic Stack is working for me, even if progress isn’t fast.
 
@@ -548,6 +656,7 @@ After each big milestone (lab build, first client site, major refactor, etc.) I�
   - Is the stack **boring and stable enough** that I’d support it for 5–10 years?
   - Am I building on mature stuff (Linux, Docker, openHAB, Node-RED, KNX, etc.), or fighting my own cleverness and edge cases?
   - Did my internal vs external design actually behave as expected when the internet went down?
+  - Did the PHM bits behave sensibly (not too noisy, not completely blind)?
 
 - **Economic sanity**
 
@@ -577,12 +686,13 @@ For me, that means:
 
 - UK homeowners and small commercial operators **are** spending real money on upgrading properties.
 - Smart / energy-efficient / automated systems are part of that spend, not just a side fad.
+- Selling **offline-first + predictive health** is aligned with where the market is going (energy and uptime awareness), not against it.
 
 As part of each review, I’ll explicitly ask:
 
 - In my patch, are architects, builders, and clients **talking more or less** about this kind of thing?
 - Does UK/global data still show **growth in the high-end / smart / energy-aware parts of the market**, or has it flattened?
-- Given those trends, does spending my limited time on the Gray Logic Stack still look like a **good bet** compared to just doing more standard electrical jobs?
+- Given those trends, does spending my limited time on the Gray Logic Stack still look like a **good bet** compared to just doing more standard electrical jobs or pivoting to infra/OT roles?
 
 If the macro picture is strong but I’m not landing projects, that’s a **positioning and sales problem** I might be able to fix.  
 If the macro picture weakens _and_ the Gray Logic Stack isn’t paying its way, that’s a sign to be more ruthless.
@@ -618,6 +728,7 @@ The goal is to give it a **fair, informed shot** – and then make a clear decis
    - Environment & Plant.
    - Security & CCTV.
    - Consumer Integration Overlay.
+   - PHM Add-ons (by asset type: pumps, boilers/heat pumps, AHUs).
    - Remote/Monitoring add-on (Enhanced/Premium).
    - Write one-page descriptions and rough budget bands for each.
 
@@ -625,6 +736,7 @@ The goal is to give it a **fair, informed shot** – and then make a clear decis
 
    - For example: “Gray Logic for Pool & Leisure” or “Gray Logic for Cinema + Plant”.
    - Build and document it end-to-end (lab, then a real site).
+   - Include at least **one PHM story** (e.g. pool pump early warning).
    - Turn that into:
      - A simple web page.
      - A 1-page PDF I can share with architects/clients.
@@ -638,32 +750,52 @@ The goal is to give it a **fair, informed shot** – and then make a clear decis
      - Internet outage.
      - Remote-only outage.
      - Recovery behaviour.
+     - Sync of PHM events + trends (short on-site vs long-term in cloud).
 
 4. **Refine the support offering**
 
    - Decide on 2–3 support tiers and what I’m genuinely comfortable committing to.
+   - Map them clearly to:
+     - Internal vs external responsibilities.
+     - PHM complexity.
+     - Data retention expectations.
    - Be clear about:
      - What’s covered locally.
      - What’s a remote bonus.
      - How the Consumer Overlay is supported.
+     - How PHM alerts are handled (who gets what, when).
 
-5. **Integrate messaging into my public sites**
+5. **Design the Doomsday / Handover Package**
+
+   - Create a template:
+     - List of exports and credentials.
+     - Printed “safety breaker” instructions.
+     - Yellow Pages list of alternative providers.
+     - Standard contract clause wording.
+   - Make it part of the proposal for suitable jobs (even if as an optional extra).
+
+6. **Integrate messaging into my public sites**
 
    - Add a Gray Logic Stack section to graylogic.uk / electrician.onl.
    - Keep technical detail in GitHub; keep the client pitch simple and outcome-focused.
    - Include clear language about:
      - Open standards.
-     - No lock-in.
+     - No lock-in / avoidance of Golden Handcuffs.
      - Offline-first.
      - “Core vs Consumer Overlay”.
      - “On-site vs remote bonuses”.
+     - Early warning / predictive health in simple terms.
 
-6. **Start conversations**
+7. **Start conversations**
 
    - Talk to at least a couple of:
      - Architects.
      - Builders.
      - Pool/leisure operators.
-   - Use the business case and spec as **internal backing**, but keep the pitch simple for them.
+   - Use the business case and spec as **internal backing**, but keep the pitch simple for them:
+     - “Offline-first.”
+     - “Open standards.”
+     - “Early warning on plant, not just pretty lights.”
+     - “No Golden Handcuffs if you ever need to move on.”
 
-This business case will evolve with each real project, but this version is enough to justify pushing forward and seeing whether the Gray Logic Stack can truly pay its way, while staying true to the offline-first design.
+This business case will evolve with each real project, but this version is enough to justify pushing forward and seeing whether the Gray Logic Stack can truly pay its way, while staying true to the offline-first, open-standards, and predictive-health design.

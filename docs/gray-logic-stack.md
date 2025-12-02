@@ -1,4 +1,4 @@
-# Gray Logic Stack – Working Draft v0.3
+# Gray Logic Stack – Working Draft v0.4
 
 _This is a living spec. See `CHANGELOG.md` or `UPDATES.md` for a summary of changes between versions._
 
@@ -191,6 +191,7 @@ These are the default patterns; I only break them with a clear reason.
        - Central dashboards.
        - Remote admin via WireGuard.
        - Optional remote monitoring and update automation.
+       - Optional long-term historical data retention and cross-site analytics.
 
 4. **Everything is documented**
 
@@ -257,12 +258,21 @@ Internal core includes:
   - Cross-system flows where both systems are on-site.
   - Local alarms/notifications (e.g. on-site sounders, local panels).
   - Internal integrations between plant, lighting, and security.
+  - Predictive Health Monitoring (PHM) logic using local sensor data and rolling averages (see 6.7).
 
 - **UI / dashboard on the LAN**
 
   - openHAB Main UI / HABPanel served from the on-site node.
   - Basic health view (host/container status) on-site.
   - Local access from trusted LAN segments even if VPN/internet is down.
+
+- **Local metrics, logs and short-term history**
+
+  - Local time-series or persistence store for:
+    - Plant metrics (temperature, current, flow/return, run hours).
+    - Environment values (CO₂, humidity, temps).
+    - Key “heartbeat” metrics for pumps, boilers, heat pumps etc.
+  - Enough history on-site (e.g. weeks/months) to run PHM logic offline.
 
 - **Safety and redundancy**
 
@@ -282,7 +292,7 @@ Internal core includes:
   - A documented “bare-metal restore” process (see section 5.6).
 
 **Offline reliability target:**  
-With a stable local power/LAN setup, the on-site node should deliver **99%+ availability** for core features (lighting, scenes, plant control, modes, local UI), regardless of internet connectivity.
+With a stable local power/LAN setup, the on-site node should deliver **99%+ availability** for core features (lighting, scenes, plant control, modes, local UI, PHM checks), regardless of internet connectivity.
 
 ### 4.2 External – Remote, Premium Enhancements
 
@@ -319,12 +329,16 @@ Remote enhancements may include:
   - Small UI adjustments.
   - All via VPN without a site visit, assuming agreed support tier.
 
-- **Value-add content**
+- **Value-add content & long-term history**
 
   - Aggregated trends:
     - Energy usage.
     - Temperature/humidity.
     - Alarms and faults over time.
+    - PHM indicators leading up to a failure.
+  - Long-term retention:
+    - On-site: weeks/months of core data.
+    - Remote: years of history for premium tiers (e.g. “compare this month to the same month last year”).
   - Optional external APIs:
     - Weather forecasts (for pre-heating, shading, etc.).
     - Other curated external data.
@@ -334,6 +348,7 @@ Remote enhancements may include:
   - For clients with multiple Gray Logic sites:
     - High-level overview of each site’s health.
     - Summaries of alerts and trends.
+    - Cross-site PHM reports.
 
 ### 4.3 Graceful Degradation
 
@@ -345,12 +360,14 @@ If internet or VPN connectivity drops:
   - Scenes and schedules still work.
   - Local UI remains available.
   - Plant and lighting logic operate as normal.
+  - PHM checks and local “early warning” alerts keep running on-site.
 
 - **Remote features pause**:
 
   - No new alerts to remote channels (they queue or are stored locally).
   - Remote dashboards may show “site unreachable”.
   - Remote updates/configuration are simply unavailable until connectivity returns.
+  - Long-term central logging and cross-site analytics pause.
 
 When VPN/internet returns:
 
@@ -391,6 +408,7 @@ Node-RED is used as a **glue / power tool**:
 - Implement flows that cross system boundaries:
   - “Alarm set to Away” → “Lower heating setpoints + enable perimeter lights”.
   - “Pool plant fault + time window” → “Send Telegram and log to dashboard”.
+  - Predictive Health Monitoring (PHM) logic using rolling averages and thresholds (see 6.7).
 
 Rules of thumb:
 
@@ -474,6 +492,34 @@ Baseline approach:
   6. Only then re-establish VPN and remote monitoring.
 
 Goal: return to **99%+ internal functionality first**, then slowly bring remote bonuses back on line.
+
+### 5.7 Data, Logging & Historical Trends
+
+- On-site:
+
+  - Store short-to-medium-term history (e.g. weeks/months) for:
+    - Temperatures, humidity, CO₂.
+    - Pump current, vibration proxies, run hours.
+    - Boiler/heat pump key metrics (flow/return, run hours, starts).
+    - Energy meters where available.
+  - Support:
+    - Local PHM logic (rolling averages, deviation checks).
+    - Local trend views (e.g. “last 7 days”, “last 30 days”).
+
+- Remote (premium):
+
+  - Store multi-year history for:
+    - Energy usage (“compare this month to same month last year”).
+    - Plant health indicators leading up to failures.
+    - Aggregated alerts and event timelines.
+  - Provide:
+    - Pretty dashboards (Grafana-style).
+    - Cross-site comparisons for estate clients.
+
+- Philosophy:
+
+  - **Core PHM and control decisions happen locally.**
+  - Remote storage is about **retention, nice dashboards, and cross-site insight**, not making the building dependent on a cloud database.
 
 ---
 
@@ -782,6 +828,179 @@ Purely cloud-only doorbells/CCTV (typical Ring/Nest-style) are:
     - A list of supported consumer devices and any known caveats.
     - A note that reliability is “best-effort”, not guaranteed SLAs.
 
+### 6.7 Predictive Health Monitoring (PHM) & Heartbeats
+
+**Goal:** Move from “is it on/off?” to **“is it healthy, and when will it bite us?”** – using trend-based early warning rather than just binary alarms.
+
+PHM is still aligned with the offline-first principle:
+
+- The **checks and decisions** run on-site (Node-RED + openHAB persistence).
+- Remote services extend history, dashboards, and reporting – but the **early warnings themselves** do not depend on the cloud.
+
+#### 6.7.1 Where can we take a “heartbeat”?
+
+Assets that are good PHM candidates:
+
+1. **Pumps (pool, circulation, booster)**
+
+   - What we care about:
+     - “Is it drawing normal current?”
+     - “Is it running hotter than usual?”
+     - “Is it running for much longer/shorter than it used to?”
+   - Typical sensors:
+     - CT clamp per phase or per pump circuit (current).
+     - Temperature probe on pump housing/motor.
+     - Optional vibration sensor (accelerometer) glued or strapped to housing.
+   - Integration:
+     - Modbus RTU/TCP IO modules.
+     - Zigbee or other local radio sensors if wiring is awkward, but still gatewayed locally into the stack.
+
+2. **Air handling / fans (AHUs, extract, MVHR)**
+
+   - What we care about:
+     - Airflow or proxy (differential pressure).
+     - Fan current vs normal.
+     - Run hours and start/stop frequency.
+   - Typical sensors:
+     - Differential pressure sensor across filters/coils.
+     - CT clamp for fan motor.
+     - Temperature before/after coil (optional).
+   - Integration:
+     - Modbus-native plant controllers where available.
+     - Discrete sensors back to Modbus IO / KNX where not.
+
+3. **Boilers / heat pumps**
+
+   - Preferred approach:
+     - Choose kit with a **documented, local integration**:
+       - Modbus TCP/RTU.
+       - Manufacturer gateway with sensible API.
+       - OpenTherm / other standard bus with a documented bridge.
+     - Read:
+       - Flow and return temperature.
+       - Run hours / start count.
+       - Current or power draw.
+       - Any internal fault/warning registers.
+   - Fallback approach (if boiler is “dumb”):
+     - Treat boiler as a black box:
+       - On/off via relay or call-for-heat contact.
+       - External sensors:
+         - Flow/return temperature clamps.
+         - CT clamp on boiler supply.
+       - We can **still do PHM**, but only based on those external proxies (e.g. “taking longer than usual to get from 20°C to 45°C”).
+
+4. **Plant room environment**
+
+   - Room temp/humidity, door contacts, maybe leak detection.
+   - Enough to say “plant is running too hot”, “condensation risk”, “water on the floor”.
+
+5. **Energy meters / key circuits**
+
+   - Main incomer or sub-boards for:
+     - Pool plant.
+     - HVAC.
+     - Domestic hot water.
+   - Gives:
+     - Energy trend.
+     - Ability to show “before/after” of changes and maintenance.
+
+#### 6.7.2 Sensor technologies & how they land in the stack
+
+Examples of how PHM data reaches openHAB/Node-RED:
+
+- **Modbus IO & meters**
+
+  - DIN-rail IO blocks with:
+    - CT inputs.
+    - Temperature inputs.
+    - Digital inputs.
+  - Wired back to switchboard / panel.
+  - Exposed via Modbus TCP/RTU into openHAB and Node-RED.
+
+- **Vibration sensors**
+
+  - Small, local accelerometer modules:
+    - Either Modbus-capable.
+    - Or Zigbee/Z-Wave/other **local** protocol, bridged into MQTT.
+  - Normalised as Items in openHAB and topics/events in Node-RED.
+
+- **VFDs (for premium sites)**
+
+  - Variable Frequency Drives with:
+    - Built-in Modbus TCP/RTU.
+    - Registers for:
+      - RPM.
+      - Motor current.
+      - Internal temperature.
+      - Fault/warning codes.
+  - This becomes the **cleanest PHM feed**:
+    - No extra sensors.
+    - Rich digital data.
+    - Easy trending.
+
+#### 6.7.3 Example PHM rule (plain language)
+
+A typical **Node-RED + openHAB** PHM rule for a pool pump might be described as:
+
+1. Every minute, Node-RED reads:
+
+   - Pump current (from Modbus IO).
+   - Pump housing temperature (from a probe).
+   - Whether the pump **should** be running (from openHAB “Pump_Run_Command” Item).
+
+2. If the pump **should be running**:
+
+   - Node-RED writes the current and temperature values into:
+     - A short-term rolling window (e.g. last 7 days).
+     - A “7-day average while running” baseline.
+
+3. On each new reading, Node-RED compares:
+
+   - Today’s current vs the 7-day average running current.
+   - Today’s temperature vs the 7-day average running temperature.
+
+4. If either:
+
+   - Current is **20% higher** than the 7-day average for **more than 2 hours**, or
+   - Temperature is **5–10°C higher** than the 7-day average for **more than 2 hours**,
+
+   …then Node-RED:
+
+   - Flags an `Early_Warning_Pump_1` Item in openHAB.
+   - Logs a structured event (“Pump 1 PHM warning: current +23% above rolling average for 2.3h”).
+   - Optionally sends a local notification (e.g. to a wall tablet) even if the internet is down.
+
+5. If the condition clears (values fall back near the rolling average), Node-RED:
+   - Clears or downgrades the warning state.
+   - Marks the event as “resolved” in a log or time-series.
+
+Remote/premium tiers can then:
+
+- Mirror those PHM events to the VPS.
+- Store longer-term history.
+- Provide graphs showing “this is what the pump looked like in the week leading up to failure”.
+
+#### 6.7.4 How PHM ties into support tiers
+
+- **Core / on-site:**
+
+  - Basic PHM rules run locally (Node-RED + openHAB persistence).
+  - Local trend views and “early warning” flags.
+  - No guarantee of pretty web reports or long-term storage.
+
+- **Enhanced / premium (remote bonuses):**
+
+  - Centralised storage of PHM metrics for years.
+  - Graphs and reports showing:
+    - Before/after maintenance.
+    - How quickly a fault developed.
+    - Comparison of seasonal behaviour (“same week last year”).
+  - Optional:
+    - Automatic export of PHM events for engineer review.
+    - Multi-site PHM dashboards for estate clients.
+
+Again: **PHM decisions remain local**. Remote storage/reporting is a bolt-on, not a dependency.
+
 ---
 
 ## 7. Delivery Model
@@ -806,7 +1025,7 @@ VPS (e.g. Hetzner-style) for:
 - Off-site encrypted backups (rclone + GPG, etc.).
 - Centralised dashboards (Grafana-style).
 - Remote admin via WireGuard hub.
-- Optional premium services (monitoring, remote updates, aggregated trends).
+- Optional premium services (monitoring, remote updates, aggregated trends, long-term PHM history).
 
 Constraints:
 
@@ -846,6 +1065,9 @@ Every Gray Logic Stack deployment should include:
     - On-site vs remote responsibilities.
     - What is considered critical vs best-effort.
     - What happens during an internet outage.
+    - A plain-English note that:
+      - PHM gives **early warning**, not guarantees.
+      - The system is designed to keep working locally even if the “remote cleverness” is offline.
 
 ---
 
@@ -928,7 +1150,7 @@ This is about turning the Gray Logic Stack from a nice spec into a real, repeata
   - Business case document (`docs/business-case.md`).
   - Clear success criteria and go/no-go thinking.
 
-### 9.3 v0.3 – Offline-First & Internal/External Model (this document)
+### 9.3 v0.3 – Offline-First & Internal/External Model (done-ish)
 
 - Defined internal (on-site, offline-capable) vs external (remote, premium) operations.
 - Set explicit target: **99%+ of everyday features remain available offline**.
@@ -936,7 +1158,15 @@ This is about turning the Gray Logic Stack from a nice spec into a real, repeata
 - Introduced disaster recovery defaults and rebuild process.
 - Tied technical model to business tiers (see `docs/business-case.md`).
 
-### 9.4 v0.4 – Core Stack Prototype
+### 9.4 v0.4 – Predictive Health Monitoring & Heartbeats (this document)
+
+- Introduced Predictive Health Monitoring (PHM) as a first-class part of the stack.
+- Defined “heartbeat” assets (pumps, AHUs, boilers/heat pumps, energy meters).
+- Described sensor choices and integration patterns (Modbus IO, VFDs, local radios).
+- Added plain-language examples of Node-RED/openHAB PHM rules.
+- Clarified local vs remote roles for data retention and trend analysis.
+
+### 9.5 v0.5 – Core Stack Prototype
 
 On a lab/test box:
 
@@ -945,16 +1175,19 @@ On a lab/test box:
   - openHAB.
   - Node-RED.
   - MQTT (if used).
-  - Basic monitoring.
+  - Basic monitoring and persistence.
 - A minimal “site”:
   - Simulated or real KNX/DALI/Modbus/MQTT devices.
   - Example modes (Home/Away/Night).
   - Simple dashboard answering “is the site OK?”.
+- Simple PHM demo:
+  - At least one “heartbeat” asset (real or simulated pump/boiler).
+  - Rolling average + deviation logic.
 - Simulated internet drop:
   - Prove that local functions continue.
   - Prove remote bonuses degrade gracefully.
 
-### 9.5 v0.5 – Domain Demos
+### 9.6 v0.6 – Domain Demos
 
 - **Environment + Lighting demo**
   - Real or simulated sensors.
@@ -964,8 +1197,13 @@ On a lab/test box:
     - A real or simulated alarm output.
     - A dummy CCTV feed or health indicator.
   - Show a single view of “alarm state + last motion + CCTV health”.
+- **PHM demo**
+  - At least one asset with realistic PHM:
+    - Trending.
+    - Early warning example.
+    - Clear explanation of what PHM can and cannot promise.
 
-### 9.6 v1.0 – First Real Site & Production Pattern
+### 9.7 v1.0 – First Real Site & Production Pattern
 
 - Deploy to:
   - My own home, **or**
@@ -977,6 +1215,7 @@ On a lab/test box:
 - Lock in:
   - A supported set of versions (openHAB, Node-RED, base images).
   - A standard repo structure and deployment playbook.
+  - A minimal PHM baseline for relevant plant (even if simple at first).
 - Only then call it “v1.0” for external clients.
 
 ---
@@ -993,4 +1232,4 @@ This spec is a **living document**:
 
 The aim is not perfection on paper. The aim is:
 
-> A **real, supportable stack** I can deploy to multiple sites, that respects safety and standards, fits my skills, and can actually earn money under the Gray Logic name – while staying offline-first, with remote bonuses layered on top.
+> A **real, supportable stack** I can deploy to multiple sites, that respects safety and standards, fits my skills, and can actually earn money under the Gray Logic name – while staying offline-first, with remote bonuses and predictive health layered on top.
