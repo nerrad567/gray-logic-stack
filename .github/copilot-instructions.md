@@ -30,7 +30,9 @@ The **Gray Logic Stack** is a productized building automation platform for high-
 ### Documentation Structure
 
 - **[docs/gray-logic-stack.md](../docs/gray-logic-stack.md)**: Complete technical spec (1200+ lines, v0.4)
+- **[docs/sales-spec.md](../docs/sales-spec.md)**: Canonical sales specification reference (drives future marketing outputs)
 - **[docs/business-case.md](../docs/business-case.md)**: Commercial justification, pricing tiers
+- **[docs/ai-premium-features.md](../docs/ai-premium-features.md)**: Optional AI usage, guardrails, data-handling defaults
 - **[docs/modules/](../docs/modules/)**: Per-module details (core, lighting, security, etc.)
 - **[CHANGELOG.md](../CHANGELOG.md)**: Spec evolution (not code releases yet—this is pre-v1.0)
 
@@ -73,6 +75,14 @@ PHM tracks "heartbeat" metrics (pump current, vibration proxies, boiler flow/ret
 - **Document safety boundaries**: Does this touch plant/security/life safety? Document decision rationale.
 - **Segregate consumer gear**: Tag overlay items (`Consumer_Overlay_*`), display in separate UI sections
 - **No cloud-only CCTV/doorbells**: Ring/Nest-style devices incompatible—require local RTSP/ONVIF (Amcrest, DoorBird, Uniview examples)
+
+### If Adding “AI” Features
+
+AI is allowed only as an optional, premium **insights/summarisation** layer. It must not break the stack’s hard rules.
+
+- **Advisory, not authority**: AI may explain/suggest; it must not directly control plant/security actions.
+- **No cloud dependency for core**: Loss of AI/VPS/internet must only pause bonuses, not core operation.
+- **Data minimisation by default**: Do not export CCTV media, occupancy/presence timelines, detailed security event timelines, secrets, or raw network identifiers off-site unless explicitly opt-in per site.
 
 ### Backup/Restore Workflows
 

@@ -75,10 +75,14 @@ All services run in Docker containers via `docker-compose.yml`:
 - **Responsibilities**:
   - Multi-system flows (e.g., "alarm armed → heating + lights")
   - Predictive Health Monitoring (PHM) logic
-  - API integrations (weather, notifications)
+  - Optional external data ingest and normalisation (weather nowcast, mesh comms, notifications)
+    - Supports local ingest pipelines (e.g. satellite receiver/decoder) and optional internet enrichment
+    - Publishes internal “weather products” plus freshness/staleness signals to MQTT and/or openHAB Items
+    - Publishes internal “mesh comms products” (health/telemetry) plus freshness/staleness signals to MQTT and/or openHAB Items
   - Data transformation and routing
 
 **Logic Boundary**: Cross-system coordination, complex logic requiring multiple inputs
+
 
 #### Mosquitto
 - **Role**: MQTT message broker (optional loose coupling)
@@ -282,7 +286,7 @@ MTU = 1420  # Prevent fragmentation
 - **Authentication**: Basic auth or API key
 - **Capabilities**:
   - ✅ Dashboard (modes, temps, status)
-  - ✅ Camera snapshots (low-res)
+  - ✅ (Optional) Camera snapshots (low-res, explicitly enabled per site)
   - ✅ Alarm state (read-only)
   - ❌ Control actions (requires VPN)
   - ❌ Video feeds (requires VPN)
@@ -307,7 +311,7 @@ MTU = 1420  # Prevent fragmentation
 | Heating setpoints        | ✅    | ✅  | ❌    | Rate-limited, logged               |
 | Mode changes             | ✅    | ✅  | ❌    | Safe (Home/Away/Night)             |
 | Camera feeds (live)      | ✅    | ✅  | ❌    | Bandwidth, privacy                 |
-| Camera snapshots         | ✅    | ✅  | ✅    | Low-res OK for status              |
+| Camera snapshots         | ✅    | ✅  | ⚪    | Optional; disabled by default      |
 | Alarm arming/disarming   | ✅    | ⚠️  | ❌    | Requires PIN + explicit confirm    |
 | Plant control (pool/DHW) | ✅    | ⚠️  | ❌    | Confirm dialog, safety checks      |
 | Node-RED editor          | ✅    | ✅  | ❌    | Admin only, never relay            |
@@ -319,7 +323,27 @@ MTU = 1420  # Prevent fragmentation
 - ✅ Allowed
 - ⚠️ Allowed with confirmation
 - ❌ Blocked
+- ⚪ Allowed if explicitly enabled
 - 🔴 Never (safety-critical, physically independent)
+
+### 4.2.1 AI Analytics Data Flow (Optional)
+
+AI-assisted features (if commissioned) are treated as **premium bonuses**: they may summarise and explain PHM/trend signals, but they are never required for control.
+
+**Default telemetry posture (least sensitive):**
+- Export aggregated health metrics and PHM events only.
+- Log a minimal audit trail of remote actions.
+
+**Never export off-site by default:**
+- CCTV media (video/audio/recordings/snapshots)
+- Occupancy/presence timelines
+- Detailed security timelines (zone-by-zone alarm history, door event logs)
+- Secrets (passwords, API tokens, keys, WireGuard configs)
+- Raw network identifiers (MAC/IP client lists, device fingerprint scans)
+
+Opt-in exceptions (explicit per site):
+- Low-res, low-frequency camera snapshots for status-only “quick view”
+- Time-boxed diagnostic logging during a support window
 
 ### 4.3 Audit Logging
 

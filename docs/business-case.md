@@ -335,7 +335,7 @@ Support tiers can mirror the **internal/external** split and PHM complexity:
 | ---------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
 | **Core Support** | Basic support, annual health check, local backups, simple email alerts (“device offline/OK”).   | Binary states + simple thresholds.              | “System is safe, documented and looked after.”                   |
 | **Enhanced Support** | Everything in Core Support + **Predictive Health Monitoring alerts** and simple trends per site. | PHM logic (rolling averages, deviation checks). | “We get **early warning** on key plant before it fails.”         |
-| **Premium Support**  | Everything in Enhanced Support + VFD/Modbus deep metrics, multi-year history, reports, multi-site view. | Digital plant data (VFD, meters, rich Modbus).  | “We get **industrial-grade insight**, history and optimisation.” |
+| **Premium Support**  | Everything in Enhanced Support + VFD/Modbus deep metrics, multi-year history, reports, multi-site view (optionally AI-assisted insights on top). | Digital plant data (VFD, meters, rich Modbus).  | “We get **industrial-grade insight**, history and optimisation.” |
 
 Rephrase in plain language:
 
@@ -364,6 +364,7 @@ Rephrase in plain language:
   - Scheduled updates (OS, Docker images, openHAB/Node-RED) with rollback plans.
   - Remote additions/changes to Consumer Overlay devices.
   - Aggregated trends and periodic reports (e.g. quarterly/annual health reports).
+  - Optional AI-assisted reporting/insights on top of PHM and long-term trends (advisory; never required for control).
   - Deep PHM: VFD/Modbus registers, energy meters, multi-year history.
   - Possibly multi-site dashboards (for estate clients).
 

@@ -339,11 +339,18 @@ Remote enhancements may include:
   - Long-term retention:
     - On-site: weeks/months of core data.
     - Remote: years of history for premium tiers (e.g. “compare this month to the same month last year”).
-  - Optional external APIs:
-    - Weather forecasts (for pre-heating, shading, etc.).
+  - Optional external data sources (bonus only):
+    - Weather inputs for comfort optimisation:
+      - Satellite-derived nowcast imagery and short-horizon cloud/solar heuristics (where licensed and feasible).
+      - Internet weather APIs as enrichment (never required).
+    - Out-of-band mesh comms (Meshtastic-like) for on-site user messaging and resilience:
+      - Optional long-range “repeater”/high-site node to improve coverage.
+      - Remote access only via secured VPN routes (WireGuard).
+      - Best-effort convenience feature; not emergency/life-safety signalling.
     - Other curated external data.
 
 - **Multi-site / estate dashboards (later)**
+
 
   - For clients with multiple Gray Logic sites:
     - High-level overview of each site’s health.

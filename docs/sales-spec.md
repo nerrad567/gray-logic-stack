@@ -19,6 +19,7 @@ See also:
 - [docs/gray-logic-stack.md](gray-logic-stack.md) (technical spec)
 - [docs/business-case.md](business-case.md) (commercial reasoning; internal)
 - [docs/architecture.md](architecture.md) (routing/security model)
+- [docs/ai-premium-features.md](ai-premium-features.md) (optional AI features + data-handling defaults; internal)
 
 ## 2. One-Sentence Positioning
 
@@ -124,8 +125,17 @@ Optional remote capabilities (where commissioned) include:
 - Remote access for tweaks/maintenance (via VPN)
 - Long-term retention (years) of metrics for trends and PHM
 - Multi-site dashboards (where relevant)
+- Optional weather nowcast display (satellite-derived where licensed/feasible) with internet enrichment (not required); advisory/comfort use only
+- Optional out-of-band mesh comms (Meshtastic-like) with a long-range node for coverage and integrated user messaging; remote access only via VPN; best-effort, not emergency/life-safety
+- (Premium) Optional **AI-assisted insights and reporting** on top of PHM/trend data (advisory only; never required for control)
+
+Default data-handling posture for remote bonuses:
+
+- Remote monitoring uses **aggregated health/PHM signals**, not private household timelines.
+- CCTV media (video/audio/snapshots) and detailed security/occupancy histories are **not exported off-site by default**.
 
 If remote services are unavailable, the building continues to run; only these bonuses pause.
+
 
 ## 8. Predictive Health Monitoring (PHM)
 
@@ -177,6 +187,8 @@ This is where “nice-to-have” devices can live without contaminating the reli
 
 Each deployment should have a handover pack including:
 
+- Template reference: [docs/handover-pack-template.md](handover-pack-template.md)
+
 - Electrical schematics and panel schedules (where applicable).
 - KNX/DALI group tables and I/O maps.
 - Network diagram (VLANs, addressing, VPN).
@@ -208,7 +220,7 @@ Ongoing support is available under optional plans. These are described using sta
 
 - **Core Support** — on-site focused basics (no VPS required)
 - **Enhanced Support** — adds PHM alerts + remote monitoring (VPN/VPS bonuses)
-- **Premium Support** — deep PHM + long-term retention + reporting (remote bonuses)
+- **Premium Support** — deep PHM + long-term retention + reporting (remote bonuses); may include optional AI-assisted insights
 
 Exact inclusions, response times, and pricing are defined per site in the support agreement.
 
