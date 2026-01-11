@@ -267,7 +267,7 @@ The **Consumer Overlay** adds:
     - Monitoring and alerts.
     - Scheduled updates.
     - Remote tweaks and Consumer Overlay changes.
-    - Long-term data retention and PHM dashboards (Enhanced/Premium tiers).
+    - Long-term data retention and PHM dashboards (Enhanced Support/Premium Support tiers).
   - If a VPS goes down, clients still have a working system:
     - Fewer 3am calls.
     - Clear boundaries about what’s premium vs core.
@@ -334,8 +334,8 @@ Support tiers can mirror the **internal/external** split and PHM complexity:
 | Tier             | What it includes (conceptually)                                                                 | Technical basis                                 | Client story                                                     |
 | ---------------- | ----------------------------------------------------------------------------------------------- | ----------------------------------------------- | ---------------------------------------------------------------- |
 | **Core Support** | Basic support, annual health check, local backups, simple email alerts (“device offline/OK”).   | Binary states + simple thresholds.              | “System is safe, documented and looked after.”                   |
-| **Enhanced**     | Everything in Core + **Predictive Health Monitoring alerts** and simple trends per site.        | PHM logic (rolling averages, deviation checks). | “We get **early warning** on key plant before it fails.”         |
-| **Premium**      | Everything in Enhanced + VFD/Modbus deep metrics, multi-year history, reports, multi-site view. | Digital plant data (VFD, meters, rich Modbus).  | “We get **industrial-grade insight**, history and optimisation.” |
+| **Enhanced Support** | Everything in Core Support + **Predictive Health Monitoring alerts** and simple trends per site. | PHM logic (rolling averages, deviation checks). | “We get **early warning** on key plant before it fails.”         |
+| **Premium Support**  | Everything in Enhanced Support + VFD/Modbus deep metrics, multi-year history, reports, multi-site view. | Digital plant data (VFD, meters, rich Modbus).  | “We get **industrial-grade insight**, history and optimisation.” |
 
 Rephrase in plain language:
 
@@ -383,8 +383,8 @@ For a typical high-end home with lighting, some plant, CCTV health, a modest Con
 - Optional modules (e.g. Consumer Overlay, extra CCTV/plant integration, PHM sensors/VFDs, remote setup): **~£2–5k+**.
 - Ongoing support (rough internal targets only):
   - Core: **from low £/month** (or an annual fee).
-  - Enhanced: **£X–£Y/month** (adds PHM alerts and trends).
-  - Premium: **£Y+–£Z/month** (deep PHM, reporting, multi-site view).
+  - Enhanced Support: **£X–£Y/month** (adds PHM alerts and trends).
+  - Premium Support: **£Y+–£Z/month** (deep PHM, reporting, multi-site view).
 
 I should track:
 
@@ -392,8 +392,8 @@ I should track:
 - Average project value.
 - Recurring revenue per site.
 - Effective hourly rate per project (total income ÷ total hours).
-- Premium uptake rate:
-  - How many clients choose Enhanced/Premium for PHM and remote bonuses?
+- Premium Support uptake rate:
+  - How many clients choose Enhanced Support/Premium Support for PHM and remote bonuses?
   - Are they happy with reliability during outages?
   - Are they actually reading/using the reports?
 
@@ -662,7 +662,7 @@ After each big milestone (lab build, first client site, major refactor, etc.) I�
 
   - Am I **actually getting paid** for thinking, designing, documenting, and supporting?
   - If I divide total income by total hours, does it look competitive with, or better than, solid electrical work?
-  - Are Enhanced/Premium remote tiers being used, and are they worth the effort?
+  - Are Enhanced Support/Premium Support remote tiers being used, and are they worth the effort?
 
 - **Life sanity**
 
@@ -729,7 +729,7 @@ The goal is to give it a **fair, informed shot** – and then make a clear decis
    - Security & CCTV.
    - Consumer Integration Overlay.
    - PHM Add-ons (by asset type: pumps, boilers/heat pumps, AHUs).
-   - Remote/Monitoring add-on (Enhanced/Premium).
+  - Remote/Monitoring add-on (Enhanced Support/Premium Support).
    - Write one-page descriptions and rough budget bands for each.
 
 2. **Pick one “hero” use-case**

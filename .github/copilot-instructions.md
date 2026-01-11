@@ -29,14 +29,14 @@ The **Gray Logic Stack** is a productized building automation platform for high-
 
 ### Documentation Structure
 
-- **[docs/gray-logic-stack.md](docs/gray-logic-stack.md)**: Complete technical spec (1200+ lines, v0.4)
-- **[docs/business-case.md](docs/business-case.md)**: Commercial justification, pricing tiers
-- **[docs/modules/](docs/modules/)**: Per-module details (core, lighting, security, etc.)
-- **[CHANGELOG.md](CHANGELOG.md)**: Spec evolution (not code releases yet—this is pre-v1.0)
+- **[docs/gray-logic-stack.md](../docs/gray-logic-stack.md)**: Complete technical spec (1200+ lines, v0.4)
+- **[docs/business-case.md](../docs/business-case.md)**: Commercial justification, pricing tiers
+- **[docs/modules/](../docs/modules/)**: Per-module details (core, lighting, security, etc.)
+- **[CHANGELOG.md](../CHANGELOG.md)**: Spec evolution (not code releases yet—this is pre-v1.0)
 
 ### Docker Compose Patterns
 
-- All services run in Docker containers via [code/stack/docker-compose.yml](code/stack/docker-compose.yml) (currently placeholder)
+- All services run in Docker containers via [code/stack/docker-compose.yml](../code/stack/docker-compose.yml) (currently placeholder)
 - Config stored in **bind mounts/volumes** for easy backup
 - **Pinned image tags** per site (no `:latest`)
 - Disaster recovery: rebuild site from `docker-compose.yml` + config backups *without* relying on remote server
@@ -76,8 +76,8 @@ PHM tracks "heartbeat" metrics (pump current, vibration proxies, boiler flow/ret
 
 ### Backup/Restore Workflows
 
-- **[code/scripts/backup.sh](code/scripts/backup.sh)**: Backup openHAB/Node-RED/Docker volumes (placeholder—implement comprehensively)
-- **[code/scripts/restore.sh](code/scripts/restore.sh)**: Restore to bare metal without VPS dependency (placeholder—document steps clearly)
+- **[code/scripts/backup.sh](../code/scripts/backup.sh)**: Backup openHAB/Node-RED/Docker volumes (placeholder—implement comprehensively)
+- **[code/scripts/restore.sh](../code/scripts/restore.sh)**: Restore to bare metal without VPS dependency (placeholder—document steps clearly)
 
 ### Configuration Management
 
@@ -98,10 +98,10 @@ PHM tracks "heartbeat" metrics (pump current, vibration proxies, boiler flow/ret
 
 ## Key Files Reference
 
-- Technical spec: [docs/gray-logic-stack.md](docs/gray-logic-stack.md)
-- Business model: [docs/business-case.md](docs/business-case.md)
-- Network design: [docs/diagrams/src/network-segmentation.puml](docs/diagrams/src/network-segmentation.puml)
-- Docker stack: [code/stack/docker-compose.yml](code/stack/docker-compose.yml)
+- Technical spec: [docs/gray-logic-stack.md](../docs/gray-logic-stack.md)
+- Business model: [docs/business-case.md](../docs/business-case.md)
+- Network design: [docs/diagrams/src/network-segmentation.puml](../docs/diagrams/src/network-segmentation.puml)
+- Docker stack: [code/stack/docker-compose.yml](../code/stack/docker-compose.yml)
 
 ## Integration Constraints
 
