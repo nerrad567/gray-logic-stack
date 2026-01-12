@@ -1,120 +1,92 @@
-# Gray Logic Stack - AI Coding Agent Instructions
+# Gray Logic - AI Coding Agent Instructions
 
-## Project Overview
+Gray Logic is a building intelligence platform (competing with Crestron/Savant/Loxone) built on **offline-first**, **open standards**, and **10-year deployment stability**. Currently in v1.0 Architecture Phase (January 2026) — pivoted from openHAB to custom Go-based Core.
 
-The **Gray Logic Stack** is a productized building automation platform for high-end homes, small estates, pools/spas, and light commercial buildings. Built by an electrician who runs production Linux/Docker systems, it bridges the gap between DIY smart home platforms and expensive proprietary BMS solutions.
+## Hard Rules (Never Break)
 
-**Core Philosophy**: Offline-first (99%+ uptime without internet), open standards, safety-first, and maintainable by competent electricians—not just the original installer.
+1. **Physical controls always work** — Wall switches function even if all software is down (KNX actuators respond directly to switches)
+2. **Life safety is independent** — Fire alarms, E-stops use certified hardware; Gray Logic *observes*, never *controls*
+3. **No cloud dependencies for core** — 99%+ functionality without internet; remote access is nice-to-have only
+4. **10-year deployment horizon** — Version-pin everything, prefer mature/stable over bleeding-edge
+5. **Open standards at field layer** — KNX, DALI, Modbus only; no proprietary protocols as primary controls
+6. **Privacy by design** — Voice processed locally, no cloud surveillance
 
-## Architecture & Key Components
+## Architecture
 
-### Stack Layers (Bottom-Up)
+```
+User Interfaces → REST API + WebSocket → GRAY LOGIC CORE (Go) → MQTT → Protocol Bridges
+```
 
-1. **Field Layer** (Open Standards): KNX, DALI, Modbus, MQTT, dry contacts
-2. **Control Layer** (Linux/Docker on-site "mini-NOC"):
-   - **openHAB**: Main automation brain (devices, scenes, modes, schedules)
-   - **Node-RED**: Cross-system glue logic and Predictive Health Monitoring (PHM)
-   - **Traefik**: Reverse proxy, HTTPS termination, single front door
-   - **Mosquitto**: MQTT broker (loose coupling between components)
-3. **Remote Layer** (Optional VPS): Long-term data retention, pretty dashboards, remote monitoring via WireGuard
+- **Gray Logic Core**: Single Go binary containing all automation logic (~30MB RAM)
+- **Protocol Bridges**: Separate processes for KNX (via knxd), DALI, Modbus, audio/video matrices
+- **Database**: SQLite (config/state), InfluxDB (PHM time-series)
+- **UIs**: Flutter (wall panels, mobile), React/Svelte (web admin)
+- **Local AI**: Whisper (STT) + local LLM (NLU) + Piper (TTS)
 
-### Critical Boundaries
+## Key Documentation
 
-- **Internal (on-site)**: Must work 99%+ offline—lighting, plant control, modes, local UI, PHM checks
-- **External (remote)**: Premium bonuses only—multi-year trends, cross-site analytics, remote admin
-- **Consumer Overlay**: Non-critical devices (Hue bulbs, smart plugs) segregated from core stack
-- **Life Safety**: Fire alarms, E-stops, emergency lighting are *independent*—stack observes, never controls
+| Document | Purpose |
+|----------|---------|
+| [docs/overview/vision.md](../docs/overview/vision.md) | What we're building and why |
+| [docs/overview/principles.md](../docs/overview/principles.md) | Hard rules (read this first) |
+| [docs/overview/glossary.md](../docs/overview/glossary.md) | Standard terminology |
+| [docs/architecture/system-overview.md](../docs/architecture/system-overview.md) | Technical architecture |
+| [docs/data-model/entities.md](../docs/data-model/entities.md) | Core entities (Site, Room, Device, Scene) |
 
-## Development Patterns & Conventions
+## Data Model Hierarchy
 
-### Documentation Structure
+```
+Site → Area → Room → Device (with Capabilities, State, HealthData)
+Scene (scoped to Room/Area/Site) → Actions
+Mode (Home/Away/Night/Holiday) → affects automation site-wide
+```
 
-- **[docs/gray-logic-stack.md](../docs/gray-logic-stack.md)**: Complete technical spec (1200+ lines, v0.4)
-- **[docs/sales-spec.md](../docs/sales-spec.md)**: Canonical sales specification reference (drives future marketing outputs)
-- **[docs/business-case.md](../docs/business-case.md)**: Commercial justification, pricing tiers
-- **[docs/ai-premium-features.md](../docs/ai-premium-features.md)**: Optional AI usage, guardrails, data-handling defaults
-- **[docs/modules/](../docs/modules/)**: Per-module details (core, lighting, security, etc.)
-- **[CHANGELOG.md](../CHANGELOG.md)**: Spec evolution (not code releases yet—this is pre-v1.0)
+## Development Conventions
 
-### Docker Compose Patterns
+- **Documentation format**: YAML frontmatter (title, version, status, depends_on), cross-references
+- **Terminology**: Use exact terms from `glossary.md` (Site, Area, Room, Device, Scene, Mode)
+- **Modularity**: Each domain (lighting, climate, audio) independent; can be added/removed separately
+- **Fail safe**: Failures degrade gracefully (remote → automation → manual control never fails)
 
-- All services run in Docker containers via [code/stack/docker-compose.yml](../code/stack/docker-compose.yml) (currently placeholder)
-- Config stored in **bind mounts/volumes** for easy backup
-- **Pinned image tags** per site (no `:latest`)
-- Disaster recovery: rebuild site from `docker-compose.yml` + config backups *without* relying on remote server
+## When Making Changes
 
-### Logic Placement Rules
+1. Check **offline-first**: Will this work without internet?
+2. Check **10-year viability**: Avoid dependencies that may not exist in 2036
+3. Check **safety boundaries**: Does this touch life safety? Document explicit rationale
+4. Keep **docs small and focused**: One concept per file
+5. Update **related docs**: Cross-reference changes
 
-**openHAB**: Device-centric logic (scenes, modes, schedules, bindings)  
-**Node-RED**: Cross-system flows (e.g., "alarm armed + time window → heating setpoints + perimeter lights"), PHM logic  
-**MQTT**: Optional loose coupling—not mandatory for all integrations
+## Protocol Specifications
 
-### Predictive Health Monitoring (PHM)
+| Protocol | Document | Status |
+|----------|----------|--------|
+| KNX | [docs/protocols/knx.md](../docs/protocols/knx.md) | Complete |
+| DALI-2 | [docs/protocols/dali.md](../docs/protocols/dali.md) | Complete |
+| Modbus | [docs/protocols/modbus.md](../docs/protocols/modbus.md) | Complete |
+| MQTT | [docs/protocols/mqtt.md](../docs/protocols/mqtt.md) | Complete |
+| BACnet | [docs/protocols/bacnet.md](../docs/protocols/bacnet.md) | Year 2 placeholder |
 
-PHM tracks "heartbeat" metrics (pump current, vibration proxies, boiler flow/return temps, run hours) using:
+## Domain Specifications
 
-- **Rolling averages** (7-day baselines)
-- **Deviation thresholds** (≥20% deviation for >2h → maintenance warning)
-- **Local execution**: PHM rules run on-site (offline-capable)
-- **Remote premium**: Multi-year trend storage for comparing failures
+| Domain | Document | Status |
+|--------|----------|--------|
+| Lighting | [docs/domains/lighting.md](../docs/domains/lighting.md) | Complete (residential + commercial) |
+| Climate | [docs/domains/climate.md](../docs/domains/climate.md) | Complete (residential + commercial HVAC) |
+| Blinds | [docs/domains/blinds.md](../docs/domains/blinds.md) | Complete |
+| Plant | [docs/domains/plant.md](../docs/domains/plant.md) | Complete (pumps, VFDs, AHUs, PHM) |
 
-**Example**: Pool pump current deviates 25% from 7-day average for 3 hours → raise maintenance warning, not full fault.
+## Integration Specifications
 
-## Safety-Critical Design Rules (Never Break)
+| System | Document | Status |
+|--------|----------|--------|
+| Access Control | [docs/integration/access-control.md](../docs/integration/access-control.md) | Complete (residential + commercial) |
+| CCTV | [docs/integration/cctv.md](../docs/integration/cctv.md) | Complete (residential + commercial) |
+| Fire Alarm | [docs/integration/fire-alarm.md](../docs/integration/fire-alarm.md) | Complete (monitoring only) |
 
-1. **Physical controls always work**: Wall switches, panic buttons, plant room controls function even if server/LAN/internet is down
-2. **Life safety is independent**: Fire alarms, E-stops controlled by certified hardware—stack may receive signals but never controls them
-3. **No cloud dependencies for core operation**: Internet down = lighting/plant/modes still functional
-4. **Consumer Overlay non-critical**: Hue/LIFX/smart plugs never drive plant/security/safety logic
+## Archive
 
-## Coding Guidelines
+Previous openHAB-based approach (v0.4) archived in compressed files:
+- `docs/archive/v0.4-openhab-era.zip`
+- `code/archive/v0.4-openhab-era.zip`
 
-### When Adding Features
-
-- **Check offline-first**: Will this work with internet down?
-- **Document safety boundaries**: Does this touch plant/security/life safety? Document decision rationale.
-- **Segregate consumer gear**: Tag overlay items (`Consumer_Overlay_*`), display in separate UI sections
-- **No cloud-only CCTV/doorbells**: Ring/Nest-style devices incompatible—require local RTSP/ONVIF (Amcrest, DoorBird, Uniview examples)
-
-### If Adding “AI” Features
-
-AI is allowed only as an optional, premium **insights/summarisation** layer. It must not break the stack’s hard rules.
-
-- **Advisory, not authority**: AI may explain/suggest; it must not directly control plant/security actions.
-- **No cloud dependency for core**: Loss of AI/VPS/internet must only pause bonuses, not core operation.
-- **Data minimisation by default**: Do not export CCTV media, occupancy/presence timelines, detailed security event timelines, secrets, or raw network identifiers off-site unless explicitly opt-in per site.
-
-### Backup/Restore Workflows
-
-- **[code/scripts/backup.sh](../code/scripts/backup.sh)**: Backup openHAB/Node-RED/Docker volumes (placeholder—implement comprehensively)
-- **[code/scripts/restore.sh](../code/scripts/restore.sh)**: Restore to bare metal without VPS dependency (placeholder—document steps clearly)
-
-### Configuration Management
-
-- openHAB: Things, items, rules in mounted volumes
-- Node-RED: Flows + credentials in mounted volumes
-- Traefik: Configs + ACME storage in mounted volumes
-- Use **site repos** (version-controlled per deployment)
-
-## Current State & Roadmap
-
-**Status**: Working Draft v0.4 (spec phase—no production code yet)
-
-### Next Milestones
-
-- **v0.5**: Lab prototype (Docker Compose + simulated KNX/DALI, offline resilience test)
-- **v0.6**: Domain demos (Environment + Lighting, Security + CCTV, PHM with real/simulated assets)
-- **v1.0**: First real site deployment (home or small client pool)
-
-## Key Files Reference
-
-- Technical spec: [docs/gray-logic-stack.md](../docs/gray-logic-stack.md)
-- Business model: [docs/business-case.md](../docs/business-case.md)
-- Network design: [docs/diagrams/src/network-segmentation.puml](../docs/diagrams/src/network-segmentation.puml)
-- Docker stack: [code/stack/docker-compose.yml](../code/stack/docker-compose.yml)
-
-## Integration Constraints
-
-- **No golden handcuffs**: Open field standards (KNX/DALI/Modbus) so other electricians can maintain
-- **Local-first devices**: Avoid cloud-dependent gadgets for core functions
-- **Runbook-first**: Every site gets documented panel schedules, I/O maps, KNX group tables, rebuild procedures
+See [CLAUDE.md](../CLAUDE.md) for complete project guidance.
