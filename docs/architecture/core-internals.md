@@ -264,6 +264,8 @@ type Server struct {
 // ...
 ```
 
+> **See Also:** [REST and WebSocket API Specification](../interfaces/api.md) for complete endpoint documentation, authentication details, request/response schemas, and WebSocket event types.
+
 **Configuration:**
 ```yaml
 api:
@@ -1023,6 +1025,8 @@ graylogic_websocket_clients_connected 3
 ## Related Documents
 
 - [System Overview](system-overview.md) — High-level architecture
+- [Automation Specification](../automation/automation.md) — Scenes, schedules, modes, conditions
+- [REST and WebSocket API Specification](../interfaces/api.md) — API endpoints and WebSocket events
 - [Bridge Interface Specification](bridge-interface.md) — MQTT bridge contract
 - [MQTT Protocol Specification](../protocols/mqtt.md) — Message formats
 - [Data Model: Entities](../data-model/entities.md) — Entity definitions

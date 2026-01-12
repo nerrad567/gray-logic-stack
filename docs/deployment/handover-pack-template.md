@@ -51,13 +51,13 @@ This pack must not contain plaintext secrets.
   - Sealed printed envelope (fallback)
   - Encrypted USB (fallback)
 
-### 4.1 “God Mode Exports” Checklist (Sealed & Encrypted)
+### 4.1 "God Mode Exports" Checklist (Sealed & Encrypted)
 
 - Host (Linux) admin access
 - Docker/Compose project + any secrets handling notes
 - WireGuard configs (site + admin users)
-- openHAB configs (things/items/rules/UI)
-- Node-RED flows + credentials
+- Gray Logic Core configuration (database export, YAML configs)
+- Bridge configurations (KNX, DALI, Modbus mappings)
 - KNX project file(s) (if applicable)
 - Plant controller exports (VFD/Modbus mappings, register lists) (if applicable)
 
@@ -132,6 +132,5 @@ Compliance notes:
 ## 8. Exit Path / Doomsday Appendix (Non-Secret)
 
 - Location of sealed credential package:
-- Dead Man’s Switch clause reference (contract location):
-- “Yellow Pages” list (alternative integrators):
-
+- Dead Man's Switch clause reference (contract location):
+- "Yellow Pages" list (alternative integrators):

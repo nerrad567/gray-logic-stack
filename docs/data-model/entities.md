@@ -967,7 +967,8 @@ Formal JSON Schema definitions are maintained in `docs/data-model/schemas/`:
 
 - [Glossary](../overview/glossary.md) — Term definitions
 - [System Overview](../architecture/system-overview.md) — How entities are used
-- [API Specification](../interfaces/api-rest.md) — API for entity operations
-- [State Management](state-management.md) — How state is tracked
+- [Core Internals](../architecture/core-internals.md) — State management and internal architecture
+- [Automation Specification](../automation/automation.md) — How scenes, schedules, and modes work
+- [API Specification](../interfaces/api.md) — API for entity operations
 - [CCTV Integration](../integration/cctv.md) — Camera and NVR configuration
 - [Access Control Integration](../integration/access-control.md) — Door, gate, intercom configuration

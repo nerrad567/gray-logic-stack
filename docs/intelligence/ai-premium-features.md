@@ -1,11 +1,11 @@
 # AI Premium Features — Gray Logic Stack (Draft)
 
-**Date**: 2026-01-11  
-**Status**: Design notes / product boundaries
+**Date**: 2026-01-12  
+**Status**: Design notes / product boundaries (updated for Go Core architecture)
 
 ## 1. Purpose
 
-This document defines where “AI” can be used in the Gray Logic Stack **without** breaking the core product rules:
+This document defines where "AI" can be used in the Gray Logic Stack **without** breaking the core product rules:
 
 - Offline-first (remote services are bonuses, not dependencies)
 - Physical controls always remain valid
@@ -14,11 +14,11 @@ This document defines where “AI” can be used in the Gray Logic Stack **witho
 
 It is written as an internal reference to keep future implementation and marketing consistent.
 
-## 2. What “AI” Means Here
+## 2. What "AI" Means Here
 
-In this context, “AI” is used for **optional insights and summarisation** on top of existing data (PHM metrics, alarms, service health).
+In this context, "AI" is used for **optional insights and summarisation** on top of existing data (PHM metrics, alarms, service health).
 
-AI is **not** a second automation brain. openHAB and Node-RED remain the control layer.
+AI is **not** a second automation brain. Gray Logic Core remains the control layer.
 
 ## 3. Hard Guardrails (Must Not Break)
 
@@ -26,7 +26,7 @@ AI is **not** a second automation brain. openHAB and Node-RED remain the control
 
    - AI may suggest or summarise.
    - AI must not directly execute plant/security actions.
-   - Any change to modes, setpoints, or plant behaviour uses the existing control paths (openHAB/Node-RED) with explicit confirmation and audit logging.
+   - Any change to modes, setpoints, or plant behaviour uses the existing control paths (Gray Logic Core API) with explicit confirmation and audit logging.
 
 2. **No cloud-only dependency for core operation**
 
@@ -38,7 +38,7 @@ AI is **not** a second automation brain. openHAB and Node-RED remain the control
 
 3. **Data minimisation by default**
 
-   - “AI insights” defaults to using **aggregated metrics and events**.
+   - "AI insights" defaults to using **aggregated metrics and events**.
    - Sensitive categories are never exported off-site by default (see section 5).
 
 4. **Auditability**
@@ -50,10 +50,10 @@ AI is **not** a second automation brain. openHAB and Node-RED remain the control
 
 ### 4.1 PHM anomaly triage (Premium)
 
-Goal: reduce “what does this warning actually mean?” time.
+Goal: reduce "what does this warning actually mean?" time.
 
 - Input: existing PHM flags/events + a small window of relevant metrics (e.g. pump current + temperature + run command).
-- Output: plain-English explanation and suggested checks (e.g. “check strainer basket / filter pressure / bearing noise”).
+- Output: plain-English explanation and suggested checks (e.g. "check strainer basket / filter pressure / bearing noise").
 - Constraint: the underlying PHM detection remains deterministic and on-site; AI assists interpretation.
 
 ### 4.2 Weekly / monthly health digest (Enhanced-lite or Premium)
@@ -63,13 +63,13 @@ Goal: a simple, low-noise summary for clients and support.
 - Enhanced-lite version: template-based digest driven by counts, durations, and thresholds.
 - Premium version: AI-assisted summarisation that clusters related events and highlights trend changes.
 
-### 4.3 “What changed?” reporting (Premium)
+### 4.3 "What changed?" reporting (Premium)
 
 Goal: help explain drift without implying certainty.
 
 - Examples:
-  - “Heating flow temperature is taking longer to reach setpoint than last month.”
-  - “Pump run duration is higher than its 7-day baseline.”
+  - "Heating flow temperature is taking longer to reach setpoint than last month."
+  - "Pump run duration is higher than its 7-day baseline."
 
 ### 4.4 Support-facing troubleshooting assistant (internal)
 
@@ -81,28 +81,28 @@ Goal: speed up support work using the site runbook + known patterns.
 
 ### 4.5 Weather nowcast explanation (Premium)
 
-Goal: turn the Weather Nowcast “products” (imagery/loop, freshness, basic heuristics) into a short, plain-English summary.
+Goal: turn the Weather Nowcast "products" (imagery/loop, freshness, basic heuristics) into a short, plain-English summary.
 
 - Input: on-site weather products and timestamps (no raw CCTV/security/occupancy data).
-- Output: “what it looks like now” + “what may happen in the next 0–2 hours” with explicit uncertainty.
+- Output: "what it looks like now" + "what may happen in the next 0–2 hours" with explicit uncertainty.
 - Constraint: ingest and any heuristics remain deterministic and on-site; AI only assists interpretation and wording.
 
 ### 4.6 Mesh comms health / incident digest (Premium)
 
 Goal: make out-of-band mesh comms issues understandable without exposing message payloads.
 
-- Input: mesh “comms products” (health badge, last-heard, delivery/error counters, backlog age) + relevant timestamps.
-- Output: plain-English summary (e.g. “Mesh gateway hasn’t been heard for 45 minutes; messages may not deliver. Check power/antenna and local interference.”).
+- Input: mesh "comms products" (health badge, last-heard, delivery/error counters, backlog age) + relevant timestamps.
+- Output: plain-English summary (e.g. "Mesh gateway hasn't been heard for 45 minutes; messages may not deliver. Check power/antenna and local interference.").
 - Constraint: metadata/health only; do not use or export message payloads by default.
 
 ## 5. Data Handling Defaults (Never Export by Default)
 
-“Never export” means: **do not send off-site (VPS/cloud/third parties) as part of the default product telemetry**.
+"Never export" means: **do not send off-site (VPS/cloud/third parties) as part of the default product telemetry**.
 
 Default never-export categories:
 
 - **CCTV media**: video, audio, recordings, and still images/snapshots
-- **Occupancy/presence history**: any timeline that could reconstruct “who was home when”
+- **Occupancy/presence history**: any timeline that could reconstruct "who was home when"
 - **Detailed security timelines**: zone-by-zone history, door events, motion event lists
 - **Secrets**: passwords, API tokens, private keys, WireGuard configs
 - **Raw network identifiers**: MAC/IP client lists, device fingerprinting scans
@@ -117,13 +117,13 @@ Opt-in exceptions (explicit per site):
 ## 6. Placement: On-Site vs Remote
 
 - **Always on-site**:
-  - openHAB / Node-RED control logic
+  - Gray Logic Core automation and control logic
   - PHM detection and early-warning flags
   - Local UI availability
 
 - **Optional remote bonuses**:
   - Long-term retention of aggregated metrics/events
-  - Premium “AI insights” that benefit from multi-month/multi-year history
+  - Premium "AI insights" that benefit from multi-month/multi-year history
 
 The offline-first rule applies: remote features can pause; on-site continues.
 
@@ -134,7 +134,7 @@ The offline-first rule applies: remote features can pause; on-site continues.
 
 - **Enhanced Support**
   - PHM alerts + remote monitoring.
-  - Optional “weekly digest” in a template-based form (kept simple, low-risk).
+  - Optional "weekly digest" in a template-based form (kept simple, low-risk).
 
 - **Premium Support**
   - Optional AI-assisted insights/reporting (PHM triage, trend summaries, long-term comparisons).
@@ -148,7 +148,7 @@ The offline-first rule applies: remote features can pause; on-site continues.
 
 ## 9. References
 
-- [docs/gray-logic-stack.md](gray-logic-stack.md)
-- [docs/architecture.md](architecture.md)
-- [docs/sales-spec.md](sales-spec.md)
-- [docs/business-case.md](business-case.md)
+- [Vision](../overview/vision.md) — Product vision and goals
+- [System Overview](../architecture/system-overview.md) — Architecture overview
+- [Core Internals](../architecture/core-internals.md) — Gray Logic Core architecture
+- [Principles](../overview/principles.md) — Hard rules and design principles
