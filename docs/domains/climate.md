@@ -1152,8 +1152,8 @@ night_operation:
 - [KNX Protocol Specification](../protocols/knx.md) — KNX HVAC integration
 - [Modbus Protocol Specification](../protocols/modbus.md) — Heat pump integration
 - [BACnet Protocol Specification](../protocols/bacnet.md) — Commercial HVAC (Year 2)
+- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring framework
 - [Plant Domain Specification](plant.md) — AHU and chiller control
 - [Blinds Domain Specification](blinds.md) — Solar gain coordination
-- [Energy Domain Specification](energy.md) — Efficiency monitoring
 - [Data Model: Entities](../data-model/entities.md) — ClimateZone entity
 

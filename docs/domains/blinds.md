@@ -768,6 +768,7 @@ calibration:
 ## Related Documents
 
 - [KNX Protocol Specification](../protocols/knx.md) — KNX blind actuators
+- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring framework
 - [Climate Domain Specification](climate.md) — Solar gain coordination
 - [Lighting Domain Specification](lighting.md) — Scene integration
 - [Data Model: Entities](../data-model/entities.md) — Device entity

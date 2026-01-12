@@ -1,6 +1,6 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-12  
+> **Last Updated:** 2026-01-12 (Session 2)  
 > **Current Phase:** Documentation (Pre-Development)
 
 ---
@@ -11,12 +11,12 @@
 |------|--------|
 | Core Documentation | ✅ Complete |
 | Architecture | ✅ Complete |
-| Domain Specs | 🟡 4/7 complete |
+| Domain Specs | 🟡 5/7 complete |
 | Protocol Specs | ✅ Complete |
 | Integration Specs | ✅ Complete |
 | API Specification | ✅ Complete |
 | Automation Spec | ✅ Complete |
-| Intelligence Specs | 🟡 1/3 complete |
+| Intelligence Specs | 🟡 2/3 complete |
 | Resilience Specs | ❌ Empty |
 | Deployment Guides | 🟡 1/2 complete |
 | Business Docs | ❌ Empty |
@@ -73,13 +73,14 @@
 
 #### Intelligence (`docs/intelligence/`)
 - [x] `ai-premium-features.md` — AI feature boundaries
+- [x] `phm.md` — Predictive Health Monitoring framework ✓
 
 ---
 
 ### 🟡 Partially Complete / In Progress
 
 #### Domains — Missing Specs
-- [ ] `audio.md` — Multi-room audio
+- [x] `audio.md` — Multi-room audio ✓
 - [ ] `security.md` — Alarm system integration
 - [ ] `energy.md` — Energy management domain
 
@@ -88,7 +89,6 @@
 
 #### Intelligence — Missing Specs
 - [ ] `voice.md` — Voice pipeline (Whisper, NLU, Piper)
-- [ ] `phm.md` — Predictive Health Monitoring details
 
 ---
 
@@ -167,6 +167,13 @@
 **Created:**
 - `docs/interfaces/api.md` — Full REST/WebSocket API specification (~1,100 lines)
 - `docs/automation/automation.md` — Comprehensive automation spec (~750 lines)
+- `docs/domains/audio.md` — Multi-room audio domain specification (~600 lines)
+- `docs/intelligence/phm.md` — Predictive Health Monitoring specification (~750 lines)
+
+**Architecture additions:**
+- `DeviceAssociation` entity — External monitoring and control proxy relationships
+- `Association Resolver` component — Handles data attribution and command routing
+- I/O device types — Relay modules, analog/digital I/O, external sensors
 
 **Reorganized:**
 - `ai-premium-features.md` → `docs/intelligence/`
@@ -176,23 +183,28 @@
 - Updated all openHAB/Node-RED references to Go Core architecture
 - Fixed broken links to non-existent files
 - Added cross-references between related documents
+- Standardized PHM Integration sections across all domain specs (lighting, climate, blinds, plant, audio)
+- Added DeviceAssociation entity for external monitoring and control proxying
+- Documented Association Resolver in Core architecture
+- Added device-level energy attribution via associations
 
 **Infrastructure:**
 - Set GitHub repository to private
+- Configured sparse-checkout to exclude archive folders locally
 
 ---
 
 ## Next Actions
 
 ### High Priority (Documentation)
-1. [ ] Audio domain spec (`docs/domains/audio.md`)
+1. [x] Audio domain spec (`docs/domains/audio.md`) ✓
 2. [ ] Residential deployment guide (`docs/deployment/residential.md`)
 3. [ ] Voice pipeline spec (`docs/intelligence/voice.md`)
 
 ### Medium Priority (Documentation)
 4. [ ] Security domain spec (`docs/domains/security.md`)
 5. [ ] Energy domain spec (`docs/domains/energy.md`)
-6. [ ] PHM specification (`docs/intelligence/phm.md`)
+6. [x] PHM specification (`docs/intelligence/phm.md`) ✓
 7. [ ] Backup & recovery (`docs/resilience/backup.md`)
 
 ### Lower Priority (Can Wait)

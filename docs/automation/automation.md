@@ -1193,3 +1193,4 @@ When multiple automations could trigger:
 - [REST API Specification](../interfaces/api.md) — API endpoints for automation
 - [Lighting Domain](../domains/lighting.md) — Lighting-specific automation
 - [Climate Domain](../domains/climate.md) — Climate-specific automation
+- [Audio Domain](../domains/audio.md) — Audio-specific automation and announcements

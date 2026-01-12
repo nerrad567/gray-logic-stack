@@ -508,10 +508,122 @@ func (p *Processor) Execute(cmd Command) error {
     // 2. Validate command is supported
     // 3. Validate parameters
     // 4. Check authorization
-    // 5. Route to appropriate bridge via MQTT
-    // 6. Log command execution
+    // 5. Check for control associations (route via proxy if needed)
+    // 6. Route to appropriate bridge via MQTT
+    // 7. Log command execution
 }
 ```
+
+#### Association Resolver
+
+Handles device associations for external monitoring and control proxying.
+
+```go
+// internal/device/association/resolver.go
+
+type Resolver struct {
+    db           *database.Database
+    associations map[string][]*Association  // indexed by source and target
+    mu           sync.RWMutex
+}
+
+type Association struct {
+    ID             string
+    SourceDeviceID string
+    TargetDeviceID string
+    TargetGroupID  string
+    Type           AssociationType  // monitors, controls, monitors_and_controls
+    Config         AssociationConfig
+}
+
+type AssociationType string
+
+const (
+    AssocMonitors            AssociationType = "monitors"
+    AssocControls            AssociationType = "controls"
+    AssocMonitorsAndControls AssociationType = "monitors_and_controls"
+)
+
+type AssociationConfig struct {
+    Metrics         []string  // For monitoring: which metrics to attribute
+    ControlFunction string    // For control: power, enable, speed
+    SourceProperty  string    // Property name on source device
+    TargetProperty  string    // Property name to set on target
+    Scale           float64   // Multiply source value
+    Offset          float64   // Add to source value
+}
+
+// Monitoring: Get associations where this device is the source (sensor)
+func (r *Resolver) GetMonitoringTargets(sourceDeviceID string) []*Association
+
+// Control: Get associations where this device is the target (equipment)
+func (r *Resolver) GetControlProxy(targetDeviceID string) *Association
+
+// Check if device has any associations
+func (r *Resolver) HasAssociations(deviceID string) bool
+```
+
+**Monitoring Association Flow (Data Attribution):**
+
+When a CT clamp reports power, the reading is attributed to the target device:
+
+```
+CT Clamp reports: { power: 5.2 kW }
+        │
+        ▼
+State Manager receives state for "ct-clamp-1"
+        │
+        ▼
+Association Resolver.GetMonitoringTargets("ct-clamp-1")
+        │
+        ▼
+Returns: [{ target: "pump-chw-1", metrics: ["power_kw"] }]
+        │
+        ▼
+State Manager ALSO updates "pump-chw-1":
+   - state.power_kw = 5.2  (attributed from CT clamp)
+   - state.power_source = "ct-clamp-1"
+        │
+        ├──► PHM sees pump-chw-1 power = 5.2 kW (for health monitoring)
+        ├──► Energy sees pump-chw-1 consumption (for attribution)
+        └──► UI shows pump power consumption
+```
+
+**Control Association Flow (Command Routing):**
+
+When user commands the pump, the command is routed to the relay:
+
+```
+API request: POST /devices/pump-chw-1/commands { command: "power_on" }
+        │
+        ▼
+Command Processor receives command for "pump-chw-1"
+        │
+        ▼
+Association Resolver.GetControlProxy("pump-chw-1")
+        │
+        ▼
+Returns: { source: "relay-module-1-ch3", control_function: "power" }
+        │
+        ▼
+Command Processor routes to relay instead:
+   - MQTT: graylogic/command/relay-module-1-ch3 { command: "on" }
+        │
+        ▼
+Relay closes → Pump receives power → Pump turns on
+```
+
+**Combined Association (Smart Plug):**
+
+```yaml
+Association:
+  source: "smart-plug-garage"
+  target: "heater-garage"
+  type: "monitors_and_controls"
+```
+
+- When smart plug reports power → attributed to heater
+- When user commands heater → routed to smart plug
 
 #### Health Monitor (PHM)
 

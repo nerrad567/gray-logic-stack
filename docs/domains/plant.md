@@ -923,7 +923,7 @@ AHUs and chillers often use BACnet — see [BACnet Protocol](../protocols/bacnet
 - [Entities](../data-model/entities.md) — Device type definitions
 - [Modbus Protocol](../protocols/modbus.md) — Modbus register mapping
 - [BACnet Protocol](../protocols/bacnet.md) — BACnet object mapping
+- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring framework
 - [Climate Domain](climate.md) — HVAC zone control
 - [Energy Model](../architecture/energy-model.md) — Energy monitoring
-- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring (to be created)
 

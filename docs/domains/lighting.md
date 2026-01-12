@@ -883,50 +883,236 @@ voice_intents:
 
 ---
 
-## Health Monitoring
+## PHM Integration
 
-### Metrics to Track
+Gray Logic applies Predictive Health Monitoring to lighting systems to detect degradation, predict failures, and optimize maintenance. See [PHM Specification](../intelligence/phm.md) for the full PHM framework.
 
-| Metric | Source | Purpose |
-|--------|--------|---------|
-| Runtime hours | DALI query | Maintenance planning |
-| Switch cycles | Counter | Relay lifespan |
-| Lamp failures | DALI status | Immediate alert |
-| Error rate | Bridge metrics | Communication health |
-| Response time | Core timing | Performance monitoring |
+### PHM Value for Lighting
 
-### DALI Diagnostics
+| Equipment | PHM Value | Key Indicators |
+|-----------|-----------|----------------|
+| LED drivers | ★★★★☆ | Runtime hours, output deviation, temperature |
+| Lamps/luminaires | ★★★☆☆ | Lumen depreciation, failure events |
+| DALI buses | ★★★☆☆ | Error rate, response latency |
+| Switches/dimmers | ★★☆☆☆ | Activation count, response time |
+| Sensors | ★★☆☆☆ | Battery level, activation accuracy |
+
+### Monitored Parameters
+
+| Parameter | Source | Baseline Method | Alert Indicator |
+|-----------|--------|-----------------|-----------------|
+| Runtime hours | DALI query | Counter threshold | Approaching L70 life |
+| Actual vs commanded | DALI query | Deviation check | Driver degradation |
+| Lamp failures | DALI status | Event detection | Immediate replacement |
+| Bus error rate | Bridge metrics | Rolling mean | Wiring/device issues |
+| Response latency | Core timing | Rolling mean | Communication problems |
+
+### PHM Configuration
 
 ```yaml
-diagnostics:
+phm_lighting:
+  devices:
+    # LED Driver monitoring
+    - device_id: "dali-driver-kitchen-1"
+      type: "led_driver"
+      parameters:
+        - name: "runtime_hours"
+          source: "dali:query_runtime"
+          baseline_method: "counter"
+          threshold_hours: 50000           # L70 rated life
+          alert_at_percent: 80             # Alert at 40,000 hours
+          severity: "warning"
+          recommendation: "Schedule LED driver replacement"
+          
+        - name: "output_deviation"
+          calculation: "abs(actual_level - commanded_level)"
+          baseline_method: "none"
+          threshold_percent: 10
+          severity: "warning"
+          recommendation: "Driver output degradation - inspect or replace"
+          
+        - name: "failure_status"
+          source: "dali:query_status"
+          baseline_method: "none"
+          on_failure: true
+          severity: "warning"
+          recommendation: "Lamp failure detected - replace immediately"
+          
+    # DALI Bus monitoring
+    - device_id: "dali-bus-1"
+      type: "dali_bus"
+      parameters:
+        - name: "error_rate"
+          calculation: "errors / total_commands"
+          baseline_method: "rolling_mean"
+          window_hours: 168                # 1 week
+          deviation_threshold_percent: 200  # 2x baseline
+          severity: "warning"
+          recommendation: "Bus error rate elevated - check wiring and devices"
+          
+        - name: "response_latency_ms"
+          baseline_method: "rolling_percentile_95"
+          window_hours: 168
+          deviation_threshold_percent: 50
+          severity: "info"
+          recommendation: "Response latency increased - check bus load"
+          
+    # Switch/dimmer monitoring
+    - device_id: "switch-living-1"
+      type: "switch"
+      parameters:
+        - name: "activation_count"
+          source: "counter"
+          threshold: 100000               # Typical relay life
+          alert_at_percent: 80
+          severity: "warning"
+          recommendation: "Switch nearing end of mechanical life"
+```
+
+### Lumen Depreciation Tracking
+
+LED luminaires experience gradual lumen depreciation over time. PHM tracks this to predict when output falls below acceptable levels:
+
+```yaml
+lumen_depreciation:
+  device_id: "luminaire-office-1"
+  
+  # Rated values from manufacturer
+  rated:
+    initial_lumens: 3000
+    l70_hours: 50000                      # Hours to 70% output
+    l90_hours: 25000                      # Hours to 90% output
+    
+  # Tracked values
+  current:
+    runtime_hours: 18000
+    estimated_output_percent: 88          # Calculated from L curve
+    
+  # Predictions
+  predictions:
+    hours_to_l90: 7000
+    hours_to_l70: 32000
+    
+  # Alert configuration
+  alerts:
+    - threshold: "l90"
+      severity: "info"
+      message: "Luminaire at 90% output - consider replacement in maintenance window"
+    - threshold: "l70"
+      severity: "warning"
+      message: "Luminaire at 70% output - schedule replacement"
+```
+
+### DALI Diagnostics Integration
+
+PHM leverages DALI's built-in diagnostic capabilities:
+
+```yaml
+dali_diagnostics:
   polling_interval_seconds: 60
   
   queries:
-    - type: "status"
-      detect: "lamp_failure"
-      alert_severity: "warning"
-      
-    - type: "actual_level"
-      compare_to: "commanded"
+    # Query lamp status
+    - command: "QUERY_STATUS"
+      detect:
+        - bit: 2                          # Lamp failure
+          alert: "lamp_failure"
+          severity: "warning"
+        - bit: 3                          # Lamp power on
+          log_only: true
+        - bit: 6                          # Reset state
+          alert: "device_reset"
+          severity: "info"
+          
+    # Query actual level vs commanded
+    - command: "QUERY_ACTUAL_LEVEL"
+      compare_to: "last_commanded"
       deviation_threshold: 10
-      alert_severity: "warning"
+      alert: "output_deviation"
+      severity: "warning"
+      
+    # Query runtime (DALI-2 devices)
+    - command: "QUERY_LAMP_RUN_TIME"
+      store_to: "phm:runtime_hours"
 ```
 
 ### Alerting
 
 ```yaml
-alerts:
+phm_lighting_alerts:
+  # Lamp failure - immediate action
   - condition: "lamp_failure"
     severity: "warning"
-    message: "Lamp failure detected: ${device_name}"
+    message: "Lamp failure detected: ${device_name} in ${room_name}"
     actions:
-      - notify_user: true
+      - notify:
+          channels: ["push"]
+          recipients: ["facility_manager"]
+      - log_phm: true
+      - create_work_order:
+          type: "corrective"
+          priority: "normal"
+          
+  # Driver approaching end of life
+  - condition: "runtime_threshold"
+    severity: "info"
+    message: "LED driver ${device_name} at ${runtime_percent}% of rated life"
+    actions:
+      - notify:
+          channels: ["email"]
+          recipients: ["maintenance_team"]
+      - log_phm: true
+      - create_work_order:
+          type: "preventive"
+          priority: "low"
+          schedule: "next_maintenance_window"
+          
+  # Device offline
+  - condition: "device_offline"
+    for_minutes: 5
+    severity: "warning"
+    message: "Light offline: ${device_name}"
+    actions:
+      - notify:
+          channels: ["push"]
       - log_phm: true
       
-  - condition: "device_offline"
+  # Bus degradation
+  - condition: "bus_error_rate_elevated"
     severity: "warning"
-    for_minutes: 5
-    message: "Light offline: ${device_name}"
+    message: "DALI bus ${bus_id} error rate elevated (${error_rate}%)"
+    actions:
+      - notify:
+          channels: ["email"]
+      - log_phm: true
+```
+
+### Dashboard Metrics
+
+```yaml
+phm_lighting_dashboard:
+  summary:
+    total_luminaires: 45
+    healthy: 42
+    degraded: 2
+    failed: 1
+    
+  health_score: 93
+  
+  alerts:
+    - device: "luminaire-kitchen-2"
+      status: "failed"
+      issue: "Lamp failure"
+      
+    - device: "dali-driver-living-1"
+      status: "degraded"
+      issue: "Runtime at 85% of rated life"
+      
+  maintenance_due:
+    - device: "luminaire-office-bank"
+      reason: "Approaching L90 output"
+      runtime_hours: 24500
+      estimated_output: 91%
 ```
 
 ---
@@ -1297,8 +1483,8 @@ personal_control:
 
 - [KNX Protocol Specification](../protocols/knx.md) — KNX lighting integration
 - [DALI Protocol Specification](../protocols/dali.md) — DALI lighting integration
-- [Scenes and Automation](../automation/scenes.md) — Scene management
+- [Automation Specification](../automation/automation.md) — Scene and schedule management
+- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring framework
 - [Climate Domain Specification](climate.md) — Occupancy schedule sharing
 - [Data Model: Entities](../data-model/entities.md) — Device entity definition
-- [Voice Pipeline](../intelligence/voice-pipeline.md) — Voice control
 

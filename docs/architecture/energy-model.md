@@ -335,6 +335,86 @@ energy_nodes:
       parent_node: "grid-main"      # This is behind the main meter
 ```
 
+### Device-Level Energy Attribution
+
+For equipment that doesn't have built-in energy monitoring, external sensors can be associated with devices to track per-device consumption. This uses the **Device Association** mechanism.
+
+```
+┌───────────────────┐        ┌───────────────────┐
+│  CT Clamp         │───────→│  Pump             │
+│  (measures power) │monitors│  (consumes power) │
+└───────────────────┘        └───────────────────┘
+         │                            │
+         ▼                            ▼
+    Energy Model sees:           Device shows:
+    "pump-chw-1: 5.2 kW"        "Power: 5.2 kW"
+```
+
+**Configuration:**
+
+```yaml
+# 1. Define the monitoring device
+devices:
+  - id: "ct-pump-chw-1"
+    type: "ct_clamp"
+    protocol: "modbus_tcp"
+    address:
+      host: "192.168.1.100"
+      unit_id: 3
+
+# 2. Create association to attribute readings
+associations:
+  - source_device_id: "ct-pump-chw-1"
+    target_device_id: "pump-chw-1"
+    type: "monitors"
+    config:
+      metrics: ["power_kw", "energy_kwh"]
+```
+
+**How attribution works:**
+
+1. CT clamp reports power/energy via Modbus bridge
+2. Association Resolver attributes readings to `pump-chw-1`
+3. Energy Model tracks `pump-chw-1` consumption
+4. Reports show per-device energy breakdown
+
+**Use cases:**
+
+| Scenario | Configuration | Benefit |
+|----------|---------------|---------|
+| Track pump energy | CT clamp → pump | PHM + energy cost allocation |
+| Monitor lighting circuit | DIN meter → light group | Circuit-level reporting |
+| Smart plug on heater | Smart plug → heater | Per-device tracking + control |
+| HVAC zone consumption | Sub-meter → HVAC zone | Zone-level cost allocation |
+
+**Reporting with attribution:**
+
+```yaml
+# Energy breakdown by device (using associations)
+energy_report:
+  period: "2026-01"
+  by_device:
+    - device_id: "pump-chw-1"
+      device_name: "Chilled Water Pump 1"
+      energy_kwh: 245.6
+      cost: 36.84
+      source: "ct-pump-chw-1"       # Via association
+      
+    - device_id: "heater-garage"
+      device_name: "Garage Heater"
+      energy_kwh: 89.2
+      cost: 13.38
+      source: "smart-plug-garage"   # Via association
+      
+    - device_id: "heatpump-main"
+      device_name: "Heat Pump"
+      energy_kwh: 312.4
+      cost: 46.86
+      source: "native"              # Built-in monitoring
+```
+
+See [Data Model: DeviceAssociation](../data-model/entities.md#deviceassociation) for full specification.
+
 ---
 
 ## Energy Balance Calculations
@@ -799,8 +879,10 @@ END
 
 ## Related Documents
 
+- [Data Model: Entities](../data-model/entities.md) — DeviceAssociation for energy attribution
 - [Modbus Protocol Specification](../protocols/modbus.md) — Meter/inverter communication
 - [Core Internals Architecture](core-internals.md) — Energy service integration
+- [PHM Specification](../intelligence/phm.md) — Equipment health monitoring using energy data
 - [Climate Domain Specification](../domains/climate.md) — HVAC load management
 - [OCPP Protocol Specification](../protocols/ocpp.md) — EV charging protocol
 

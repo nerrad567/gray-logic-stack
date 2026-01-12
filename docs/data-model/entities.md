@@ -28,7 +28,13 @@ Device
  ├── belongs to Room (or Area for area-level devices)
  ├── has Capabilities (1:N)
  ├── has State (1:1)
- └── has HealthData (0:1, for PHM-monitored devices)
+ ├── has HealthData (0:1, for PHM-monitored devices)
+ └── has Associations (0:N, for monitoring/control relationships)
+
+DeviceAssociation
+ ├── source_device (sensor, relay, smart plug)
+ ├── target_device or target_group (equipment being monitored/controlled)
+ └── type: monitors | controls | monitors_and_controls
 
 Scene
  ├── scoped to Room, Area, or Site
@@ -385,6 +391,22 @@ Device:
 - `door_controller` — Access control door controller
 - `turnstile` — Turnstile, barrier, speed gate
 - `intercom` — Audio/video intercom station
+
+*I/O and Control:*
+- `relay_module` — Multi-channel relay output module
+- `relay_channel` — Individual relay output channel
+- `digital_input` — Digital input (contact closure)
+- `digital_output` — Digital output (relay, solid state)
+- `analog_input` — Analog input (0-10V, 4-20mA)
+- `analog_output` — Analog output (0-10V)
+- `io_module` — Combined I/O module
+
+*Monitoring (External):*
+- `power_monitor` — Inline power monitor / smart plug
+- `ct_clamp` — Current transformer clamp
+- `energy_submeter` — Sub-metering device
+- `external_temp_sensor` — Standalone temperature sensor
+- `vibration_monitor` — External vibration sensor
 
 **Domains:**
 - `lighting` — Lights, scenes, emergency lighting monitoring
@@ -897,6 +919,121 @@ Condition:
 
 ---
 
+### DeviceAssociation
+
+Links two devices together for monitoring, control, or combined purposes. This enables:
+- External sensors monitoring equipment (CT clamp → pump)
+- Relay modules controlling dumb equipment (relay → pump)
+- Smart plugs that do both (power monitor → pump)
+
+```yaml
+DeviceAssociation:
+  id: uuid
+  
+  # The device providing the service (sensor, relay, smart plug)
+  source_device_id: uuid
+  
+  # The device being monitored/controlled (pump, heater, circuit)
+  target_device_id: uuid             # Single device
+  target_group_id: uuid | null       # OR a device group (for circuits)
+  
+  # Relationship type
+  type: enum                         # monitors | controls | monitors_and_controls
+  
+  # Association details
+  config:
+    # For monitoring associations
+    metrics: [string] | null         # ["power_kw", "energy_kwh", "current_a"]
+    
+    # For control associations
+    control_function: string | null  # "power" | "enable" | "speed"
+    
+    # Mapping configuration
+    source_property: string | null   # Property on source device
+    target_property: string | null   # Property to attribute to target
+    
+    # Scaling (if needed)
+    scale: float | null              # Multiply source value
+    offset: float | null             # Add to source value
+    
+  # Metadata
+  description: string | null         # "CT clamp monitoring pump power"
+  
+  enabled: boolean                   # Association active
+  created_at: timestamp
+  updated_at: timestamp
+```
+
+**Association Types:**
+
+| Type | Data Flow | Use Case |
+|------|-----------|----------|
+| `monitors` | Source → Target | CT clamp readings attributed to pump |
+| `controls` | Target → Source | Commands to pump sent to relay |
+| `monitors_and_controls` | Both | Smart plug monitors AND controls pump |
+
+**Examples:**
+
+```yaml
+# CT clamp monitoring a pump's power consumption
+- id: "assoc-ct-pump-1"
+  source_device_id: "ct-clamp-plantroom-1"
+  target_device_id: "pump-chw-1"
+  type: "monitors"
+  config:
+    metrics: ["power_kw", "energy_kwh", "current_a"]
+    source_property: "power"
+    target_property: "power_kw"
+  description: "CT clamp on CHW pump 1 supply"
+
+# Relay controlling a pump's power
+- id: "assoc-relay-pump-1"
+  source_device_id: "relay-module-1-ch3"
+  target_device_id: "pump-chw-1"
+  type: "controls"
+  config:
+    control_function: "power"
+  description: "Relay controlling CHW pump 1"
+
+# Smart plug monitoring AND controlling a dumb heater
+- id: "assoc-plug-heater"
+  source_device_id: "smart-plug-garage"
+  target_device_id: "heater-garage"
+  type: "monitors_and_controls"
+  config:
+    metrics: ["power_kw", "energy_kwh"]
+    control_function: "power"
+  description: "Smart plug for garage heater"
+
+# CT clamp monitoring a lighting circuit (group)
+- id: "assoc-ct-kitchen-lights"
+  source_device_id: "ct-clamp-db-ch5"
+  target_group_id: "group-kitchen-lights"
+  type: "monitors"
+  config:
+    metrics: ["power_kw", "energy_kwh"]
+  description: "Kitchen lighting circuit power"
+```
+
+**How Core Resolves Associations:**
+
+1. **Monitoring (data attribution):**
+   - When source device reports a reading (e.g., CT clamp reports 5.2kW)
+   - Core looks up associations where `source_device_id` matches
+   - Core attributes the reading to the target device's metrics
+   - PHM and energy tracking see the target device's power consumption
+
+2. **Control (command routing):**
+   - When command targets a device (e.g., "turn on pump-chw-1")
+   - Core looks up associations where `target_device_id` matches and type includes `controls`
+   - Core routes the command to the source device (relay)
+   - Source device executes the command (relay closes)
+
+3. **Combined:**
+   - Both behaviours active for `monitors_and_controls` type
+
+---
+
 ## Supporting Entities
 
 ### AudioZone
@@ -970,5 +1107,6 @@ Formal JSON Schema definitions are maintained in `docs/data-model/schemas/`:
 - [Core Internals](../architecture/core-internals.md) — State management and internal architecture
 - [Automation Specification](../automation/automation.md) — How scenes, schedules, and modes work
 - [API Specification](../interfaces/api.md) — API for entity operations
+- [Audio Domain](../domains/audio.md) — Multi-room audio and AudioZone configuration
 - [CCTV Integration](../integration/cctv.md) — Camera and NVR configuration
 - [Access Control Integration](../integration/access-control.md) — Door, gate, intercom configuration
