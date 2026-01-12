@@ -1202,5 +1202,5 @@ visitor_management:
 - [Audio Domain](../domains/audio.md) — Doorbell announcements and intercom audio
 - [Fire Alarm Integration](fire-alarm.md) — Emergency egress coordination
 - [CCTV Integration](cctv.md) — Camera integration, doorbell cameras
-- [Security Domain](../domains/security.md) — Alarm system integration (to be created)
+- [Security Domain](../domains/security.md) — Alarm system integration
 

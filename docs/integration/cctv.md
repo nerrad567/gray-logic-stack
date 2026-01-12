@@ -1012,4 +1012,4 @@ curl -X GET http://graylogic/api/cctv/camera-front-door/status
 - [Entities](../data-model/entities.md) — Camera and NVR device types
 - [Access Control](access-control.md) — Intercom/doorbell integration
 - [Fire Alarm](fire-alarm.md) — Emergency lighting and evacuation
-- [Security Domain](../domains/security.md) — Alarm system integration (to be created)
+- [Security Domain](../domains/security.md) — Alarm system integration

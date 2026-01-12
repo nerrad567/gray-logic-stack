@@ -11,7 +11,7 @@
 |------|--------|
 | Core Documentation | ✅ Complete |
 | Architecture | ✅ Complete |
-| Domain Specs | 🟡 5/7 complete |
+| Domain Specs | ✅ 7/7 complete |
 | Protocol Specs | ✅ Complete |
 | Integration Specs | ✅ Complete |
 | API Specification | ✅ Complete |
@@ -79,10 +79,14 @@
 
 ### 🟡 Partially Complete / In Progress
 
-#### Domains — Missing Specs
-- [x] `audio.md` — Multi-room audio ✓
-- [ ] `security.md` — Alarm system integration
-- [ ] `energy.md` — Energy management domain
+#### Domains — Complete ✓
+- [x] `lighting.md` — Lighting control
+- [x] `climate.md` — HVAC and climate
+- [x] `blinds.md` — Blinds and shading
+- [x] `plant.md` — Plant room equipment
+- [x] `audio.md` — Multi-room audio
+- [x] `security.md` — Alarm system integration
+- [x] `energy.md` — Energy management
 
 #### Deployment — Missing Guides
 - [ ] `residential.md` — Residential deployment guide
@@ -169,6 +173,8 @@
 - `docs/automation/automation.md` — Comprehensive automation spec (~750 lines)
 - `docs/domains/audio.md` — Multi-room audio domain specification (~600 lines)
 - `docs/intelligence/phm.md` — Predictive Health Monitoring specification (~750 lines)
+- `docs/domains/security.md` — Security/alarm domain specification (~700 lines)
+- `docs/domains/energy.md` — Energy management domain specification (~800 lines)
 
 **Architecture additions:**
 - `DeviceAssociation` entity — External monitoring and control proxy relationships
@@ -202,8 +208,8 @@
 3. [ ] Voice pipeline spec (`docs/intelligence/voice.md`)
 
 ### Medium Priority (Documentation)
-4. [ ] Security domain spec (`docs/domains/security.md`)
-5. [ ] Energy domain spec (`docs/domains/energy.md`)
+4. [x] Security domain spec (`docs/domains/security.md`) ✓
+5. [x] Energy domain spec (`docs/domains/energy.md`) ✓
 6. [x] PHM specification (`docs/intelligence/phm.md`) ✓
 7. [ ] Backup & recovery (`docs/resilience/backup.md`)
 
