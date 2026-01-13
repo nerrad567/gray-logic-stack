@@ -11,7 +11,7 @@
 |------|--------|
 | Core Documentation | ✅ Complete |
 | Architecture | ✅ Complete |
-| Domain Specs | ✅ 7/7 complete |
+| Domain Specs | ✅ 13/13 complete |
 | Protocol Specs | ✅ Complete |
 | Integration Specs | ✅ Complete |
 | API Specification | ✅ Complete |
@@ -87,6 +87,12 @@
 - [x] `audio.md` — Multi-room audio
 - [x] `security.md` — Alarm system integration
 - [x] `energy.md` — Energy management
+- [x] `video.md` — Video/AV distribution
+- [x] `irrigation.md` — Garden and outdoor
+- [x] `leak-protection.md` — Leak detection and auto-shutoff
+- [x] `water-management.md` — Rainwater, greywater, treatment
+- [x] `presence.md` — Occupancy and presence detection
+- [x] `pool.md` — Pool chemistry, covers, water features
 
 #### Deployment — Missing Guides
 - [ ] `residential.md` — Residential deployment guide
@@ -175,6 +181,12 @@
 - `docs/intelligence/phm.md` — Predictive Health Monitoring specification (~750 lines)
 - `docs/domains/security.md` — Security/alarm domain specification (~700 lines)
 - `docs/domains/energy.md` — Energy management domain specification (~800 lines)
+- `docs/domains/video.md` — Video/AV distribution (~650 lines)
+- `docs/domains/irrigation.md` — Garden and outdoor (~650 lines)
+- `docs/domains/leak-protection.md` — Leak detection and shutoff (~600 lines)
+- `docs/domains/water-management.md` — Water infrastructure (~550 lines)
+- `docs/domains/presence.md` — Occupancy and presence (~650 lines)
+- `docs/domains/pool.md` — Pool chemistry and automation (~750 lines)
 
 **Architecture additions:**
 - `DeviceAssociation` entity — External monitoring and control proxy relationships
