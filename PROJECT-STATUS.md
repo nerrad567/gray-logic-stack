@@ -16,9 +16,9 @@
 | Integration Specs | ✅ Complete |
 | API Specification | ✅ Complete |
 | Automation Spec | ✅ Complete |
-| Intelligence Specs | 🟡 2/3 complete |
+| Intelligence Specs | ✅ Complete |
 | Resilience Specs | ❌ Empty |
-| Deployment Guides | 🟡 1/2 complete |
+| Deployment Guides | ✅ Complete |
 | Business Docs | ❌ Empty |
 | Code | ❌ Not started |
 
@@ -69,11 +69,13 @@
 
 #### Deployment (`docs/deployment/`)
 - [x] `office-commercial.md` — Commercial deployment guide
+- [x] `residential.md` — Residential deployment guide ✓
 - [x] `handover-pack-template.md` — Customer handover template
 
 #### Intelligence (`docs/intelligence/`)
 - [x] `ai-premium-features.md` — AI feature boundaries
 - [x] `phm.md` — Predictive Health Monitoring framework ✓
+- [x] `voice.md` — Voice pipeline specification (Whisper, NLU, Piper) ✓
 
 ---
 
@@ -94,11 +96,9 @@
 - [x] `presence.md` — Occupancy and presence detection
 - [x] `pool.md` — Pool chemistry, covers, water features
 
-#### Deployment — Missing Guides
-- [ ] `residential.md` — Residential deployment guide
+#### Deployment — Complete ✓
 
-#### Intelligence — Missing Specs
-- [ ] `voice.md` — Voice pipeline (Whisper, NLU, Piper)
+#### Intelligence — Complete ✓
 
 ---
 
@@ -187,6 +187,8 @@
 - `docs/domains/water-management.md` — Water infrastructure (~550 lines)
 - `docs/domains/presence.md` — Occupancy and presence (~650 lines)
 - `docs/domains/pool.md` — Pool chemistry and automation (~750 lines)
+- `docs/intelligence/voice.md` — Voice pipeline specification (Whisper, NLU, Piper) (~1,000 lines)
+- `docs/deployment/residential.md` — Residential deployment guide (~1,200 lines)
 
 **Architecture additions:**
 - `DeviceAssociation` entity — External monitoring and control proxy relationships
@@ -216,8 +218,8 @@
 
 ### High Priority (Documentation)
 1. [x] Audio domain spec (`docs/domains/audio.md`) ✓
-2. [ ] Residential deployment guide (`docs/deployment/residential.md`)
-3. [ ] Voice pipeline spec (`docs/intelligence/voice.md`)
+2. [x] Residential deployment guide (`docs/deployment/residential.md`) ✓
+3. [x] Voice pipeline spec (`docs/intelligence/voice.md`) ✓
 
 ### Medium Priority (Documentation)
 4. [x] Security domain spec (`docs/domains/security.md`) ✓
