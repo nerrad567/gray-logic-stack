@@ -1,0 +1,1063 @@
+---
+title: Security Model
+version: 1.0.0
+status: active
+last_updated: 2026-01-13
+depends_on:
+  - architecture/system-overview.md
+  - architecture/core-internals.md
+  - interfaces/api.md
+  - overview/principles.md
+---
+
+# Security Model
+
+This document specifies Gray Logic's security architecture — authentication, authorization, encryption, and security best practices for deployment.
+
+---
+
+## Overview
+
+### Security Philosophy
+
+Gray Logic implements **defense in depth** with security at every layer:
+
+1. **Offline-first authentication** — No cloud dependency for auth
+2. **Least privilege** — Users only get permissions they need
+3. **Layered security** — Network, application, and physical security
+4. **Audit everything** — All security-relevant actions logged
+5. **Fail secure** — Defaults to deny, not allow
+
+### Security Layers
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         PHYSICAL SECURITY                            │
+│  • Server room access • Equipment access • Network cabinet locks     │
+├─────────────────────────────────────────────────────────────────────┤
+│                         NETWORK SECURITY                             │
+│  • VLAN segregation • Firewall rules • VPN for remote access        │
+├─────────────────────────────────────────────────────────────────────┤
+│                         TRANSPORT SECURITY                           │
+│  • TLS everywhere • Certificate management • Encrypted MQTT         │
+├─────────────────────────────────────────────────────────────────────┤
+│                         APPLICATION SECURITY                         │
+│  • Authentication • Authorization • Rate limiting • Input validation│
+├─────────────────────────────────────────────────────────────────────┤
+│                         DATA SECURITY                                │
+│  • Encrypted secrets • Hashed passwords • Audit logging             │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+---
+
+## Authentication
+
+### Authentication Methods
+
+Gray Logic supports multiple authentication methods:
+
+| Method | Use Case | Security Level |
+|--------|----------|----------------|
+| **Username/Password** | Standard login | High |
+| **PIN** | Wall panels, quick access | Medium |
+| **API Key** | Service-to-service | High |
+| **LDAP/AD** | Enterprise integration | High |
+| **OIDC** | SSO integration (optional) | High |
+
+### Local Authentication
+
+Primary authentication method — stored in local SQLite database.
+
+```yaml
+auth:
+  local:
+    enabled: true
+    
+    # Password requirements
+    password_policy:
+      min_length: 12
+      require_uppercase: true
+      require_lowercase: true
+      require_number: true
+      require_special: false
+      max_age_days: 0                # 0 = never expires
+      
+    # Account lockout
+    lockout:
+      enabled: true
+      max_attempts: 5
+      lockout_duration_minutes: 15
+      
+    # Session management
+    session:
+      access_token_lifetime_minutes: 60
+      refresh_token_lifetime_days: 30
+      max_sessions_per_user: 10
+```
+
+### Password Storage
+
+Passwords are never stored in plain text:
+
+```yaml
+password_hashing:
+  algorithm: "argon2id"             # Memory-hard, recommended
+  parameters:
+    memory: 65536                   # 64 MB
+    iterations: 3
+    parallelism: 4
+    salt_length: 16
+    key_length: 32
+```
+
+### JWT Tokens
+
+Authentication uses JSON Web Tokens (JWT):
+
+```yaml
+jwt:
+  algorithm: "HS256"                # or RS256 for multi-service
+  secret_env: "JWT_SECRET"          # From environment
+  
+  access_token:
+    lifetime_minutes: 60
+    claims:
+      - sub                          # User ID
+      - role                         # User role
+      - permissions                  # Permission list
+      - exp                          # Expiry
+      
+  refresh_token:
+    lifetime_days: 30
+    rotation: true                   # Issue new refresh on use
+```
+
+**Token Structure:**
+
+```json
+{
+  "header": {
+    "alg": "HS256",
+    "typ": "JWT"
+  },
+  "payload": {
+    "sub": "usr-001",
+    "name": "Darren",
+    "role": "admin",
+    "permissions": ["all"],
+    "iat": 1736755200,
+    "exp": 1736758800
+  }
+}
+```
+
+### PIN Authentication
+
+For wall panels and quick access on trusted devices:
+
+```yaml
+pin_auth:
+  enabled: true
+  
+  # PIN requirements
+  policy:
+    min_length: 4
+    max_length: 8
+    allow_sequential: false          # Reject 1234, 4321
+    allow_repeated: false            # Reject 1111
+    
+  # Restrictions
+  restrictions:
+    device_registration: true        # PIN only works on registered devices
+    max_attempts: 3
+    lockout_minutes: 5
+    
+  # Scope
+  scope:
+    full_access: false               # PIN grants reduced permissions
+    allowed_permissions:
+      - "devices:control"
+      - "scenes:execute"
+      - "modes:change"
+```
+
+### LDAP/Active Directory
+
+For enterprise/commercial deployments:
+
+```yaml
+auth:
+  ldap:
+    enabled: true
+    type: "ldaps"                    # Always use LDAPS
+    
+    server:
+      host: "ldaps://dc.company.local"
+      port: 636
+      timeout_seconds: 10
+      
+    bind:
+      dn: "CN=GrayLogic,OU=Service Accounts,DC=company,DC=local"
+      password_env: "LDAP_BIND_PASSWORD"
+      
+    search:
+      base_dn: "OU=Users,DC=company,DC=local"
+      user_filter: "(sAMAccountName={username})"
+      
+    # Map AD groups to Gray Logic roles
+    group_mapping:
+      - ad_group: "CN=GL-Admins,OU=Groups,DC=company,DC=local"
+        role: "admin"
+        
+      - ad_group: "CN=GL-FacilityManagers,OU=Groups,DC=company,DC=local"
+        role: "facility_manager"
+        
+      - ad_group: "CN=Domain Users,DC=company,DC=local"
+        role: "user"
+```
+
+### OIDC (Optional)
+
+For SSO integration with identity providers:
+
+```yaml
+auth:
+  oidc:
+    enabled: false                   # Opt-in
+    
+    provider:
+      issuer: "https://login.company.com"
+      client_id_env: "OIDC_CLIENT_ID"
+      client_secret_env: "OIDC_CLIENT_SECRET"
+      
+    # Claim mapping
+    claims:
+      username: "preferred_username"
+      email: "email"
+      groups: "groups"
+      
+    # Role mapping
+    role_mapping:
+      - claim_value: "gl-admins"
+        role: "admin"
+      - claim_value: "gl-users"
+        role: "user"
+```
+
+---
+
+## Authorization
+
+### Role-Based Access Control (RBAC)
+
+Gray Logic uses RBAC with hierarchical permissions.
+
+### Built-in Roles
+
+| Role | Description | Typical Permissions |
+|------|-------------|---------------------|
+| **admin** | Full system access | `all` |
+| **facility_manager** | Manage building operations | Control, configure, view all |
+| **user** | Standard user | Control own area, view limited |
+| **guest** | Visitor access | View only, limited areas |
+| **integration** | API access | Scoped to API key |
+
+### Role Definitions
+
+```yaml
+roles:
+  - id: "admin"
+    name: "Administrator"
+    description: "Full system access"
+    permissions:
+      - "all"
+      
+  - id: "facility_manager"
+    name: "Facility Manager"
+    description: "Building operations management"
+    permissions:
+      - "devices:read"
+      - "devices:control"
+      - "devices:configure"
+      - "scenes:read"
+      - "scenes:execute"
+      - "scenes:manage"
+      - "schedules:read"
+      - "schedules:manage"
+      - "modes:read"
+      - "modes:change"
+      - "energy:read"
+      - "phm:read"
+      - "users:read"
+      - "audit:read"
+      
+  - id: "user"
+    name: "Standard User"
+    description: "Normal building occupant"
+    permissions:
+      - "devices:read"
+      - "devices:control"
+      - "scenes:read"
+      - "scenes:execute"
+      - "modes:read"
+    scope:
+      areas: ["assigned"]            # Only their assigned areas
+      
+  - id: "guest"
+    name: "Guest"
+    description: "Visitor with limited access"
+    permissions:
+      - "devices:read"
+    scope:
+      areas: ["common"]              # Only common areas
+      
+  - id: "integration"
+    name: "Integration"
+    description: "API access for integrations"
+    permissions: []                  # Defined per API key
+```
+
+### Permission Model
+
+Permissions follow a `resource:action` pattern:
+
+```yaml
+permissions:
+  # Device permissions
+  devices:
+    - "devices:read"                 # View device state
+    - "devices:control"              # Control devices
+    - "devices:configure"            # Change device settings
+    
+  # Scene permissions
+  scenes:
+    - "scenes:read"                  # View scenes
+    - "scenes:execute"               # Activate scenes
+    - "scenes:manage"                # Create/edit/delete scenes
+    
+  # Schedule permissions
+  schedules:
+    - "schedules:read"               # View schedules
+    - "schedules:manage"             # Create/edit/delete schedules
+    
+  # Mode permissions
+  modes:
+    - "modes:read"                   # View current mode
+    - "modes:change"                 # Change system mode
+    
+  # User permissions
+  users:
+    - "users:read"                   # View user list
+    - "users:manage"                 # Create/edit/delete users
+    
+  # System permissions
+  system:
+    - "system:read"                  # View system status
+    - "system:configure"             # Change system configuration
+    
+  # Energy permissions
+  energy:
+    - "energy:read"                  # View energy data
+    
+  # PHM permissions
+  phm:
+    - "phm:read"                     # View health data
+    - "phm:configure"                # Configure PHM settings
+    
+  # Audit permissions
+  audit:
+    - "audit:read"                   # View audit logs
+    
+  # Special permissions
+  special:
+    - "all"                          # Full access (admin only)
+    - "security:arm"                 # Arm security system
+    - "security:disarm"              # Disarm security system
+```
+
+### Area-Based Scoping
+
+Permissions can be scoped to specific areas:
+
+```yaml
+user:
+  id: "usr-002"
+  name: "Jane"
+  role: "user"
+  
+  # Area scope
+  scope:
+    type: "areas"
+    areas:
+      - "area-floor-2"
+      - "area-meeting-rooms"
+      
+# Jane can only control devices in floor 2 and meeting rooms
+```
+
+### Permission Checking
+
+```go
+// Example permission check in Core
+func (s *Service) ControlDevice(ctx context.Context, deviceID string, cmd Command) error {
+    user := auth.UserFromContext(ctx)
+    device := s.devices.Get(deviceID)
+    
+    // Check permission
+    if !user.HasPermission("devices:control") {
+        return ErrInsufficientPermissions
+    }
+    
+    // Check scope
+    if !user.CanAccessArea(device.AreaID) {
+        return ErrInsufficientPermissions
+    }
+    
+    // Execute command
+    return s.executeCommand(device, cmd)
+}
+```
+
+---
+
+## API Security
+
+### API Key Management
+
+For service-to-service and integration access:
+
+```yaml
+api_keys:
+  - id: "key-home-assistant"
+    name: "Home Assistant Integration"
+    key_hash: "sha256:..."           # Never store plain key
+    permissions:
+      - "devices:read"
+      - "devices:control"
+      - "scenes:execute"
+    scope:
+      areas: ["all"]
+    rate_limit:
+      requests_per_minute: 60
+    expires: null                    # Never expires
+    
+  - id: "key-monitoring"
+    name: "External Monitoring"
+    key_hash: "sha256:..."
+    permissions:
+      - "system:read"
+      - "phm:read"
+      - "energy:read"
+    rate_limit:
+      requests_per_minute: 30
+    expires: "2027-01-01T00:00:00Z"
+```
+
+### Rate Limiting
+
+Prevent abuse and DoS attacks:
+
+```yaml
+rate_limiting:
+  enabled: true
+  
+  # Global limits
+  global:
+    requests_per_second: 100
+    burst: 200
+    
+  # Per-user limits
+  per_user:
+    requests_per_minute: 300
+    burst: 50
+    
+  # Per-IP limits (unauthenticated)
+  per_ip:
+    requests_per_minute: 60
+    burst: 20
+    
+  # Endpoint-specific limits
+  endpoints:
+    - path: "/api/v1/auth/login"
+      requests_per_minute: 10        # Prevent brute force
+      
+    - path: "/api/v1/voice/*"
+      requests_per_minute: 30        # Voice commands
+```
+
+### Request Validation
+
+All API requests are validated:
+
+```yaml
+request_validation:
+  # Input validation
+  input:
+    max_body_size_kb: 1024
+    max_string_length: 10000
+    sanitize_html: true
+    validate_json: true
+    
+  # Headers
+  headers:
+    require_content_type: true
+    allowed_content_types:
+      - "application/json"
+      
+  # Query parameters
+  query:
+    max_array_size: 100
+    max_string_length: 1000
+```
+
+---
+
+## Transport Security
+
+### TLS Configuration
+
+All connections use TLS:
+
+```yaml
+tls:
+  enabled: true
+  
+  # Certificate configuration
+  certificate:
+    cert_file: "/etc/graylogic/certs/server.crt"
+    key_file: "/etc/graylogic/certs/server.key"
+    ca_file: "/etc/graylogic/certs/ca.crt"
+    
+  # TLS version
+  min_version: "1.2"
+  max_version: "1.3"
+  
+  # Cipher suites (TLS 1.2)
+  cipher_suites:
+    - "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+    - "TLS_ECDHE_RSA_WITH_AES_128_GCM_SHA256"
+    - "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"
+    - "TLS_ECDHE_ECDSA_WITH_AES_128_GCM_SHA256"
+    
+  # HSTS
+  hsts:
+    enabled: true
+    max_age_seconds: 31536000
+    include_subdomains: true
+```
+
+### Certificate Management
+
+```yaml
+certificates:
+  # Self-signed (development/internal)
+  self_signed:
+    enabled: true
+    validity_days: 365
+    auto_renew: true
+    renew_before_days: 30
+    
+  # Let's Encrypt (if internet available)
+  letsencrypt:
+    enabled: false
+    email: "admin@example.com"
+    domains:
+      - "graylogic.example.com"
+    challenge: "dns-01"              # For internal networks
+    
+  # Custom CA (enterprise)
+  custom_ca:
+    enabled: false
+    ca_cert: "/path/to/ca.crt"
+```
+
+### MQTT Security
+
+```yaml
+mqtt:
+  security:
+    # TLS
+    tls:
+      enabled: true
+      cert_file: "/etc/graylogic/certs/mqtt.crt"
+      key_file: "/etc/graylogic/certs/mqtt.key"
+      
+    # Authentication
+    authentication:
+      enabled: true
+      method: "password"             # password | certificate
+      
+    # ACLs
+    acl:
+      enabled: true
+      rules:
+        - user: "core"
+          topic: "#"
+          access: "readwrite"
+          
+        - user: "bridge-knx"
+          topic: "graylogic/+/knx/#"
+          access: "readwrite"
+          
+        - user: "bridge-knx"
+          topic: "graylogic/state/#"
+          access: "read"
+```
+
+---
+
+## Secrets Management
+
+### Environment Variables
+
+Sensitive values from environment:
+
+```yaml
+secrets:
+  method: "environment"
+  
+  variables:
+    - JWT_SECRET
+    - DB_ENCRYPTION_KEY
+    - LDAP_BIND_PASSWORD
+    - INFLUXDB_TOKEN
+    - MQTT_PASSWORD
+```
+
+### Secrets File
+
+For deployments without environment variable support:
+
+```yaml
+secrets:
+  method: "file"
+  file: "/etc/graylogic/secrets.yaml"
+  permissions: "0600"
+  owner: "graylogic"
+```
+
+**secrets.yaml** (encrypted at rest):
+```yaml
+jwt_secret: "randomly-generated-secret"
+db_encryption_key: "another-random-secret"
+ldap_bind_password: "ad-password"
+```
+
+### Secret Rotation
+
+```yaml
+secret_rotation:
+  jwt_secret:
+    auto_rotate: false               # Manual rotation recommended
+    
+  api_keys:
+    max_age_days: 365
+    warn_before_expiry_days: 30
+```
+
+---
+
+## Audit Logging
+
+### What is Logged
+
+All security-relevant events are logged:
+
+```yaml
+audit:
+  enabled: true
+  
+  events:
+    # Authentication
+    - "auth.login.success"
+    - "auth.login.failure"
+    - "auth.logout"
+    - "auth.token.refresh"
+    - "auth.lockout"
+    
+    # Authorization
+    - "auth.permission.denied"
+    
+    # User management
+    - "user.created"
+    - "user.updated"
+    - "user.deleted"
+    - "user.password.changed"
+    
+    # API keys
+    - "apikey.created"
+    - "apikey.revoked"
+    
+    # System
+    - "system.config.changed"
+    - "system.backup.created"
+    - "system.restore.performed"
+    
+    # Security
+    - "security.arm"
+    - "security.disarm"
+    - "security.alarm"
+    
+    # Sensitive commands
+    - "device.command"               # All device commands
+    - "scene.activated"
+    - "mode.changed"
+```
+
+### Audit Log Format
+
+```yaml
+audit_log:
+  format: "json"
+  
+  fields:
+    - timestamp                      # ISO 8601
+    - event_type                     # Event category
+    - user_id                        # Who
+    - user_ip                        # From where
+    - resource                       # What resource
+    - action                         # What action
+    - result                         # Success/failure
+    - details                        # Additional context
+```
+
+**Example log entry:**
+```json
+{
+  "timestamp": "2026-01-13T10:30:00Z",
+  "event_type": "auth.login.failure",
+  "user_id": null,
+  "user_ip": "192.168.1.50",
+  "resource": "auth",
+  "action": "login",
+  "result": "failure",
+  "details": {
+    "username": "admin",
+    "reason": "invalid_password",
+    "attempt": 3
+  }
+}
+```
+
+### Log Storage
+
+```yaml
+audit_log:
+  storage:
+    type: "file"
+    path: "/var/log/graylogic/audit.log"
+    
+  rotation:
+    max_size_mb: 100
+    max_files: 10
+    compress: true
+    
+  retention:
+    days: 365                        # Keep for 1 year
+    
+  # Optional: forward to SIEM
+  siem:
+    enabled: false
+    type: "syslog"
+    host: "siem.company.local"
+    port: 514
+    protocol: "tcp"
+```
+
+---
+
+## Network Security
+
+### VLAN Segregation
+
+Recommended network architecture:
+
+```yaml
+network_segregation:
+  vlans:
+    - id: 100
+      name: "building_control"
+      devices:
+        - "Gray Logic Server"
+        - "KNX/IP Interface"
+        - "DALI Gateways"
+        - "Modbus Gateways"
+      internet_access: false
+      
+    - id: 200
+      name: "security"
+      devices:
+        - "CCTV NVR"
+        - "Alarm Panel"
+        - "Access Control"
+      internet_access: false
+      
+    - id: 300
+      name: "user"
+      devices:
+        - "Wall Panels"
+        - "User devices"
+      internet_access: true
+```
+
+### Firewall Rules
+
+```yaml
+firewall:
+  default_policy: "deny"
+  
+  rules:
+    # User VLAN → Control VLAN (Gray Logic API only)
+    - name: "User to GL API"
+      source: "vlan_300"
+      destination: "gray_logic_server"
+      port: 443
+      protocol: "tcp"
+      action: "allow"
+      
+    # Control VLAN → Security VLAN (limited)
+    - name: "GL to NVR"
+      source: "gray_logic_server"
+      destination: "nvr"
+      port: 554                      # RTSP
+      protocol: "tcp"
+      action: "allow"
+      
+    # No direct access from internet
+    - name: "Block WAN"
+      source: "wan"
+      destination: "vlan_100"
+      action: "deny"
+```
+
+### Remote Access
+
+Remote access via WireGuard VPN only:
+
+```yaml
+remote_access:
+  method: "wireguard"
+  
+  wireguard:
+    listen_port: 51820
+    interface: "wg0"
+    
+    # Server configuration
+    server:
+      private_key_env: "WG_PRIVATE_KEY"
+      address: "10.100.0.1/24"
+      
+    # Authorized peers
+    peers:
+      - name: "Owner Mobile"
+        public_key: "peer-public-key"
+        allowed_ips: "10.100.0.2/32"
+        
+      - name: "Support"
+        public_key: "support-public-key"
+        allowed_ips: "10.100.0.10/32"
+        # Time-limited access
+        valid_until: "2026-02-01T00:00:00Z"
+```
+
+---
+
+## Security Best Practices
+
+### Deployment Checklist
+
+```yaml
+deployment_security_checklist:
+  network:
+    - [ ] VLANs configured and tested
+    - [ ] Firewall rules in place
+    - [ ] No unnecessary internet access
+    - [ ] WireGuard for remote access only
+    
+  authentication:
+    - [ ] Strong admin password set
+    - [ ] Default accounts disabled/renamed
+    - [ ] API keys generated securely
+    - [ ] JWT secret is random and secure
+    
+  encryption:
+    - [ ] TLS enabled on all endpoints
+    - [ ] Valid certificates installed
+    - [ ] MQTT TLS enabled
+    - [ ] Secrets stored securely
+    
+  monitoring:
+    - [ ] Audit logging enabled
+    - [ ] Log retention configured
+    - [ ] Failed login alerts configured
+    
+  physical:
+    - [ ] Server in secure location
+    - [ ] Network cabinet locked
+    - [ ] USB ports disabled (optional)
+```
+
+### Security Hardening
+
+```yaml
+hardening:
+  # Disable unnecessary features
+  disable:
+    - "remote_debugging"
+    - "anonymous_access"
+    - "auto_discovery"               # After commissioning
+    
+  # Timeouts
+  timeouts:
+    idle_session_minutes: 60
+    api_request_seconds: 30
+    
+  # Headers
+  security_headers:
+    - "X-Content-Type-Options: nosniff"
+    - "X-Frame-Options: DENY"
+    - "X-XSS-Protection: 1; mode=block"
+    - "Content-Security-Policy: default-src 'self'"
+```
+
+### Incident Response
+
+```yaml
+incident_response:
+  # Account compromise
+  account_compromise:
+    - "Disable affected account immediately"
+    - "Revoke all sessions and API keys"
+    - "Review audit logs"
+    - "Reset password"
+    - "Enable additional monitoring"
+    
+  # Suspected intrusion
+  intrusion:
+    - "Isolate system from network"
+    - "Preserve audit logs"
+    - "Document timeline"
+    - "Contact security professional"
+    
+  # Data breach
+  data_breach:
+    - "Identify scope of breach"
+    - "Notify affected parties (if applicable)"
+    - "Preserve evidence"
+    - "Remediate vulnerability"
+```
+
+---
+
+## Compliance Considerations
+
+### Data Protection
+
+```yaml
+data_protection:
+  # Personal data handling
+  personal_data:
+    - "User names and credentials"
+    - "Presence/occupancy patterns"
+    - "Voice recordings (if enabled)"
+    
+  # Privacy by design
+  privacy:
+    - "Minimize data collection"
+    - "Local processing preferred"
+    - "No cloud storage of personal data by default"
+    - "Clear retention policies"
+    
+  # GDPR considerations (EU deployments)
+  gdpr:
+    data_subject_rights:
+      - "Right to access"
+      - "Right to rectification"
+      - "Right to erasure"
+    data_controller: "Property owner"
+    data_processor: "Gray Logic (if providing support)"
+```
+
+### Industry Standards
+
+```yaml
+standards_alignment:
+  # Relevant standards
+  standards:
+    - name: "ISO 27001"
+      scope: "Information security management"
+      status: "Aligned (not certified)"
+      
+    - name: "IEC 62443"
+      scope: "Industrial automation security"
+      status: "Aligned for relevant controls"
+      
+    - name: "NIST Cybersecurity Framework"
+      scope: "Cybersecurity best practices"
+      status: "Aligned"
+```
+
+---
+
+## Configuration Reference
+
+### Complete Security Configuration
+
+```yaml
+# /etc/graylogic/security.yaml
+security:
+  # Authentication
+  auth:
+    local:
+      enabled: true
+      password_policy:
+        min_length: 12
+      lockout:
+        enabled: true
+        max_attempts: 5
+        
+    ldap:
+      enabled: false
+      
+    oidc:
+      enabled: false
+      
+  # Session management
+  session:
+    access_token_lifetime_minutes: 60
+    refresh_token_lifetime_days: 30
+    
+  # TLS
+  tls:
+    enabled: true
+    min_version: "1.2"
+    cert_file: "/etc/graylogic/certs/server.crt"
+    key_file: "/etc/graylogic/certs/server.key"
+    
+  # Rate limiting
+  rate_limiting:
+    enabled: true
+    per_user:
+      requests_per_minute: 300
+      
+  # Audit logging
+  audit:
+    enabled: true
+    retention_days: 365
+    
+  # Remote access
+  remote_access:
+    method: "wireguard"
+```
+
+---
+
+## Related Documents
+
+- [System Overview](system-overview.md) — Overall architecture
+- [Core Internals](core-internals.md) — Core security implementation
+- [API Specification](../interfaces/api.md) — API authentication details
+- [Principles](../overview/principles.md) — Security principles
+- [Office/Commercial Deployment](../deployment/office-commercial.md) — AD integration
+- [Residential Deployment](../deployment/residential.md) — Home security

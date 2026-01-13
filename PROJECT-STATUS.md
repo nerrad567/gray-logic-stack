@@ -17,7 +17,7 @@
 | API Specification | ✅ Complete |
 | Automation Spec | ✅ Complete |
 | Intelligence Specs | ✅ Complete |
-| Resilience Specs | ❌ Empty |
+| Resilience Specs | ✅ Complete |
 | Deployment Guides | ✅ Complete |
 | Business Docs | ❌ Empty |
 | Code | ❌ Not started |
@@ -38,6 +38,7 @@
 - [x] `core-internals.md` — Go Core package structure
 - [x] `bridge-interface.md` — MQTT bridge contract
 - [x] `energy-model.md` — Bidirectional energy flows
+- [x] `security-model.md` — Authentication and authorization ✓
 
 #### Data Model (`docs/data-model/`)
 - [x] `entities.md` — Core entities (Site, Area, Room, Device, Scene, etc.)
@@ -49,6 +50,7 @@
 - [x] `modbus.md` — Modbus RTU/TCP for plant equipment
 - [x] `mqtt.md` — Internal message bus
 - [x] `bacnet.md` — BACnet roadmap (Year 2 placeholder)
+- [x] `ocpp.md` — EV charging protocol ✓
 
 #### Integrations (`docs/integration/`)
 - [x] `cctv.md` — CCTV and video surveillance
@@ -76,6 +78,13 @@
 - [x] `ai-premium-features.md` — AI feature boundaries
 - [x] `phm.md` — Predictive Health Monitoring framework ✓
 - [x] `voice.md` — Voice pipeline specification (Whisper, NLU, Piper) ✓
+- [x] `weather.md` — Weather integration ✓
+
+#### Resilience (`docs/resilience/`)
+- [x] `offline.md` — Offline behavior and graceful degradation ✓
+- [x] `backup.md` — Backup and recovery procedures ✓
+- [x] `satellite-weather.md` — Satellite weather decode ✓
+- [x] `mesh-comms.md` — LoRa/Meshtastic mesh communications ✓
 
 ---
 
@@ -100,15 +109,11 @@
 
 #### Intelligence — Complete ✓
 
+#### Resilience — Complete ✓
+
 ---
 
 ### ❌ Empty / Not Started
-
-#### Resilience (`docs/resilience/`)
-- [ ] `offline.md` — Offline behavior and graceful degradation
-- [ ] `backup.md` — Backup and recovery procedures
-- [ ] `satellite-weather.md` — Weather nowcast integration
-- [ ] `mesh-comms.md` — LoRa/Meshtastic out-of-band comms
 
 #### Business (`docs/business/`)
 - [ ] `business-case.md` — Business case and market positioning
@@ -190,6 +195,22 @@
 - `docs/intelligence/voice.md` — Voice pipeline specification (Whisper, NLU, Piper) (~1,000 lines)
 - `docs/deployment/residential.md` — Residential deployment guide (~1,200 lines)
 
+### 2026-01-13 — Resilience & Infrastructure Sprint
+
+**Created:**
+- `docs/architecture/security-model.md` — Authentication, authorization, encryption (~750 lines)
+- `docs/resilience/offline.md` — Offline behavior and graceful degradation (~650 lines)
+- `docs/resilience/backup.md` — Backup and recovery procedures (~700 lines)
+- `docs/intelligence/weather.md` — Weather integration specification (~700 lines)
+- `docs/resilience/satellite-weather.md` — Satellite weather decode (~550 lines)
+- `docs/resilience/mesh-comms.md` — LoRa/Meshtastic mesh communications (~650 lines)
+- `docs/protocols/ocpp.md` — EV charging protocol specification (~750 lines)
+
+**Fixed:**
+- Broken cross-references to security-model.md, weather.md, ocpp.md
+- Added Resilience category (was empty)
+- Completed all referenced but missing documents
+
 **Architecture additions:**
 - `DeviceAssociation` entity — External monitoring and control proxy relationships
 - `Association Resolver` component — Handles data attribution and command routing
@@ -225,12 +246,15 @@
 4. [x] Security domain spec (`docs/domains/security.md`) ✓
 5. [x] Energy domain spec (`docs/domains/energy.md`) ✓
 6. [x] PHM specification (`docs/intelligence/phm.md`) ✓
-7. [ ] Backup & recovery (`docs/resilience/backup.md`)
+7. [x] Backup & recovery (`docs/resilience/backup.md`) ✓
+8. [x] Security model (`docs/architecture/security-model.md`) ✓
+9. [x] Weather integration (`docs/intelligence/weather.md`) ✓
+10. [x] Resilience specs (offline, satellite-weather, mesh-comms) ✓
+11. [x] OCPP protocol (`docs/protocols/ocpp.md`) ✓
 
 ### Lower Priority (Can Wait)
-8. [ ] JSON Schemas for entities
-9. [ ] Business case refresh
-10. [ ] Offline behavior spec
+- [ ] JSON Schemas for entities
+- [ ] Business case documentation
 
 ### Code (When Ready)
 - [ ] Set up Go project structure

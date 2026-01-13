@@ -806,7 +806,7 @@ irrigation:
 ## Related Documents
 
 - [Lighting Domain](lighting.md) — Outdoor lighting control
-- [Weather Integration](../intelligence/weather.md) — Weather data (to be created)
+- [Weather Integration](../intelligence/weather.md) — Weather data
 - [PHM Specification](../intelligence/phm.md) — Equipment health monitoring
 - [Automation Specification](../automation/automation.md) — Schedule integration
 - [Leak Protection](leak-protection.md) — Water leak detection
