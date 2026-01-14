@@ -17,6 +17,7 @@ Pivoted from openHAB-based approach to custom **Gray Logic Core** written in Go 
 | [System Overview](docs/architecture/system-overview.md) | Technical architecture |
 | [Entities](docs/data-model/entities.md) | Core data model |
 | [CHANGELOG](CHANGELOG.md) | Version history |
+| [Business Case](docs/business/business-case.md) | Market positioning and strategy |
 
 ## Documentation Structure
 
@@ -28,7 +29,10 @@ docs/
 ├── protocols/          # KNX, DALI, Modbus, MQTT, BACnet
 ├── domains/            # Lighting, climate, blinds, plant
 ├── integration/        # Access control, CCTV, fire alarm
+├── intelligence/       # AI, voice, PHM, weather
+├── resilience/         # Offline, backup, mesh comms
 ├── deployment/         # Installation guides
+├── business/           # Business case, pricing, sales
 └── archive/            # v0.4 openHAB-era docs (zip)
 ```
 
@@ -70,5 +74,5 @@ Previous openHAB-based documentation (v0.4) preserved in:
 
 ## License
 
-MIT License — See [LICENSE](LICENSE) for details.
+GPL v3 License — See [LICENSE](LICENSE) for details.
 

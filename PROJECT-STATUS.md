@@ -1,6 +1,6 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-12 (Session 2)  
+> **Last Updated:** 2026-01-14 (Session 3)  
 > **Current Phase:** Documentation (Pre-Development)
 
 ---
@@ -19,7 +19,7 @@
 | Intelligence Specs | ✅ Complete |
 | Resilience Specs | ✅ Complete |
 | Deployment Guides | ✅ Complete |
-| Business Docs | ❌ Empty |
+| Business Docs | ✅ Complete |
 | Code | ❌ Not started |
 
 ---
@@ -111,14 +111,17 @@
 
 #### Resilience — Complete ✓
 
+#### Business (`docs/business/`) — Complete ✓
+- [x] `business-case.md` — Business case, market analysis, open source strategy
+- [x] `pricing.md` — Installation tiers, hardware strategy, support tiers
+- [x] `sales-spec.md` — Customer journey, proposals, contracts, installation
+- [x] `go-to-market.md` — Phased growth strategy, marketing channels
+- [x] `certification.md` — Training curriculum, partner benefits, quality control
+- [x] `institutional-principles.md` — Building for generations, succession, knowledge preservation
+
 ---
 
 ### ❌ Empty / Not Started
-
-#### Business (`docs/business/`)
-- [ ] `business-case.md` — Business case and market positioning
-- [ ] `pricing.md` — Support tiers and pricing model
-- [ ] `sales-spec.md` — Sales specification
 
 #### Data Model Schemas (`docs/data-model/schemas/`)
 - [ ] JSON Schema definitions for all entities
@@ -233,6 +236,43 @@
 - Set GitHub repository to private
 - Configured sparse-checkout to exclude archive folders locally
 
+### 2026-01-14 — Business Documentation Sprint
+
+**Created:**
+- `docs/business/business-case.md` — Market analysis, competitor landscape, open source strategy, positioning (~650 lines)
+- `docs/business/pricing.md` — Installation tiers (Essential/Standard/Premium/Estate), hardware pricing, support tiers, margin guidance (~600 lines)
+- `docs/business/sales-spec.md` — Full customer journey from enquiry to post-installation support (~700 lines)
+- `docs/business/go-to-market.md` — Phased growth strategy (Foundation → Growth → Scale), marketing channels, portfolio development (~550 lines)
+- `docs/business/certification.md` — Training curriculum, certification levels, partner benefits, quality control framework (~600 lines)
+
+**Business model defined:**
+- Phase 1: Boutique installer (Years 1-3) — direct installation, prove the product
+- Phase 2: Growth (Years 3-5) — training courses, certification pilot, referral network
+- Phase 3: Scale (Year 5+) — certification programme, hardware wholesale, exit viability
+
+**Pricing tiers established:**
+- Essential: £8k-15k (lighting + scenes)
+- Standard: £15k-25k (+ climate + blinds)
+- Premium: £25k-40k (+ audio + security)
+- Estate: £40k+ (multiple buildings)
+
+**Open source strategy documented:**
+- Software open source (GPL v3) for transparency and longevity
+- Revenue from: installation services, custom hardware, support contracts, training, certification
+
+**Licensing and trademark:**
+- Changed from MIT to GPL v3 (copyleft ensures derivatives stay open)
+- Created LICENSE file with GPL v3 text
+- Documented trademark strategy (brand protection + GPL work together)
+- Updated all license references across documentation
+
+**Institutional framing added:**
+- Created `docs/business/institutional-principles.md` — building for generations
+- Focus on enduring value: knowledge, reputation, network, brand, physical assets
+- Decision framework prioritising 30-year impact over short-term gains
+- Succession principles (choice, not obligation)
+- Acknowledgement that economic systems may change, but human needs remain
+
 ---
 
 ## Next Actions
@@ -254,7 +294,7 @@
 
 ### Lower Priority (Can Wait)
 - [ ] JSON Schemas for entities
-- [ ] Business case documentation
+- [x] Business documentation ✓
 
 ### Code (When Ready)
 - [ ] Set up Go project structure
