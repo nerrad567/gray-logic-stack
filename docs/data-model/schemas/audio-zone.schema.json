@@ -1,0 +1,89 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/audio-zone.schema.json",
+  "title": "AudioZone",
+  "description": "A multi-room audio zone grouping speakers and rooms",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this audio zone"
+    },
+    "site_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Site this zone belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Living Area", "Upstairs", "Garden"]
+    },
+    "matrix_zone": {
+      "type": "integer",
+      "description": "Zone number on audio matrix",
+      "minimum": 1
+    },
+    "rooms": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/uuid" },
+      "description": "Room IDs this zone covers"
+    },
+    "state": {
+      "type": "object",
+      "description": "Current zone state",
+      "properties": {
+        "power": {
+          "type": "boolean",
+          "description": "Zone power state"
+        },
+        "source": {
+          "type": "integer",
+          "description": "Current source input number",
+          "minimum": 0
+        },
+        "volume": {
+          "type": "integer",
+          "description": "Volume level (0-100)",
+          "minimum": 0,
+          "maximum": 100
+        },
+        "mute": {
+          "type": "boolean",
+          "description": "Mute state"
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the zone was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the zone was last updated"
+    }
+  },
+
+  "required": ["id", "site_id", "name", "matrix_zone", "rooms"],
+
+  "examples": [
+    {
+      "id": "e1f7a6b8-5678-9012-def0-123456789012",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Living Area",
+      "matrix_zone": 1,
+      "rooms": [
+        "c9d5e4f6-3456-7890-bcde-f01234567890",
+        "c9d5e4f6-3456-7890-bcde-f01234567891"
+      ],
+      "state": {
+        "power": true,
+        "source": 2,
+        "volume": 45,
+        "mute": false
+      }
+    }
+  ]
+}

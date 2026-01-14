@@ -1,0 +1,129 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/climate-zone.schema.json",
+  "title": "ClimateZone",
+  "description": "An HVAC zone grouping rooms with shared climate control",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this climate zone"
+    },
+    "site_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Site this zone belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Ground Floor", "Master Suite", "North Wing"]
+    },
+    "rooms": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/uuid" },
+      "description": "Room IDs in this zone"
+    },
+    "thermostat_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Primary thermostat device ID"
+    },
+    "sensors": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/uuid" },
+      "description": "Temperature sensor device IDs"
+    },
+    "actuators": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/uuid" },
+      "description": "Valve/actuator device IDs"
+    },
+    "setpoints": {
+      "type": "object",
+      "description": "Temperature setpoints",
+      "properties": {
+        "heating": {
+          "type": "number",
+          "description": "Heating setpoint in configured units"
+        },
+        "cooling": {
+          "type": "number",
+          "description": "Cooling setpoint in configured units"
+        }
+      }
+    },
+    "state": {
+      "type": "object",
+      "description": "Current zone state",
+      "properties": {
+        "current_temp": {
+          "type": "number",
+          "description": "Current temperature"
+        },
+        "target_temp": {
+          "type": "number",
+          "description": "Target temperature"
+        },
+        "mode": {
+          "type": "string",
+          "enum": ["off", "heating", "cooling", "auto"],
+          "description": "Current mode"
+        },
+        "humidity": {
+          "oneOf": [
+            { "type": "number", "minimum": 0, "maximum": 100 },
+            { "type": "null" }
+          ],
+          "description": "Current humidity percentage"
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the zone was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the zone was last updated"
+    }
+  },
+
+  "required": ["id", "site_id", "name", "rooms"],
+
+  "examples": [
+    {
+      "id": "d0e6f5a7-4567-8901-cdef-012345678901",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Ground Floor",
+      "rooms": [
+        "c9d5e4f6-3456-7890-bcde-f01234567890",
+        "c9d5e4f6-3456-7890-bcde-f01234567891",
+        "c9d5e4f6-3456-7890-bcde-f01234567892"
+      ],
+      "thermostat_id": "d1e2f3a4-5678-9012-bcde-f01234567892",
+      "sensors": [
+        "d1e2f3a4-5678-9012-bcde-f01234567893",
+        "d1e2f3a4-5678-9012-bcde-f01234567894"
+      ],
+      "actuators": [
+        "d1e2f3a4-5678-9012-bcde-f01234567895",
+        "d1e2f3a4-5678-9012-bcde-f01234567896"
+      ],
+      "setpoints": {
+        "heating": 21.0,
+        "cooling": 24.0
+      },
+      "state": {
+        "current_temp": 20.5,
+        "target_temp": 21.0,
+        "mode": "heating",
+        "humidity": 45
+      }
+    }
+  ]
+}

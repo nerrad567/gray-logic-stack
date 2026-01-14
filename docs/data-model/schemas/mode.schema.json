@@ -1,0 +1,161 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/mode.schema.json",
+  "title": "Mode",
+  "description": "System-wide operational state that affects automation behaviour",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Mode identifier",
+      "minLength": 1,
+      "maxLength": 32,
+      "pattern": "^[a-z_]+$",
+      "examples": ["home", "away", "night", "holiday"]
+    },
+    "name": {
+      "type": "string",
+      "description": "Display name",
+      "minLength": 1,
+      "maxLength": 64,
+      "examples": ["Home", "Away", "Night", "Holiday"]
+    },
+    "icon": {
+      "type": "string",
+      "description": "Icon identifier",
+      "maxLength": 64,
+      "examples": ["home", "door-open", "moon", "plane"]
+    },
+    "color": {
+      "$ref": "common.schema.json#/$defs/hexColor",
+      "description": "UI colour"
+    },
+    "behaviours": {
+      "$ref": "common.schema.json#/$defs/ModeBehaviours",
+      "description": "Behaviour modifications when this mode is active"
+    },
+    "can_activate": {
+      "$ref": "common.schema.json#/$defs/ModeActivation",
+      "description": "Rules for who can activate this mode"
+    }
+  },
+
+  "required": ["id", "name", "icon", "color"],
+
+  "examples": [
+    {
+      "id": "home",
+      "name": "Home",
+      "icon": "home",
+      "color": "#22C55E",
+      "behaviours": {
+        "climate": {
+          "setpoint_offset": 0,
+          "eco_mode": false
+        },
+        "lighting": {
+          "auto_off_enabled": true,
+          "auto_off_delay_min": 15,
+          "max_brightness": 100
+        },
+        "security": {
+          "arm_state": "disarm"
+        },
+        "notifications": {
+          "priority_only": false
+        }
+      },
+      "can_activate": {
+        "roles": ["admin", "resident"],
+        "require_pin": false,
+        "remote_allowed": true
+      }
+    },
+    {
+      "id": "away",
+      "name": "Away",
+      "icon": "door-open",
+      "color": "#EAB308",
+      "behaviours": {
+        "climate": {
+          "setpoint_offset": -3,
+          "eco_mode": true
+        },
+        "lighting": {
+          "auto_off_enabled": true,
+          "auto_off_delay_min": 5,
+          "max_brightness": 50
+        },
+        "security": {
+          "arm_state": "arm_away"
+        },
+        "notifications": {
+          "priority_only": true
+        }
+      },
+      "can_activate": {
+        "roles": ["admin", "resident"],
+        "require_pin": false,
+        "remote_allowed": true
+      }
+    },
+    {
+      "id": "night",
+      "name": "Night",
+      "icon": "moon",
+      "color": "#6366F1",
+      "behaviours": {
+        "climate": {
+          "setpoint_offset": -2,
+          "eco_mode": false
+        },
+        "lighting": {
+          "auto_off_enabled": true,
+          "auto_off_delay_min": 5,
+          "max_brightness": 30
+        },
+        "security": {
+          "arm_state": "arm_stay"
+        },
+        "audio": {
+          "max_volume": 30
+        },
+        "notifications": {
+          "priority_only": true
+        }
+      },
+      "can_activate": {
+        "roles": ["admin", "resident"],
+        "require_pin": false,
+        "remote_allowed": true
+      }
+    },
+    {
+      "id": "holiday",
+      "name": "Holiday",
+      "icon": "plane",
+      "color": "#F97316",
+      "behaviours": {
+        "climate": {
+          "setpoint_offset": -5,
+          "eco_mode": true
+        },
+        "lighting": {
+          "presence_simulation": true
+        },
+        "security": {
+          "arm_state": "arm_away"
+        },
+        "notifications": {
+          "priority_only": true
+        }
+      },
+      "can_activate": {
+        "roles": ["admin"],
+        "require_pin": true,
+        "remote_allowed": true
+      }
+    }
+  ]
+}

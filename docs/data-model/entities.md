@@ -1087,16 +1087,23 @@ ClimateZone:
 
 ## Schema Files
 
-Formal JSON Schema definitions are maintained in `docs/data-model/schemas/`:
+Formal JSON Schema definitions are maintained in [`docs/data-model/schemas/`](schemas/README.md):
 
-- `site.schema.json`
-- `area.schema.json`
-- `room.schema.json`
-- `device.schema.json`
-- `scene.schema.json`
-- `schedule.schema.json`
-- `mode.schema.json`
-- `user.schema.json`
+- `common.schema.json` — Shared enums and embedded types
+- `site.schema.json` — Site entity
+- `area.schema.json` — Area entity
+- `room.schema.json` — Room entity
+- `device.schema.json` — Device entity (all types, protocols, capabilities)
+- `scene.schema.json` — Scene entity
+- `schedule.schema.json` — Schedule entity
+- `mode.schema.json` — Mode entity
+- `condition.schema.json` — Condition entity
+- `user.schema.json` — User entity
+- `device-association.schema.json` — DeviceAssociation entity
+- `audio-zone.schema.json` — AudioZone entity
+- `climate-zone.schema.json` — ClimateZone entity
+
+These schemas support runtime validation, documentation, and code generation. See the [schemas README](schemas/README.md) for usage examples.
 
 ---
 

@@ -1,0 +1,85 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/site.schema.json",
+  "title": "Site",
+  "description": "A single Gray Logic installation representing a property or building",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this site"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Oak Street Residence", "Acme Corp HQ"]
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "URL-safe identifier",
+      "examples": ["oak-street", "acme-hq"]
+    },
+    "location": {
+      "$ref": "common.schema.json#/$defs/Location",
+      "description": "Physical location of the site"
+    },
+    "modes": {
+      "$ref": "common.schema.json#/$defs/SiteModes",
+      "description": "Available and current operational modes"
+    },
+    "settings": {
+      "type": "object",
+      "description": "Site-wide settings",
+      "properties": {
+        "units": {
+          "$ref": "common.schema.json#/$defs/UnitSettings"
+        },
+        "locale": {
+          "type": "string",
+          "description": "Language/locale code",
+          "default": "en-GB",
+          "examples": ["en-GB", "en-US", "de-DE"]
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the site was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the site was last updated"
+    }
+  },
+
+  "required": ["id", "name", "slug", "location", "modes"],
+
+  "examples": [
+    {
+      "id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Oak Street Residence",
+      "slug": "oak-street",
+      "location": {
+        "address": "123 Oak Street, London",
+        "latitude": 51.5074,
+        "longitude": -0.1278,
+        "timezone": "Europe/London",
+        "elevation_m": 35
+      },
+      "modes": {
+        "available": ["home", "away", "night", "holiday", "entertaining"],
+        "current": "home"
+      },
+      "settings": {
+        "units": {
+          "temperature": "celsius",
+          "distance": "metric"
+        },
+        "locale": "en-GB"
+      }
+    }
+  ]
+}

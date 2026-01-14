@@ -1,0 +1,179 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/device-association.schema.json",
+  "title": "DeviceAssociation",
+  "description": "Links two devices together for monitoring, control, or combined purposes",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this association"
+    },
+    "source_device_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Device providing the service (sensor, relay, smart plug)"
+    },
+    "target_device_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Device being monitored/controlled"
+    },
+    "target_group_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Device group being monitored (alternative to target_device_id)"
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/AssociationType",
+      "description": "Type of relationship"
+    },
+    "config": {
+      "type": "object",
+      "description": "Association configuration",
+      "properties": {
+        "metrics": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "type": "string" }
+            },
+            { "type": "null" }
+          ],
+          "description": "Metrics to monitor (for monitoring associations)",
+          "examples": [["power_kw", "energy_kwh", "current_a"]]
+        },
+        "control_function": {
+          "oneOf": [
+            {
+              "type": "string",
+              "enum": ["power", "enable", "speed"]
+            },
+            { "type": "null" }
+          ],
+          "description": "Control function (for control associations)"
+        },
+        "source_property": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "description": "Property on source device"
+        },
+        "target_property": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "description": "Property to attribute to target"
+        },
+        "scale": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ],
+          "description": "Multiply source value by this factor"
+        },
+        "offset": {
+          "oneOf": [
+            { "type": "number" },
+            { "type": "null" }
+          ],
+          "description": "Add this to source value"
+        }
+      }
+    },
+    "description": {
+      "oneOf": [
+        { "type": "string", "maxLength": 256 },
+        { "type": "null" }
+      ],
+      "description": "Human-readable description"
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether association is active",
+      "default": true
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the association was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the association was last updated"
+    }
+  },
+
+  "required": ["id", "source_device_id", "type"],
+
+  "oneOf": [
+    {
+      "required": ["target_device_id"],
+      "properties": {
+        "target_group_id": { "type": "null" }
+      }
+    },
+    {
+      "required": ["target_group_id"],
+      "properties": {
+        "target_device_id": { "type": "null" }
+      }
+    }
+  ],
+
+  "examples": [
+    {
+      "id": "f1a2b3c4-5678-9012-cdef-0123456789ab",
+      "source_device_id": "ct-clamp-plantroom-1",
+      "target_device_id": "pump-chw-1",
+      "target_group_id": null,
+      "type": "monitors",
+      "config": {
+        "metrics": ["power_kw", "energy_kwh", "current_a"],
+        "source_property": "power",
+        "target_property": "power_kw"
+      },
+      "description": "CT clamp on CHW pump 1 supply",
+      "enabled": true
+    },
+    {
+      "id": "f1a2b3c4-5678-9012-cdef-0123456789ac",
+      "source_device_id": "relay-module-1-ch3",
+      "target_device_id": "pump-chw-1",
+      "target_group_id": null,
+      "type": "controls",
+      "config": {
+        "control_function": "power"
+      },
+      "description": "Relay controlling CHW pump 1",
+      "enabled": true
+    },
+    {
+      "id": "f1a2b3c4-5678-9012-cdef-0123456789ad",
+      "source_device_id": "smart-plug-garage",
+      "target_device_id": "heater-garage",
+      "target_group_id": null,
+      "type": "monitors_and_controls",
+      "config": {
+        "metrics": ["power_kw", "energy_kwh"],
+        "control_function": "power"
+      },
+      "description": "Smart plug for garage heater",
+      "enabled": true
+    },
+    {
+      "id": "f1a2b3c4-5678-9012-cdef-0123456789ae",
+      "source_device_id": "ct-clamp-db-ch5",
+      "target_device_id": null,
+      "target_group_id": "group-kitchen-lights",
+      "type": "monitors",
+      "config": {
+        "metrics": ["power_kw", "energy_kwh"]
+      },
+      "description": "Kitchen lighting circuit power",
+      "enabled": true
+    }
+  ]
+}

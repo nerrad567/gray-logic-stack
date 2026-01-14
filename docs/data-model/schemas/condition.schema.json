@@ -1,0 +1,92 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/condition.schema.json",
+  "title": "Condition",
+  "description": "A prerequisite for automation execution",
+  "type": "object",
+
+  "properties": {
+    "type": {
+      "$ref": "common.schema.json#/$defs/ConditionType",
+      "description": "Type of condition"
+    },
+    "operator": {
+      "$ref": "common.schema.json#/$defs/ConditionOperator",
+      "description": "Comparison operator"
+    },
+    "value": {
+      "description": "Value to compare against",
+      "oneOf": [
+        { "type": "string" },
+        { "type": "number" },
+        { "type": "boolean" },
+        { "type": "array" },
+        { "type": "object" },
+        { "type": "null" }
+      ]
+    },
+    "device_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Device reference for device_state conditions"
+    }
+  },
+
+  "required": ["type", "operator"],
+
+  "examples": [
+    {
+      "type": "mode",
+      "operator": "eq",
+      "value": "home"
+    },
+    {
+      "type": "mode",
+      "operator": "in",
+      "value": ["home", "night"]
+    },
+    {
+      "type": "time",
+      "operator": "between",
+      "value": ["22:00", "06:00"]
+    },
+    {
+      "type": "time",
+      "operator": "after",
+      "value": "08:00"
+    },
+    {
+      "type": "day",
+      "operator": "in",
+      "value": ["sat", "sun"]
+    },
+    {
+      "type": "device_state",
+      "operator": "gt",
+      "value": { "level": 50 },
+      "device_id": "d1e2f3a4-5678-9012-bcde-f01234567891"
+    },
+    {
+      "type": "presence",
+      "operator": "any_home",
+      "value": null
+    },
+    {
+      "type": "presence",
+      "operator": "user_home",
+      "value": "user-uuid-here"
+    },
+    {
+      "type": "sun",
+      "operator": "below_horizon",
+      "value": null
+    },
+    {
+      "type": "sun",
+      "operator": "elevation_gt",
+      "value": 10
+    }
+  ]
+}

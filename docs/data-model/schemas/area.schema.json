@@ -1,0 +1,69 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/area.schema.json",
+  "title": "Area",
+  "description": "A logical grouping within a site such as a floor, building, wing, or outdoor space",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this area"
+    },
+    "site_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Reference to parent site"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Ground Floor", "North Wing", "Pool House"]
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "URL-safe identifier",
+      "examples": ["ground-floor", "north-wing", "pool-house"]
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/AreaType",
+      "description": "Type of area"
+    },
+    "sort_order": {
+      "type": "integer",
+      "description": "Display order within site",
+      "minimum": 0,
+      "default": 0
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the area was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the area was last updated"
+    }
+  },
+
+  "required": ["id", "site_id", "name", "slug", "type"],
+
+  "examples": [
+    {
+      "id": "b8c4d3e5-2345-6789-abcd-ef0123456789",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Ground Floor",
+      "slug": "ground-floor",
+      "type": "floor",
+      "sort_order": 1
+    },
+    {
+      "id": "b8c4d3e5-2345-6789-abcd-ef0123456790",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345679",
+      "name": "North Wing",
+      "slug": "north-wing",
+      "type": "wing",
+      "sort_order": 1
+    }
+  ]
+}

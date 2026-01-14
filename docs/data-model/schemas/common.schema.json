@@ -1,0 +1,510 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/common.schema.json",
+  "title": "Common Definitions",
+  "description": "Shared type definitions, enums, and embedded types for Gray Logic entities",
+
+  "$defs": {
+    "uuid": {
+      "type": "string",
+      "format": "uuid",
+      "description": "UUID v4 identifier",
+      "pattern": "^[0-9a-f]{8}-[0-9a-f]{4}-4[0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$"
+    },
+
+    "slug": {
+      "type": "string",
+      "description": "URL-safe identifier",
+      "pattern": "^[a-z0-9]+(?:-[a-z0-9]+)*$",
+      "minLength": 1,
+      "maxLength": 64
+    },
+
+    "timestamp": {
+      "type": "string",
+      "format": "date-time",
+      "description": "ISO 8601 timestamp"
+    },
+
+    "hexColor": {
+      "type": "string",
+      "description": "Hex colour code",
+      "pattern": "^#[0-9A-Fa-f]{6}$"
+    },
+
+    "Location": {
+      "type": "object",
+      "description": "Physical location information",
+      "properties": {
+        "address": {
+          "type": "string",
+          "description": "Physical address"
+        },
+        "latitude": {
+          "type": "number",
+          "minimum": -90,
+          "maximum": 90,
+          "description": "GPS latitude"
+        },
+        "longitude": {
+          "type": "number",
+          "minimum": -180,
+          "maximum": 180,
+          "description": "GPS longitude"
+        },
+        "timezone": {
+          "type": "string",
+          "description": "IANA timezone identifier",
+          "examples": ["Europe/London", "America/New_York"]
+        },
+        "elevation_m": {
+          "type": "number",
+          "description": "Elevation in meters above sea level"
+        }
+      },
+      "required": ["latitude", "longitude", "timezone"]
+    },
+
+    "SiteModes": {
+      "type": "object",
+      "description": "Site mode configuration",
+      "properties": {
+        "available": {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "List of available mode identifiers"
+        },
+        "current": {
+          "type": "string",
+          "description": "Currently active mode identifier"
+        }
+      },
+      "required": ["available", "current"]
+    },
+
+    "UnitSettings": {
+      "type": "object",
+      "description": "Unit preferences",
+      "properties": {
+        "temperature": {
+          "type": "string",
+          "enum": ["celsius", "fahrenheit"],
+          "default": "celsius"
+        },
+        "distance": {
+          "type": "string",
+          "enum": ["metric", "imperial"],
+          "default": "metric"
+        }
+      }
+    },
+
+    "AreaType": {
+      "type": "string",
+      "description": "Type of area",
+      "enum": [
+        "floor",
+        "building",
+        "wing",
+        "zone",
+        "outdoor",
+        "utility"
+      ]
+    },
+
+    "RoomType": {
+      "type": "string",
+      "description": "Type of room",
+      "enum": [
+        "living", "bedroom", "bathroom", "kitchen", "dining", "office",
+        "utility", "hallway", "stairs", "garage", "plant", "cinema",
+        "gym", "pool", "wine_cellar", "spa",
+        "open_plan", "meeting_room", "boardroom", "reception", "break_room",
+        "hot_desk", "server_room", "storage", "loading_bay", "washroom",
+        "corridor", "workshop", "changing_room",
+        "other"
+      ]
+    },
+
+    "DeviceType": {
+      "type": "string",
+      "description": "Type of device",
+      "enum": [
+        "light_switch", "light_dimmer", "light_ct", "light_rgb", "light_rgbw",
+        "thermostat", "temperature_sensor", "humidity_sensor", "air_quality_sensor",
+        "hvac_unit", "valve_actuator",
+        "blind_switch", "blind_position", "blind_tilt",
+        "motion_sensor", "presence_sensor", "door_sensor", "window_sensor",
+        "leak_sensor", "smoke_sensor", "co_sensor",
+        "switch", "keypad", "remote",
+        "audio_zone", "audio_source",
+        "video_output", "video_source", "video_matrix",
+        "alarm_panel", "camera", "nvr", "door_lock", "door_station",
+        "energy_meter", "ct_clamp",
+        "pump", "boiler", "heat_pump", "chiller", "cooling_tower",
+        "ahu", "fcu", "vav_box", "vfd", "fan", "compressor",
+        "humidifier", "dehumidifier", "water_heater", "water_softener",
+        "generator", "ups",
+        "tank_level", "flow_meter", "pressure_sensor", "differential_pressure",
+        "valve_2way", "valve_3way", "damper", "vibration_sensor", "bearing_temp",
+        "emergency_light", "exit_sign", "fire_input", "gas_detector",
+        "card_reader", "door_controller", "turnstile", "intercom",
+        "relay_module", "relay_channel", "digital_input", "digital_output",
+        "analog_input", "analog_output", "io_module",
+        "power_monitor", "energy_submeter", "external_temp_sensor", "vibration_monitor"
+      ]
+    },
+
+    "DeviceDomain": {
+      "type": "string",
+      "description": "Domain the device belongs to",
+      "enum": [
+        "lighting", "climate", "blinds", "audio", "video",
+        "security", "access", "energy", "plant", "irrigation",
+        "safety", "sensor"
+      ]
+    },
+
+    "Protocol": {
+      "type": "string",
+      "description": "Communication protocol",
+      "enum": [
+        "knx", "dali", "modbus_rtu", "modbus_tcp",
+        "bacnet_ip", "bacnet_mstp", "mqtt", "http",
+        "sip", "rtsp", "onvif", "ocpp", "rs232", "rs485"
+      ]
+    },
+
+    "Capability": {
+      "type": "string",
+      "description": "Device capability",
+      "enum": [
+        "on_off", "dim", "color_temp", "color_rgb", "position", "tilt",
+        "temperature_read", "temperature_set", "humidity_read",
+        "pressure_read", "flow_read", "co2_read", "voc_read", "air_quality_read",
+        "motion_detect", "presence_detect", "people_count", "contact_state",
+        "volume", "mute", "source_select",
+        "lock_unlock", "arm_disarm", "card_access",
+        "speed_control", "speed_read", "run_stop", "run_hours",
+        "fault_status", "enable_disable", "setpoint",
+        "valve_position", "damper_position", "filter_status",
+        "power_read", "energy_read", "current_read", "voltage_read",
+        "power_factor_read", "frequency_read",
+        "vibration_read", "bearing_temp_read", "oil_pressure_read", "oil_temp_read",
+        "emergency_mode", "emergency_test", "battery_status", "lamp_status",
+        "booking_status", "override_request"
+      ]
+    },
+
+    "HealthStatus": {
+      "type": "string",
+      "description": "Device health status",
+      "enum": ["online", "offline", "degraded", "unknown"]
+    },
+
+    "KnxAddress": {
+      "type": "object",
+      "description": "KNX protocol address",
+      "properties": {
+        "group_address": {
+          "type": "string",
+          "pattern": "^\\d{1,2}/\\d{1,2}/\\d{1,3}$",
+          "description": "KNX group address (e.g., 1/2/3)"
+        },
+        "feedback_address": {
+          "type": "string",
+          "pattern": "^\\d{1,2}/\\d{1,2}/\\d{1,3}$",
+          "description": "KNX feedback group address"
+        }
+      },
+      "required": ["group_address"]
+    },
+
+    "DaliAddress": {
+      "type": "object",
+      "description": "DALI protocol address",
+      "properties": {
+        "gateway": {
+          "type": "string",
+          "description": "DALI gateway identifier"
+        },
+        "short_address": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 63,
+          "description": "DALI short address"
+        },
+        "group": {
+          "type": "integer",
+          "minimum": 0,
+          "maximum": 15,
+          "description": "DALI group"
+        }
+      },
+      "required": ["gateway", "short_address"]
+    },
+
+    "ModbusAddress": {
+      "type": "object",
+      "description": "Modbus protocol address",
+      "properties": {
+        "host": {
+          "type": "string",
+          "description": "Modbus TCP host or serial port"
+        },
+        "port": {
+          "type": "integer",
+          "default": 502,
+          "description": "TCP port (for Modbus TCP)"
+        },
+        "unit_id": {
+          "type": "integer",
+          "minimum": 1,
+          "maximum": 247,
+          "description": "Modbus unit/slave ID"
+        },
+        "registers": {
+          "type": "object",
+          "description": "Register mappings",
+          "additionalProperties": {
+            "type": "object",
+            "properties": {
+              "address": { "type": "integer" },
+              "type": {
+                "type": "string",
+                "enum": ["holding", "input", "coil", "discrete"]
+              }
+            },
+            "required": ["address", "type"]
+          }
+        }
+      },
+      "required": ["host", "unit_id"]
+    },
+
+    "DeviceAddress": {
+      "description": "Protocol-specific device address",
+      "oneOf": [
+        { "$ref": "#/$defs/KnxAddress" },
+        { "$ref": "#/$defs/DaliAddress" },
+        { "$ref": "#/$defs/ModbusAddress" },
+        {
+          "type": "object",
+          "description": "Generic address for other protocols",
+          "additionalProperties": true
+        }
+      ]
+    },
+
+    "DeviceHealth": {
+      "type": "object",
+      "description": "Device health information",
+      "properties": {
+        "status": { "$ref": "#/$defs/HealthStatus" },
+        "last_seen": { "$ref": "#/$defs/timestamp" },
+        "phm_enabled": {
+          "type": "boolean",
+          "description": "PHM monitoring active"
+        },
+        "phm_baseline": {
+          "type": "object",
+          "description": "Learned baseline data for PHM"
+        }
+      },
+      "required": ["status"]
+    },
+
+    "Action": {
+      "type": "object",
+      "description": "An action to perform on devices",
+      "properties": {
+        "device_id": {
+          "$ref": "#/$defs/uuid",
+          "description": "Specific device to target"
+        },
+        "device_group": {
+          "type": "string",
+          "description": "Device group/tag to target"
+        },
+        "room_id": {
+          "$ref": "#/$defs/uuid",
+          "description": "Target all matching devices in room"
+        },
+        "domain": {
+          "$ref": "#/$defs/DeviceDomain",
+          "description": "Filter by domain (with room_id)"
+        },
+        "command": {
+          "type": "string",
+          "description": "Command to execute"
+        },
+        "parameters": {
+          "type": "object",
+          "description": "Command parameters",
+          "additionalProperties": true
+        },
+        "delay_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Delay before execution in milliseconds"
+        },
+        "fade_ms": {
+          "type": "integer",
+          "minimum": 0,
+          "default": 0,
+          "description": "Transition duration in milliseconds"
+        },
+        "parallel": {
+          "type": "boolean",
+          "default": false,
+          "description": "Execute in parallel with previous action"
+        }
+      },
+      "required": ["command"]
+    },
+
+    "TriggerType": {
+      "type": "string",
+      "description": "Type of schedule trigger",
+      "enum": ["time", "sunrise", "sunset", "cron"]
+    },
+
+    "ScheduleTrigger": {
+      "type": "object",
+      "description": "Schedule trigger configuration",
+      "properties": {
+        "type": { "$ref": "#/$defs/TriggerType" },
+        "value": {
+          "type": "string",
+          "description": "Time, offset, or cron expression"
+        },
+        "days": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": ["mon", "tue", "wed", "thu", "fri", "sat", "sun"]
+          },
+          "description": "Days of week (null = all)"
+        }
+      },
+      "required": ["type", "value"]
+    },
+
+    "ConditionType": {
+      "type": "string",
+      "description": "Type of condition",
+      "enum": ["mode", "time", "day", "device_state", "presence", "sun"]
+    },
+
+    "ConditionOperator": {
+      "type": "string",
+      "description": "Comparison operator",
+      "enum": [
+        "eq", "neq", "gt", "lt", "gte", "lte",
+        "in", "not_in", "between", "before", "after",
+        "any_home", "nobody_home", "user_home",
+        "above_horizon", "below_horizon", "elevation_gt", "elevation_lt"
+      ]
+    },
+
+    "PresenceDeviceType": {
+      "type": "string",
+      "description": "Type of presence detection device",
+      "enum": ["phone_wifi", "phone_bluetooth", "beacon", "vehicle"]
+    },
+
+    "PresenceDevice": {
+      "type": "object",
+      "description": "Device used for presence detection",
+      "properties": {
+        "type": { "$ref": "#/$defs/PresenceDeviceType" },
+        "identifier": {
+          "type": "string",
+          "description": "MAC address, beacon ID, etc."
+        },
+        "name": {
+          "type": "string",
+          "description": "Human-readable name"
+        }
+      },
+      "required": ["type", "identifier", "name"]
+    },
+
+    "UserRole": {
+      "type": "string",
+      "description": "User role",
+      "enum": ["admin", "resident", "guest", "installer"]
+    },
+
+    "AssociationType": {
+      "type": "string",
+      "description": "Type of device association",
+      "enum": ["monitors", "controls", "monitors_and_controls"]
+    },
+
+    "ModeBehaviours": {
+      "type": "object",
+      "description": "Behaviour modifications for a mode",
+      "properties": {
+        "climate": {
+          "type": "object",
+          "properties": {
+            "setpoint_offset": { "type": "number" },
+            "eco_mode": { "type": "boolean" }
+          }
+        },
+        "lighting": {
+          "type": "object",
+          "properties": {
+            "auto_off_enabled": { "type": "boolean" },
+            "auto_off_delay_min": { "type": "integer", "minimum": 0 },
+            "max_brightness": { "type": "integer", "minimum": 0, "maximum": 100 },
+            "presence_simulation": { "type": "boolean" }
+          }
+        },
+        "security": {
+          "type": "object",
+          "properties": {
+            "arm_state": {
+              "type": "string",
+              "enum": ["arm_away", "arm_stay", "disarm"]
+            }
+          }
+        },
+        "audio": {
+          "type": "object",
+          "properties": {
+            "max_volume": { "type": "integer", "minimum": 0, "maximum": 100 }
+          }
+        },
+        "notifications": {
+          "type": "object",
+          "properties": {
+            "priority_only": { "type": "boolean" }
+          }
+        }
+      }
+    },
+
+    "ModeActivation": {
+      "type": "object",
+      "description": "Mode activation rules",
+      "properties": {
+        "roles": {
+          "type": "array",
+          "items": { "$ref": "#/$defs/UserRole" },
+          "description": "Roles that can activate this mode"
+        },
+        "require_pin": {
+          "type": "boolean",
+          "description": "Require PIN to activate"
+        },
+        "remote_allowed": {
+          "type": "boolean",
+          "description": "Can be activated remotely"
+        }
+      }
+    }
+  }
+}

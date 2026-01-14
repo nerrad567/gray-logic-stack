@@ -42,7 +42,7 @@
 
 #### Data Model (`docs/data-model/`)
 - [x] `entities.md` — Core entities (Site, Area, Room, Device, Scene, etc.)
-- [ ] `schemas/` — JSON Schema definitions (empty)
+- [x] `schemas/` — JSON Schema definitions for all entities ✓
 
 #### Protocols (`docs/protocols/`)
 - [x] `knx.md` — KNX integration via knxd
@@ -123,8 +123,7 @@
 
 ### ❌ Empty / Not Started
 
-#### Data Model Schemas (`docs/data-model/schemas/`)
-- [ ] JSON Schema definitions for all entities
+*All documentation complete.*
 
 ---
 
@@ -273,6 +272,15 @@
 - Succession principles (choice, not obligation)
 - Acknowledgement that economic systems may change, but human needs remain
 
+**JSON Schemas created:**
+- Created `docs/data-model/schemas/` with 13 schema files + README
+- `common.schema.json` — Shared enums, embedded types (~400 lines)
+- `device.schema.json` — All device types, protocols, capabilities (~200 lines)
+- Core entities: site, area, room, scene, schedule, mode, condition, user
+- Supporting: device-association, audio-zone, climate-zone
+- README with validation and code generation examples
+- Total: ~1,800 lines of JSON Schema definitions
+
 ---
 
 ## Next Actions
@@ -293,7 +301,7 @@
 11. [x] OCPP protocol (`docs/protocols/ocpp.md`) ✓
 
 ### Lower Priority (Can Wait)
-- [ ] JSON Schemas for entities
+- [x] JSON Schemas for entities ✓
 - [x] Business documentation ✓
 
 ### Code (When Ready)

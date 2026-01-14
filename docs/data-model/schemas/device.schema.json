@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/device.schema.json",
+  "title": "Device",
+  "description": "Any controllable or monitorable entity in the building automation system",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this device"
+    },
+    "room_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Room containing device (null for area-level devices)"
+    },
+    "area_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Area if not room-specific"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Main Light", "Ceiling Spots", "Thermostat"]
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "URL-safe identifier",
+      "examples": ["main-light", "ceiling-spots", "thermostat"]
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/DeviceType",
+      "description": "Device type classification"
+    },
+    "domain": {
+      "$ref": "common.schema.json#/$defs/DeviceDomain",
+      "description": "Domain the device belongs to"
+    },
+    "protocol": {
+      "$ref": "common.schema.json#/$defs/Protocol",
+      "description": "Communication protocol"
+    },
+    "address": {
+      "$ref": "common.schema.json#/$defs/DeviceAddress",
+      "description": "Protocol-specific address configuration"
+    },
+    "gateway_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Gateway device this device connects through"
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/Capability"
+      },
+      "description": "List of device capabilities",
+      "uniqueItems": true
+    },
+    "config": {
+      "type": "object",
+      "description": "Device-specific configuration",
+      "additionalProperties": true
+    },
+    "state": {
+      "type": "object",
+      "description": "Current device state",
+      "additionalProperties": true,
+      "examples": [
+        { "on": true, "level": 75 },
+        { "temperature": 21.5, "humidity": 45 },
+        { "position": 50, "tilt": 90 }
+      ]
+    },
+    "state_updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When state was last updated"
+    },
+    "health": {
+      "$ref": "common.schema.json#/$defs/DeviceHealth",
+      "description": "Device health information"
+    },
+    "manufacturer": {
+      "oneOf": [
+        { "type": "string", "maxLength": 128 },
+        { "type": "null" }
+      ],
+      "description": "Device manufacturer"
+    },
+    "model": {
+      "oneOf": [
+        { "type": "string", "maxLength": 128 },
+        { "type": "null" }
+      ],
+      "description": "Device model"
+    },
+    "firmware_version": {
+      "oneOf": [
+        { "type": "string", "maxLength": 64 },
+        { "type": "null" }
+      ],
+      "description": "Firmware version"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the device was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the device was last updated"
+    }
+  },
+
+  "required": ["id", "name", "slug", "type", "domain", "protocol", "address", "capabilities"],
+
+  "examples": [
+    {
+      "id": "d1e2f3a4-5678-9012-bcde-f01234567891",
+      "room_id": "c9d5e4f6-3456-7890-bcde-f01234567890",
+      "area_id": null,
+      "name": "Ceiling Spots",
+      "slug": "ceiling-spots",
+      "type": "light_dimmer",
+      "domain": "lighting",
+      "protocol": "knx",
+      "address": {
+        "group_address": "1/2/3",
+        "feedback_address": "1/2/4"
+      },
+      "gateway_id": null,
+      "capabilities": ["on_off", "dim"],
+      "config": {
+        "min_level": 10,
+        "max_level": 100
+      },
+      "state": {
+        "on": true,
+        "level": 75
+      },
+      "health": {
+        "status": "online",
+        "last_seen": "2026-01-14T20:30:00Z",
+        "phm_enabled": false
+      },
+      "manufacturer": "ABB",
+      "model": "SA/S4.16.6.1"
+    },
+    {
+      "id": "d1e2f3a4-5678-9012-bcde-f01234567892",
+      "room_id": "c9d5e4f6-3456-7890-bcde-f01234567890",
+      "area_id": null,
+      "name": "Room Thermostat",
+      "slug": "room-thermostat",
+      "type": "thermostat",
+      "domain": "climate",
+      "protocol": "knx",
+      "address": {
+        "group_address": "2/1/1",
+        "feedback_address": "2/1/2"
+      },
+      "gateway_id": null,
+      "capabilities": ["temperature_read", "temperature_set", "humidity_read"],
+      "state": {
+        "current_temp": 21.5,
+        "target_temp": 21.0,
+        "humidity": 45
+      },
+      "health": {
+        "status": "online",
+        "last_seen": "2026-01-14T20:30:00Z",
+        "phm_enabled": false
+      },
+      "manufacturer": "Theben",
+      "model": "RAMSES 718 P"
+    },
+    {
+      "id": "d1e2f3a4-5678-9012-bcde-f01234567893",
+      "room_id": null,
+      "area_id": "b8c4d3e5-2345-6789-abcd-ef0123456789",
+      "name": "CHW Pump 1",
+      "slug": "chw-pump-1",
+      "type": "pump",
+      "domain": "plant",
+      "protocol": "modbus_tcp",
+      "address": {
+        "host": "192.168.1.100",
+        "port": 502,
+        "unit_id": 1,
+        "registers": {
+          "speed": { "address": 100, "type": "holding" },
+          "run": { "address": 0, "type": "coil" },
+          "fault": { "address": 10, "type": "discrete" }
+        }
+      },
+      "gateway_id": null,
+      "capabilities": ["run_stop", "speed_control", "speed_read", "fault_status", "run_hours"],
+      "state": {
+        "running": true,
+        "speed": 75,
+        "fault": false,
+        "run_hours": 12450
+      },
+      "health": {
+        "status": "online",
+        "last_seen": "2026-01-14T20:30:00Z",
+        "phm_enabled": true,
+        "phm_baseline": {
+          "normal_speed_range": [60, 80],
+          "vibration_baseline": 2.3
+        }
+      },
+      "manufacturer": "Grundfos",
+      "model": "MAGNA3 50-120"
+    }
+  ]
+}

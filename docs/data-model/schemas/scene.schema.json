@@ -1,0 +1,168 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/scene.schema.json",
+  "title": "Scene",
+  "description": "A predefined collection of device states that can be activated together",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this scene"
+    },
+    "site_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Site this scene belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Cinema Mode", "Good Morning", "All Off"]
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "URL-safe identifier"
+    },
+    "icon": {
+      "oneOf": [
+        { "type": "string", "maxLength": 64 },
+        { "type": "null" }
+      ],
+      "description": "Icon identifier"
+    },
+    "color": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/hexColor" },
+        { "type": "null" }
+      ],
+      "description": "UI colour"
+    },
+    "scope": {
+      "type": "object",
+      "description": "Scope of the scene",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["site", "area", "room"],
+          "description": "Scope type"
+        },
+        "id": {
+          "$ref": "common.schema.json#/$defs/uuid",
+          "description": "ID of the site/area/room"
+        }
+      },
+      "required": ["type", "id"]
+    },
+    "triggers": {
+      "type": "object",
+      "description": "Trigger configuration",
+      "properties": {
+        "manual": {
+          "type": "boolean",
+          "description": "Can be manually activated",
+          "default": true
+        },
+        "voice_phrase": {
+          "oneOf": [
+            { "type": "string", "maxLength": 128 },
+            { "type": "null" }
+          ],
+          "description": "Voice activation phrase"
+        },
+        "schedule_ids": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/uuid" },
+          "description": "Linked schedule IDs"
+        }
+      }
+    },
+    "actions": {
+      "type": "array",
+      "items": { "$ref": "common.schema.json#/$defs/Action" },
+      "description": "Ordered list of actions to perform",
+      "minItems": 1
+    },
+    "conditions": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "condition.schema.json" }
+        },
+        { "type": "null" }
+      ],
+      "description": "Conditions that must be met for execution"
+    },
+    "category": {
+      "oneOf": [
+        { "type": "string", "maxLength": 64 },
+        { "type": "null" }
+      ],
+      "description": "Grouping category"
+    },
+    "sort_order": {
+      "type": "integer",
+      "description": "Display order",
+      "minimum": 0,
+      "default": 0
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the scene was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the scene was last updated"
+    }
+  },
+
+  "required": ["id", "site_id", "name", "slug", "scope", "actions"],
+
+  "examples": [
+    {
+      "id": "f2a8b7c9-6789-0123-ef01-234567890abc",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Cinema Mode",
+      "slug": "cinema-mode",
+      "icon": "movie",
+      "color": "#6B21A8",
+      "scope": {
+        "type": "room",
+        "id": "c9d5e4f6-3456-7890-bcde-f01234567890"
+      },
+      "triggers": {
+        "manual": true,
+        "voice_phrase": "cinema mode",
+        "schedule_ids": []
+      },
+      "actions": [
+        {
+          "device_group": "living_room_lights",
+          "command": "dim",
+          "parameters": { "level": 0 },
+          "delay_ms": 0,
+          "fade_ms": 3000,
+          "parallel": false
+        },
+        {
+          "device_id": "blind-living-01",
+          "command": "position",
+          "parameters": { "position": 0 },
+          "delay_ms": 0,
+          "fade_ms": 0,
+          "parallel": true
+        }
+      ],
+      "conditions": [
+        {
+          "type": "mode",
+          "operator": "in",
+          "value": ["home", "entertaining"]
+        }
+      ],
+      "category": "entertainment",
+      "sort_order": 1
+    }
+  ]
+}

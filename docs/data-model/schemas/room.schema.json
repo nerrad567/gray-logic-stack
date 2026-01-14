@@ -1,0 +1,100 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/room.schema.json",
+  "title": "Room",
+  "description": "A physical space within an area",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this room"
+    },
+    "area_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Reference to parent area"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Living Room", "Master Bedroom", "Meeting Room 1"]
+    },
+    "slug": {
+      "$ref": "common.schema.json#/$defs/slug",
+      "description": "URL-safe identifier",
+      "examples": ["living-room", "master-bedroom", "meeting-room-1"]
+    },
+    "type": {
+      "$ref": "common.schema.json#/$defs/RoomType",
+      "description": "Type of room"
+    },
+    "sort_order": {
+      "type": "integer",
+      "description": "Display order within area",
+      "minimum": 0,
+      "default": 0
+    },
+    "climate_zone_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Climate zone this room belongs to"
+    },
+    "audio_zone_id": {
+      "oneOf": [
+        { "$ref": "common.schema.json#/$defs/uuid" },
+        { "type": "null" }
+      ],
+      "description": "Audio zone this room belongs to"
+    },
+    "settings": {
+      "type": "object",
+      "description": "Room-specific settings",
+      "properties": {
+        "default_scene": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/uuid" },
+            { "type": "null" }
+          ],
+          "description": "Scene to activate when room becomes occupied"
+        },
+        "vacancy_timeout_min": {
+          "type": "integer",
+          "description": "Minutes before room considered vacant",
+          "minimum": 1,
+          "default": 15
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the room was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the room was last updated"
+    }
+  },
+
+  "required": ["id", "area_id", "name", "slug", "type"],
+
+  "examples": [
+    {
+      "id": "c9d5e4f6-3456-7890-bcde-f01234567890",
+      "area_id": "b8c4d3e5-2345-6789-abcd-ef0123456789",
+      "name": "Living Room",
+      "slug": "living-room",
+      "type": "living",
+      "sort_order": 1,
+      "climate_zone_id": "d0e6f5a7-4567-8901-cdef-012345678901",
+      "audio_zone_id": "e1f7a6b8-5678-9012-def0-123456789012",
+      "settings": {
+        "default_scene": null,
+        "vacancy_timeout_min": 15
+      }
+    }
+  ]
+}

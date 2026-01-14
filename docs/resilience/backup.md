@@ -381,7 +381,7 @@ full_recovery:
   steps:
     1_install_graylogic:
       commands:
-        - "curl -fsSL https://install.graylogic.io | sudo bash"
+        - "curl -fsSL https://install.graylogic.uk | sudo bash"
         - "sudo systemctl stop graylogic"
         
     2_restore_database:

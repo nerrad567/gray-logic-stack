@@ -1,0 +1,226 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/user.schema.json",
+  "title": "User",
+  "description": "A person who interacts with the system",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this user"
+    },
+    "name": {
+      "type": "string",
+      "description": "Full name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["John Smith", "Jane Doe"]
+    },
+    "email": {
+      "oneOf": [
+        { "type": "string", "format": "email" },
+        { "type": "null" }
+      ],
+      "description": "Email address"
+    },
+    "phone": {
+      "oneOf": [
+        { "type": "string", "maxLength": 32 },
+        { "type": "null" }
+      ],
+      "description": "Phone number"
+    },
+    "auth": {
+      "type": "object",
+      "description": "Authentication credentials",
+      "properties": {
+        "pin_hash": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "description": "Hashed PIN"
+        },
+        "password_hash": {
+          "oneOf": [
+            { "type": "string" },
+            { "type": "null" }
+          ],
+          "description": "Hashed password"
+        },
+        "api_keys": {
+          "type": "array",
+          "items": {
+            "type": "object",
+            "properties": {
+              "id": { "$ref": "common.schema.json#/$defs/uuid" },
+              "name": { "type": "string" },
+              "key_hash": { "type": "string" },
+              "created_at": { "$ref": "common.schema.json#/$defs/timestamp" },
+              "last_used": {
+                "oneOf": [
+                  { "$ref": "common.schema.json#/$defs/timestamp" },
+                  { "type": "null" }
+                ]
+              }
+            },
+            "required": ["id", "name", "key_hash"]
+          },
+          "description": "API keys for integrations"
+        }
+      }
+    },
+    "role": {
+      "$ref": "common.schema.json#/$defs/UserRole",
+      "description": "User role"
+    },
+    "permissions": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "type": "string" }
+        },
+        { "type": "null" }
+      ],
+      "description": "Override permissions (null = use role defaults)"
+    },
+    "presence": {
+      "type": "object",
+      "description": "Presence tracking information",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": { "$ref": "common.schema.json#/$defs/PresenceDevice" },
+          "description": "Devices used to track presence"
+        },
+        "is_home": {
+          "type": "boolean",
+          "description": "Currently detected as home"
+        },
+        "last_seen": {
+          "$ref": "common.schema.json#/$defs/timestamp",
+          "description": "Last presence detection"
+        }
+      }
+    },
+    "preferences": {
+      "type": "object",
+      "description": "User preferences",
+      "properties": {
+        "default_temperature": {
+          "type": "number",
+          "description": "Preferred temperature setpoint"
+        },
+        "wake_time": {
+          "oneOf": [
+            { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+            { "type": "null" }
+          ],
+          "description": "Typical wake time (HH:MM)"
+        },
+        "sleep_time": {
+          "oneOf": [
+            { "type": "string", "pattern": "^\\d{2}:\\d{2}$" },
+            { "type": "null" }
+          ],
+          "description": "Typical sleep time (HH:MM)"
+        },
+        "voice_profile_id": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/uuid" },
+            { "type": "null" }
+          ],
+          "description": "Voice recognition profile ID"
+        }
+      }
+    },
+    "access": {
+      "type": "object",
+      "description": "Access restrictions",
+      "properties": {
+        "rooms": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "$ref": "common.schema.json#/$defs/uuid" }
+            },
+            { "type": "null" }
+          ],
+          "description": "Allowed room IDs (null = all)"
+        },
+        "valid_from": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/timestamp" },
+            { "type": "null" }
+          ],
+          "description": "Access start date"
+        },
+        "valid_until": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/timestamp" },
+            { "type": "null" }
+          ],
+          "description": "Access end date"
+        }
+      }
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the user was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the user was last updated"
+    }
+  },
+
+  "required": ["id", "name", "role"],
+
+  "examples": [
+    {
+      "id": "e1f2a3b4-5678-9012-cdef-0123456789ab",
+      "name": "John Smith",
+      "email": "john@example.com",
+      "phone": "+44 7700 900123",
+      "role": "admin",
+      "presence": {
+        "devices": [
+          {
+            "type": "phone_wifi",
+            "identifier": "AA:BB:CC:DD:EE:FF",
+            "name": "John's iPhone"
+          }
+        ],
+        "is_home": true,
+        "last_seen": "2026-01-14T20:30:00Z"
+      },
+      "preferences": {
+        "default_temperature": 21.0,
+        "wake_time": "07:00",
+        "sleep_time": "23:00"
+      },
+      "access": {
+        "rooms": null,
+        "valid_from": null,
+        "valid_until": null
+      }
+    },
+    {
+      "id": "e1f2a3b4-5678-9012-cdef-0123456789ac",
+      "name": "Guest User",
+      "email": null,
+      "phone": null,
+      "role": "guest",
+      "presence": {
+        "devices": [],
+        "is_home": false
+      },
+      "access": {
+        "rooms": ["c9d5e4f6-3456-7890-bcde-f01234567890"],
+        "valid_from": "2026-01-15T00:00:00Z",
+        "valid_until": "2026-01-20T00:00:00Z"
+      }
+    }
+  ]
+}

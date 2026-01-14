@@ -1,0 +1,154 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/schedule.schema.json",
+  "title": "Schedule",
+  "description": "Time-based automation trigger",
+  "type": "object",
+
+  "properties": {
+    "id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Unique identifier for this schedule"
+    },
+    "site_id": {
+      "$ref": "common.schema.json#/$defs/uuid",
+      "description": "Site this schedule belongs to"
+    },
+    "name": {
+      "type": "string",
+      "description": "Human-readable name",
+      "minLength": 1,
+      "maxLength": 128,
+      "examples": ["Morning Wake-up", "Evening Lights", "Weekend Heating"]
+    },
+    "enabled": {
+      "type": "boolean",
+      "description": "Whether the schedule is active",
+      "default": true
+    },
+    "trigger": {
+      "$ref": "common.schema.json#/$defs/ScheduleTrigger",
+      "description": "Trigger timing configuration"
+    },
+    "execute": {
+      "type": "object",
+      "description": "What to execute when triggered",
+      "properties": {
+        "type": {
+          "type": "string",
+          "enum": ["scene", "actions"],
+          "description": "Execution type"
+        },
+        "scene_id": {
+          "oneOf": [
+            { "$ref": "common.schema.json#/$defs/uuid" },
+            { "type": "null" }
+          ],
+          "description": "Scene to activate (if type=scene)"
+        },
+        "actions": {
+          "oneOf": [
+            {
+              "type": "array",
+              "items": { "$ref": "common.schema.json#/$defs/Action" }
+            },
+            { "type": "null" }
+          ],
+          "description": "Actions to execute (if type=actions)"
+        }
+      },
+      "required": ["type"]
+    },
+    "conditions": {
+      "oneOf": [
+        {
+          "type": "array",
+          "items": { "$ref": "condition.schema.json" }
+        },
+        { "type": "null" }
+      ],
+      "description": "Conditions that must be met for execution"
+    },
+    "valid_from": {
+      "oneOf": [
+        { "type": "string", "format": "date" },
+        { "type": "null" }
+      ],
+      "description": "Start date for schedule validity"
+    },
+    "valid_until": {
+      "oneOf": [
+        { "type": "string", "format": "date" },
+        { "type": "null" }
+      ],
+      "description": "End date for schedule validity"
+    },
+    "created_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the schedule was created"
+    },
+    "updated_at": {
+      "$ref": "common.schema.json#/$defs/timestamp",
+      "description": "When the schedule was last updated"
+    }
+  },
+
+  "required": ["id", "site_id", "name", "trigger", "execute"],
+
+  "examples": [
+    {
+      "id": "a1b2c3d4-5678-9012-cdef-0123456789ab",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Weekday Morning Wake-up",
+      "enabled": true,
+      "trigger": {
+        "type": "time",
+        "value": "07:30",
+        "days": ["mon", "tue", "wed", "thu", "fri"]
+      },
+      "execute": {
+        "type": "scene",
+        "scene_id": "f2a8b7c9-6789-0123-ef01-234567890abc"
+      },
+      "conditions": [
+        {
+          "type": "mode",
+          "operator": "eq",
+          "value": "home"
+        }
+      ],
+      "valid_from": null,
+      "valid_until": null
+    },
+    {
+      "id": "a1b2c3d4-5678-9012-cdef-0123456789ac",
+      "site_id": "a7b3c9d2-1234-5678-9abc-def012345678",
+      "name": "Sunset Lights",
+      "enabled": true,
+      "trigger": {
+        "type": "sunset",
+        "value": "-30m",
+        "days": null
+      },
+      "execute": {
+        "type": "actions",
+        "actions": [
+          {
+            "room_id": "c9d5e4f6-3456-7890-bcde-f01234567890",
+            "domain": "lighting",
+            "command": "on",
+            "parameters": { "level": 50 },
+            "fade_ms": 5000
+          }
+        ]
+      },
+      "conditions": [
+        {
+          "type": "presence",
+          "operator": "any_home",
+          "value": null
+        }
+      ]
+    }
+  ]
+}
