@@ -1,6 +1,6 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-14 (Session 3)  
+> **Last Updated:** 2026-01-15 (Session 4)  
 > **Current Phase:** Documentation (Pre-Development)
 
 ---
@@ -20,6 +20,7 @@
 | Resilience Specs | ✅ Complete |
 | Deployment Guides | ✅ Complete |
 | Business Docs | ✅ Complete |
+| Development Docs | ✅ Complete |
 | Code | ❌ Not started |
 
 ---
@@ -280,6 +281,35 @@
 - Supporting: device-association, audio-zone, climate-zone
 - README with validation and code generation examples
 - Total: ~1,800 lines of JSON Schema definitions
+
+### 2026-01-15 — Development Documentation Sprint
+
+**Created:**
+- `docs/development/DEVELOPMENT-STRATEGY.md` — 5-year roadmap with milestones, Three Pillars framework, security SDL (~550 lines)
+- `docs/development/CODING-STANDARDS.md` — Go code standards, project structure, testing, git commits (~1,000 lines)
+- `docs/development/SECURITY-CHECKLIST.md` — Mandatory security gates for components, PRs, releases (~800 lines)
+
+**Three Pillars framework established:**
+- Security → Resilience → Speed (implementation priorities within Hard Rules)
+- Integrated into principles.md as "Implementation Priorities" section
+- Decision framework: Hard Rules gate what we build, Pillars guide how
+
+**Milestones defined:**
+- Year 1: M1.1-M1.6 (Infrastructure → KNX → Device Registry → API → Flutter → Scenes)
+- Year 2: M2.1-M2.8 (Rooms → Scenes → Modes → Scheduler → DALI → Blinds → Climate → Mobile)
+- Year 3: M3.1-M3.6 (Audio → Video → Security → CCTV → BACnet → Logic Engine)
+- Year 4: M4.1-M4.5 (Voice → PHM → AI → Learning → Energy Insights)
+- Year 5: M5.1-M5.7 (Commissioning → Backup → Remote → Docs → Handover → Testing → Customer)
+
+**Updated:**
+- principles.md — Added Three Pillars section
+- README.md — Added development docs to Quick Links
+- system-overview.md — Fixed broken api-rest.md link
+
+**Reviewed and rejected:**
+- Copilot-generated `copilot/add-development-guidance-docs` branch
+- Issues: Wrong roadmap years, incorrect package structure, missing InfluxDB
+- Created corrected versions aligned with existing documentation
 
 ---
 
