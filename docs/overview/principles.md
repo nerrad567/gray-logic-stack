@@ -2,7 +2,7 @@
 title: Gray Logic Principles
 version: 1.0.0
 status: active
-last_updated: 2026-01-12
+last_updated: 2026-01-15
 depends_on:
   - overview/vision.md
 ---
@@ -109,6 +109,35 @@ These rules are **absolute**. If a decision requires breaking one of these, it i
 - Customer explicitly enables it
 - Only query text sent, not device state
 - Can be disabled without losing core functionality
+
+---
+
+## Implementation Priorities (Three Pillars)
+
+Within the boundaries of the Hard Rules, all implementation decisions must satisfy these three pillars in order:
+
+| Pillar | Question | Failure Mode |
+|--------|----------|--------------|
+| **Security** | Can this be exploited? | Compromise, data breach, unauthorised control |
+| **Resilience** | What happens when this fails? | System down, unsafe state, data loss |
+| **Speed** | Is this efficient enough for real-time? | Missed deadlines, poor UX, cascading delays |
+
+**Decision Framework:**
+1. **Hard Rules** gate what we build (reject anything that violates them)
+2. **Security** gates how we expose it (reject unsafe designs)
+3. **Resilience** shapes how we build it (fail-safe patterns)
+4. **Speed** validates that it works (performance requirements)
+
+**Example:**
+
+> *"Should we add cloud-based voice recognition?"*
+> 
+> 1. **Hard Rules check:** Violates Rule 7 (Privacy by Design) as default → Must be opt-in only, with local fallback
+> 2. **Security check:** Voice data in transit → Requires TLS, minimal data sent
+> 3. **Resilience check:** What if cloud is down? → Local processing must work
+> 4. **Speed check:** Latency acceptable? → <2s for voice commands
+
+See [Development Strategy](../development/DEVELOPMENT-STRATEGY.md) for detailed application of these pillars.
 
 ---
 
@@ -258,3 +287,5 @@ Before any deployment or major change, verify:
 - [Vision](vision.md) — What Gray Logic is and why
 - [System Overview](../architecture/system-overview.md) — Technical architecture
 - [Security Model](../architecture/security-model.md) — Authentication and authorization
+- [Development Strategy](../development/DEVELOPMENT-STRATEGY.md) — Applying principles to development
+- [Security Checklist](../development/SECURITY-CHECKLIST.md) — Security verification gates

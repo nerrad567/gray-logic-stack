@@ -402,6 +402,8 @@ User says "Hey Gray, turn on the kitchen lights"
 - [Vision](../overview/vision.md) — What Gray Logic is and why
 - [Principles](../overview/principles.md) — Hard rules and design principles
 - [Entities](../data-model/entities.md) — Data model definitions
-- [API Specification](../interfaces/api-rest.md) — REST API details
+- [API Specification](../interfaces/api.md) — REST API details
+- [Development Strategy](../development/DEVELOPMENT-STRATEGY.md) — Build approach and milestones
+- [Security Checklist](../development/SECURITY-CHECKLIST.md) — Security verification gates
 - Protocol bridge specifications in [protocols/](../protocols/)
 - Integration specifications in [integration/](../integration/) — Access Control, CCTV, Fire Alarm

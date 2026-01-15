@@ -16,6 +16,9 @@ Pivoted from openHAB-based approach to custom **Gray Logic Core** written in Go 
 | [Principles](docs/overview/principles.md) | Hard rules that can never be broken |
 | [System Overview](docs/architecture/system-overview.md) | Technical architecture |
 | [Entities](docs/data-model/entities.md) | Core data model |
+| [Development Strategy](docs/development/DEVELOPMENT-STRATEGY.md) | Build phases, security-first approach, milestones |
+| [Coding Standards](docs/development/CODING-STANDARDS.md) | Code documentation, testing, style standards |
+| [Security Checklist](docs/development/SECURITY-CHECKLIST.md) | Security gates for PRs and releases |
 | [CHANGELOG](CHANGELOG.md) | Version history |
 | [Business Case](docs/business/business-case.md) | Market positioning and strategy |
 
@@ -26,6 +29,7 @@ docs/
 ├── overview/           # Vision, principles, glossary
 ├── architecture/       # System design, bridges, energy model
 ├── data-model/         # Entities, schemas
+├── development/        # Development strategy, coding standards, security checklist
 ├── protocols/          # KNX, DALI, Modbus, MQTT, BACnet
 ├── domains/            # Lighting, climate, blinds, plant
 ├── integration/        # Access control, CCTV, fire alarm
