@@ -613,17 +613,43 @@ Command Processor routes to relay instead:
 Relay closes → Pump receives power → Pump turns on
 ```
 
-**Combined Association (Smart Plug):**
+**Combined Association (monitors_and_controls):**
+
+For devices that both monitor AND control (e.g., smart plugs, VFDs with feedback):
 
 ```yaml
 Association:
   source: "smart-plug-garage"
   target: "heater-garage"
   type: "monitors_and_controls"
+  config:
+    metrics: ["power_kw", "energy_kwh"]     # Monitoring attributes
+    control_function: "power"                # Control function
 ```
 
-- When smart plug reports power → attributed to heater
-- When user commands heater → routed to smart plug
+**Behavior for `monitors_and_controls`:**
+
+1. **Monitoring Flow (Source → Target):**
+   - When smart plug reports `power_kw: 1.5` → attributed to heater
+   - Heater state updated: `{ power_kw: 1.5, power_source: "smart-plug-garage" }`
+   - PHM and Energy see heater power consumption
+
+2. **Control Flow (Target → Source):**
+   - When user sends `POST /devices/heater-garage/command { command: "power_on" }`
+   - Resolver finds control association → routes to smart plug
+   - MQTT: `graylogic/command/smart-plug-garage { command: "on" }`
+   - Smart plug turns on → heater receives power
+
+3. **State Synchronization:**
+   - Smart plug state: `{ on: true, power_kw: 1.5 }`
+   - Heater derived state: `{ powered: true, power_kw: 1.5, control_proxy: "smart-plug-garage" }`
+
+**Resolution Priority:**
+
+When a device has multiple associations, resolver applies:
+1. Most specific match (exact device_id over group)
+2. Type priority: `monitors_and_controls` > `controls` > `monitors`
+3. Most recently configured (for conflict resolution)
 
 #### Health Monitor (PHM)
 

@@ -847,56 +847,149 @@ data_retention:
 error_responses:
   no_wake_word:
     response: null                  # Silent, no response
-    
+
   no_speech_after_wake:
     timeout: 5
     response: "I didn't hear anything"
-    
+    audio_feedback: "error_tone_soft"  # Subtle audible indicator
+
   low_confidence:
     threshold: 0.5
     response: "I'm not sure I understood. Could you repeat that?"
-    
+    audio_feedback: "error_tone_soft"
+
   ambiguous_intent:
     response: "Which {device_type}? {options}"
     example: "Which light? The main light or the accent light?"
-    
+
   device_not_found:
     response: "I couldn't find {device_name} in {room_name}"
-    
+    audio_feedback: "error_tone_soft"
+
   scene_not_found:
     response: "I don't know a scene called {scene_name}"
-    
+    audio_feedback: "error_tone_soft"
+
   permission_denied:
     response: "I can't do that. {reason}"
     example: "I can't do that. Security commands require a PIN."
-    
+    audio_feedback: "error_tone_denied"
+
   command_failed:
     response: "Sorry, I couldn't {action} the {device}. {error}"
-    
+    audio_feedback: "error_tone_soft"
+
   system_error:
     response: "Sorry, there was an error. Please try again."
+    audio_feedback: "error_tone_alert"
+
+  voice_pipeline_down:
+    response: null                  # Cannot speak if pipeline is down
+    audio_feedback: "error_tone_alert"  # Play pre-recorded tone
+    visual_feedback: true           # Show error on wall panel
+
+# Audio feedback tones (pre-recorded, no TTS dependency)
+audio_tones:
+  error_tone_soft:
+    file: "/usr/share/graylogic/sounds/error_soft.wav"
+    description: "Subtle two-note descending tone"
+    duration_ms: 300
+
+  error_tone_alert:
+    file: "/usr/share/graylogic/sounds/error_alert.wav"
+    description: "More noticeable alert tone"
+    duration_ms: 500
+
+  error_tone_denied:
+    file: "/usr/share/graylogic/sounds/error_denied.wav"
+    description: "Access denied tone"
+    duration_ms: 400
+
+  success_tone:
+    file: "/usr/share/graylogic/sounds/success.wav"
+    description: "Subtle ascending confirmation"
+    duration_ms: 200
 ```
+
+**User Notification Principle:** The system must NEVER fail silently. If voice cannot respond verbally, it must:
+1. Play an audible error tone (pre-recorded, no TTS dependency)
+2. Update visual indicators on wall panels
+3. Log the failure for diagnostics
 
 ### Fallback Behavior
 
 ```yaml
 fallbacks:
+  # STT fallback if GPU unavailable
+  stt_fallback:
+    enabled: true
+    # If CUDA/Metal fails, fall back to CPU processing
+    gpu_unavailable:
+      action: "use_cpu"
+      model: "tiny"                 # Use smaller model for acceptable CPU speed
+      notify_user: true
+      latency_warning: "Voice responses may be slower"
+    # If Whisper completely fails
+    whisper_crash:
+      action: "disable_stt"
+      audio_feedback: "error_tone_alert"
+      visual_feedback: true
+      log: "critical"
+
   # If NLU fails, try simple pattern matching
   nlu_fallback:
     enabled: true
     use_keyword_matching: true
-    
+
+  # If TTS fails, use pre-recorded responses
+  tts_fallback:
+    enabled: true
+    # Common responses pre-recorded
+    pre_recorded:
+      - "ok.wav"
+      - "done.wav"
+      - "sorry_error.wav"
+    # If all TTS fails
+    complete_failure:
+      audio_feedback: "error_tone_alert"
+      visual_feedback: true
+
   # If device not found, suggest alternatives
   device_suggestions:
     enabled: true
     fuzzy_matching: true
     threshold: 0.7
-    
+
   # If voice disabled, commands fail gracefully
   voice_disabled:
     response: null                  # Silent failure, no error
     log_only: true
 ```
+
+### Degradation Hierarchy
+
+When voice components fail, the system degrades gracefully:
+
+```
+Full Voice Operation
+        │
+        ▼ (GPU fails)
+CPU-Only STT (slower, smaller model)
+        │
+        ▼ (Whisper fails)
+Voice Disabled + Error Tone + Visual Alert
+        │
+        ▼ (TTS fails)
+Pre-recorded responses only
+        │
+        ▼ (Audio output fails)
+Visual feedback only (wall panel alerts)
+```
+
+At every degradation level:
+- User is notified (audibly if possible, visually always)
+- System continues operating via UI controls
+- Automatic recovery attempted in background
 
 ---
 
@@ -1216,7 +1309,7 @@ debug:
 
 ### Year 3: Enhancement
 
-- [ ] Multi-language support
+- [ ] Multi-language support (see Internationalization below)
 - [ ] Custom wake words per room
 - [ ] Voice profiles (user recognition)
 - [ ] Improved NLU accuracy
@@ -1229,6 +1322,72 @@ debug:
 - [ ] Complex queries ("why is it cold?")
 - [ ] Proactive suggestions
 - [ ] Learning from corrections
+
+---
+
+## Internationalization (i18n)
+
+### Language Support Roadmap
+
+```yaml
+i18n_roadmap:
+  # Year 1-2: English only
+  initial:
+    supported: ["en-GB", "en-US"]
+    wake_word: "Hey Gray"
+    tts_voices: ["en_GB-alba-medium", "en_US-lessac-medium"]
+
+  # Year 3: Core European languages
+  phase_2:
+    target_languages:
+      - code: "de"
+        whisper_model: "base"         # Good German support
+        tts_voice: "de_DE-thorsten-medium"
+        wake_word: "Hey Gray"         # Keep English wake word initially
+
+      - code: "fr"
+        whisper_model: "base"
+        tts_voice: "fr_FR-upmc-medium"
+
+      - code: "es"
+        whisper_model: "base"
+        tts_voice: "es_ES-carlfm-medium"
+
+  # Year 4+: Extended language support
+  future:
+    considerations:
+      - "Wake word detection in target language"
+      - "Intent patterns per language"
+      - "Entity synonyms per language"
+      - "TTS voice selection per language"
+```
+
+### Language Configuration
+
+```yaml
+# Per-site or per-user language settings
+voice_language:
+  site_default: "en-GB"
+
+  # Per-user override
+  users:
+    - user_id: "usr-001"
+      language: "de"
+      tts_voice: "de_DE-thorsten-medium"
+
+  # Per-room override (for multi-lingual households)
+  rooms:
+    - room_id: "room-guest"
+      language: "fr"
+```
+
+### Implementation Notes
+
+- **Whisper** supports 99 languages out of the box
+- **Piper** has voices for many languages (community-contributed)
+- **Intent patterns** need translation per language
+- **Entity synonyms** (room names, device names) are user-defined anyway
+- **Wake word** may remain English initially (simpler to detect)
 
 ---
 

@@ -215,6 +215,157 @@ PHMBaseline:
     critical: 7.1                   # External limit (ISO 10816)
 ```
 
+### Device-Type-Specific Baseline Requirements
+
+Different device types have vastly different feedback characteristics. PHM must account for this:
+
+```yaml
+baseline_requirements:
+  # Category 1: Immediate Feedback Devices
+  # These devices report status immediately - anomalies detectable right away
+  immediate_feedback:
+    description: "Devices that report status/faults immediately"
+    examples:
+      - "DALI emergency lighting (battery status, lamp failures)"
+      - "Smart plugs (power, energy)"
+      - "Digital sensors (temperature, humidity, CO2)"
+
+    baseline_config:
+      min_data_points: 100          # Just need enough for statistical validity
+      typical_learning_hours: 24    # Can establish baseline in hours
+      anomaly_detection: "threshold_based"  # Simple threshold usually sufficient
+
+    # DALI emergency lighting example
+    dali_emergency:
+      feedback_type: "immediate"
+      telemetry:
+        - battery_level: "query on schedule"
+        - lamp_failure: "broadcast immediately"
+        - duration_test_result: "after test"
+      baseline_learning: "minimal"  # Mostly threshold-based, not statistical
+      anomaly_examples:
+        - "Battery level drops below 80%"
+        - "Lamp failure flag set"
+        - "Duration test failed"
+
+  # Category 2: Gradual Degradation Devices
+  # These devices develop problems over time - need trend analysis
+  gradual_degradation:
+    description: "Devices where anomalies develop over days/weeks/months"
+    examples:
+      - "Motors (current increase, vibration, bearing temperature)"
+      - "Pumps (flow rate decrease, pressure differential)"
+      - "HVAC compressors (efficiency degradation)"
+      - "Fans (vibration, noise, airflow reduction)"
+
+    baseline_config:
+      min_data_points: 2000         # Need substantial history
+      typical_learning_days: 14-30  # Weeks to establish reliable baseline
+      anomaly_detection: "statistical_trend"  # Need trend analysis
+
+    # Motor/pump example
+    motor_pump:
+      feedback_type: "gradual"
+      telemetry:
+        - power_kw: "continuous via CT clamp"
+        - current_a: "continuous via CT clamp"
+        - vibration_mm_s: "periodic via sensor (if equipped)"
+        - temperature_c: "periodic via sensor"
+      baseline_learning: "extensive"
+      typical_degradation_patterns:
+        - pattern: "Bearing wear"
+          indicators: ["vibration increase", "temperature increase"]
+          typical_timeline: "weeks to months"
+        - pattern: "Impeller wear"
+          indicators: ["flow decrease", "power increase for same speed"]
+          typical_timeline: "months to years"
+
+  # Category 3: Event-Based Devices
+  # Anomalies detected by event patterns, not continuous telemetry
+  event_based:
+    description: "Devices where anomalies appear in event patterns"
+    examples:
+      - "Motorized blinds (travel time increase)"
+      - "Door locks (operation count, battery)"
+      - "Valve actuators (stroke time)"
+
+    baseline_config:
+      min_events: 50                # Need enough events to establish pattern
+      typical_learning_days: 7-14   # Depends on usage frequency
+      anomaly_detection: "event_pattern"
+
+    # Motorized blind example
+    blind_actuator:
+      feedback_type: "event_pattern"
+      events:
+        - open_command: "timestamp"
+        - fully_open: "timestamp"
+        - travel_time_ms: "calculated"
+      baseline: "travel_time_ms distribution"
+      anomaly_indicator: "travel_time exceeds baseline by 2σ"
+
+  # Category 4: Inferred Health Devices
+  # No direct health telemetry - infer from operation patterns
+  inferred_health:
+    description: "Devices with no health telemetry - infer from usage"
+    examples:
+      - "Simple relays (cycle count, estimated lifespan)"
+      - "Contactors (cycle count, thermal stress estimation)"
+      - "Solenoid valves (operation count)"
+
+    baseline_config:
+      method: "lifecycle_estimation"
+      data_required: ["operation_count", "load_at_switch"]
+
+    # Relay example
+    relay:
+      feedback_type: "inferred"
+      tracked_metrics:
+        - operation_count: "from command log"
+        - load_current_at_switch: "from associated CT clamp"
+      health_estimation:
+        method: "cycle_counting"
+        rated_cycles: 100000        # From datasheet
+        derating_for_inductive: 0.5 # 50% derating for inductive loads
+        alert_at_percent: 80        # Alert at 80% of estimated life
+```
+
+### Baseline Learning Status
+
+PHM reports baseline status per device to indicate readiness:
+
+```yaml
+baseline_status:
+  states:
+    insufficient_data:
+      description: "Not enough data points yet"
+      phm_enabled: false
+      ui_indicator: "Learning... ({percent}%)"
+
+    learning:
+      description: "Actively collecting baseline data"
+      phm_enabled: "limited"        # Only extreme anomalies flagged
+      ui_indicator: "Learning ({days_remaining} days)"
+
+    ready:
+      description: "Baseline established, full PHM active"
+      phm_enabled: true
+      ui_indicator: "Monitoring"
+
+    stale:
+      description: "Baseline too old, may not reflect current normal"
+      phm_enabled: "with_warning"
+      ui_indicator: "Baseline outdated"
+      action: "Offer to re-learn baseline"
+
+  # Behavior during learning period
+  during_learning:
+    alerts:
+      extreme_only: true            # Only alert on clearly extreme values
+      threshold_multiplier: 3       # 3x normal threshold during learning
+    trend_analysis: false           # Don't analyze trends until baseline ready
+```
+
 ### 3. Anomaly Detection
 
 PHM continuously compares current values against baseline:

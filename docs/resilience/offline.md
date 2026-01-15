@@ -316,26 +316,110 @@ state_management:
 
 ### State Reconciliation
 
-After component recovery, states are synchronized:
+After component recovery, states are synchronized using **timestamp-based conflict resolution**:
 
 ```yaml
 state_reconciliation:
   # Bridge reconnection
   bridge_reconnect:
-    action: "Bridge announces all device states"
-    core_action: "Compare with cached state, update if different"
-    conflict_resolution: "Bridge state wins (it's closer to reality)"
-    
+    action: "Bridge announces all device states with timestamps"
+    core_action: "Compare timestamps, accept newer state"
+    conflict_resolution: "timestamp_wins"
+    conflict_window_seconds: 5      # Within 5s, bridge wins (closer to hardware)
+
   # Core restart
   core_restart:
     action: "Load database state, request bridge refresh"
     timeout: 30                      # Seconds to wait for bridges
     fallback: "Use database state, mark as 'assumed'"
-    
+
   # MQTT broker restart
   mqtt_restart:
     action: "All bridges reconnect and announce states"
-    core_action: "Accept all state updates"
+    core_action: "Accept all state updates, reconcile timestamps"
+```
+
+### Timestamp-Based Conflict Resolution
+
+Every state update includes a timestamp. When conflicts occur:
+
+```yaml
+conflict_resolution:
+  # Rule 1: Newer timestamp wins
+  primary_rule: "latest_timestamp_wins"
+
+  # Rule 2: Within threshold, bridge wins (closer to physical reality)
+  close_conflict_threshold_seconds: 5
+  close_conflict_winner: "bridge"
+
+  # Rule 3: Command in-flight protection
+  pending_command_protection:
+    enabled: true
+    window_seconds: 10              # If command was sent <10s ago, wait for ack
+    action: "hold_state_update"
+
+  # State update message format
+  state_message:
+    required_fields:
+      - device_id
+      - timestamp                   # ISO8601, required for reconciliation
+      - state
+    timestamp_source: "bridge"      # Bridge timestamps state at observation time
+
+  # Example conflict scenarios
+  scenarios:
+    # User sends command while bridge was disconnected
+    command_during_disconnect:
+      command_sent_at: "2026-01-15T10:00:00Z"
+      bridge_reconnect_at: "2026-01-15T10:00:05Z"
+      bridge_reports_state_at: "2026-01-15T09:59:55Z"  # Old state
+      resolution: "Ignore bridge state (older than command)"
+      action: "Re-send command to bridge"
+
+    # Bridge state newer than Core's cached state
+    bridge_state_newer:
+      core_cached_at: "2026-01-15T10:00:00Z"
+      bridge_reports_at: "2026-01-15T10:00:10Z"
+      resolution: "Accept bridge state"
+
+    # Multiple bridges report conflicting state (shouldn't happen)
+    conflicting_bridges:
+      resolution: "Most recent timestamp wins"
+      log: "warning"
+```
+
+### Race Condition Prevention
+
+To prevent race conditions during recovery:
+
+```yaml
+race_condition_prevention:
+  # Command tracking
+  pending_commands:
+    storage: "in_memory"
+    ttl_seconds: 60                 # Track commands for 60s
+    fields:
+      - command_id
+      - device_id
+      - sent_at
+      - acknowledged: boolean
+
+  # State update holdoff
+  holdoff:
+    enabled: true
+    # Don't accept state updates for device if command pending
+    condition: "pending_command_exists AND age < 10s"
+    action: "queue_state_update"
+    queue_max_size: 100
+
+  # Reconciliation on bridge reconnect
+  reconnect_sequence:
+    1: "Bridge connects and publishes health status"
+    2: "Core waits 2s for bridge to stabilize"
+    3: "Core requests full state refresh"
+    4: "Bridge publishes all device states with timestamps"
+    5: "Core reconciles each state against pending commands"
+    6: "Core marks devices as 'confirmed' or 're-sends pending commands'"
 ```
 
 ### Assumed State
@@ -727,6 +811,95 @@ periodic_verification:
       procedure: "Restore from backup, verify config"
       
   documentation: "Record results in maintenance log"
+```
+
+---
+
+## Time Synchronization
+
+Accurate time is critical for schedules, astronomical calculations, and state reconciliation.
+
+### NTP Configuration
+
+```yaml
+time_synchronization:
+  # Primary: Local NTP server (if available)
+  ntp:
+    enabled: true
+    servers:
+      - "192.168.1.1"               # Local router/firewall
+      - "time.google.com"           # Fallback (if internet available)
+      - "pool.ntp.org"              # Secondary fallback
+    poll_interval_seconds: 3600     # Check every hour
+
+  # Hardware RTC (battery-backed)
+  rtc:
+    required: true                  # Server must have battery-backed RTC
+    drift_check_interval_hours: 24
+    max_acceptable_drift_seconds: 60
+
+  # Time uncertainty handling
+  uncertainty:
+    max_tolerable_drift_minutes: 5
+    actions_when_uncertain:
+      schedules: "use_last_known_time"
+      state_timestamps: "mark_uncertain"
+      astronomical: "skip_until_sync"
+```
+
+### Drift Handling
+
+When time source is unavailable or RTC has drifted:
+
+```yaml
+drift_handling:
+  # Detection
+  detect_drift:
+    method: "compare_ntp_vs_rtc"
+    threshold_seconds: 60
+
+  # Behavior when drift detected
+  on_drift_detected:
+    - log_warning: "System time may be inaccurate"
+    - mark_timestamps: "uncertain"
+    - notify_admin: true
+
+  # Behavior when NTP unavailable
+  ntp_unavailable:
+    fallback: "rtc"
+    max_rtc_age_days: 7             # After 7 days without NTP, warn user
+    actions:
+      schedules: "continue"          # Use RTC time
+      astronomical: "continue"       # May be off by minutes
+      state_reconciliation: "widen_conflict_window"
+
+  # Recovery when NTP restored
+  ntp_restored:
+    - sync_immediately: true
+    - log_time_jump: true
+    - re_evaluate_missed_schedules: true
+```
+
+### Time Requirements
+
+| Component | Time Accuracy Required | Consequence if Inaccurate |
+|-----------|----------------------|--------------------------|
+| Schedules | ±5 minutes | Triggers at wrong time |
+| Astronomical | ±2 minutes | Sunrise/sunset off |
+| State timestamps | ±5 seconds | Reconciliation may fail |
+| Audit logs | ±1 second | Investigation harder |
+| TLS certificates | ±1 hour | Connection failures |
+
+### Commissioning Checklist
+
+```yaml
+time_commissioning:
+  - [ ] Server has battery-backed RTC
+  - [ ] RTC battery tested (holds time on power loss)
+  - [ ] NTP server configured and reachable
+  - [ ] Timezone set correctly
+  - [ ] Time verified accurate after reboot
+  - [ ] Astronomical calculations verified (sunrise time matches reality)
 ```
 
 ---

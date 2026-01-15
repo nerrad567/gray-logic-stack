@@ -74,6 +74,7 @@ Protocol Bridges are independent processes that translate between Gray Logic's i
 ```
 graylogic/
 ├── command/{protocol}/{address}     # Core → Bridge: Commands
+├── ack/{protocol}/{address}         # Bridge → Core: Command acknowledgments
 ├── state/{protocol}/{address}       # Bridge → Core: State updates
 ├── request/{protocol}/{request_id}  # Core → Bridge: Requests
 ├── response/{protocol}/{request_id} # Bridge → Core: Responses
@@ -128,6 +129,75 @@ All messages are JSON with a standard envelope.
 | `parameters` | object | No | Command parameters |
 | `source` | string | Yes | Origin: `api`, `automation`, `voice`, `scene` |
 | `user_id` | string | No | User who triggered (if applicable) |
+
+### Command Acknowledgment Message (Bridge → Core)
+
+Bridges MUST acknowledge every command received. This enables Core to track command delivery and detect failures.
+
+```json
+{
+  "command_id": "cmd-uuid-123",
+  "timestamp": "2026-01-12T10:30:00.500Z",
+  "device_id": "light-living-1",
+  "status": "accepted",
+  "protocol": "knx",
+  "address": "1/2/3"
+}
+```
+
+**Topic:** `graylogic/ack/{protocol}/{address}`
+
+**QoS:** 1 (at least once)
+
+**Retained:** No (acknowledgments are transient)
+
+**Fields:**
+
+| Field | Type | Required | Description |
+|-------|------|----------|-------------|
+| `command_id` | string | Yes | ID from the original command |
+| `timestamp` | ISO8601 | Yes | When acknowledgment was sent |
+| `device_id` | string | Yes | Gray Logic device ID |
+| `status` | string | Yes | Acknowledgment status (see below) |
+| `protocol` | string | Yes | Protocol identifier |
+| `address` | string | Yes | Protocol-specific address |
+| `error` | object | No | Error details if status is `failed` |
+
+**Status Values:**
+
+| Status | Description |
+|--------|-------------|
+| `accepted` | Command received and sent to device |
+| `queued` | Command received, waiting to send (device busy) |
+| `failed` | Command could not be executed |
+| `timeout` | Device did not respond within timeout |
+
+**Error Object (when status is `failed` or `timeout`):**
+
+```json
+{
+  "command_id": "cmd-uuid-123",
+  "timestamp": "2026-01-12T10:30:05Z",
+  "device_id": "light-living-1",
+  "status": "timeout",
+  "protocol": "knx",
+  "address": "1/2/3",
+  "error": {
+    "code": "DEVICE_UNREACHABLE",
+    "message": "Device did not respond within 5000ms",
+    "retries": 3
+  }
+}
+```
+
+**Core Behavior:**
+
+- Core tracks pending commands by `command_id`
+- If no acknowledgment within 10 seconds, Core logs warning
+- Scene engine uses acknowledgments to track action execution
+- UI can display command status to users
+
+---
 
 ### State Message (Bridge → Core)
 
@@ -430,8 +500,10 @@ Core can push configuration to bridges.
 
 6. **Handle commands:**
    - Translate command to protocol
+   - Publish acknowledgment immediately (`accepted`, `queued`, or `failed`)
    - Execute on device
-   - State update will confirm execution
+   - Publish follow-up acknowledgment if timeout/failure occurs
+   - State update will confirm final execution
 
 7. **Handle configuration:**
    - Load device mappings
@@ -654,6 +726,7 @@ user bridge-knx
 topic read graylogic/command/knx/#
 topic read graylogic/request/knx/#
 topic read graylogic/config/knx
+topic write graylogic/ack/knx/#
 topic write graylogic/state/knx/#
 topic write graylogic/health/knx
 topic write graylogic/discovery/knx

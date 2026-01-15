@@ -582,12 +582,12 @@ mqtt:
       enabled: true
       cert_file: "/etc/graylogic/certs/mqtt.crt"
       key_file: "/etc/graylogic/certs/mqtt.key"
-      
+
     # Authentication
     authentication:
       enabled: true
-      method: "password"             # password | certificate
-      
+      method: "password"             # password | certificate | mtls
+
     # ACLs
     acl:
       enabled: true
@@ -595,14 +595,81 @@ mqtt:
         - user: "core"
           topic: "#"
           access: "readwrite"
-          
+
         - user: "bridge-knx"
           topic: "graylogic/+/knx/#"
           access: "readwrite"
-          
+
         - user: "bridge-knx"
           topic: "graylogic/state/#"
           access: "read"
+```
+
+### MQTT Mutual TLS (mTLS)
+
+For higher security deployments, bridges can authenticate via client certificates:
+
+```yaml
+mqtt_mtls:
+  # Enable mutual TLS
+  enabled: true
+
+  # Broker configuration (Mosquitto)
+  broker:
+    listener: 8883
+    cafile: "/etc/graylogic/certs/ca.crt"
+    certfile: "/etc/graylogic/certs/mqtt-broker.crt"
+    keyfile: "/etc/graylogic/certs/mqtt-broker.key"
+    require_certificate: true
+    use_identity_as_username: true  # CN becomes username for ACL
+
+  # Client (Bridge) certificates
+  bridge_certificates:
+    # Each bridge has its own certificate
+    knx_bridge:
+      cn: "bridge-knx"
+      cert: "/etc/graylogic/certs/bridge-knx.crt"
+      key: "/etc/graylogic/certs/bridge-knx.key"
+
+    dali_bridge:
+      cn: "bridge-dali"
+      cert: "/etc/graylogic/certs/bridge-dali.crt"
+      key: "/etc/graylogic/certs/bridge-dali.key"
+
+    core:
+      cn: "graylogic-core"
+      cert: "/etc/graylogic/certs/core.crt"
+      key: "/etc/graylogic/certs/core.key"
+
+  # Certificate generation
+  certificate_management:
+    ca:
+      generate_on_install: true
+      validity_years: 10
+      key_size: 4096
+
+    bridge_certs:
+      validity_years: 5
+      key_size: 2048
+      auto_renew_days_before: 30
+
+  # Benefits of mTLS
+  benefits:
+    - "No password management for bridges"
+    - "Certificate revocation for compromised bridges"
+    - "Stronger authentication than password"
+    - "Bridge identity verified cryptographically"
+
+  # When to use
+  recommendations:
+    use_mtls_when:
+      - "High-security commercial deployments"
+      - "Bridges on separate network segments"
+      - "Regulatory compliance requirements"
+    use_password_when:
+      - "Simpler residential deployments"
+      - "All components on same host"
+      - "Easier initial setup needed"
 ```
 
 ---
@@ -650,10 +717,86 @@ ldap_bind_password: "ad-password"
 secret_rotation:
   jwt_secret:
     auto_rotate: false               # Manual rotation recommended
-    
+    dual_secret_support: true        # Support old+new secret during rotation
+
   api_keys:
     max_age_days: 365
     warn_before_expiry_days: 30
+    regeneration_allowed: true       # Keys can be regenerated
+```
+
+### JWT Secret Rotation Procedure
+
+When JWT secret needs to be rotated (e.g., suspected compromise):
+
+```yaml
+jwt_rotation:
+  # Dual-secret transition period
+  transition:
+    duration_hours: 24              # Both old and new secret valid for 24h
+    verification_order: ["new", "old"]  # Try new first
+
+  # Rotation procedure
+  procedure:
+    1: "Generate new JWT secret"
+    2: "Add new secret to configuration (JWT_SECRET_NEW)"
+    3: "Restart Core with dual-secret mode"
+    4: "All new tokens issued with new secret"
+    5: "Existing tokens verified against both secrets"
+    6: "After 24h, remove old secret (JWT_SECRET_OLD)"
+    7: "Restart Core with single secret"
+
+  # Configuration during rotation
+  config:
+    jwt:
+      secrets:
+        current: "${JWT_SECRET_NEW}"
+        previous: "${JWT_SECRET_OLD}"  # Only during rotation
+      transition_mode: true
+
+  # Emergency rotation (immediate, all sessions invalidated)
+  emergency:
+    procedure:
+      1: "Generate new JWT secret"
+      2: "Replace JWT_SECRET immediately"
+      3: "Restart Core"
+      4: "All existing tokens immediately invalid"
+      5: "All users must re-authenticate"
+    use_when: "Active compromise confirmed"
+```
+
+### API Key Regeneration
+
+API keys can be regenerated without deleting and recreating:
+
+```yaml
+api_key_regeneration:
+  # Regeneration endpoint
+  endpoint:
+    method: POST
+    path: "/api/v1/api-keys/{id}/regenerate"
+    auth: "admin only"
+
+  # Regeneration behavior
+  behavior:
+    old_key_grace_period_minutes: 5  # Old key works for 5 more minutes
+    notify_on_regenerate: true       # Email admin when key regenerated
+    log_event: true                  # Audit log entry
+
+  # Response
+  response:
+    new_key: "gl_xxxx..."            # Shown once, cannot be retrieved again
+    expires_in_minutes: 5            # Old key expiry countdown
+    note: "Save this key - it cannot be retrieved again"
+
+  # Recovery if key lost
+  recovery:
+    method: "regenerate"             # Only option is to regenerate
+    old_key_revoked: "immediately or after grace period"
+
+  # Rate limiting
+  rate_limit:
+    regenerations_per_hour: 3        # Prevent abuse
 ```
 
 ---

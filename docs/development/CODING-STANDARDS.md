@@ -717,6 +717,298 @@ gray-logic-core/
 
 ---
 
+## Database Migrations
+
+### Migration File Format
+
+Database migrations are versioned SQL files:
+
+```
+migrations/
+├── 20260115_120000_initial_schema.up.sql
+├── 20260115_120000_initial_schema.down.sql
+├── 20260120_143000_add_scene_executions.up.sql
+├── 20260120_143000_add_scene_executions.down.sql
+└── ...
+```
+
+**Naming convention:** `YYYYMMDD_HHMMSS_description.{up|down}.sql`
+
+### Migration Rules
+
+1. **Always provide both up and down** — Every migration must be reversible
+2. **Idempotent where possible** — Use `IF NOT EXISTS`, `IF EXISTS`
+3. **Small, focused migrations** — One logical change per migration
+4. **Test migrations on copy** — Never test on production database
+5. **Backup before migrate** — Automated by migration tool
+
+### Example Migration
+
+```sql
+-- 20260120_143000_add_scene_executions.up.sql
+-- Add scene execution tracking
+
+CREATE TABLE IF NOT EXISTS scene_executions (
+    id TEXT PRIMARY KEY,
+    scene_id TEXT NOT NULL,
+    status TEXT NOT NULL CHECK (status IN ('pending', 'running', 'completed', 'partial', 'failed', 'cancelled')),
+    triggered_at TIMESTAMP NOT NULL,
+    started_at TIMESTAMP,
+    completed_at TIMESTAMP,
+    trigger_type TEXT NOT NULL,
+    trigger_user_id TEXT,
+    actions_total INTEGER NOT NULL DEFAULT 0,
+    actions_completed INTEGER NOT NULL DEFAULT 0,
+    actions_failed INTEGER NOT NULL DEFAULT 0,
+    duration_ms INTEGER,
+    created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
+    FOREIGN KEY (scene_id) REFERENCES scenes(id) ON DELETE CASCADE
+);
+
+CREATE INDEX IF NOT EXISTS idx_scene_executions_scene_id ON scene_executions(scene_id);
+CREATE INDEX IF NOT EXISTS idx_scene_executions_triggered_at ON scene_executions(triggered_at);
+```
+
+```sql
+-- 20260120_143000_add_scene_executions.down.sql
+-- Remove scene execution tracking
+
+DROP INDEX IF EXISTS idx_scene_executions_triggered_at;
+DROP INDEX IF EXISTS idx_scene_executions_scene_id;
+DROP TABLE IF EXISTS scene_executions;
+```
+
+### Migration Workflow
+
+```bash
+# Check migration status
+graylogic-ctl migrate status
+
+# Apply pending migrations
+graylogic-ctl migrate up
+
+# Rollback last migration
+graylogic-ctl migrate down 1
+
+# Create new migration
+graylogic-ctl migrate create add_feature_x
+```
+
+---
+
+## Structured Logging
+
+### Log Format
+
+All components use JSON structured logging:
+
+```json
+{
+  "timestamp": "2026-01-15T10:30:00.123Z",
+  "level": "info",
+  "component": "scene_engine",
+  "msg": "Scene activated",
+  "scene_id": "scene-cinema",
+  "scene_name": "Cinema Mode",
+  "trigger": "voice",
+  "user_id": "usr-001",
+  "actions_count": 8,
+  "duration_ms": 245
+}
+```
+
+### Required Fields
+
+Every log entry MUST include:
+
+| Field | Type | Description |
+|-------|------|-------------|
+| `timestamp` | ISO8601 | When the event occurred (UTC) |
+| `level` | string | Log level: debug, info, warn, error, fatal |
+| `component` | string | Source component: core, api, scene_engine, bridge_knx, etc. |
+| `msg` | string | Human-readable message |
+
+### Context Fields
+
+Add context relevant to the operation:
+
+```go
+log.Info("Command sent to device",
+    "component", "bridge_knx",
+    "device_id", device.ID,
+    "command", cmd.Name,
+    "address", device.Address,
+    "latency_ms", latency.Milliseconds(),
+)
+```
+
+### Sensitive Data
+
+**NEVER log:**
+- Passwords or secrets
+- Full JWT tokens (log last 8 chars only: `token: ...abc12345`)
+- PII unless required for audit
+- Audio/video content
+- Credit card numbers
+
+**Redact when necessary:**
+```go
+log.Info("API key used",
+    "key_id", key.ID,
+    "key_prefix", key.Value[:8]+"...",  // Redacted
+)
+```
+
+### Log Levels
+
+| Level | Use Case | Example |
+|-------|----------|---------|
+| `debug` | Development tracing | "Received MQTT message", "Query executed" |
+| `info` | Normal operations | "Scene activated", "Device registered" |
+| `warn` | Recoverable issues | "Retry attempt 2/3", "Rate limit approaching" |
+| `error` | Failures | "Database write failed", "Device unreachable" |
+| `fatal` | Unrecoverable | "Database corrupted", "Critical config missing" |
+
+---
+
+## Testing with Hardware
+
+### Testing Strategy
+
+Gray Logic uses a three-tier testing approach:
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                         Unit Tests                                   │
+│  - Mock interfaces                                                  │
+│  - No external dependencies                                         │
+│  - Fast (<1s per test)                                              │
+│  - Run on every commit                                              │
+└───────────────────────────────────┬─────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                    Integration Tests (Simulators)                    │
+│  - Software simulators for protocols                                │
+│  - Full component integration                                       │
+│  - Medium speed (seconds per test)                                  │
+│  - Run on PR/merge                                                  │
+└───────────────────────────────────┬─────────────────────────────────┘
+                                    │
+                                    ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                  Hardware-in-Loop Tests (Real Devices)               │
+│  - Actual KNX/DALI/Modbus devices                                   │
+│  - Full end-to-end validation                                       │
+│  - Slow (minutes per suite)                                         │
+│  - Run before release / weekly                                      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Mock Interfaces
+
+For unit testing, mock all external dependencies:
+
+```go
+// interfaces.go
+type DeviceRepository interface {
+    GetByID(ctx context.Context, id string) (*Device, error)
+    Save(ctx context.Context, device *Device) error
+}
+
+type MQTTPublisher interface {
+    Publish(topic string, payload []byte) error
+}
+
+// mock_repository.go
+type MockDeviceRepository struct {
+    Devices map[string]*Device
+    SaveErr error
+}
+
+func (m *MockDeviceRepository) GetByID(ctx context.Context, id string) (*Device, error) {
+    if d, ok := m.Devices[id]; ok {
+        return d, nil
+    }
+    return nil, ErrDeviceNotFound
+}
+```
+
+### Protocol Simulators
+
+For integration testing without hardware:
+
+```yaml
+simulators:
+  knx:
+    tool: "knxd --fake"              # knxd can run in simulation mode
+    config: "tests/fixtures/knx_simulation.yaml"
+    devices:
+      - address: "1/2/3"
+        type: "switch"
+        initial_state: "off"
+
+  dali:
+    tool: "dali-simulator"           # Custom or community simulator
+    config: "tests/fixtures/dali_simulation.yaml"
+    devices:
+      - short_address: 0
+        type: "led_driver"
+        initial_level: 0
+
+  modbus:
+    tool: "diagslave"                # Modbus simulator
+    config: "tests/fixtures/modbus_simulation.yaml"
+    registers:
+      - address: 40001
+        value: 0
+```
+
+### Hardware Test Lab
+
+For final validation, maintain a hardware test setup:
+
+```yaml
+test_lab:
+  # Recommended test devices
+  knx:
+    - "ABB SA/S switch actuator"
+    - "ABB UD/S dimmer"
+    - "ABB sensor"
+
+  dali:
+    - "Tridonic gateway"
+    - "2-3 DALI drivers"
+
+  modbus:
+    - "Eastron SDM630 energy meter"
+    - "Any Modbus temperature sensor"
+
+  # Test scenarios
+  scenarios:
+    - name: "Basic switching"
+      steps:
+        - "Send on command"
+        - "Verify device state"
+        - "Verify state in Core"
+
+    - name: "Scene execution"
+      steps:
+        - "Activate scene with 5 devices"
+        - "Verify all devices reached target state"
+        - "Verify execution logged"
+```
+
+### When to Use Each
+
+| Test Type | When to Run | Purpose |
+|-----------|-------------|---------|
+| Unit | Every commit | Catch logic errors |
+| Simulator | Every PR | Catch integration issues |
+| Hardware | Weekly / Pre-release | Catch protocol issues |
+
+---
+
 ## Git Commit Standards
 
 ### Commit Message Format

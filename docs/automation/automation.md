@@ -113,6 +113,100 @@ Scene:
   sort_order: integer
 ```
 
+### Scene Execution Tracking
+
+Every scene activation creates a `SceneExecution` record to track progress and results:
+
+```yaml
+SceneExecution:
+  id: uuid
+  scene_id: uuid
+  triggered_at: timestamp           # When activation was requested
+  started_at: timestamp             # When first action began
+  completed_at: timestamp | null    # When all actions finished (null if running)
+
+  trigger:
+    type: "manual" | "schedule" | "event" | "voice" | "automation"
+    user_id: uuid | null            # If manual or voice
+    schedule_id: uuid | null        # If scheduled
+    event: object | null            # If event-triggered
+
+  status: "pending" | "running" | "completed" | "partial" | "failed" | "cancelled"
+
+  # Action tracking
+  actions_total: integer            # Total actions in scene
+  actions_completed: integer        # Successfully executed
+  actions_failed: integer           # Failed to execute
+  actions_skipped: integer          # Skipped due to conditions
+
+  # Failure details (if any)
+  failures: [ActionFailure]
+
+  # Timing
+  duration_ms: integer | null       # Total execution time
+```
+
+**ActionFailure Structure:**
+
+```yaml
+ActionFailure:
+  action_index: integer             # Position in actions array
+  device_id: uuid
+  command: string
+  error:
+    code: string                    # "DEVICE_UNREACHABLE", "TIMEOUT", etc.
+    message: string
+    timestamp: timestamp
+  acknowledged: boolean             # Has user seen this failure
+```
+
+**Scene Execution States:**
+
+| Status | Description |
+|--------|-------------|
+| `pending` | Triggered, waiting for conditions check |
+| `running` | Actions currently executing |
+| `completed` | All actions executed successfully |
+| `partial` | Some actions failed, but continue_on_error allowed completion |
+| `failed` | Critical action failed, scene aborted |
+| `cancelled` | User or system cancelled mid-execution |
+
+**API Endpoint for Execution Status:**
+
+```http
+GET /api/v1/scenes/{scene_id}/executions?limit=10
+```
+
+**Response:**
+```json
+{
+  "data": [
+    {
+      "id": "exec-001",
+      "scene_id": "scene-cinema",
+      "status": "partial",
+      "triggered_at": "2026-01-15T20:00:00Z",
+      "completed_at": "2026-01-15T20:00:02Z",
+      "actions_total": 8,
+      "actions_completed": 7,
+      "actions_failed": 1,
+      "failures": [
+        {
+          "action_index": 5,
+          "device_id": "blind-living-1",
+          "command": "position",
+          "error": {
+            "code": "TIMEOUT",
+            "message": "Device did not respond within 5000ms"
+          }
+        }
+      ],
+      "duration_ms": 2150
+    }
+  ]
+}
+```
+
 ### Actions
 
 Actions define what happens when a scene activates:

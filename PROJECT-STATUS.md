@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-15 (Session 4)  
-> **Current Phase:** Documentation (Pre-Development)
+> **Last Updated:** 2026-01-15
+> **Current Phase:** Documentation (Pre-Development Review Complete)
 
 ---
 
@@ -21,6 +21,8 @@
 | Deployment Guides | ✅ Complete |
 | Business Docs | ✅ Complete |
 | Development Docs | ✅ Complete |
+| Operations Docs | ✅ Complete |
+| Commissioning Docs | ✅ Complete |
 | Code | ❌ Not started |
 
 ---
@@ -86,6 +88,13 @@
 - [x] `backup.md` — Backup and recovery procedures ✓
 - [x] `satellite-weather.md` — Satellite weather decode ✓
 - [x] `mesh-comms.md` — LoRa/Meshtastic mesh communications ✓
+
+#### Operations (`docs/operations/`)
+- [x] `updates.md` — Update and upgrade strategy ✓
+- [x] `monitoring.md` — Monitoring and alerting ✓
+
+#### Commissioning (`docs/commissioning/`)
+- [x] `discovery.md` — Device discovery specification ✓
 
 ---
 
@@ -178,7 +187,7 @@
 
 ---
 
-## Session Log
+## Change Log
 
 ### 2026-01-12 — Documentation Sprint
 
@@ -281,6 +290,40 @@
 - Supporting: device-association, audio-zone, climate-zone
 - README with validation and code generation examples
 - Total: ~1,800 lines of JSON Schema definitions
+
+### 2026-01-15 — Pre-Development Review & Refinements
+
+**Comprehensive documentation review completed.** Identified and addressed gaps, inconsistencies, and missing specifications.
+
+**New Documents Created:**
+- `docs/operations/updates.md` — Update and upgrade strategy, rollback procedures, offline updates (~450 lines)
+- `docs/operations/monitoring.md` — Customer-facing and installer monitoring, dead man's switch, Prometheus metrics (~400 lines)
+- `docs/commissioning/discovery.md` — Device discovery per protocol (KNX, DALI, Modbus, IP), staging workflow (~350 lines)
+
+**Major Updates:**
+- `docs/architecture/bridge-interface.md` — Added MQTT command acknowledgment (`graylogic/ack/`) for tracking command delivery
+- `docs/architecture/core-internals.md` — Clarified `monitors_and_controls` association behavior and resolution priority
+- `docs/automation/automation.md` — Added `SceneExecution` entity for tracking scene activation progress
+- `docs/resilience/offline.md` — Added timestamp-based conflict resolution, race condition prevention, time synchronization spec
+- `docs/intelligence/voice.md` — Added fallback path (CPU Whisper, pre-recorded responses), error tones, i18n roadmap
+- `docs/intelligence/phm.md` — Added device-type-specific baseline requirements (immediate vs gradual feedback)
+- `docs/architecture/security-model.md` — Added JWT rotation procedure, API key regeneration, MQTT mTLS option
+- `docs/development/CODING-STANDARDS.md` — Added database migration strategy, structured logging standard, testing with hardware strategy
+- `docs/architecture/system-overview.md` — Added multi-site architecture section, capacity planning guide, confirmed Svelte for Web Admin
+
+**Technology Decisions Finalized:**
+- Web Admin framework: **Svelte** (not React)
+- DALI gateway: Protocol-agnostic (any gateway works, not vendor-specific)
+
+**Review Findings Addressed:**
+- MQTT command acknowledgment gap → Added `graylogic/ack/{protocol}/{address}` topic
+- Scene execution tracking → Added `SceneExecution` entity with status tracking
+- State reconciliation races → Added timestamp-based conflict resolution
+- Voice fallback missing → Added degradation hierarchy with audible/visual feedback
+- PHM baseline data requirements → Added device-type categories (immediate/gradual/event/inferred)
+- No upgrade strategy → Created `operations/updates.md`
+- No monitoring strategy → Created `operations/monitoring.md` with front-end dead man's switch
+- Device discovery under-specified → Created `commissioning/discovery.md`
 
 ### 2026-01-15 — Development Documentation Sprint
 

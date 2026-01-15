@@ -90,7 +90,7 @@ All user interfaces communicate with Gray Logic Core via REST API and WebSocket 
 | **Wall Panels** | Flutter (Android/Linux) | Per-room control, always on, mounted |
 | **Mobile App** | Flutter (iOS/Android) | Away-from-home control, notifications |
 | **Voice Input** | Room microphone arrays | Hands-free control via local AI |
-| **Web Admin** | React/Svelte | Commissioning, configuration, diagnostics |
+| **Web Admin** | Svelte | Commissioning, configuration, diagnostics |
 | **Remote Access** | Via WireGuard VPN | Identical to local access, encrypted |
 
 ### Gray Logic Core
@@ -143,7 +143,7 @@ Bridges are separate processes that handle protocol-specific communication. They
 | Bridge | Protocol | Hardware |
 |--------|----------|----------|
 | **KNX Bridge** | KNX TP / KNX IP | Via knxd daemon |
-| **DALI Bridge** | DALI-2 | Via gateway (e.g., Tridonic) |
+| **DALI Bridge** | DALI-2 | Via any DALI gateway (protocol-agnostic) |
 | **Modbus Bridge** | Modbus RTU/TCP | Direct or via converter |
 | **Audio Matrix** | RS232/IP | HTD, Russound, AudioControl |
 | **Video Matrix** | RS232/IP | Atlona, WyreStorm, etc. |
@@ -390,10 +390,101 @@ User says "Hey Gray, turn on the kitchen lights"
 | **API** | REST + WebSocket | Universal client support |
 | **Wall Panel UI** | Flutter | Cross-platform, native performance |
 | **Mobile App** | Flutter | Same codebase as panels |
-| **Web Admin** | Svelte/React | Modern, maintainable |
+| **Web Admin** | Svelte | Simpler, smaller bundle, maintainable |
 | **Voice STT** | Whisper | Local, accurate, open |
 | **Voice TTS** | Piper | Local, natural sounding |
 | **Local LLM** | Llama/Phi | On-device intelligence |
+
+---
+
+## Multi-Site Architecture
+
+### Current Scope: Single Site
+
+Gray Logic v1.0 is designed for **single-site deployments**:
+
+- **One Core instance per site**
+- Sites operate completely independently
+- Own database, configuration, user accounts, backup
+- No inter-site dependencies
+
+**Rationale:**
+- Simplifies offline operation
+- Clear security boundary
+- Easier to troubleshoot
+
+### Multi-Property Owners
+
+For customers with multiple properties, each site has its own Gray Logic installation:
+
+```
+┌──────────────────┐    ┌──────────────────┐
+│   Main House     │    │   Holiday Home   │
+│  ┌────────────┐  │    │  ┌────────────┐  │
+│  │ Gray Logic │  │    │  │ Gray Logic │  │
+│  └────────────┘  │    │  └────────────┘  │
+└────────┬─────────┘    └────────┬─────────┘
+         │                       │
+         └───────────┬───────────┘
+                     │
+             ┌───────▼───────┐
+             │  WireGuard    │
+             │     VPN       │
+             └───────┬───────┘
+                     │
+             ┌───────▼───────┐
+             │ Customer's    │
+             │  Phone App    │
+             └───────────────┘
+```
+
+The mobile app can connect to multiple sites via separate VPN configurations.
+
+### Future: Centralized Management (Year 5+)
+
+Optional lightweight aggregation for multi-site owners:
+- View-only dashboard across sites
+- Alert aggregation
+- Single login to multiple sites
+
+Sites remain fully independent — no cross-site automation or shared state.
+
+---
+
+## Capacity Planning
+
+### Server Sizing
+
+| Scale | Devices | CPU | RAM | Storage | Example Hardware |
+|-------|---------|-----|-----|---------|-----------------|
+| **Minimum** | <100 | 2 cores | 2 GB | 32 GB SSD | Raspberry Pi 4 |
+| **Recommended** | 100-300 | 4 cores | 4 GB | 64 GB SSD | Intel NUC, Mini PC |
+| **Large** | 300-1000 | 8 cores | 8 GB | 128 GB SSD | Small server |
+
+**Voice processing adds:** +2 GB RAM, +2 cores (or GPU recommended)
+
+### Resource Estimates
+
+| Resource | Estimate |
+|----------|----------|
+| RAM per device | ~10 KB |
+| InfluxDB per device per day | ~0.5 MB |
+| Per 100 devices per year (InfluxDB) | ~18 GB |
+| SQLite per device per year | ~1 KB |
+
+**Example: 200 devices**
+- Core RAM: ~32 MB
+- Storage per year: ~40 GB (mostly InfluxDB)
+
+### Scaling Limits
+
+| Metric | Target | Tested Max | Bottleneck |
+|--------|--------|------------|------------|
+| Devices | 500 | 1000 | MQTT message rate |
+| Concurrent UI clients | 10 | 20 | WebSocket connections |
+| Commands/second | 100 | 200 | Bridge throughput |
+
+For deployments exceeding 500 devices, consider splitting into zones.
 
 ---
 
@@ -405,5 +496,7 @@ User says "Hey Gray, turn on the kitchen lights"
 - [API Specification](../interfaces/api.md) — REST API details
 - [Development Strategy](../development/DEVELOPMENT-STRATEGY.md) — Build approach and milestones
 - [Security Checklist](../development/SECURITY-CHECKLIST.md) — Security verification gates
+- [Monitoring](../operations/monitoring.md) — System monitoring and alerting
+- [Updates](../operations/updates.md) — Upgrade strategy
 - Protocol bridge specifications in [protocols/](../protocols/)
 - Integration specifications in [integration/](../integration/) — Access Control, CCTV, Fire Alarm
