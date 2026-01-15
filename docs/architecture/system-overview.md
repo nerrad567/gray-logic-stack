@@ -403,5 +403,8 @@ User says "Hey Gray, turn on the kitchen lights"
 - [Principles](../overview/principles.md) — Hard rules and design principles
 - [Entities](../data-model/entities.md) — Data model definitions
 - [API Specification](../interfaces/api-rest.md) — REST API details
+- [Development Strategy](../development/DEVELOPMENT-STRATEGY.md) — Overall development approach and phased plan
+- [Coding Standards](../development/CODING-STANDARDS.md) — How to write and document code
+- [Security Checklist](../development/SECURITY-CHECKLIST.md) — Security verification and release gates
 - Protocol bridge specifications in [protocols/](../protocols/)
 - Integration specifications in [integration/](../integration/) — Access Control, CCTV, Fire Alarm
