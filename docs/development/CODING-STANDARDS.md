@@ -2,7 +2,7 @@
 title: Coding Standards
 version: 1.0.0
 status: active
-last_updated: 2026-01-15
+last_updated: 2026-01-16
 depends_on:
   - development/DEVELOPMENT-STRATEGY.md
   - overview/principles.md
@@ -868,6 +868,72 @@ log.Info("API key used",
 | `warn` | Recoverable issues | "Retry attempt 2/3", "Rate limit approaching" |
 | `error` | Failures | "Database write failed", "Device unreachable" |
 | `fatal` | Unrecoverable | "Database corrupted", "Critical config missing" |
+
+---
+
+## Timestamp and Timezone Handling
+
+### UTC Everywhere Internally
+
+**All timestamps stored and transmitted internally MUST be UTC.**
+
+```go
+// ✅ Good - Always use UTC for storage and transmission
+createdAt := time.Now().UTC()
+
+// ✅ Good - Parse incoming timestamps as UTC
+t, err := time.Parse(time.RFC3339, "2026-01-15T10:30:00Z")
+
+// ❌ Bad - Using local time for storage
+createdAt := time.Now()  // Don't do this
+```
+
+### Display Timezone
+
+Convert to local timezone only at the UI layer:
+
+```go
+// API response - always UTC (Z suffix)
+type DeviceState struct {
+    UpdatedAt time.Time `json:"updated_at"`  // "2026-01-15T10:30:00Z"
+}
+
+// UI layer converts for display
+func formatForDisplay(t time.Time, tz *time.Location) string {
+    return t.In(tz).Format("15:04 02/01/2006")  // "10:30 15/01/2026" for UK
+}
+```
+
+### Site Timezone Configuration
+
+Each site has a configured timezone for:
+- Schedule evaluation (e.g., "turn on at 18:00" means 18:00 local)
+- Astronomical calculations (sunrise/sunset for the location)
+- Log display in admin interface
+
+```yaml
+site:
+  timezone: "Europe/London"  # IANA timezone database
+```
+
+### Database Storage
+
+```sql
+-- All timestamps stored as UTC
+CREATE TABLE device_state (
+    updated_at TIMESTAMP NOT NULL  -- Always UTC, no timezone suffix needed
+);
+
+-- When inserting
+INSERT INTO device_state (updated_at) VALUES (datetime('now'));  -- SQLite UTC
+```
+
+### Why UTC?
+
+1. **No ambiguity** — No daylight saving time transitions
+2. **Sortable** — Direct string comparison works
+3. **Interoperable** — Standard for APIs and logs
+4. **Debuggable** — One reference point for all timestamps
 
 ---
 

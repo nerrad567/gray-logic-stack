@@ -2,7 +2,7 @@
 title: Core Internals Architecture
 version: 1.0.0
 status: active
-last_updated: 2026-01-12
+last_updated: 2026-01-16
 depends_on:
   - architecture/system-overview.md
   - overview/principles.md
@@ -378,6 +378,57 @@ CREATE TABLE device_state_history (
     recorded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 CREATE INDEX idx_history_device_time ON device_state_history(device_id, recorded_at);
+```
+
+**Concurrency Model:**
+
+SQLite is configured for concurrent access:
+
+```yaml
+# SQLite connection settings
+database:
+  path: "/var/lib/graylogic/graylogic.db"
+
+  # Write-Ahead Logging for concurrent reads during writes
+  journal_mode: "WAL"
+
+  # Busy timeout (ms) before returning SQLITE_BUSY
+  busy_timeout: 5000
+
+  # Connection pool
+  max_open_connections: 1      # SQLite allows only one writer
+  max_idle_connections: 5      # Multiple readers via WAL
+```
+
+**Concurrency Rules:**
+
+1. **Single Writer** — Only one goroutine writes at a time (enforced by Go's sql.DB)
+2. **Multiple Readers** — WAL mode allows concurrent reads during writes
+3. **No Distributed Access** — SQLite is not shared across network (single server)
+4. **Connection Pooling** — Go's database/sql handles connection lifecycle
+
+**WAL Mode Benefits:**
+
+- Writers don't block readers
+- Readers don't block writers
+- Faster for typical workloads (many reads, few writes)
+- Crash recovery is faster
+
+**When to Use Transactions:**
+
+```go
+// Use transactions for multi-statement atomicity
+tx, err := db.BeginTx(ctx, nil)
+if err != nil {
+    return err
+}
+defer tx.Rollback()
+
+// Multiple operations that must succeed together
+_, err = tx.ExecContext(ctx, "INSERT INTO scenes ...")
+_, err = tx.ExecContext(ctx, "INSERT INTO scene_actions ...")
+
+return tx.Commit()
 ```
 
 #### MQTT Client
@@ -1059,6 +1110,55 @@ type HealthStatus struct {
 // - UI shows "degraded" status
 // - Reconnect in background
 ```
+
+### MQTT Single Point of Failure
+
+MQTT is intentionally a single broker instance for Year 1-3. This is an architectural decision, not an oversight.
+
+**Why Single MQTT Broker:**
+
+1. **Simplicity** — One broker is easier to deploy, configure, and debug
+2. **Reduced latency** — No cluster coordination overhead
+3. **Sufficient for scope** — Single building, single server, ~1000 devices max
+4. **10-year stability** — Less complexity = fewer failure modes
+
+**Mitigations for MQTT Failure:**
+
+```
+MQTT Broker Down
+        │
+        ▼
+Bridges detect disconnect (5s timeout)
+        │
+        ├──► Bridges continue local operation
+        │    - KNX/DALI/Modbus still work
+        │    - Physical controls still work
+        │    - Scene recall from panel memory works
+        │
+        ├──► Core detects disconnect
+        │    - API serves cached state (read-only mode)
+        │    - UI shows "Degraded: Devices unreachable"
+        │    - Commands return 503 Service Unavailable
+        │
+        └──► Automatic recovery
+             - Broker restarts (systemd auto-restart)
+             - Bridges reconnect with exponential backoff
+             - State synchronization on reconnect
+```
+
+**Recovery Procedure:**
+
+1. **Automatic** — systemd restarts Mosquitto within 10 seconds
+2. **Bridges reconnect** — Exponential backoff (1s, 2s, 4s, 8s, max 30s)
+3. **State sync** — Bridges publish current device states on reconnect
+4. **Command flush** — Queued commands sent after reconnect
+
+**Future Enhancement (Year 4+):**
+
+For multi-building or high-availability deployments, MQTT clustering can be added:
+- Mosquitto cluster with shared subscriptions
+- EMQX for enterprise deployments
+- No code changes required — broker is external to Core
 
 ### Panic Recovery
 
