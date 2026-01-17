@@ -124,6 +124,8 @@ message_size_limit 262144
 keepalive_interval 60
 ```
 
+> **See Also:** [MQTT Resilience Specification](../architecture/mqtt-resilience.md) for persistence recovery behavior, reconnection strategies, and failure handling.
+
 ### Authentication
 
 **`/etc/mosquitto/passwd`** (create with `mosquitto_passwd`):

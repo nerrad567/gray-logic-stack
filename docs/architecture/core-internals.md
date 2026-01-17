@@ -1287,7 +1287,7 @@ Bridges detect disconnect (5s timeout)
 **Recovery Procedure:**
 
 1. **Automatic** — systemd restarts Mosquitto within 10 seconds
-2. **Bridges reconnect** — Exponential backoff (1s, 2s, 4s, 8s, max 30s)
+2. **Bridges reconnect** — Exponential backoff with jitter (1s, 2s, 4s, 8s, max 30s, ±30% jitter to prevent thundering herd). See [MQTT Resilience Specification](mqtt-resilience.md).
 3. **State sync** — Bridges publish current device states on reconnect
 4. **Command flush** — Queued commands sent after reconnect
 

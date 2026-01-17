@@ -65,7 +65,7 @@ The MQTT broker SPOF is addressed through:
 3. **Physical controls still work** — KNX/DALI devices have direct links independent of software
 4. **Future enhancement** — Consider embedded broker fallback for Year 4+
 
-See: [docs/operations/monitoring.md](../../operations/monitoring.md) — MQTT Broker Health & Auto-Recovery
+See: [MQTT Resilience Specification](../mqtt-resilience.md) — Persistence, recovery, and health monitoring
 
 ### Why Not Embedded?
 
