@@ -2,7 +2,8 @@
 title: Gray Logic Principles
 version: 1.0.0
 status: active
-last_updated: 2026-01-15
+implementation_status: n/a
+last_updated: 2026-01-17
 depends_on:
   - overview/vision.md
 ---

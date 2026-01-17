@@ -65,6 +65,123 @@ Gray Logic supports multiple authentication methods:
 | **LDAP/AD** | Enterprise integration | High |
 | **OIDC** | SSO integration (optional) | High |
 
+### Authentication Decision Tree
+
+Three primary authentication mechanisms serve different purposes:
+
+```
+┌─────────────────────────────────────────────────────────────────────────┐
+│                     AUTHENTICATION DECISION TREE                         │
+├─────────────────────────────────────────────────────────────────────────┤
+│                                                                          │
+│  Is this the FIRST RUN of a new system?                                 │
+│  │                                                                       │
+│  ├── YES ──▶ CLAIM TOKEN                                                │
+│  │           • Displayed on console during First Run Wizard             │
+│  │           • One-time use, expires in 24 hours                        │
+│  │           • Creates first admin user account                         │
+│  │           • After claim, system uses JWT auth                        │
+│  │           • See: docs/operations/bootstrapping.md                    │
+│  │                                                                       │
+│  └── NO ──▶ Is this a HUMAN USER (web UI, mobile app, wall panel)?     │
+│             │                                                            │
+│             ├── YES ──▶ JWT + REFRESH TOKENS                            │
+│             │           • Login with username/password (or LDAP/OIDC)   │
+│             │           • Receive access token (1 hour) + refresh token │
+│             │           • Access token in Authorization header          │
+│             │           • Refresh token rotated on use                  │
+│             │           • PIN alternative for registered devices        │
+│             │                                                            │
+│             └── NO ──▶ API KEY                                          │
+│                        • Service-to-service authentication              │
+│                        • Home Assistant, monitoring, integrations       │
+│                        • Long-lived, scoped permissions                 │
+│                        • Passed in X-API-Key header                     │
+│                        • Never expires (or admin-set expiry)            │
+│                                                                          │
+└─────────────────────────────────────────────────────────────────────────┘
+```
+
+### Mechanism Comparison
+
+| Mechanism | Lifecycle | Token Format | Renewal | Revocation |
+|-----------|-----------|--------------|---------|------------|
+| **Claim Token** | One-time use, first run only | 6-digit alphanumeric | N/A | Auto-expires in 24h |
+| **JWT Access Token** | 60 minutes | Signed JWT | Via refresh token | Logout, or wait for expiry |
+| **JWT Refresh Token** | 30 days | Opaque token | Rotated on each use | Explicit revocation |
+| **API Key** | Long-lived | `gl_` prefixed string | Regenerate | Admin revokes |
+
+### When to Use Each
+
+```yaml
+authentication_contexts:
+  claim_token:
+    when: "New system installation, First Run Wizard"
+    purpose: "Bootstrap first admin account"
+    security: "Physical access to console required"
+    after_use: "System transitions to JWT authentication"
+
+  jwt_tokens:
+    when:
+      - "Web Admin UI login"
+      - "Mobile app login"
+      - "Wall panel authentication"
+    purpose: "Interactive user sessions"
+    storage:
+      access_token: "Memory only (not persisted)"
+      refresh_token: "Secure storage (Keychain, encrypted prefs)"
+    security: "Short-lived, renewable, revocable"
+
+  api_keys:
+    when:
+      - "Home Assistant integration"
+      - "External monitoring systems"
+      - "Custom scripts/automation"
+      - "Third-party integrations"
+    purpose: "Machine-to-machine authentication"
+    storage: "Secure secrets manager in client system"
+    security: "Scoped permissions, rate-limited, audited"
+
+  pin:
+    when: "Quick access on trusted wall panels"
+    purpose: "Convenience for frequent interactions"
+    security: "Reduced permissions, registered devices only"
+```
+
+### Token Flow Diagram
+
+```
+FIRST RUN (New Installation)
+─────────────────────────────
+Console ──[Display Claim Token]──▶ Admin ──[Enter in UI]──▶ Create Account ──▶ JWT Auth
+
+USER SESSION (Normal Operation)
+───────────────────────────────
+User ──[Username/Password]──▶ POST /auth/login ──▶ { access_token, refresh_token }
+                                                           │
+                                    ┌──────────────────────┘
+                                    ▼
+                            Include in requests:
+                            Authorization: Bearer {access_token}
+                                    │
+                                    ▼ (Token expires after 60min)
+                            POST /auth/refresh
+                            { refresh_token }
+                                    │
+                                    ▼
+                            { new_access_token, new_refresh_token }
+
+INTEGRATION (Service-to-Service)
+────────────────────────────────
+Admin ──[Create API Key in UI]──▶ gl_xxxxxxxx...
+                                        │
+Integration ──[Store securely]──────────┘
+        │
+        ▼
+Include in requests:
+X-API-Key: gl_xxxxxxxx...
+```
+
 ### Local Authentication
 
 Primary authentication method — stored in local SQLite database.

@@ -308,6 +308,15 @@ prometheus:
       type: "counter"
       labels: ["component", "type"]
       description: "Error count by component"
+
+    # MQTT broker health (critical dependency)
+    - name: "graylogic_mqtt_broker_up"
+      type: "gauge"
+      description: "MQTT broker reachable (1=up, 0=down)"
+
+    - name: "graylogic_mqtt_broker_restarts_total"
+      type: "counter"
+      description: "Automatic broker restart count"
 ```
 
 ### Proactive Monitoring (Installer Dashboard)
@@ -422,6 +431,115 @@ health_checks:
     check: "Can reach external host"
     interval: 300s
     host: "dns.google:53"           # TCP connect test
+```
+
+### MQTT Broker Health & Auto-Recovery
+
+The MQTT broker (Mosquitto) is a critical dependency. Core implements dedicated health monitoring with automatic recovery.
+
+```yaml
+mqtt_broker_health:
+  # Health check configuration
+  health_check:
+    method: "tcp_connect"           # Connect to broker port
+    endpoint: "localhost:1883"
+    interval_seconds: 10
+    timeout_seconds: 5
+    consecutive_failures: 3         # Trigger recovery after 3 failures
+
+  # Prometheus metrics
+  metrics:
+    - name: "graylogic_mqtt_broker_up"
+      type: "gauge"
+      description: "MQTT broker reachable (1=up, 0=down)"
+
+    - name: "graylogic_mqtt_broker_restarts_total"
+      type: "counter"
+      description: "Number of automatic broker restarts"
+
+    - name: "graylogic_mqtt_last_message_received_timestamp"
+      type: "gauge"
+      description: "Unix timestamp of last MQTT message received"
+
+  # Auto-restart configuration (Docker)
+  docker_restart:
+    enabled: true
+    policy: "unless-stopped"        # Docker Compose restart policy
+    max_restarts: 5                 # Within restart_window
+    restart_window_seconds: 300     # 5 restarts in 5 minutes = give up
+
+  # Auto-restart configuration (systemd alternative)
+  systemd_restart:
+    enabled: false                  # Use if not running Docker
+    unit: "mosquitto.service"
+    restart_delay_seconds: 5
+
+  # Recovery actions
+  recovery:
+    on_broker_down:
+      - action: "log_warning"
+        message: "MQTT broker health check failed"
+
+      - action: "set_system_status"
+        status: "degraded"
+
+      - action: "notify_ui"
+        message: "Communication system restarting..."
+
+    on_broker_recovered:
+      - action: "log_info"
+        message: "MQTT broker recovered"
+
+      - action: "reconnect_all_bridges"
+        delay_seconds: 2            # Wait for broker to stabilise
+
+      - action: "republish_state"
+        scope: "all_devices"        # Re-sync state after reconnect
+
+      - action: "clear_degraded"
+        condition: "no_other_issues"
+
+  # Alerting
+  alerts:
+    - name: "MQTT broker down"
+      condition: "graylogic_mqtt_broker_up == 0 for 30s"
+      severity: "critical"
+      customer_action: "Show 'System communication issue' banner"
+      installer_action: "Page on-call"
+
+    - name: "MQTT broker restart loop"
+      condition: "increase(graylogic_mqtt_broker_restarts_total[5m]) > 3"
+      severity: "critical"
+      customer_action: "Show error screen, contact installer"
+      installer_action: "Page on-call, requires manual intervention"
+```
+
+**Recovery Sequence:**
+
+```
+1. Health check fails (10s interval)
+2. Retry 2 more times (30s total)
+3. Mark system "degraded", notify UI
+4. Docker/systemd restarts Mosquitto
+5. Core detects broker available
+6. Core reconnects all bridge subscriptions
+7. Core republishes current device state to ensure consistency
+8. Clear "degraded" status if no other issues
+```
+
+**Manual Recovery:**
+
+If auto-restart fails repeatedly, manual intervention is required:
+
+```bash
+# Check Mosquitto logs
+docker logs graylogic-mqtt --tail 100
+
+# Force restart
+docker restart graylogic-mqtt
+
+# If persistent failure, check config
+docker exec graylogic-mqtt cat /mosquitto/config/mosquitto.conf
 ```
 
 ### Health API Response

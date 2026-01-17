@@ -401,6 +401,118 @@ Change of Value (COV) provides efficient state updates without polling.
 
 ---
 
+## Minimum Viable Implementation (Year 2)
+
+The following defines the smallest useful BACnet integration:
+
+### Scope
+- **BACnet/IP only** — No MS/TP router support initially
+- **Client mode only** — Gray Logic as BACnet client, not server
+- **Manual commissioning** — No auto-discovery in initial release
+
+### Required Capabilities
+
+```yaml
+minimum_viable:
+  # Discovery
+  discovery:
+    method: "manual"                # Enter device IP + instance manually
+    auto_who_is: false              # Year 2+ enhancement
+
+  # Read support (required)
+  read:
+    services:
+      - "ReadProperty"              # Single property read
+      - "ReadPropertyMultiple"      # Batch reads (performance)
+    object_types:
+      - "analog-input"              # AI - sensors
+      - "analog-output"             # AO - actuator positions
+      - "analog-value"              # AV - setpoints, calculated
+      - "binary-input"              # BI - status, alarms
+      - "binary-output"             # BO - on/off commands
+    properties:
+      - "present_value"             # Current value
+      - "object_name"               # Human-readable name
+      - "units"                     # Engineering units
+      - "status_flags"              # Alarm/fault/override/out-of-service
+
+  # Write support (required)
+  write:
+    services:
+      - "WriteProperty"             # Single property write
+    priority: 8                     # Manual operator priority
+    object_types:
+      - "analog-output"
+      - "analog-value"
+      - "binary-output"
+
+  # Polling (required - COV is Year 2+)
+  polling:
+    default_interval_seconds: 30    # Read all monitored objects
+    fast_poll_seconds: 5            # For critical values
+    slow_poll_seconds: 300          # For rarely-changing values
+
+  # NOT in minimum viable (Year 2+ enhancements)
+  deferred:
+    - "COV subscriptions"           # Requires subscription management
+    - "Who-Is discovery"            # Requires broadcast handling
+    - "Alarm/Event handling"        # Complex, defer
+    - "Trend log access"            # Nice-to-have
+    - "Schedule objects"            # Gray Logic has its own scheduler
+    - "BACnet server mode"          # Exposing data to other BMS
+```
+
+### Example: Single VAV Box Integration
+
+Minimum viable supports this use case:
+
+```yaml
+# /etc/graylogic/bacnet/devices/vav-01.yaml
+device_id: "vav-meeting-room"
+name: "VAV Box - Meeting Room"
+protocol: "bacnet_ip"
+
+connection:
+  ip: "192.168.10.50"
+  port: 47808
+  device_instance: 1001
+
+objects:
+  # Read-only sensors
+  - capability: "temperature_read"
+    object_type: "analog-input"
+    instance: 1
+    poll_interval: 30
+
+  - capability: "airflow_read"
+    object_type: "analog-input"
+    instance: 3
+    poll_interval: 30
+
+  # Writable setpoints
+  - capability: "setpoint"
+    object_type: "analog-value"
+    instance: 1
+    writeable: true
+    write_priority: 8
+
+  # On/off control
+  - capability: "occupancy_override"
+    object_type: "binary-value"
+    instance: 1
+    writeable: true
+```
+
+### Success Criteria for MVP
+
+1. Can manually add a BACnet/IP device by IP address
+2. Can read temperature from analog-input
+3. Can write setpoint to analog-value
+4. State updates appear in Gray Logic UI within poll interval
+5. Commands from Gray Logic change device state
+
+---
+
 ## Implementation Roadmap
 
 ### Phase 1: Read-Only Integration

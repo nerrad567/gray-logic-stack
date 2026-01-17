@@ -238,17 +238,65 @@ wake_word:
 
 ### Custom Wake Words
 
-Users can customize wake word per room or globally:
+Users can customize wake word per room or globally. **Wake word customization is a core feature** — users should never be locked into a single phrase.
 
 ```yaml
 wake_words:
-  global: "hey gray"
+  global: "hey gray"                  # Default, can be changed
   rooms:
     - room_id: "room-kitchen"
       phrase: "hey kitchen"
     - room_id: "room-bedroom"
-      phrase: "good morning"  # Only activates in morning hours
+      phrase: "good morning"          # Only activates in morning hours
 ```
+
+**Customization Options:**
+
+| Level | Customization | Use Case |
+|-------|--------------|----------|
+| **Global** | Change "Hey Gray" to anything | User preference, branding |
+| **Per-room** | Different phrase per room | Context-aware activation |
+| **Per-schedule** | Time-based wake words | "Good morning" only 6am-10am |
+
+**Creating Custom Wake Words:**
+
+Custom wake words require training a wake word model. Two approaches:
+
+1. **Porcupine Console (Recommended)**
+   - Use [Picovoice Console](https://console.picovoice.ai/) to train custom wake word
+   - Upload 3 audio samples of the phrase
+   - Download `.ppn` model file
+   - Deploy to `/etc/graylogic/wake_words/`
+
+2. **Vosk (Open Source Alternative)**
+   - Define custom phrase in Vosk grammar
+   - Lower accuracy than Porcupine but fully open source
+   - No external service required
+
+```yaml
+# Custom wake word configuration
+wake_word:
+  engine: "porcupine"
+
+  # User-created custom wake words
+  custom_models:
+    - phrase: "computer"              # User's preferred wake word
+      model_path: "/etc/graylogic/wake_words/computer.ppn"
+      created_by: "user"
+      created_at: "2026-01-15T10:00:00Z"
+
+    - phrase: "jarvis"
+      model_path: "/etc/graylogic/wake_words/jarvis.ppn"
+      created_by: "user"
+
+  # Commissioning UI should provide easy wake word customization
+  ui_customization:
+    enabled: true
+    allow_user_training: true         # Users can train new wake words
+    max_custom_wake_words: 5          # Limit for resource management
+```
+
+**Future Enhancement (Year 3+):** In-system wake word training without external tools.
 
 ---
 

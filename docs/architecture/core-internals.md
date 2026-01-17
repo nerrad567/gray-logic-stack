@@ -492,6 +492,49 @@ func (r *Registry) GetDevicesByProtocol(protocol Protocol) ([]*Device, error)
 
 Device state storage and notification.
 
+**IMPORTANT: Core is the Single Source of Truth**
+
+Core mediates ALL device state. Bridges do not update state directly — they report state changes to Core via MQTT, and Core:
+1. Validates and normalizes the state
+2. Persists to SQLite
+3. Broadcasts canonical state to all UIs
+4. Triggers automation rules
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         STATE FLOW (AUTHORITATIVE)                           │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   Physical Device                                                            │
+│        │                                                                     │
+│        ▼                                                                     │
+│   Protocol Bridge ──▶ MQTT: graylogic/bridge/{id}/state/{device}            │
+│                               │                                              │
+│                               ▼                                              │
+│                          CORE STATE MANAGER                                  │
+│                               │                                              │
+│                    ┌──────────┼──────────┐                                   │
+│                    │          │          │                                   │
+│                    ▼          ▼          ▼                                   │
+│              Validate   Persist to   Broadcast to                            │
+│              & Merge     SQLite      WebSocket                               │
+│                               │                                              │
+│                               ▼                                              │
+│                MQTT: graylogic/core/device/{id}/state (canonical)            │
+│                                                                              │
+│   • Bridges NEVER write to graylogic/core/device/* topics                   │
+│   • UIs subscribe to graylogic/core/device/* for authoritative state        │
+│   • Core applies transformations, associations, and validations             │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+This design ensures:
+- **Consistency**: All UIs see identical state
+- **Audit trail**: All state changes flow through Core for logging
+- **Validation**: Core can reject invalid state updates
+- **Transformation**: Core can apply unit conversions, associations, etc.
+
 ```go
 // internal/device/state/manager.go
 
@@ -843,6 +886,101 @@ func (a *Astronomical) Sunset(date time.Time) time.Time
 func (a *Astronomical) SolarNoon(date time.Time) time.Time
 func (a *Astronomical) SunPosition(t time.Time) (azimuth, elevation float64)
 ```
+
+#### Timezone and Time Handling
+
+**IMPORTANT: All internal timestamps are UTC.**
+
+Gray Logic follows strict timezone handling to ensure schedules work correctly across DST transitions and for sites in any timezone.
+
+```
+┌─────────────────────────────────────────────────────────────────────────────┐
+│                         TIMEZONE HANDLING                                    │
+├─────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   STORAGE (SQLite, InfluxDB)                                                │
+│   └── Always UTC: "2026-01-17T14:30:00Z"                                    │
+│                                                                              │
+│   CORE INTERNAL                                                             │
+│   └── All time.Time values in UTC                                           │
+│   └── Site timezone stored as string: "Europe/London"                       │
+│                                                                              │
+│   CONVERSION POINTS (User-facing only)                                       │
+│   └── API responses: Include both UTC and local                             │
+│   └── Schedule input: User enters local, Core converts to UTC               │
+│   └── UI display: Core sends UTC, UI converts for display                   │
+│                                                                              │
+│   SCHEDULER                                                                  │
+│   └── Stores trigger times in UTC                                           │
+│   └── Evaluates using site's time.Location                                  │
+│                                                                              │
+└─────────────────────────────────────────────────────────────────────────────┘
+```
+
+**DST Transition Handling:**
+
+```go
+// Scenario: User schedules "Turn on lights at 07:00 daily"
+// Site timezone: Europe/London
+
+// Storage: Stores as "07:00 local" trigger (NOT a fixed UTC time)
+// Evaluation: Each day, Scheduler calculates:
+//   - 2026-03-28 (before DST): 07:00 local = 07:00 UTC
+//   - 2026-03-30 (after DST):  07:00 local = 06:00 UTC
+
+// The "spring forward" gap (01:00-02:00 doesn't exist):
+// - Schedules at 01:30 are SKIPPED that day (documented behavior)
+// - Alternatively: execute at 03:00 (configurable)
+
+// The "fall back" overlap (01:00-02:00 happens twice):
+// - Schedules execute on FIRST occurrence only (documented behavior)
+```
+
+**Implementation:**
+
+```go
+// internal/automation/scheduler/time.go
+
+type TimeConfig struct {
+    Timezone string `json:"timezone"` // IANA timezone: "Europe/London"
+}
+
+// Convert user-entered local time to UTC for storage
+func (s *Scheduler) LocalToUTC(localTime time.Time) time.Time {
+    return localTime.In(time.UTC)
+}
+
+// Convert UTC to local for display
+func (s *Scheduler) UTCToLocal(utcTime time.Time) time.Time {
+    return utcTime.In(s.location)
+}
+
+// Evaluate if a schedule should fire now
+func (s *Scheduler) ShouldFire(schedule *Schedule, now time.Time) bool {
+    localNow := now.In(s.location)
+    // Compare against local trigger time
+    // Handle DST edge cases
+}
+```
+
+**API Response Format:**
+
+```json
+{
+  "schedule": {
+    "trigger_time": "07:00",
+    "trigger_timezone": "Europe/London",
+    "next_execution_utc": "2026-01-18T07:00:00Z",
+    "next_execution_local": "2026-01-18T07:00:00+00:00"
+  }
+}
+```
+
+**Best Practices:**
+- **Never** store wall-clock times as UTC offsets — use IANA timezone strings
+- **Always** log timestamps in UTC
+- **Always** store timestamps in UTC
+- **Only** convert to local at the UI layer or when user input requires it
 
 #### Mode Manager
 

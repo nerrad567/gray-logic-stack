@@ -176,7 +176,10 @@ graylogic/
 ├── core/
 │   ├── device/{device_id}/state    # Canonical device state
 │   ├── event/{event_type}          # System events
-│   ├── scene/{scene_id}            # Scene activations
+│   ├── scene/{scene_id}/activated  # Scene activations
+│   ├── scene/{scene_id}/progress   # Scene execution progress
+│   ├── automation/{rule_id}/fired  # Automation rule triggered
+│   ├── alert/{alert_id}            # System alerts
 │   └── mode                        # Mode changes
 ├── system/
 │   ├── status                      # System status
@@ -409,14 +412,112 @@ retain: true
 payload:
   event_type: "mode_changed"
   timestamp: "2026-01-12T14:30:00Z"
-  
+
   previous_mode: "home"
   new_mode: "night"
-  
+
   trigger:
     type: "scheduled"
     schedule_id: "schedule-night-mode"
 ```
+
+### Scene Execution Progress (Core publishes)
+
+For multi-step scenes, Core publishes progress updates:
+
+```yaml
+topic: graylogic/core/scene/cinema-mode/progress
+qos: 1
+retain: false
+payload:
+  scene_id: "cinema-mode"
+  execution_id: "exec-abc123"         # Unique per execution
+  timestamp: "2026-01-12T14:30:01Z"
+
+  status: "running"                   # pending | running | completed | failed | cancelled
+
+  progress:
+    total_actions: 5
+    completed_actions: 3
+    current_action: 4
+    current_action_device: "blind-living-01"
+
+  errors: []                          # Array of failed actions
+    # - device_id: "light-broken"
+    #   error: "Device offline"
+
+  started_at: "2026-01-12T14:30:00Z"
+  eta_seconds: 2                      # Estimated time remaining
+```
+
+### Automation Rule Fired (Core publishes)
+
+When an automation rule triggers:
+
+```yaml
+topic: graylogic/core/automation/rule-sunrise-blinds/fired
+qos: 1
+retain: false
+payload:
+  rule_id: "rule-sunrise-blinds"
+  rule_name: "Open blinds at sunrise"
+  timestamp: "2026-01-12T08:01:00Z"
+
+  trigger:
+    type: "event"                     # event | schedule | condition
+    source: "sun_position"
+    event_data:
+      event: "sunrise"
+
+  conditions_evaluated:
+    - condition: "mode == home"
+      result: true
+    - condition: "weekday"
+      result: true
+
+  actions_executed: 3
+  success: true
+```
+
+### System Alert (Core publishes)
+
+For system-wide alerts:
+
+```yaml
+topic: graylogic/core/alert/alert-dali-offline
+qos: 1
+retain: true                          # Persist until cleared
+payload:
+  alert_id: "alert-dali-offline"
+  timestamp: "2026-01-12T14:30:00Z"
+
+  severity: "warning"                 # info | warning | critical
+  category: "connectivity"            # connectivity | hardware | performance | security
+
+  component: "bridges.dali"
+
+  title: "DALI bridge offline"
+  message: "The DALI lighting bridge has disconnected"
+  customer_message: "Some lights unavailable"  # Simplified for end users
+
+  active: true                        # false when cleared
+  acknowledged: false
+  acknowledged_by: null
+
+  first_occurred: "2026-01-12T14:30:00Z"
+  occurrence_count: 1
+
+  actions:                            # Suggested remediation
+    - label: "Restart bridge"
+      api: "POST /api/v1/bridges/dali-bridge-01/restart"
+    - label: "Contact support"
+      url: "tel:+441onal23456789"
+```
+
+**Alert Lifecycle:**
+1. Alert created → published with `active: true`, `retain: true`
+2. Alert cleared → re-published with `active: false`, then broker retention cleared
+3. UIs subscribe to `graylogic/core/alert/+` for all alerts
 
 ### System Status (Core publishes)
 
@@ -498,6 +599,10 @@ payload:
 | `bridge/*/health` | 1 | Health is important |
 | `core/device/*/state` | 1 | UI needs accurate state |
 | `core/event/*` | 1 | Events trigger automation |
+| `core/scene/*/activated` | 1 | Scene activation is important |
+| `core/scene/*/progress` | 1 | Progress updates for UI |
+| `core/automation/*/fired` | 1 | Audit trail |
+| `core/alert/*` | 1 | Alerts must be delivered |
 | `system/time` | 0 | Periodic, loss acceptable |
 | `system/status` | 1 | Status is important |
 
@@ -512,11 +617,15 @@ Retained messages persist on the broker and are delivered to new subscribers:
 | `bridge/*/health` | Yes | New Core sees bridge status |
 | `core/device/*/state` | Yes | UI gets current state on connect |
 | `core/mode` | Yes | Mode is persistent state |
+| `core/alert/*` | Yes | Active alerts persist until cleared |
 | `system/status` | Yes | New clients see system state |
 | `system/time` | Yes | Time reference for new clients |
 | `bridge/*/state/*` | No | Historical states not needed |
 | `bridge/*/command/*` | No | Commands are ephemeral |
 | `core/event/*` | No | Events are transient |
+| `core/scene/*/activated` | No | Scene events are transient |
+| `core/scene/*/progress` | No | Progress is ephemeral |
+| `core/automation/*/fired` | No | Rule events are transient |
 
 ---
 
