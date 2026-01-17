@@ -4,6 +4,18 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.2 – AI Assistant Context (2026-01-17)
+
+**Tooling & Guidance**
+
+Added specialized guidance for AI assistants to ensure alignment with project principles and coding standards.
+
+**New Documents**
+
+- `GEMINI.md`: Project-specific guidance for the Gemini CLI agent, including architecture overview, philosophy, coding standards, and interaction rules.
+
+---
+
 ## 1.0.1 – Plant Room & Commercial Expansion (2026-01-12)
 
 **Documentation Expansion**

@@ -1,6 +1,6 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-15
+> **Last Updated:** 2026-01-17
 > **Current Phase:** Documentation (Pre-Development Review Complete)
 
 ---
@@ -324,6 +324,15 @@
 - No upgrade strategy → Created `operations/updates.md`
 - No monitoring strategy → Created `operations/monitoring.md` with front-end dead man's switch
 - Device discovery under-specified → Created `commissioning/discovery.md`
+
+### 2026-01-17 — AI Assistant Context
+
+**Created:**
+- `GEMINI.md` — Project-specific guidance for the Gemini CLI agent, including architecture overview, philosophy, coding standards, and interaction rules.
+
+**Updated:**
+- `CHANGELOG.md` — Recorded creation of `GEMINI.md`.
+- `PROJECT-STATUS.md` — Updated status and change log.
 
 ### 2026-01-15 — Development Documentation Sprint
 

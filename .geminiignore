@@ -1,0 +1,34 @@
+# Gemini Ignore File
+# This file tells the Gemini agent which files to ignore.
+
+# Archives (Large zip files)
+docs/archive/
+code/archive/
+
+# Build artifacts
+bin/
+obj/
+dist/
+build/
+*.exe
+*.dll
+*.so
+*.dylib
+
+# Go related
+vendor/
+coverage.out
+*.test
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Environment files
+.env
+.env.local
+
+# Temp files
+*.tmp
+*.log
+C:\Users\Darren\.gemini\tmp\
