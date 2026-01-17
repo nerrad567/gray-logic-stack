@@ -1,13 +1,24 @@
 ---
 title: Security Model
-version: 1.0.0
+version: 1.1.0
 status: active
-last_updated: 2026-01-13
+last_updated: 2026-01-17
 depends_on:
   - architecture/system-overview.md
   - architecture/core-internals.md
   - interfaces/api.md
   - overview/principles.md
+  - operations/bootstrapping.md
+changelog:
+  - version: 1.1.0
+    date: 2026-01-17
+    changes:
+      - "Added absolute session lifetime (90 days) for JWT refresh tokens"
+      - "Added refresh token family tracking for theft detection"
+      - "Changed API key default expiry to 1 year (was never)"
+      - "Added explicit PIN rate limiting spec (3 attempts, 5min lockout)"
+      - "Added 'Never Log Secrets' requirement"
+      - "Updated claim token expiry to 1 hour with 15min rotation"
 ---
 
 # Security Model
@@ -78,7 +89,9 @@ Three primary authentication mechanisms serve different purposes:
 │  │                                                                       │
 │  ├── YES ──▶ CLAIM TOKEN                                                │
 │  │           • Displayed on console during First Run Wizard             │
-│  │           • One-time use, expires in 24 hours                        │
+│  │           • One-time use, expires in 1 HOUR (not 24h)               │
+│  │           • Rotates every 15 minutes while unclaimed                 │
+│  │           • Setup mode times out after 24 hours                      │
 │  │           • Creates first admin user account                         │
 │  │           • After claim, system uses JWT auth                        │
 │  │           • See: docs/operations/bootstrapping.md                    │
@@ -89,15 +102,16 @@ Three primary authentication mechanisms serve different purposes:
 │             │           • Login with username/password (or LDAP/OIDC)   │
 │             │           • Receive access token (1 hour) + refresh token │
 │             │           • Access token in Authorization header          │
-│             │           • Refresh token rotated on use                  │
+│             │           • Refresh token rotated on use (family tracked) │
+│             │           • 90-day ABSOLUTE session limit (re-auth required)│
 │             │           • PIN alternative for registered devices        │
 │             │                                                            │
 │             └── NO ──▶ API KEY                                          │
 │                        • Service-to-service authentication              │
 │                        • Home Assistant, monitoring, integrations       │
-│                        • Long-lived, scoped permissions                 │
+│                        • 1-year default expiry (explicit opt-out only)  │
 │                        • Passed in X-API-Key header                     │
-│                        • Never expires (or admin-set expiry)            │
+│                        • Last-used tracking for stale key detection     │
 │                                                                          │
 └─────────────────────────────────────────────────────────────────────────┘
 ```
@@ -106,10 +120,10 @@ Three primary authentication mechanisms serve different purposes:
 
 | Mechanism | Lifecycle | Token Format | Renewal | Revocation |
 |-----------|-----------|--------------|---------|------------|
-| **Claim Token** | One-time use, first run only | 6-digit alphanumeric | N/A | Auto-expires in 24h |
+| **Claim Token** | One-time use, first run only | 6-char alphanumeric | N/A | Auto-expires in 1 hour, rotates every 15 min |
 | **JWT Access Token** | 60 minutes | Signed JWT | Via refresh token | Logout, or wait for expiry |
-| **JWT Refresh Token** | 30 days | Opaque token | Rotated on each use | Explicit revocation |
-| **API Key** | Long-lived | `gl_` prefixed string | Regenerate | Admin revokes |
+| **JWT Refresh Token** | 30 days (90 day absolute max) | Opaque token | Rotated on each use, family tracked | Explicit revocation, theft detection |
+| **API Key** | 1 year default (explicit opt-out) | `gl_` prefixed string | Regenerate | Admin revokes, expiry warnings |
 
 ### When to Use Each
 
@@ -236,7 +250,7 @@ Authentication uses JSON Web Tokens (JWT):
 jwt:
   algorithm: "HS256"                # or RS256 for multi-service
   secret_env: "JWT_SECRET"          # From environment
-  
+
   access_token:
     lifetime_minutes: 60
     claims:
@@ -244,10 +258,78 @@ jwt:
       - role                         # User role
       - permissions                  # Permission list
       - exp                          # Expiry
-      
+      - jti                          # Unique token ID (for audit)
+      - sid                          # Session ID (links to refresh family)
+
   refresh_token:
     lifetime_days: 30
     rotation: true                   # Issue new refresh on use
+    absolute_lifetime_days: 90       # Max session length regardless of refresh
+    family_tracking: true            # Detect token theft via refresh family
+```
+
+### Refresh Token Family Tracking
+
+To detect and mitigate refresh token theft, Gray Logic implements **refresh token families**:
+
+```yaml
+refresh_token_family:
+  # How it works:
+  # 1. On login, a new "family" is created with a unique family_id
+  # 2. Each refresh token has: family_id + generation number
+  # 3. On refresh, generation increments, old token invalidated
+  # 4. If old token is reused (theft detected), entire family revoked
+
+  structure:
+    family_id: "uuid-v4"             # Created at login
+    generation: 1                    # Increments on each refresh
+    created_at: "timestamp"          # Session start (for absolute lifetime)
+    last_refresh_at: "timestamp"
+
+  theft_detection:
+    # If a refresh token with generation N is used, but generation N+1
+    # already exists, the original token was stolen and reused.
+    on_reuse_detected:
+      - "Revoke entire token family"
+      - "Force re-authentication"
+      - "Log security event: token_theft_detected"
+      - "Optional: notify user via email/push"
+
+  storage:
+    # Refresh token families stored in database
+    table: "refresh_token_families"
+    columns:
+      - family_id                    # Primary key
+      - user_id
+      - current_generation
+      - session_started_at           # For absolute lifetime check
+      - last_activity_at
+      - revoked_at                   # NULL if active
+      - revocation_reason            # theft_detected, logout, expired, admin
+```
+
+### Absolute Session Lifetime
+
+Even with rolling refresh tokens, sessions have a hard limit:
+
+```yaml
+session_limits:
+  # Prevents indefinite session extension via refresh token rolling
+  absolute_lifetime_days: 90
+
+  # User must re-authenticate after 90 days, regardless of activity
+  # This ensures:
+  # - Compromised tokens have bounded exposure
+  # - GDPR/compliance session limits are met
+  # - Credential changes propagate within bounded time
+
+  enforcement:
+    check_on_refresh: true
+    check_on_access: false           # Only check on refresh for performance
+
+  user_notification:
+    warn_before_expiry_days: 7
+    message: "Your session will expire in {days} days. Please save your work."
 ```
 
 **Token Structure:**
@@ -276,20 +358,29 @@ For wall panels and quick access on trusted devices:
 ```yaml
 pin_auth:
   enabled: true
-  
+
   # PIN requirements
   policy:
     min_length: 4
     max_length: 8
     allow_sequential: false          # Reject 1234, 4321
     allow_repeated: false            # Reject 1111
-    
+
   # Restrictions
   restrictions:
     device_registration: true        # PIN only works on registered devices
-    max_attempts: 3
-    lockout_minutes: 5
-    
+
+  # Rate limiting (applies to both physical keypad and voice PIN)
+  rate_limiting:
+    max_attempts: 3                  # Attempts before lockout
+    lockout_duration_minutes: 5      # Initial lockout period
+    lockout_escalation:              # Exponential backoff on repeated lockouts
+      enabled: true
+      multiplier: 2                  # Each subsequent lockout doubles
+      max_lockout_minutes: 60        # Cap at 1 hour
+    reset_after_success: true        # Successful auth resets attempt counter
+    reset_after_minutes: 30          # Counter resets after 30min of no attempts
+
   # Scope
   scope:
     full_access: false               # PIN grants reduced permissions
@@ -297,6 +388,47 @@ pin_auth:
       - "devices:control"
       - "scenes:execute"
       - "modes:change"
+
+  # Security logging
+  logging:
+    log_attempts: true               # Log all attempts (success and failure)
+    log_lockouts: true               # Log when lockout triggered
+    never_log_pin_value: true        # CRITICAL: Never log actual PIN digits
+```
+
+### Voice PIN Rate Limiting
+
+Voice-based PIN entry uses the same rate limiting as physical keypads:
+
+```yaml
+voice_pin:
+  # Inherits from pin_auth.rate_limiting
+  rate_limiting:
+    max_attempts: 3
+    lockout_duration_minutes: 5
+    lockout_escalation:
+      enabled: true
+      multiplier: 2
+      max_lockout_minutes: 60
+
+  # Additional voice-specific protections
+  voice_specific:
+    require_wake_word: true          # Must say wake word before PIN
+    ambient_noise_threshold: 0.7     # Reject if too noisy (replay risk)
+    speaker_verification: false      # Optional: verify voice matches user
+
+  # Audit log entry format
+  audit_entry:
+    event: "pin.voice_attempt"
+    fields:
+      - user_id
+      - success
+      - timestamp
+      - device_id                    # Which voice endpoint
+      - attempt_number               # 1, 2, or 3
+    never_log:
+      - pin_value                    # NEVER log the actual PIN
+      - audio_recording              # NEVER log raw audio
 ```
 
 ### LDAP/Active Directory
@@ -546,29 +678,106 @@ For service-to-service and integration access:
 
 ```yaml
 api_keys:
-  - id: "key-home-assistant"
-    name: "Home Assistant Integration"
-    key_hash: "sha256:..."           # Never store plain key
-    permissions:
-      - "devices:read"
-      - "devices:control"
-      - "scenes:execute"
-    scope:
-      areas: ["all"]
-    rate_limit:
-      requests_per_minute: 60
-    expires: null                    # Never expires
-    
-  - id: "key-monitoring"
-    name: "External Monitoring"
-    key_hash: "sha256:..."
-    permissions:
-      - "system:read"
-      - "phm:read"
-      - "energy:read"
-    rate_limit:
-      requests_per_minute: 30
-    expires: "2027-01-01T00:00:00Z"
+  # Default policy for all API keys
+  defaults:
+    expiry_days: 365                 # 1 year default expiry
+    warn_before_expiry_days: 30      # Warn admin 30 days before expiry
+    require_explicit_never_expires: true  # Must explicitly set never_expires
+
+  # Example keys
+  keys:
+    - id: "key-home-assistant"
+      name: "Home Assistant Integration"
+      key_hash: "sha256:..."         # Never store plain key
+      permissions:
+        - "devices:read"
+        - "devices:control"
+        - "scenes:execute"
+      scope:
+        areas: ["all"]
+      rate_limit:
+        requests_per_minute: 60
+      expires_at: "2027-01-17T00:00:00Z"  # 1 year from creation
+      created_at: "2026-01-17T10:00:00Z"
+      last_used_at: "2026-01-17T14:30:00Z"  # Track last usage
+
+    - id: "key-monitoring"
+      name: "External Monitoring"
+      key_hash: "sha256:..."
+      permissions:
+        - "system:read"
+        - "phm:read"
+        - "energy:read"
+      rate_limit:
+        requests_per_minute: 30
+      expires_at: "2027-01-01T00:00:00Z"
+      last_used_at: "2026-01-17T12:00:00Z"
+```
+
+### API Key Expiry Policy
+
+API keys must have bounded lifetimes to limit exposure from compromised credentials:
+
+```yaml
+api_key_policy:
+  # Default behavior
+  default_expiry_days: 365           # 1 year
+
+  # Never-expiring keys require explicit opt-in
+  never_expires:
+    allowed: true                    # Can create never-expiring keys
+    requires_admin: true             # Only admins can create them
+    requires_justification: true     # Must provide reason in audit log
+    audit_event: "apikey.never_expires_created"
+
+  # Expiry warnings
+  expiry_warnings:
+    - days_before: 30
+      action: "email_admin"
+    - days_before: 7
+      action: "email_admin"
+    - days_before: 1
+      action: "email_admin"
+      severity: "critical"
+
+  # Last-used tracking
+  last_used_tracking:
+    enabled: true
+    alert_if_unused_days: 90         # Alert if key unused for 90 days
+    suggest_revoke_after_days: 180   # Suggest revoking if unused for 180 days
+
+  # Rotation recommendations
+  rotation:
+    recommended_interval_days: 365
+    grace_period_minutes: 5          # Old key valid for 5min after rotation
+```
+
+### API Key Creation with Expiry
+
+When creating API keys, expiry is now mandatory unless explicitly overridden:
+
+```yaml
+# POST /api/v1/auth/apikeys
+create_api_key:
+  request:
+    name: "Home Assistant"           # Required
+    permissions: ["devices:read"]    # Required
+    expires_in_days: 365             # Optional, defaults to 365
+    never_expires: false             # Must be explicit if true
+
+  # If never_expires: true
+  never_expires_request:
+    name: "Critical Infrastructure Monitor"
+    permissions: ["system:read"]
+    never_expires: true
+    justification: "Required for 24/7 monitoring system with no maintenance window"
+    # Creates audit log entry with justification
+
+  response:
+    id: "key-xxx"
+    key: "gl_live_xxx..."            # Shown once only
+    expires_at: "2027-01-17T00:00:00Z"
+    warning: "This key expires in 365 days. Set a reminder to rotate."
 ```
 
 ### Rate Limiting
@@ -927,7 +1136,7 @@ All security-relevant events are logged:
 ```yaml
 audit:
   enabled: true
-  
+
   events:
     # Authentication
     - "auth.login.success"
@@ -935,34 +1144,87 @@ audit:
     - "auth.logout"
     - "auth.token.refresh"
     - "auth.lockout"
-    
+    - "auth.token_theft_detected"    # Refresh token family reuse
+
     # Authorization
     - "auth.permission.denied"
-    
+
     # User management
     - "user.created"
     - "user.updated"
     - "user.deleted"
     - "user.password.changed"
-    
+
     # API keys
     - "apikey.created"
     - "apikey.revoked"
-    
+    - "apikey.regenerated"
+    - "apikey.never_expires_created" # Requires justification
+    - "apikey.expiry_warning"
+
     # System
     - "system.config.changed"
     - "system.backup.created"
     - "system.restore.performed"
-    
+
     # Security
     - "security.arm"
     - "security.disarm"
     - "security.alarm"
-    
+    - "security.pin_attempt"         # PIN auth attempts
+    - "security.pin_lockout"         # PIN lockout triggered
+
     # Sensitive commands
     - "device.command"               # All device commands
     - "scene.activated"
     - "mode.changed"
+```
+
+### Never Log Secrets (CRITICAL)
+
+Certain values MUST NEVER appear in logs at any level (debug, info, warn, error, audit):
+
+```yaml
+never_log:
+  # Authentication secrets
+  secrets:
+    - password                       # User passwords (plaintext or hashed)
+    - pin                            # PIN values, even on failed attempts
+    - api_key                        # Full API key values (log key ID only)
+    - jwt_token                      # Full JWT tokens (log jti claim only)
+    - refresh_token                  # Full refresh tokens
+    - claim_token                    # Setup claim tokens
+
+  # Sensitive data
+  sensitive:
+    - voice_audio                    # Raw voice recordings
+    - biometric_data                 # Any biometric identifiers
+
+  # What TO log instead
+  safe_alternatives:
+    password: "Log 'password_changed' event without value"
+    pin: "Log 'pin_attempt' with success/failure, never the PIN"
+    api_key: "Log key_id, e.g., 'key-home-assistant'"
+    jwt_token: "Log jti claim, e.g., 'jti: abc123'"
+    refresh_token: "Log family_id, e.g., 'family: xyz789'"
+
+  # Enforcement
+  enforcement:
+    code_review_required: true       # PRs must verify no secret logging
+    static_analysis: true            # Linter rules to detect patterns
+    runtime_scrubbing: true          # Scrub known patterns from log output
+
+  # Example: WRONG vs RIGHT
+  examples:
+    wrong:
+      - "PIN 1234 failed for user admin"
+      - "Invalid password 'hunter2' for user admin"
+      - "API key gl_live_abc123... used from 192.168.1.50"
+
+    right:
+      - "PIN attempt failed for user admin (attempt 2/3)"
+      - "Login failed for user admin: invalid_password"
+      - "API key key-home-assistant used from 192.168.1.50"
 ```
 
 ### Audit Log Format

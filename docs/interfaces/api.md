@@ -1,13 +1,22 @@
 ---
 title: REST and WebSocket API Specification
-version: 1.0.0
+version: 1.1.0
 status: active
-last_updated: 2026-01-12
+last_updated: 2026-01-17
 depends_on:
   - architecture/system-overview.md
   - architecture/core-internals.md
+  - architecture/security-model.md
   - data-model/entities.md
   - overview/principles.md
+changelog:
+  - version: 1.1.0
+    date: 2026-01-17
+    changes:
+      - "Added WebSocket ticket-based authentication (replaces URL token)"
+      - "Updated token lifetimes to reflect 90-day absolute session limit"
+      - "Updated API key defaults to 1-year expiry"
+      - "Added refresh token response with session info"
 ---
 
 # REST and WebSocket API Specification
@@ -127,7 +136,38 @@ POST /api/v1/auth/refresh
 ```json
 {
   "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
-  "expires_in": 3600
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 3600,
+  "session": {
+    "started_at": "2026-01-17T10:00:00Z",
+    "absolute_expiry": "2026-04-17T10:00:00Z",
+    "days_remaining": 83
+  }
+}
+```
+
+**Response when approaching absolute limit (200):**
+```json
+{
+  "access_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "refresh_token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...",
+  "expires_in": 3600,
+  "session": {
+    "started_at": "2026-01-17T10:00:00Z",
+    "absolute_expiry": "2026-04-17T10:00:00Z",
+    "days_remaining": 5
+  },
+  "warning": "Session expires in 5 days. You will need to re-authenticate."
+}
+```
+
+**Response when session expired (401):**
+```json
+{
+  "error": {
+    "code": "SESSION_EXPIRED",
+    "message": "Session has reached maximum lifetime. Please log in again."
+  }
 }
 ```
 
@@ -165,11 +205,18 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 
 ### Token Lifetimes
 
-| Token Type | Lifetime | Renewable |
-|------------|----------|-----------|
-| Access Token | 1 hour | Via refresh token |
-| Refresh Token | 30 days | On use (rolling) |
-| API Key | Never expires | Revocable |
+| Token Type | Lifetime | Renewable | Notes |
+|------------|----------|-----------|-------|
+| Access Token | 1 hour | Via refresh token | Short-lived, stateless |
+| Refresh Token | 30 days (rolling) | On use | **90-day absolute max** regardless of refresh |
+| API Key | 1 year default | Regenerate | Explicit opt-out required for never-expires |
+| WebSocket Ticket | 60 seconds | No | Single-use, for secure WS connection |
+
+**Important Session Limits:**
+- Refresh tokens can extend sessions up to **90 days maximum** from initial login
+- After 90 days, users must re-authenticate regardless of activity
+- This prevents indefinite session extension from compromised tokens
+- See `architecture/security-model.md` for full details on refresh token family tracking
 
 ### API Keys
 
@@ -179,12 +226,30 @@ For integrations and service accounts:
 POST /api/v1/auth/apikeys
 ```
 
-**Request:**
+**Request (default 1-year expiry):**
+```json
+{
+  "name": "Home Assistant Integration",
+  "permissions": ["devices:read", "devices:control"]
+}
+```
+
+**Request (explicit expiry):**
 ```json
 {
   "name": "Home Assistant Integration",
   "permissions": ["devices:read", "devices:control"],
-  "expires_at": null
+  "expires_in_days": 180
+}
+```
+
+**Request (never expires - requires justification):**
+```json
+{
+  "name": "Critical Infrastructure Monitor",
+  "permissions": ["system:read"],
+  "never_expires": true,
+  "justification": "24/7 monitoring system with no maintenance window"
 }
 ```
 
@@ -195,7 +260,9 @@ POST /api/v1/auth/apikeys
   "key": "gl_live_abc123def456...",
   "name": "Home Assistant Integration",
   "permissions": ["devices:read", "devices:control"],
-  "created_at": "2026-01-12T10:00:00Z"
+  "created_at": "2026-01-17T10:00:00Z",
+  "expires_at": "2027-01-17T10:00:00Z",
+  "warning": "This key expires in 365 days. Set a reminder to rotate."
 }
 ```
 
@@ -203,6 +270,8 @@ POST /api/v1/auth/apikeys
 ```http
 Authorization: Bearer gl_live_abc123def456...
 ```
+
+**Note:** API keys now default to 1-year expiry. Keys approaching expiry will trigger admin notifications at 30, 7, and 1 day(s) before expiration. See `architecture/security-model.md` for full API key lifecycle policy.
 
 ---
 
@@ -1725,22 +1794,107 @@ ws://host:8080/api/v1/ws
 wss://host:8080/api/v1/ws  (with TLS)
 ```
 
-### Authentication
+### Authentication (Ticket-Based)
 
-Include token as query parameter or in first message:
+**IMPORTANT:** WebSocket connections use **ticket-based authentication** to avoid exposing tokens in URLs, which can be logged by proxies, appear in browser history, and leak via Referrer headers.
+
+#### Step 1: Obtain a WebSocket Ticket
+
+```http
+POST /api/v1/auth/ws-ticket
+Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+**Response (200):**
+```json
+{
+  "ticket": "wst_abc123def456789",
+  "expires_in": 60,
+  "expires_at": "2026-01-17T14:31:00Z"
+}
+```
+
+The ticket is:
+- **Single-use:** Invalidated immediately after successful WebSocket connection
+- **Short-lived:** 60-second TTL (sufficient for connection establishment)
+- **Opaque:** Does not contain embedded claims (server-side lookup)
+
+#### Step 2: Connect with Ticket
 
 ```
-ws://host:8080/api/v1/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ws://host:8080/api/v1/ws?ticket=wst_abc123def456789
 ```
 
-Or send auth message immediately after connection:
+Or via message after connection:
 
 ```json
 {
   "type": "auth",
-  "token": "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9..."
+  "ticket": "wst_abc123def456789"
 }
 ```
+
+#### Ticket Lifecycle
+
+```yaml
+websocket_ticket:
+  # Generation
+  generation:
+    algorithm: "CSPRNG"
+    format: "wst_" + 24 random alphanumeric chars
+    storage: "server-side (Redis/SQLite)"
+
+  # Lifecycle
+  lifecycle:
+    ttl_seconds: 60
+    single_use: true
+    invalidate_on_use: true
+    invalidate_on_expiry: true
+
+  # Security benefits
+  benefits:
+    - "Token never appears in URL logs"
+    - "Token never in browser history"
+    - "Token never leaked via Referrer header"
+    - "Short TTL limits exposure window"
+    - "Single-use prevents replay attacks"
+
+  # Rate limiting
+  rate_limiting:
+    tickets_per_minute: 10           # Prevent ticket generation abuse
+    failed_tickets_lockout: 5        # Lockout after 5 invalid tickets
+```
+
+#### Error Handling
+
+**Invalid or expired ticket (401):**
+```json
+{
+  "type": "error",
+  "code": "INVALID_TICKET",
+  "message": "WebSocket ticket is invalid or expired. Please request a new ticket."
+}
+```
+
+**Ticket already used (401):**
+```json
+{
+  "type": "error",
+  "code": "TICKET_ALREADY_USED",
+  "message": "This ticket has already been used. Please request a new ticket."
+}
+```
+
+### Legacy Authentication (Deprecated)
+
+The following methods are **deprecated** and will be removed in a future version:
+
+```
+# DEPRECATED - DO NOT USE
+ws://host:8080/api/v1/ws?token=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+```
+
+Sending JWT directly in URL or first message is deprecated due to security concerns. Use ticket-based authentication instead.
 
 ### Message Format
 
@@ -2149,34 +2303,64 @@ curl -X POST http://localhost:8080/api/v1/scenes/scene-cinema/activate \
   -H "Authorization: Bearer eyJ..."
 ```
 
-### Example 4: WebSocket Session
+### Example 4: WebSocket Session (Ticket-Based Auth)
 
 ```javascript
-const ws = new WebSocket('ws://localhost:8080/api/v1/ws?token=eyJ...');
-
-ws.onopen = () => {
-  // Subscribe to device state changes
-  ws.send(JSON.stringify({
-    type: 'subscribe',
-    id: 'sub-001',
-    payload: {
-      channel: 'device.state_changed',
-      filter: { room_id: 'room-living' }
+// Step 1: Obtain a WebSocket ticket
+async function getWebSocketTicket(accessToken) {
+  const response = await fetch('http://localhost:8080/api/v1/auth/ws-ticket', {
+    method: 'POST',
+    headers: {
+      'Authorization': `Bearer ${accessToken}`
     }
-  }));
-};
+  });
+  const data = await response.json();
+  return data.ticket;
+}
 
-ws.onmessage = (event) => {
-  const msg = JSON.parse(event.data);
-  if (msg.type === 'event' && msg.event_type === 'device.state_changed') {
-    console.log('Device changed:', msg.payload.device_id, msg.payload.new_state);
-  }
-};
+// Step 2: Connect with ticket
+async function connectWebSocket(accessToken) {
+  const ticket = await getWebSocketTicket(accessToken);
+  const ws = new WebSocket(`ws://localhost:8080/api/v1/ws?ticket=${ticket}`);
 
-// Heartbeat
-setInterval(() => {
-  ws.send(JSON.stringify({ type: 'ping', id: Date.now().toString() }));
-}, 30000);
+  ws.onopen = () => {
+    // Subscribe to device state changes
+    ws.send(JSON.stringify({
+      type: 'subscribe',
+      id: 'sub-001',
+      payload: {
+        channel: 'device.state_changed',
+        filter: { room_id: 'room-living' }
+      }
+    }));
+  };
+
+  ws.onmessage = (event) => {
+    const msg = JSON.parse(event.data);
+    if (msg.type === 'event' && msg.event_type === 'device.state_changed') {
+      console.log('Device changed:', msg.payload.device_id, msg.payload.new_state);
+    }
+  };
+
+  ws.onerror = async (error) => {
+    // Ticket may have expired - get a new one and reconnect
+    console.log('WebSocket error, reconnecting...');
+    setTimeout(() => connectWebSocket(accessToken), 1000);
+  };
+
+  // Heartbeat
+  setInterval(() => {
+    if (ws.readyState === WebSocket.OPEN) {
+      ws.send(JSON.stringify({ type: 'ping', id: Date.now().toString() }));
+    }
+  }, 30000);
+
+  return ws;
+}
+
+// Usage
+const accessToken = 'eyJ...';  // From login response
+connectWebSocket(accessToken);
 ```
 
 ### Example 5: Create a Schedule

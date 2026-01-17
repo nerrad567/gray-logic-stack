@@ -1,11 +1,18 @@
 ---
 title: Bootstrapping & First-Run Security
-version: 1.0.0
+version: 1.1.0
 status: active
 last_updated: 2026-01-17
 depends_on:
   - architecture/security-model.md
   - architecture/core-internals.md
+changelog:
+  - version: 1.1.0
+    date: 2026-01-17
+    changes:
+      - "Added claim token expiry (1 hour) and rotation (every 15 minutes)"
+      - "Added setup mode timeout (24 hours)"
+      - "Added detailed security considerations for claim token handling"
 ---
 
 # Bootstrapping & First-Run Security
@@ -43,11 +50,88 @@ The Core detects if it is uninitialized (missing `secrets.yaml` or `config.yaml`
 
 When the Gray Logic Core binary starts:
 1.  Check for `/etc/graylogic/config.yaml` and `/etc/graylogic/secrets.yaml`.
-2.  If missing, generate a **Claim Token** (UUIDv4) and print it to the console (stdout/logs).
+2.  If missing, generate a **Claim Token** and print it to the console (stdout/logs).
 3.  Start the Web Server in **Setup Mode**.
     - All standard API endpoints return `503 Service Unavailable`.
     - Only `/api/setup/*` endpoints are active.
 4.  Advertise via mDNS (Bonjour): `GrayLogic-Setup-[Hostname]._http._tcp.local`.
+5.  Start the **Setup Mode Timer** (24-hour timeout).
+
+### Claim Token Specification
+
+The Claim Token prevents unauthorized initialization of unconfigured systems:
+
+```yaml
+claim_token:
+  # Token format
+  format:
+    type: "alphanumeric"
+    length: 6                        # e.g., "A3F7K2"
+    case: "uppercase"                # Easy to read/type
+    exclude_ambiguous: true          # No 0/O, 1/I/L
+
+  # Lifecycle
+  lifecycle:
+    expiry_minutes: 60               # Token expires after 1 hour
+    rotation_interval_minutes: 15    # New token generated every 15 minutes
+    single_use: true                 # Token invalidated after successful claim
+
+  # Generation
+  generation:
+    algorithm: "CSPRNG"              # Cryptographically secure
+    entropy_bits: 36                 # 6 chars * 6 bits each (36 possibilities)
+
+  # Display
+  display:
+    console_format: |
+      ══════════════════════════════════════════════════════════════
+      GRAY LOGIC SETUP MODE
+
+      Claim Token: {TOKEN}
+      Expires: {EXPIRY_TIME} ({MINUTES_REMAINING} minutes remaining)
+
+      Enter this token at: http://{IP_ADDRESS}:8080
+      ══════════════════════════════════════════════════════════════
+    refresh_display: true            # Re-print on rotation
+    log_level: "INFO"                # Visible in normal logs
+
+  # Security
+  security:
+    never_log_after_claim: true      # Remove from logs after successful claim
+    rate_limit_attempts: 5           # Max 5 wrong attempts per 15 minutes
+    lockout_minutes: 15              # Lockout after 5 failures
+```
+
+### Setup Mode Timeout
+
+Setup Mode has a hard timeout to prevent abandoned installations from remaining vulnerable:
+
+```yaml
+setup_mode:
+  timeout:
+    duration_hours: 24               # Max time in setup mode
+
+  timeout_behavior:
+    action: "reboot_to_safe_mode"
+    safe_mode:
+      network: "disabled"            # No network access
+      console_only: true             # Only local console access
+      message: "Setup timed out. Reboot to restart setup process."
+
+  # What happens on timeout
+  on_timeout:
+    1: "Log security event: setup_timeout"
+    2: "Clear any partial configuration"
+    3: "Disable network interfaces"
+    4: "Display timeout message on console"
+    5: "Require physical reboot to restart setup"
+
+  # Rationale
+  rationale: |
+    An unclaimed system sitting on a network for days/weeks is a security risk.
+    Even with claim token rotation, prolonged exposure increases attack surface.
+    24 hours is sufficient for any legitimate installation scenario.
+```
 
 ### 2. Accessing the Wizard
 
@@ -134,9 +218,37 @@ On boot, if Core finds this file:
 
 ## Security Considerations
 
-1.  **Claim Token Exposure:** The token is only visible in local logs. If an attacker has access to logs, the box is already compromised.
-2.  **Network Exposure:** In Setup Mode, the API should bind to `0.0.0.0` to allow LAN access, but the Claim Token prevents unauthorized initialization.
-3.  **Secret Quality:** All generated secrets must use a Cryptographically Secure Pseudo-Random Number Generator (CSPRNG).
+### Claim Token Security
+
+1.  **Token Exposure Window:** The token is only visible in local logs for a maximum of 1 hour before rotation. This limits the window for log-based attacks.
+2.  **Token Rotation:** Every 15 minutes, a new token is generated. Old tokens are immediately invalidated. An attacker who captures a token from logs has at most 15 minutes to use it.
+3.  **Post-Claim Cleanup:** After successful claim, the token is scrubbed from logs where possible (e.g., journald --vacuum).
+4.  **Rate Limiting:** 5 failed claim attempts trigger a 15-minute lockout, preventing brute-force attacks on the 6-character token.
+
+### Network Exposure
+
+1.  **Setup Mode Binding:** The API binds to `0.0.0.0` to allow LAN access, but the Claim Token prevents unauthorized initialization.
+2.  **24-Hour Timeout:** Setup mode automatically disables after 24 hours, preventing indefinite network exposure.
+3.  **mDNS Advertisement:** The system advertises via mDNS only during setup mode; this stops after provisioning.
+
+### Secret Quality
+
+1.  **CSPRNG Required:** All generated secrets (JWT, MQTT, DB keys) must use a Cryptographically Secure Pseudo-Random Number Generator.
+2.  **Entropy Requirements:**
+    - JWT Secret: 256 bits (32 bytes)
+    - MQTT Password: 128 bits (16 bytes)
+    - Database Key: 256 bits (32 bytes)
+    - Claim Token: 36 bits (sufficient for 15-minute window with rate limiting)
+
+### Threat Model
+
+| Threat | Mitigation |
+|--------|------------|
+| Attacker reads claim token from logs | 1-hour expiry + 15-min rotation limits window |
+| Attacker brute-forces claim token | Rate limiting (5 attempts / 15 min lockout) |
+| System left in setup mode indefinitely | 24-hour timeout → safe mode |
+| Attacker on same network during setup | Claim token required; cannot proceed without it |
+| Installer forgets to complete setup | Timeout forces attention; system becomes safe |
 
 ---
 
