@@ -1,0 +1,78 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://graylogic.uk/schemas/v1/device-profile.schema.json",
+  "title": "Device Profile",
+  "description": "Template for mapping protocol-specific data to standardized device capabilities",
+  "type": "object",
+  "properties": {
+    "id": {
+      "type": "string",
+      "description": "Unique identifier for the profile (e.g., 'profile-grundfos-magna3')"
+    },
+    "manufacturer": {
+      "type": "string",
+      "description": "Device manufacturer"
+    },
+    "model": {
+      "type": "string",
+      "description": "Device model"
+    },
+    "protocol": {
+      "$ref": "common.schema.json#/$defs/Protocol",
+      "description": "Communication protocol used"
+    },
+    "description": {
+      "type": "string",
+      "description": "Human-readable description"
+    },
+    "defaults": {
+      "type": "object",
+      "description": "Default protocol configuration settings",
+      "additionalProperties": true
+    },
+    "capabilities": {
+      "type": "array",
+      "items": {
+        "$ref": "common.schema.json#/$defs/Capability"
+      },
+      "description": "List of capabilities this device supports"
+    },
+    "mappings": {
+      "type": "array",
+      "description": "Rules for mapping protocol data to capability properties",
+      "items": {
+        "type": "object",
+        "properties": {
+          "capability": {
+            "$ref": "common.schema.json#/$defs/Capability"
+          },
+          "property": {
+            "type": "string",
+            "description": "Standardized property name (e.g., 'speed_percent')"
+          },
+          "direction": {
+            "type": "string",
+            "enum": ["read_only", "write_only", "read_write"]
+          },
+          "register": {
+            "type": "object",
+            "description": "Protocol-specific address details",
+            "additionalProperties": true
+          },
+          "transform": {
+            "type": "object",
+            "description": "Data transformation rules",
+            "properties": {
+              "scale": { "type": "number" },
+              "offset": { "type": "number" },
+              "bitmask": { "type": "string" },
+              "map": { "type": "object" }
+            }
+          }
+        },
+        "required": ["capability", "property", "register"]
+      }
+    }
+  },
+  "required": ["id", "manufacturer", "model", "protocol", "mappings"]
+}

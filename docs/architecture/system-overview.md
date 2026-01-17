@@ -339,20 +339,19 @@ User says "Hey Gray, turn on the kitchen lights"
 
 ### Gray Logic Server
 
-| Spec | Minimum | Recommended |
-|------|---------|-------------|
-| **CPU** | x86_64 or ARM64, 4 cores | Intel i5/i7 or AMD Ryzen |
-| **RAM** | 4GB | 8GB |
-| **Storage** | 64GB SSD | 256GB NVMe |
-| **Network** | 1GbE | 2.5GbE or dual 1GbE |
-| **Form Factor** | NUC-style or 1U rack | Industrial fanless preferred |
+| Spec | Minimum (No AI) | Recommended (With AI) | High Performance |
+|------|-----------------|-----------------------|------------------|
+| **CPU** | x86_64 or ARM64, 4 cores | Intel i5/i7 (12th+ gen) or AMD Ryzen 5000+ | Intel i7/i9 or AMD Ryzen 7/9 |
+| **RAM** | 4GB | 16GB | 32GB+ |
+| **Storage** | 64GB SSD | 512GB NVMe | 1TB NVMe |
+| **Network** | 1GbE | 2.5GbE | Dual 2.5GbE / 10GbE |
+| **AI Accelerator** | N/A | Google Coral TPU or NPU | NVIDIA Jetson / Discrete GPU |
+| **Form Factor** | Raspberry Pi 4 / CM4 | Intel NUC / Mini PC | Small Form Factor Server |
 
-**Example Hardware:**
-- Intel NUC (various generations)
-- Lenovo ThinkCentre Tiny
-- HP ProDesk Mini
-- Protectli Vault (fanless)
-- Custom industrial PC
+**Key Considerations:**
+- **AI Workloads:** Local LLM and Whisper STT require significant compute. Dedicated accelerators (Coral, NPU) are strongly recommended to offload CPU.
+- **Reliability:** Industrial fanless PCs are preferred for the "Set and Forget" 10-year goal.
+- **Storage:** High-quality NVMe drives are essential for database reliability and speed.
 
 ### Wall Panels
 
@@ -376,6 +375,30 @@ User says "Hey Gray, turn on the kitchen lights"
 | **Microphone Array** | Far-field audio capture (ReSpeaker, etc.) |
 | **Speaker** | Response playback (can use audio system) |
 | **Processing** | On Gray Logic Server or dedicated device |
+
+---
+
+## AI & Resource Isolation
+
+To ensure the "Hard Rules" (particularly system stability) are never compromised by AI workloads:
+
+### 1. Hardware Acceleration Strategy
+- **Primary:** Leverage dedicated NPUs (Neural Processing Units) or TPUs (Tensor Processing Units) where available (e.g., Apple Silicon NPU, Intel NPU, Google Coral).
+- **Secondary:** Use discrete or integrated GPUs (NVIDIA CUDA, Intel Arc, AMD ROCm).
+- **Fallback:** CPU inference (only if robust core isolation is possible).
+
+### 2. Process Isolation (cgroups)
+The system uses strict resource limits to prioritize Automation over Intelligence.
+
+| Layer | Priority (Nice) | CPU Limit | Memory Limit | OOM Score |
+|-------|-----------------|-----------|--------------|-----------|
+| **Core (Automation)** | -10 (High) | Unrestricted | Unrestricted | -1000 (Never Kill) |
+| **Bridges (KNX/DALI)** | -5 (High) | Unrestricted | 512MB | -500 |
+| **Database (SQLite)** | -5 (High) | Unrestricted | Unrestricted | -900 |
+| **Voice/AI Engine** | +10 (Low) | Max 60% | Max 8GB | +1000 (Kill First) |
+| **Non-Critical UI** | 0 (Normal) | Max 20% | 1GB | 0 |
+
+**Result:** If the AI model spikes CPU usage or leaks memory, the OS throttles or kills the AI process *only*. The light switches (Core + Bridge) continue to function without jitter.
 
 ---
 

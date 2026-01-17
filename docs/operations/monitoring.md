@@ -181,7 +181,7 @@ audible_alerts:
 
 ---
 
-## Installer/Admin Remote Monitoring
+### Installer/Admin Remote Monitoring
 
 ### Secure Remote Access
 
@@ -211,6 +211,49 @@ remote_monitoring:
     notification: "Your installer is connecting for maintenance"
     can_revoke: true
 ```
+
+### Push Telemetry (Scalable Monitoring)
+
+To allow monitoring of large fleets without maintaining persistent VPN tunnels to every site, Gray Logic supports **Push Telemetry**.
+
+**Concept:**
+The Core periodically pushes a lightweight, anonymized health packet to a central monitoring endpoint controlled by the installer.
+
+**Architecture:**
+```
+[Site A Core] ──(HTTPS Push)──▶ [Installer Collector]
+[Site B Core] ──(HTTPS Push)──▶ [      (Influx)     ]
+                                [      (Grafana)    ]
+```
+
+**Security & Privacy:**
+1.  **Transport:** HTTPS (TLS 1.2+) only.
+2.  **Auth:** Site-specific API Key or Mutual TLS.
+3.  **Data Minimization:** strictly **No PII** (No user names, no room names, no video/audio). Only structural IDs (`device-123`) and health metrics.
+4.  **Opt-In:** Customer must explicitly enable "Remote Health Monitoring".
+
+**Payload Example:**
+```json
+{
+  "site_id": "a7b3c9d2...",
+  "timestamp": "2026-01-15T10:30:00Z",
+  "status": "degraded",
+  "version": "1.0.0",
+  "metrics": {
+    "uptime": 86400,
+    "error_rate": 0.05,
+    "bridges_online": 3,
+    "bridges_total": 4,
+    "disk_free_gb": 15
+  },
+  "active_alerts": ["bridge_dali_offline"]
+}
+```
+
+**Benefits:**
+- **Scalable:** Monitor 1000+ sites easily.
+- **Firewall Friendly:** Outbound HTTPS only; no inbound ports needed at customer site.
+- **Low Bandwidth:** < 1KB per minute.
 
 ### Prometheus Metrics Endpoint
 
