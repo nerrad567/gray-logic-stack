@@ -1,8 +1,8 @@
 ---
 title: Core Internals Architecture
-version: 1.0.0
+version: 1.0.1
 status: active
-last_updated: 2026-01-16
+last_updated: 2026-01-17
 depends_on:
   - architecture/system-overview.md
   - overview/principles.md
@@ -1175,9 +1175,13 @@ func main() {
     // 2. Initialize logging
     logger := logging.New(cfg.Logging)
     
-    // 3. Open database
+    // 3. Open database and migrate (with safety backup)
     db := database.Open(cfg.Database.Path)
-    db.Migrate()
+    // MigrateWithSafety creates verified backup before any pending migrations
+    // See: docs/architecture/decisions/004-additive-only-migrations.md
+    if err := db.MigrateWithSafety(); err != nil {
+        logger.Fatal("Database migration failed - see RECOVERY_NEEDED.txt", "error", err)
+    }
     
     // 4. Initialize infrastructure
     mqttClient := mqtt.Connect(cfg.MQTT)

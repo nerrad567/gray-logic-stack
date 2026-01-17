@@ -1,8 +1,8 @@
 ---
 title: Backup and Recovery Specification
-version: 1.0.0
+version: 1.1.0
 status: active
-last_updated: 2026-01-13
+last_updated: 2026-01-17
 depends_on:
   - architecture/system-overview.md
   - resilience/offline.md
@@ -71,6 +71,15 @@ backup_types:
       - "SQLite WAL (write-ahead log)"
     frequency: "Real-time"
     retention: "24 hours"
+
+  # On-demand backup (migration/upgrade triggered)
+  on_demand:
+    includes:
+      - "SQLite database"
+    frequency: "Before upgrades/migrations"
+    retention: "5 most recent"
+    trigger: "Automatic before any database migration"
+    location: "/var/backup/graylogic/pre-migration/"
 ```
 
 ### Backup Locations
@@ -362,6 +371,70 @@ echo "  Users: ${USERS}"
 # Cleanup
 rm -rf "${TEMP_DIR}"
 ```
+
+---
+
+## Migration-Triggered Backups
+
+### Automatic Pre-Migration Backup
+
+When Gray Logic Core starts and detects pending database migrations, it **automatically** creates a verified backup before applying any changes.
+
+```yaml
+pre_migration_backup:
+  # Automatic behavior
+  trigger: "Pending migrations detected on startup"
+  location: "/var/backup/graylogic/pre-migration/"
+  naming: "graylogic_{timestamp}_before_{migration_version}.db"
+
+  # Safety requirements
+  verify_integrity: true     # PRAGMA integrity_check after backup
+  abort_on_failure: true     # Do not migrate if backup fails
+
+  # Retention
+  keep_count: 5              # Keep last 5 pre-migration backups
+```
+
+### Why This Matters
+
+Even with additive-only migrations (see [ADR-004](../architecture/decisions/004-additive-only-migrations.md)), migrations can fail:
+
+| Failure Mode | Impact | Recovery |
+|--------------|--------|----------|
+| SQL syntax error | Migration aborts cleanly | Retry after fix |
+| Data transformation bug | Corrupted data | **Restore from pre-migration backup** |
+| Disk full | Partial migration | Restore from backup |
+| Power loss | Database corruption | Restore from backup |
+
+### Backup File Naming
+
+```
+/var/backup/graylogic/pre-migration/
+├── graylogic_20260115_080000_before_045.db
+├── graylogic_20260120_080000_before_046.db
+├── graylogic_20260125_080000_before_047.db
+└── graylogic_20260201_080000_before_048.db
+```
+
+The naming convention includes:
+- Timestamp of backup creation
+- Migration version number that was about to be applied
+
+### Manual Pre-Upgrade Backup
+
+Before major upgrades (even if no migrations are expected), manually trigger a backup:
+
+```bash
+# Create on-demand backup
+graylogic backup --type on-demand --reason "Pre-upgrade to v1.5.0"
+
+# Verify backup
+graylogic backup --verify /var/backup/graylogic/pre-migration/LATEST.db
+```
+
+### Integration with Rollback
+
+See [ADR-004: Additive-Only Database Migrations](../architecture/decisions/004-additive-only-migrations.md) for complete rollback procedures using these backups.
 
 ---
 

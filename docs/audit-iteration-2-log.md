@@ -159,12 +159,27 @@ Updated `docs/interfaces/api.md` (v1.0.0 → v1.1.0):
 - Updated API key creation with default 1-year expiry
 - Updated JavaScript WebSocket example for ticket-based auth
 
-### Strike 3: Migration Safety Net (1 hour)
-Update `docs/architecture/decisions/004-additive-only-migrations.md`:
-- Add mandatory pre-migration backup requirement
-- Specify rollback script format
-- Document point-in-time recovery procedure
-- Add migration dry-run capability requirement
+### Strike 3: Migration Safety Net (1 hour) — COMPLETED 2026-01-17
+
+Updated `docs/architecture/decisions/004-additive-only-migrations.md` (added last_updated field):
+- Added Migration Safety Requirements section
+- Mandatory pre-migration backup with verification before any migration
+- Dry-run mode specification for testing migrations safely
+- Complete rollback procedure with step-by-step commands
+- Down migration script format (informational-only for additive-only policy)
+- Migration failure handling with RECOVERY_NEEDED.txt file
+- Commissioning test checklist for verifying migration safety
+
+Updated `docs/resilience/backup.md` (v1.0.0 → v1.1.0):
+- Added on-demand backup type for migration/upgrade triggers
+- Added Migration-Triggered Backups section documenting automatic behavior
+- Documented backup file naming convention with timestamp and version
+- Added manual pre-upgrade backup commands
+- Cross-referenced ADR-004 for rollback procedures
+
+Updated `docs/architecture/core-internals.md` (v1.0.0 → v1.0.1):
+- Updated startup sequence to show MigrateWithSafety() pattern
+- Added reference to ADR-004 for migration safety documentation
 
 ### Strike 4: Frost Protection Enforcement (1 hour)
 Update `docs/domains/climate.md`:
