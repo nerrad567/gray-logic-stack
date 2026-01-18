@@ -271,6 +271,29 @@ POST /api/v1/auth/apikeys
 Authorization: Bearer gl_live_abc123def456...
 ```
 
+### API Key Rotation (Service Account Pattern)
+
+Keys default to 1-year expiry. To allow automated rotation without manual intervention (Service Account Pattern):
+
+1.  **Permission:** Key must have `apikeys:rotate_self` permission.
+2.  **Rotation:** Client calls `POST /api/v1/auth/apikeys/{id}/rotate` using the *current* key.
+3.  **Grace Period:** The old key remains valid for 5 minutes after rotation to handle concurrent requests.
+
+```http
+POST /api/v1/auth/apikeys/{id}/rotate
+```
+
+**Response (200):**
+```json
+{
+  "id": "key-001",
+  "key": "gl_live_new_key_789...",
+  "created_at": "2027-01-14T10:00:00Z",
+  "expires_at": "2028-01-14T10:00:00Z",
+  "message": "Old key valid for 5 more minutes."
+}
+```
+
 **Note:** API keys now default to 1-year expiry. Keys approaching expiry will trigger admin notifications at 30, 7, and 1 day(s) before expiration. See `architecture/security-model.md` for full API key lifecycle policy.
 
 ---
@@ -310,6 +333,7 @@ Permissions follow the pattern: `{resource}:{action}`
 | `energy:read` | View energy data |
 | `security:read` | View security status |
 | `security:control` | Arm/disarm, unlock doors |
+| `apikeys:rotate_self` | Allow key to rotate itself (create new, invalidate old) |
 
 ### Room-Level Access Control
 
