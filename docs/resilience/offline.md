@@ -389,6 +389,47 @@ conflict_resolution:
     window_seconds: 10              # If command was sent <10s ago, wait for ack
     action: "hold_state_update"
 
+  # Clock Skew Protection
+  clock_skew_protection:
+    enabled: true
+    max_acceptable_skew_seconds: 60     # Reject timestamps >60s from Core clock
+    
+    actions:
+      within_tolerance:
+        behavior: "Accept timestamp as-is"
+      
+      beyond_tolerance:
+        behavior: "Reject bridge timestamp, use Core timestamp"
+        log: "warning"
+        message: "Bridge {bridge_id} clock skew detected: {skew}s"
+        bridge_health: "degraded"
+        
+    # Why 60 seconds?
+    rationale: |
+      5 seconds is the conflict window. 60 seconds provides margin for:
+      - Network latency (typically <100ms local)
+      - Bridge processing delay (typically <50ms)
+      - NTP poll intervals (typically hourly)
+      Drifts beyond 60s indicate a clock problem, not normal variance.
+
+  # Bridge Clock Health Status
+  bridge_clock_health:
+    status_values:
+      healthy: "Clock within 5s of Core"
+      warning: "Clock 5-60s from Core"
+      degraded: "Clock >60s from Core (timestamps rejected)"
+      unknown: "No recent timestamp received"
+    
+    # Health check on each bridge message
+    check_trigger: "every_bridge_message"
+    
+    # Exposed in health API
+    api_path: "/api/v1/health/bridges/{bridge_id}/clock"
+    response:
+      clock_offset_seconds: float
+      status: string
+      last_checked: timestamp
+
   # State update message format
   state_message:
     required_fields:
@@ -863,6 +904,38 @@ time_synchronization:
       - "pool.ntp.org"              # Secondary fallback
     poll_interval_seconds: 3600     # Check every hour
 
+  # Bridge NTP Requirements (MANDATORY)
+  bridge_ntp:
+    requirement: "All bridges MUST synchronize to NTP"
+    
+    # Local NTP pool (offline-first)
+    preferred_sources:
+      - "Core server (local NTP relay)"    # Primary: Core relays NTP locally
+      - "Local router/gateway"              # Fallback: Router as NTP source
+      - "LAN time server"                   # Alternative: Dedicated LAN server
+    
+    # Internet NTP (fallback only)
+    fallback_sources:
+      - "pool.ntp.org"                      # Only if local sources unavailable
+    
+    # Why local-first?
+    rationale: |
+      Bridges must work during internet outages. Using the Core server or 
+      local router as the NTP source ensures time sync continues offline.
+      This maintains the offline-first principle while ensuring clock accuracy.
+    
+    # Configuration examples
+    examples:
+      raspberry_pi: |
+        # /etc/systemd/timesyncd.conf
+        [Time]
+        NTP=192.168.1.10 192.168.1.1     # Core server, router
+        FallbackNTP=pool.ntp.org
+        
+      embedded_linux: |
+        # BusyBox ntpd
+        ntpd -p 192.168.1.10 -p 192.168.1.1
+
   # Hardware RTC (battery-backed)
   rtc:
     required: true                  # Server must have battery-backed RTC
@@ -925,12 +998,31 @@ drift_handling:
 
 ```yaml
 time_commissioning:
-  - [ ] Server has battery-backed RTC
-  - [ ] RTC battery tested (holds time on power loss)
-  - [ ] NTP server configured and reachable
-  - [ ] Timezone set correctly
-  - [ ] Time verified accurate after reboot
-  - [ ] Astronomical calculations verified (sunrise time matches reality)
+  # Core Server Commissioning
+  core_server:
+    - [ ] Server has battery-backed RTC
+    - [ ] RTC battery tested (holds time on power loss)
+    - [ ] NTP server configured and reachable
+    - [ ] Timezone set correctly
+    - [ ] Time verified accurate after reboot
+    - [ ] Astronomical calculations verified (sunrise time matches reality)
+
+  # Bridge Time Commissioning (MANDATORY for each bridge)
+  bridge_time_commissioning:
+    - [ ] Bridge has working hardware RTC or persistent clock
+    - [ ] NTP client configured on bridge
+    - [ ] NTP source is local (Core server or router), not internet-only
+    - [ ] Verified: Bridge time matches Core within 5 seconds
+    - [ ] Document: NTP source used for this bridge
+    
+  # Verification Command (run from Core server)
+  verification:
+    command: "mosquitto_pub -t 'graylogic/command/{bridge_id}/time_check' -m '{}'"
+    expected_response:
+      topic: "graylogic/status/{bridge_id}/time_check"
+      payload:
+        bridge_time: "ISO8601 timestamp"
+        offset_from_core_seconds: "float (must be <5)"
 ```
 
 ---

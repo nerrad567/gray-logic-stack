@@ -434,6 +434,78 @@ post_commissioning:
 
 ---
 
+## Time Synchronization Verification
+
+### Why Time Sync Matters
+
+Accurate time on bridges is **critical for state reconciliation**. Core uses timestamps to resolve conflicts between cached state and bridge-reported state. Bridges with drifted clocks can:
+
+- Report "future" timestamps that permanently win conflicts
+- Cause legitimate state updates to be rejected
+- Corrupt the authoritative state in Core
+
+### Commissioning Requirement
+
+> [!IMPORTANT]
+> Every bridge MUST be verified for NTP synchronization before going live.
+
+### Verification Steps
+
+```yaml
+time_sync_verification:
+  1: "Confirm NTP client is running on bridge"
+  2: "Verify NTP source is local (Core server IP or router IP)"
+  3: "Check current time offset: must be <5 seconds from Core"
+  4: "Document NTP configuration in handover documentation"
+```
+
+### Verification Commands
+
+```bash
+# On Raspberry Pi bridge
+timedatectl status
+# Look for: "System clock synchronized: yes"
+# Look for: NTP service: active
+
+# Check offset from Core
+date +%s | ssh graylogic-core "read bridge_time; echo \$((\$(date +%s) - bridge_time))"
+# Result must be between -5 and +5
+```
+
+### Health API Indicator
+
+After commissioning, ongoing clock health is monitored via the health API:
+
+```http
+GET /api/v1/health/bridges/{bridge_id}/clock
+```
+
+Returns:
+```json
+{
+  "clock_offset_seconds": 0.3,
+  "status": "healthy",
+  "last_checked": "2026-01-18T14:00:00Z"
+}
+```
+
+Status values:
+- `healthy`: Clock within 5s of Core
+- `warning`: Clock 5-60s from Core
+- `degraded`: Clock >60s from Core (timestamps rejected)
+
+### Handover Documentation
+
+Record in handover pack:
+
+| Bridge | NTP Source | Verified Offset | Verified By |
+|--------|------------|-----------------|-------------|
+| KNX Bridge | 192.168.1.10 (Core) | 0.3s | J. Smith |
+| DALI Gateway | 192.168.1.1 (Router) | 1.2s | J. Smith |
+```
+
+---
+
 ## Web Admin UI
 
 ### Commissioning Dashboard

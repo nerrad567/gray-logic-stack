@@ -303,16 +303,27 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-### Strike 2: Clock Trust and NTP Requirements (1-2 hours)
+### Strike 2: Clock Trust and NTP Requirements (1-2 hours) — COMPLETED 2026-01-18
 
 **Priority:** HIGH  
-**Files:** `docs/resilience/offline.md`, `docs/architecture/bridge-interface.md` (if exists), commissioning docs
+**Files:** `docs/resilience/offline.md`, `docs/commissioning/discovery.md`
 
 **Tasks:**
 1. Add NTP requirement for all bridges to offline.md state reconciliation section
 2. Add clock skew detection logic (reject timestamps differing >60s from Core clock)
 3. Add bridge health indicator for clock sync status
 4. Document commissioning verification: "Verify bridge time matches Core within 5 seconds"
+
+**Changes Made:**
+- Updated `offline.md` with:
+  - Clock skew protection logic (rejects timestamps >60s drift)
+  - Bridge clock health indicator API
+  - Mandatory NTP requirements (local sources preferred)
+  - Extended time commissioning checklist
+- Updated `commissioning/discovery.md` with:
+  - Time synchronization verification workflow
+  - Commissioning commands for checking offset using `ssh` and `date`
+  - Handover documentation requirements
 
 ---
 
