@@ -350,7 +350,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-### Strike 4: Commissioning Verification Checklist (2 hours)
+### Strike 4: Commissioning Verification Checklist (2 hours) — COMPLETED 2026-01-18
 
 **Priority:** MEDIUM  
 **Files:** `docs/domains/climate.md`, new file `docs/deployment/commissioning-checklist.md`
@@ -361,6 +361,16 @@ No clock validation. No NTP requirement documented.
 3. Include NTP/time sync verification for all bridges
 4. Include status feedback verification for critical devices
 5. Cross-reference from climate.md frost protection section
+
+**Changes Made:**
+-   Created `docs/deployment/commissioning-checklist.md`:
+    -   Formal "gate-based" checklist for deployment.
+    -   Added **mandatory** "Frost Protection Hardware Gate" with integrator signature requirement.
+    -   Added "Clock Trust" verification (NTP limit <5s).
+    -   Added "Offline Capability" disconnect tests.
+-   Updated `docs/domains/climate.md`:
+    -   Changed verification column to "MANDATORY: Sign-off in Commissioning Checklist".
+    -   Added IMPORTANT alert linking relevant section to the new checklist.
 
 ---
 

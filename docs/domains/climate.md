@@ -795,10 +795,13 @@ Thermostats and HVAC controllers MUST have:
 
 | Requirement | Description | Verification |
 |-------------|-------------|--------------|
-| **Built-in frost mode** | Activates heating below threshold (typically 5°C) | Check device spec sheet |
+| **Built-in frost mode** | Activates heating below threshold (typically 5°C) | **MANDATORY**: Sign-off in Commissioning Checklist |
 | **Configurable threshold** | Frost setpoint programmable (default 5-8°C) | Configure in device, not Core |
 | **Local sensor** | On-device temperature sensor | Not dependent on bus communication |
 | **Fail-safe behavior** | Defaults to frost protection if communication lost | Test by disconnecting bus |
+
+> [!IMPORTANT]
+> **Commissioning Gate**: Verification of these hardware requirements is **MANDATORY**. You must physically test and sign off on these items in the [Commissioning Checklist](../deployment/commissioning-checklist.md) before handover.
 
 **Approved Thermostat Examples:**
 
