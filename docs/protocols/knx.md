@@ -452,7 +452,16 @@ payload:
 | MQTT connection lost | Queue messages locally, retry connection |
 | Invalid GA in command | Log error, publish NACK to response topic |
 | DPT encoding error | Log error, skip message |
-| Telegram timeout | Log warning, assume command delivered |
+| Telegram timeout | Log warning, mark request unconfirmed |
+
+### Unconfirmed State behavior
+
+If a command times out (no validation from a status GA), the UI displays a "Partial/Unconfirmed" indicator (e.g., a hollow icon or spinner). This persists until:
+1. A status telegram is received (confirming state).
+2. A subsequent poll or read request clarifies the state.
+3. The user initiates a new command.
+
+This ensures the user never sees a "Success" state that is not actually backed by device feedback.
 
 ### Health Reporting
 
