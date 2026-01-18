@@ -45,6 +45,55 @@ Predictive Health Monitoring uses statistical analysis of equipment telemetry to
 
 ---
 
+
+---
+
+## PHM Capability Tiers
+
+To align expectations with installed hardware, PHM features are grouped into three capability tiers.
+
+### Tier 1: Standard (Native Intelligence)
+**Requires:** No additional hardware. Works with standard device telemetry and protocol diagnostics.
+**Features:**
+- **Protocol Diagnostics:** DALI lamp failures, KNX device connectivity, Zigbee signal quality (LQI).
+- **Runtime Stats:** Runtime hours, cycle counting.
+- **Device Health:** Battery levels, error codes, "device offline" alerts.
+- **Inferred Logic:** "Blinds moving too slow" (timestamp delta), "Valve stuck" (retry count).
+
+**Target:** ALL Gray Logic installations. Base level functionality.
+
+### Tier 2: Enhanced (Power & Energy)
+**Requires:** Power measurement hardware (CT clamps, smart plugs, energy meters).
+**Features:**
+- Energy consumption profiling
+- Current draw anomalies ("Pump blocked", "Motor strain")
+- "Phantom load" detection
+- Efficiency warnings (e.g., HVAC usage vs. cooling effect)
+
+**Target:** High-end residential, light commercial.
+
+### Tier 3: Advanced (Physical Sensing)
+**Requires:** Dedicated industrial sensors (Vibration, Temperature probes, Pressure).
+**Features:**
+- Vibration analysis (bearing wear)
+- Thermal imaging/profiling
+- Predictive failure modeling (time-to-failure)
+- Precise efficiency calculation (COP)
+
+**Target:** Commercial plant rooms, critical infrastructure, luxury marine.
+
+### Typical Deployment Expectations
+
+| Feature | Typical Residential | Commercial / High-End |
+|---------|---------------------|-----------------------|
+| Light diagnostics | ✅ Tier 1 (DALI Status) | ✅ Tier 1 (DALI Status) |
+| Bridge health | ✅ Tier 1 | ✅ Tier 1 |
+| Pump status | ✅ Tier 1 (On/Off) | ✅ Tier 2 (Power) / 3 (Vibration) |
+| HVAC health | ✅ Tier 1 (Errors) | ✅ Tier 3 (Pressures/Deltas) |
+| **Result** | Maintenance reminders | Predictive failure alerts |
+
+---
+
 ## Architecture
 
 ### Data Flow

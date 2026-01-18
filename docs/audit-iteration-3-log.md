@@ -374,7 +374,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-### Strike 5: PHM Capability Tiers (1 hour)
+### Strike 5: PHM Capability Tiers (1 hour) — COMPLETED 2026-01-18
 
 **Priority:** LOW  
 **Files:** `docs/intelligence/phm.md`
@@ -385,6 +385,14 @@ No clock validation. No NTP requirement documented.
 3. Clarify which PHM features require which tier
 4. Add "Typical Residential" vs "Commercial with BMS" capability expectations
 5. Prevent expectation gap during sales/commissioning
+
+**Changes Made:**
+-   Updated `docs/intelligence/phm.md`:
+    -   Added "PHM Capability Tiers" section defining three levels:
+        -   **Tier 1 (Standard):** Native intelligence (DALI status, runtime) - Works everywhere.
+        -   **Tier 2 (Enhanced):** Power/Energy analysis - Requires CT clamps/Smart plugs.
+        -   **Tier 3 (Advanced):** Physical sensing (Vibration/Temp) - Requires industrial sensors.
+    -   Added "Typical Deployment Expectations" table comparing Residential vs Commercial.
 
 ---
 
