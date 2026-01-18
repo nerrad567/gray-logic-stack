@@ -293,6 +293,15 @@ LoadPriority:
     - device_id: "medical-cpap"
     - device_id: "alarm-panel"
     
+  # Load Shedding Priorities
+  # NOTE: Targets must be CONTROLLABLE devices (Smart Plug, Relay), not just monitored circuits.
+  # If a fridge is on a CT clamp only, it cannot be shed.
+  shed_loads:
+    - device_id: "fridge-kitchen" # Assumes Smart Plug control
+      priority: 1                 # 1 = First to shed
+      min_off_minutes: 15         # Compressor protection
+      max_off_minutes: 60
+      
   # Priority 2: Shed only in emergency
   essential:
     - device_id: "heatpump-main"

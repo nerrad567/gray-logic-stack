@@ -5,7 +5,7 @@ status: active
 last_updated: 2026-01-17
 depends_on:
   - data-model/entities.md
-  - operations/backup.md
+  - resilience/backup.md
 ---
 
 # System Maintenance Procedures

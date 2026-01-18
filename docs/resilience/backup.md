@@ -229,9 +229,10 @@ secrets_backup:
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     
     # Encrypt secrets (tar first to include keys)
-    tar -cf - /etc/graylogic/secrets.yaml /etc/graylogic/*.key | \
+    # Include: Secrets, Keys, and Long-term Log Archives
+    tar -cf - /etc/graylogic/secrets.yaml /etc/graylogic/*.key /var/lib/graylogic/archive/ | \
       gpg --encrypt --recipient backup@graylogic.local \
-      --output "${BACKUP_DIR}/secrets_${TIMESTAMP}.tar.gpg"
+      --output "${BACKUP_DIR}/secrets_and_archive_${TIMESTAMP}.tar.gpg"
       
   # Key management
   key_storage:
@@ -757,8 +758,10 @@ backup:
   # USB backup
   usb:
     enabled: true
-    device: "/dev/sdb1"
-    mount_point: "/mnt/backup-usb"
+    label: "Local USB"
+    mount_point: "/mnt/backup_usb"
+    status: "mandatory_for_commissioning"  # Required for "Gold Master" handover
+    auto_mount: true
     retention_days: 30
     
   # Remote backup

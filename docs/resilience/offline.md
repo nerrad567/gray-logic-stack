@@ -394,6 +394,12 @@ conflict_resolution:
     enabled: true
     max_acceptable_skew_seconds: 60     # Reject timestamps >60s from Core clock
     
+    # Deadlock Prevention: "Time Trust on First Use"
+    # If Core RTC fails (e.g., year 1970), allow ONE jump to a valid external time.
+    sanity_check:
+      minimum_valid_year: 2026           # Timestamps before this are considered "RTC Failure"
+      action_on_rtc_failure: "Accept external timestamp if > minimum_valid_year"
+    
     actions:
       within_tolerance:
         behavior: "Accept timestamp as-is"
