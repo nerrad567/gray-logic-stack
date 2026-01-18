@@ -772,6 +772,243 @@ frost_protection:
   notify: true
 ```
 
+### Frost Protection Enforcement
+
+> [!CAUTION]
+> **HARD RULE**: Frost protection is a property-safety function. It MUST operate independently of Gray Logic software.
+
+#### Hardware-First Architecture
+
+Frost protection operates in three independent layers:
+
+| Layer | Responsibility | Failure Mode |
+|-------|---------------|--------------|
+| **Layer 1: Thermostat Hardware** | Built-in frost protection in thermostat firmware | Works even if bus disconnected |
+| **Layer 2: HVAC Equipment** | Boiler/heat pump internal frost protection | Works even if all controls fail |
+| **Layer 3: Gray Logic** | Monitoring, alerting, enhanced coordination | Observes and supplements, never replaces |
+
+**Layer 1 is mandatory.** Gray Logic does NOT provide frost protection — it monitors and enhances hardware-based protection.
+
+#### Hardware Requirements
+
+Thermostats and HVAC controllers MUST have:
+
+| Requirement | Description | Verification |
+|-------------|-------------|--------------|
+| **Built-in frost mode** | Activates heating below threshold (typically 5°C) | Check device spec sheet |
+| **Configurable threshold** | Frost setpoint programmable (default 5-8°C) | Configure in device, not Core |
+| **Local sensor** | On-device temperature sensor | Not dependent on bus communication |
+| **Fail-safe behavior** | Defaults to frost protection if communication lost | Test by disconnecting bus |
+
+**Approved Thermostat Examples:**
+
+```yaml
+# KNX thermostats with built-in frost protection
+approved_devices:
+  - manufacturer: "ABB"
+    models: ["RTC", "RDF series"]
+    frost_mode: "HVAC Mode DPT 20.102 value 4"
+
+  - manufacturer: "MDT"
+    models: ["SCN-RTR55", "SCN-RTTR55"]
+    frost_mode: "Built-in, configurable via ETS"
+
+  - manufacturer: "Theben"
+    models: ["RAMSES series"]
+    frost_mode: "Built-in frost protection"
+
+  - manufacturer: "Siemens"
+    models: ["RDG, RDF series"]
+    frost_mode: "Frost protection mode"
+
+# Heat pump controllers with internal frost protection
+  - manufacturer: "Vaillant"
+    models: ["aroTHERM controllers"]
+    frost_mode: "Internal compressor protection + flow temp monitoring"
+
+  - manufacturer: "NIBE"
+    models: ["F-series controllers"]
+    frost_mode: "Built-in frost guard"
+```
+
+#### What Gray Logic Does (Layer 3)
+
+Gray Logic provides **monitoring and coordination**, not primary protection:
+
+```yaml
+gray_logic_frost_functions:
+  # Monitoring (always active when Core running)
+  monitoring:
+    - "Monitor zone temperatures via sensors"
+    - "Alert if temperature approaches frost threshold"
+    - "Log frost protection activations from hardware"
+    - "Track equipment response times"
+
+  # Coordination (when online)
+  coordination:
+    - "Coordinate multiple zones during cold snaps"
+    - "Optimize equipment sequencing (heat pump + backup)"
+    - "Integrate with weather forecast for preemptive action"
+
+  # PROHIBITED
+  prohibited:
+    - "Gray Logic MUST NOT be the primary frost protection"
+    - "Gray Logic MUST NOT be able to disable hardware frost protection"
+    - "Gray Logic MUST NOT override thermostat frost mode"
+```
+
+#### Failure Mode Analysis
+
+| Component Failure | Frost Protection Status | Action Required |
+|-------------------|------------------------|-----------------|
+| Internet down | ✅ Fully operational | None |
+| MQTT broker down | ✅ Fully operational | Hardware protection continues |
+| Gray Logic Core down | ✅ Fully operational | Hardware protection continues |
+| KNX bus failure | ✅ Operational | Thermostat uses local sensor |
+| Thermostat power loss | ⚠️ Degraded | Boiler/heat pump internal protection only |
+| All control power lost | ❌ Manual intervention | Requires physical presence |
+
+#### Software Enforcement (Defence in Depth)
+
+In addition to hardware protection, Gray Logic implements software safeguards:
+
+**Database Constraints:**
+
+```sql
+-- Frost protection settings table
+CREATE TABLE climate_zone_protection (
+  zone_id TEXT PRIMARY KEY,
+  frost_protect_enabled BOOLEAN NOT NULL DEFAULT true,
+  frost_protect_temp REAL NOT NULL DEFAULT 8.0,
+  -- Constraint: frost_protect_enabled can only be true
+  CONSTRAINT frost_always_enabled CHECK (frost_protect_enabled = true)
+);
+
+-- Trigger to prevent updates that would disable frost protection
+CREATE TRIGGER prevent_frost_disable
+BEFORE UPDATE ON climate_zone_protection
+WHEN NEW.frost_protect_enabled = false
+BEGIN
+  SELECT RAISE(ABORT, 'SECURITY: Frost protection cannot be disabled');
+END;
+```
+
+**Audit Logging:**
+
+```yaml
+frost_protection_audit:
+  # Log all access to frost protection settings
+  log_events:
+    - event: "frost_protection_config_access"
+      level: "info"
+
+    - event: "frost_protection_modify_attempt"
+      level: "warning"
+      alert: true  # Immediate notification to admin
+
+    - event: "frost_protection_activation"
+      level: "info"
+
+  # Prohibited actions (always blocked, always logged)
+  blocked_actions:
+    - "Setting frost_protect_enabled to false"
+    - "Setting frost_protect_temp below 5°C"
+```
+
+**API Enforcement:**
+
+```yaml
+api_constraints:
+  # PUT /api/v1/climate/zones/{id}/protection
+  endpoint: "/api/v1/climate/zones/{id}/protection"
+
+  validation:
+    frost_protect_enabled:
+      allowed_values: [true]  # false is never accepted
+      on_invalid: "reject with 403 Forbidden"
+
+    frost_protect_temp:
+      min: 5.0
+      max: 15.0
+      on_invalid: "reject with 400 Bad Request"
+
+  audit:
+    log_all_requests: true
+    alert_on_blocked: true
+```
+
+#### Health Dashboard Integration
+
+Frost protection status MUST be visible on system health dashboard:
+
+```yaml
+health_indicators:
+  frost_protection:
+    display_name: "Frost Protection"
+    priority: "critical"  # Always visible on main dashboard
+
+    states:
+      - state: "armed"
+        indicator: "green"
+        message: "Frost protection active on all zones"
+
+      - state: "triggered"
+        indicator: "yellow"
+        message: "Frost protection heating active"
+
+      - state: "hardware_offline"
+        indicator: "red"
+        message: "WARNING: Thermostat offline - verify frost protection"
+        alert: true
+
+      - state: "unknown"
+        indicator: "red"
+        message: "Cannot verify frost protection status"
+        alert: true
+```
+
+#### Commissioning Checklist
+
+Before deployment, verify frost protection at each layer:
+
+```yaml
+commissioning_frost_protection:
+  # Layer 1: Hardware verification
+  hardware:
+    - "Thermostat has built-in frost protection mode"
+    - "Frost threshold configured in thermostat (not just Core)"
+    - "Thermostat frost mode tested: disconnect bus, verify heating activates below threshold"
+    - "Thermostat documentation confirms frost protection specifications"
+
+  # Layer 2: HVAC equipment verification
+  equipment:
+    - "Boiler/heat pump has internal frost protection (check spec sheet)"
+    - "Equipment frost protection tested: simulate cold conditions"
+    - "Backup heating source identified if primary fails"
+
+  # Layer 3: Software verification
+  software:
+    - "Gray Logic frost monitoring configured for all zones"
+    - "Alert thresholds set appropriately"
+    - "Database constraint verified (attempt to disable, confirm rejection)"
+    - "Audit logging verified for frost protection events"
+    - "Health dashboard shows frost protection status"
+
+  # Failure scenario testing
+  failure_tests:
+    - "Test 1: Stop Gray Logic Core → verify thermostats maintain frost protection"
+    - "Test 2: Stop MQTT broker → verify thermostats maintain frost protection"
+    - "Test 3: Disconnect KNX bus to single thermostat → verify it uses local sensor"
+    - "Test 4: Simulate sub-threshold temperature → verify heating activates"
+
+  # Documentation
+  documentation:
+    - "Frost protection architecture documented in handover pack"
+    - "Thermostat frost settings documented"
+    - "Emergency contact information for heating engineer"
+    - "Location of manual boiler controls documented"
+```
+
 ### Equipment Protection
 
 ```yaml

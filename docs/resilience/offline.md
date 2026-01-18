@@ -72,7 +72,7 @@ Gray Logic is **offline-first**, not merely offline-capable:
 | **KNX Bridge** | Other bridges, scenes (partial) | KNX device control |
 | **Voice Bridge** | All control except voice | Voice commands |
 | **InfluxDB** | All control, automation | PHM analysis, historical data |
-| **Gray Logic Core** | Physical controls only | Everything else |
+| **Gray Logic Core** | Physical controls, **frost protection (hardware-based)**, security panel, fire alarm | All automation, scenes, UI, PHM |
 
 ### Detailed Failure Scenarios
 
@@ -260,6 +260,7 @@ influxdb_down:
 core_down:
   works:
     - "Physical controls (KNX switches → actuators)"
+    - "Frost protection (hardware-based, see below)"
     - "Security panel (independent)"
     - "Fire alarm (independent)"
     - "CCTV recording (NVR independent)"
@@ -281,6 +282,36 @@ core_down:
     max_restart_attempts: 5
     notify_on_failure: true
 ```
+
+#### Frost Protection During Failures
+
+**Frost protection is hardware-based and continues regardless of software state.**
+
+```yaml
+frost_protection_resilience:
+  # All these failures: frost protection continues
+  continues_during:
+    - "Internet down"
+    - "MQTT broker down"
+    - "Gray Logic Core down"
+    - "Database corrupted"
+    - "KNX bridge down"
+    - "Modbus bridge down"
+
+  # Frost protection is only affected if:
+  affected_only_by:
+    - "Thermostat hardware failure"
+    - "Thermostat power loss"
+    - "All heating equipment failure"
+
+  # User notification when monitoring unavailable
+  monitoring_unavailable:
+    condition: "Core down but heating still needed"
+    user_impact: "No alerts or logging, but protection continues"
+    recovery: "Review logs on Core restart to check for activations"
+```
+
+See [Climate Domain: Frost Protection Enforcement](../domains/climate.md#frost-protection-enforcement) for full specification.
 
 ---
 

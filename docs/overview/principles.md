@@ -234,7 +234,7 @@ These are defaults that should be followed unless there's explicit justification
 ### Climate
 
 - Safe setback temperatures must be maintained if automation fails
-- Frost protection cannot be disabled by software
+- Frost protection cannot be disabled by software **and must run on thermostat hardware, not depend on Core**
 - Manual override must be possible at the device
 - Sensor failure defaults to safe operation
 

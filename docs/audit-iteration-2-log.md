@@ -181,12 +181,27 @@ Updated `docs/architecture/core-internals.md` (v1.0.0 → v1.0.1):
 - Updated startup sequence to show MigrateWithSafety() pattern
 - Added reference to ADR-004 for migration safety documentation
 
-### Strike 4: Frost Protection Enforcement (1 hour)
-Update `docs/domains/climate.md`:
-- Specify database-level constraint for frost protection
-- Add audit log requirement for any modification attempt
-- Document verification procedure for commissioning
-- Add to handover pack verification checklist
+### Strike 4: Frost Protection Enforcement (1 hour) — COMPLETED 2026-01-18
+
+Updated `docs/domains/climate.md`:
+- Added comprehensive Frost Protection Enforcement section (~240 lines)
+- Hardware-First Architecture: Three-layer protection model (Thermostat Hardware, HVAC Equipment, Gray Logic)
+- Hardware Requirements table with verification steps
+- Approved Thermostat Examples (ABB, MDT, Theben, Siemens, Vaillant, NIBE)
+- What Gray Logic Does (monitoring, coordination) and PROHIBITED actions
+- Failure Mode Analysis table showing frost protection continues during all software failures
+- Software Enforcement: Database constraints, audit logging, API enforcement
+- Health Dashboard Integration with frost protection status indicators
+- Commissioning Checklist for hardware, equipment, software, and failure testing
+
+Updated `docs/resilience/offline.md`:
+- Updated Component Failure Matrix to explicitly list frost protection as hardware-based
+- Added frost protection to core_down works list
+- Added "Frost Protection During Failures" subsection with resilience spec
+- Cross-reference to climate.md frost protection enforcement section
+
+Updated `docs/overview/principles.md`:
+- Clarified frost protection rule: "must run on thermostat hardware, not depend on Core"
 
 ### Strike 5: Documentation Hygiene (30 minutes)
 - Remove reference to non-existent `bacnet.md` or create placeholder
