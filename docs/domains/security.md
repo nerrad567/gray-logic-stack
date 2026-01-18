@@ -282,6 +282,11 @@ AlarmEvent:
 
 All arm/disarm commands require authentication and are logged.
 
+> [!IMPORTANT]
+> **PIN Transmission Security**: PIN codes (`user_pin`) included in MQTT payloads MUST be protected to prevent plaintext exposure on the local network.
+> 1. **Transport Encryption (Preferred)**: The MQTT connection between Gray Logic Core and the Security Bridge MUST use TLS/SSL (MQTTS).
+> 2. **Payload Encryption (Alternative)**: If TLS is not available, the `user_pin` field or the entire payload MUST be encrypted at the application layer using a pre-shared key or asymmetric encryption.
+
 ```yaml
 # Arm away
 - panel_id: "alarm-panel-1"
