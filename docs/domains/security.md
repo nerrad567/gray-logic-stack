@@ -284,7 +284,9 @@ All arm/disarm commands require authentication and are logged.
 
 > [!IMPORTANT]
 > **PIN Transmission Security**: PIN codes (`user_pin`) included in MQTT payloads MUST be protected to prevent plaintext exposure on the local network.
-> 1. **Transport Encryption (Preferred)**: The MQTT connection between Gray Logic Core and the Security Bridge MUST use TLS/SSL (MQTTS).
+> 1. **Transport Encryption**: 
+>    - **Network**: Connections crossing a network interface MUST use TLS/SSL (MQTTS).
+>    - **Localhost**: Plaintext MQTT (`tcp://127.0.0.1:1883`) or Unix Domain Sockets are permitted for internal Core-Bridge communication **IF AND ONLY IF** port 1883 is firewalled from external access.
 > 2. **Payload Encryption (Alternative)**: If TLS is not available, the `user_pin` field or the entire payload MUST be encrypted at the application layer using a pre-shared key or asymmetric encryption.
 
 ```yaml

@@ -243,6 +243,8 @@ sensor_validation:
 
   # 2. State Correlation (Logical Consistency)
   # Prevents "Machine Running + Zero Power" scenarios
+  # 2. State Correlation (Logical Consistency)
+  # Prevents "Machine Running + Zero Power" scenarios
   correlation_check:
     - device_id: "pump-chw-1"
       condition: "state == 'on'"
@@ -251,8 +253,13 @@ sensor_validation:
         operator: ">"
         value: 0.1
       on_fail:
-        flag_sensor: "ct-clamp-pump-1"
-        reason: "Pump ON but Power ZERO - Sensor Failure"
+        # Differentiate based on state confidence
+        logic: |
+          IF state.source == 'feedback' THEN
+             flag_sensor("ct-clamp-pump-1", "Pump confirmed ON (Feedback), but Power is 0")
+          ELSE
+             flag_ambiguous("Pump Commanded ON, but Power is 0. Check Pump Start or Contactor.")
+
 
   # 3. Stuck Value Detection
   stuck_check:
