@@ -104,14 +104,14 @@ For each external data source or subscription, record:
 - Rate limits (if applicable):
 - SLA/availability expectations (if any):
 
-### 6.1 Weather Nowcast (Satellite Ingest + Optional Internet Enrichment)
+### 6.1 Weather Nowcast (IF APPLICABLE - Optional/Planned Year 2+)
 
 - Source(s):
 - Licensing/terms notes:
 - Local retention policy:
 - Redisplay rules (eg. client dashboard only):
 
-**Important disclaimer:** Weather/nowcast features are informational and advisory only. They must not be relied upon for safety-critical decisions, and loss of weather input must not affect core operation.
+**Important disclaimer:** Weather/nowcast features are optional premium additions. They are informational and advisory only. They must not be relied upon for safety-critical decisions, and loss of weather input must not affect core operation.
 
 ### 6.2 Out-of-Band Mesh Comms (Meshtastic-like)
 
