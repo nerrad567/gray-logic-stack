@@ -275,9 +275,58 @@ AgileTariff:
       end: "19:00"
       average_rate: 0.38
 
-### Local Smart Meter Interface (Offline Resilience)
+### Grid Intelligence (Smart Meter)
 
-For true offline resilience, we read the meter's **HAN/P1 Port** directly. This provides the "Active Tariff Register" (e.g., Rate 1 vs Rate 2) even if the internet is down.
+Gray Logic treats the Smart Meter not just as a billing counter, but as a **Grid Health Monitor**. By interfacing with the HAN/P1 port, we extract high-resolution telemetry for protection and logic.
+
+#### 1. Telemetry Data Points
+We extract the following metrics (availability depends on meter type):
+
+| Metric | Frequency | Utility |
+| :--- | :--- | :--- |
+| **Active Power (W)** | 1-10s | Real-time load shedding, zero-export control |
+| **Voltage (V)** | 1-10s | Grid quality monitoring, appliance protection |
+| **Tariff Index** | Event | **Offline** pricing logic (Peak vs Off-Peak) |
+| **Gas Rate (m³/h)** | 5-60m | Leak detection (flow during night) |
+| **Grid Frequency (Hz)** | 1-10s | Island detection stability |
+
+#### 2. Applications
+
+**A. Voltage Protection (Appliance Safety)**
+If grid voltage exceeds safe limits (e.g., >253V in UK/EU), sensitive loads can be proactively disconnected.
+```yaml
+VoltageProtection:
+  enabled: true
+  thresholds:
+    high_trip_v: 253          # UK limit + margin
+    low_trip_v: 207           # -10% limit
+    duration_s: 5             # Must persist for 5s
+  actions:
+    - isolate_sensitive_electronics
+    - notify_admin
+```
+
+**B. Blackout Detection (Last Gasp)**
+If the CAD/Meter stops reporting via MQTT (Last Will timestamp) but the Core UPS is alive, we assume a Grid Failure.
+```yaml
+BlackoutLogic:
+  trigger: "meter_telemetry_lost"
+  condition: "core_ups_online"
+  action: "enter_mode_emergency"
+```
+
+**C. Gas Leak Awareness**
+If gas flow is detected during "Night Mode" or "Away Mode" (when heating is off), trigger a warning.
+```yaml
+GasLeakWatch:
+  mode_scope: ["night", "away"]
+  threshold_m3h: 0.01         # Any flow
+  delay_m: 15                 # Allow for boiler pilot/purge
+  action: "notify_critical"
+```
+
+**D. Offline Tariff Switching**
+(As defined in Resilience) Reading the raw Tariff Register allows cost-aware logic without cloud APIs.
 
 ```yaml
 LocalSmartMeter:
