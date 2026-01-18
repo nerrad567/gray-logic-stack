@@ -245,16 +245,20 @@ mesh_network:
 
 ---
 
-## Surgical Strikes (Recommended Fixes)
+## Surgical Strikes — ALL APPLIED ✅
 
-| Priority | ID | Description | Effort |
+| Priority | ID | Description | Status |
 |----------|-----|-------------|--------|
-| 1 | M1 | Add Estate tier to cloud-relay feature matrix | Trivial |
-| 2 | M2 | Add DIY reference to principles.md | Small |
-| 3 | L1 | Clarify HomeKit iCloud note | Trivial |
-| 4 | L2 | Clarify Free tier push limitations | Trivial |
-| 5 | L3 | Document Thread border router hardware | Small |
-| 6 | L4 | Add Zigbee channel commissioning note | Trivial |
+| 1 | M1 | Add Estate tier to cloud-relay feature matrix | ✅ Applied |
+| 2 | M2 | Add DIY reference to principles.md | ✅ Applied |
+| 3 | L1 | Clarify HomeKit iCloud note | ✅ Applied |
+| 4 | L2 | Fix push notifications Free tier → ❌ | ✅ Applied |
+| 5 | L3 | Document Thread border router hardware | ✅ Applied |
+| 6 | L4 | Add Zigbee channel commissioning note | ✅ Applied |
+
+**Commits**:
+- `d195fc8`: Initial fixes (M1, M2, L1, L3, L4)
+- `e1d88c5`: L2 fix (push notifications)
 
 ---
 
@@ -268,8 +272,9 @@ The new documentation (capabilities-and-benefits.md v2.0, diy-integration.md) is
 4. ✅ Places cloud integrations as customer-managed
 5. ✅ Provides honest disclosure of limitations
 
-**Recommendation**: Apply the 6 surgical strikes (trivial effort total), then proceed with implementation confidence.
+**All 6 surgical strikes have been applied.** Documentation is now fully consistent and ready for implementation.
 
 ---
 
 *Audit completed: 2026-01-18T20:20:00Z*
+*Fixes applied: 2026-01-18T20:19:00Z*
