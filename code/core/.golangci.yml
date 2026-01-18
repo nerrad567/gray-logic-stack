@@ -1,0 +1,328 @@
+# Gray Logic Core - Linter Configuration
+# =======================================
+#
+# This configuration enables strict linting for code quality and security.
+# Run with: golangci-lint run ./...
+#
+# For documentation: https://golangci-lint.run/usage/linters/
+
+# ============================================================================
+# RUN CONFIGURATION
+# ============================================================================
+
+run:
+  # Timeout for analysis (increase for large codebases)
+  timeout: 5m
+
+  # Include test files in analysis
+  tests: true
+
+# ============================================================================
+# OUTPUT CONFIGURATION
+# ============================================================================
+
+output:
+  # Output format: colored-line-number, line-number, json, tab, checkstyle
+  formats:
+    - format: colored-line-number
+
+  # Print lines of code with issue
+  print-issued-lines: true
+
+  # Print linter name at end of issue
+  print-linter-name: true
+
+
+  # Sort results by: filepath, line, severity
+  sort-results: true
+
+# ============================================================================
+# LINTERS
+# ============================================================================
+
+linters:
+  # Disable all linters by default, then explicitly enable what we want
+  disable-all: true
+
+  enable:
+    # ========================================================================
+    # DEFAULT LINTERS (recommended baseline)
+    # ========================================================================
+
+    # Checks for unchecked errors (critical for robust code)
+    - errcheck
+
+    # Detects code that will never be executed
+    - ineffassign
+
+    # Finds unused code
+    - unused
+
+    # Go's built-in vet tool - catches subtle bugs
+    - govet
+
+    # Simplifies code
+    - gosimple
+
+    # Static analysis tool
+    - staticcheck
+
+    # Type checks
+    - typecheck
+
+    # ========================================================================
+    # CODE QUALITY
+    # ========================================================================
+
+    # Checks function complexity
+    - gocyclo
+
+    # Checks cognitive complexity
+    - gocognit
+
+    # Finds repeated strings that should be constants
+    - goconst
+
+    # Go code review comments (enforces Go conventions)
+    - revive
+
+    # Style checker
+    - stylecheck
+
+    # Checks for unused function parameters
+    - unparam
+
+    # Checks for unnecessary type conversions
+    - unconvert
+
+    # Finds naked returns (returns without values in named-return functions)
+    - nakedret
+
+    # ========================================================================
+    # ERROR HANDLING
+    # ========================================================================
+
+    # Finds code that ignores errors
+    - errcheck
+
+    # Checks error handling patterns
+    - errorlint
+
+    # Checks error wrapping
+    - wrapcheck
+
+    # ========================================================================
+    # SECURITY (IMPORTANT for building automation)
+    # ========================================================================
+
+    # Security-focused linter - CRITICAL for Gray Logic
+    - gosec
+
+    # ========================================================================
+    # FORMATTING & STYLE
+    # ========================================================================
+
+    # Checks code is gofmt'd
+    - gofmt
+
+    # Checks imports are sorted
+    - goimports
+
+    # Checks for whitespace issues
+    - whitespace
+
+    # ========================================================================
+    # BUGS & BEST PRACTICES
+    # ========================================================================
+
+    # Finds commonly misspelled English words
+    - misspell
+
+    # Checks for missing cases in select statements
+    - exhaustive
+
+    # Finds duplicate code
+    - dupl
+
+    # Checks for magic numbers
+    - mnd
+
+    # Checks for missing doc comments on exported symbols
+    - revive  # has exportedHasComment rule
+
+# ============================================================================
+# LINTER SETTINGS
+# ============================================================================
+
+linters-settings:
+
+  # Error checking configuration
+  errcheck:
+    # Check for errors in type assertions: v, ok := x.(T)
+    check-type-assertions: true
+    # Check for errors in blank identifiers: _ = f()
+    check-blank: true
+
+  # Security linter settings
+  gosec:
+    # Which rules to skip
+    excludes:
+      - G104  # Audit errors not checked (we use errcheck for this)
+    # Severity threshold
+    severity: medium
+    # Confidence threshold
+    confidence: medium
+
+  # Cyclomatic complexity threshold
+  gocyclo:
+    min-complexity: 15
+
+  # Cognitive complexity threshold
+  gocognit:
+    min-complexity: 20
+
+  # Find repeated strings
+  goconst:
+    min-len: 3
+    min-occurrences: 3
+
+  # Naked returns
+  nakedret:
+    # Max lines before naked return is disallowed
+    max-func-lines: 30
+
+  # Go vet settings
+  govet:
+    # Enable all analyzers
+    enable-all: true
+    # Disable specific analyzers
+    disable:
+      - fieldalignment  # Too noisy for now
+
+  # Misspell settings
+  misspell:
+    locale: UK  # Gray Logic uses British English
+
+  # Revive (replacement for golint)
+  revive:
+    rules:
+      # Require comments on exported symbols
+      - name: exported
+        severity: warning
+        arguments:
+          - checkPrivateReceivers
+          - sayRepetitiveInsteadOfStutters
+      # Require package comments
+      - name: package-comments
+        severity: warning
+      # Disallow blank imports except in main or test
+      - name: blank-imports
+        severity: warning
+      # Context should be first parameter
+      - name: context-as-argument
+        severity: error
+      # Context keys should use custom types
+      - name: context-keys-type
+        severity: warning
+      # Don't use dot imports
+      - name: dot-imports
+        severity: warning
+      # Error return should be last
+      - name: error-return
+        severity: warning
+      # Error var naming (ErrFoo)
+      - name: error-naming
+        severity: warning
+      # Increment/decrement operators
+      - name: increment-decrement
+        severity: warning
+      # Var naming conventions
+      - name: var-naming
+        severity: warning
+      # Var declaration simplification
+      - name: var-declaration
+        severity: warning
+
+  # Error wrapping settings
+  wrapcheck:
+    # Packages to ignore (standard library is OK to not wrap)
+    ignoreSigs:
+      - .Errorf(
+      - errors.New(
+      - errors.Unwrap(
+    ignorePackageGlobs:
+      - encoding/*
+      - github.com/nerrad567/gray-logic-core/*
+
+  # Duplicate code detection
+  dupl:
+    threshold: 100
+
+  # Magic number detection
+  mnd:
+    # Checks to enable
+    checks:
+      - argument
+      - case
+      - condition
+      - return
+    # Numbers to ignore
+    ignored-numbers:
+      - '0'
+      - '1'
+      - '2'
+      - '10'
+      - '100'
+    # Functions to ignore (e.g., time.Sleep(5 * time.Second))
+    ignored-functions:
+      - 'time.*'
+
+# ============================================================================
+# ISSUE CONFIGURATION
+# ============================================================================
+
+issues:
+  # Exclude vendor directory
+  exclude-dirs:
+    - vendor
+
+  # Make issues output unique by line
+  uniq-by-line: true
+
+  # Maximum issues per linter (0 = unlimited)
+  max-issues-per-linter: 0
+
+  # Maximum issues with same text (0 = unlimited)
+  max-same-issues: 0
+
+  # Show all issues from a linter
+  new: false
+
+  # Fix issues if possible
+  fix: false
+
+  # Exclude specific issues
+  exclude-rules:
+    # Exclude some linters from running on tests
+    - path: _test\.go
+      linters:
+        - gocyclo
+        - errcheck
+        - dupl
+        - gosec
+        - wrapcheck
+        - mnd
+
+    # Exclude "exported * should have comment" in test files
+    - path: _test\.go
+      text: "exported .* should have comment"
+
+    # Allow magic numbers in test files
+    - path: _test\.go
+      linters:
+        - mnd
+
+    # Exclude main.go from some checks (entry point is special)
+    - path: cmd/.*/main\.go
+      linters:
+        - gochecknoglobals  # Version vars are OK in main

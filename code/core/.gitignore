@@ -1,0 +1,36 @@
+# Gray Logic Core - Git Ignore
+# ============================
+
+# Build output
+/build/
+/graylogic
+
+# Test artifacts
+coverage.out
+coverage.html
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Data files (database, logs)
+/data/
+/logs/
+*.db
+*.log
+
+# Environment files (may contain secrets)
+.env
+.env.local
+*.env
+
+# Temporary files
+/tmp/
+*.tmp

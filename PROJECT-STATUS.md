@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
 > **Last Updated:** 2026-01-18
-> **Current Phase:** Documentation (Pre-Development Review Complete)
+> **Current Phase:** Implementation (M1.1 - Core Infrastructure)
 
 ---
 
@@ -23,7 +23,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | ❌ Not started |
+| Code | 🟡 M1.1 In Progress |
 
 ---
 
@@ -152,12 +152,22 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | ❌ Not started | Documentation complete |
+| Gray Logic Core (Go) | 🟡 M1.1 In Progress | Project structure, config, build system complete |
 | KNX Bridge | ❌ Not started | Spec complete |
 | DALI Bridge | ❌ Not started | Spec complete |
 | Modbus Bridge | ❌ Not started | Spec complete |
 | Flutter UI | ❌ Not started | API spec complete |
-| Voice Pipeline | ❌ Not started | Needs spec |
+| Voice Pipeline | ❌ Not started | Spec complete |
+
+### M1.1 Progress (Core Infrastructure)
+- [x] Go module initialised
+- [x] Directory structure created
+- [x] Makefile with build automation
+- [x] golangci-lint configured
+- [x] Configuration system (YAML + env vars)
+- [ ] SQLite database package
+- [ ] MQTT client package
+- [ ] Docker Compose (Mosquitto, InfluxDB)
 
 ---
 

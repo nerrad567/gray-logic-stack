@@ -1,0 +1,220 @@
+# Gray Logic Core Configuration
+# ==============================
+#
+# This is the default configuration file for Gray Logic Core.
+# Copy this file to /etc/graylogic/config.yaml and modify as needed.
+#
+# Configuration can also be set via environment variables:
+#   GRAYLOGIC_DATABASE_PATH=/data/graylogic.db
+#   GRAYLOGIC_API_PORT=8080
+#
+# Environment variables take precedence over this file.
+
+# ============================================================================
+# SITE INFORMATION
+# ============================================================================
+
+site:
+  # Unique identifier for this installation
+  id: "site-001"
+
+  # Human-readable name
+  name: "My Home"
+
+  # Timezone for schedules and astronomical calculations (IANA format)
+  timezone: "Europe/London"
+
+  # Location for sunrise/sunset calculations
+  location:
+    latitude: 51.5074
+    longitude: -0.1278
+
+# ============================================================================
+# DATABASE
+# ============================================================================
+
+database:
+  # Path to SQLite database file
+  path: "./data/graylogic.db"
+
+  # Enable WAL mode for better concurrent access
+  # See: https://sqlite.org/wal.html
+  wal_mode: true
+
+  # Maximum time to wait for database lock (seconds)
+  busy_timeout: 5
+
+# ============================================================================
+# MQTT MESSAGE BUS
+# ============================================================================
+
+mqtt:
+  # Broker connection details
+  broker:
+    host: "localhost"
+    port: 1883
+    # Use TLS for encrypted connection
+    tls: false
+    # Client ID (must be unique per broker)
+    client_id: "graylogic-core"
+
+  # Authentication (leave empty if not required)
+  auth:
+    username: ""
+    password: ""
+
+  # Quality of Service level (0, 1, or 2)
+  # QoS 1 = At least once delivery (recommended)
+  qos: 1
+
+  # Reconnect settings
+  reconnect:
+    initial_delay: 1   # seconds
+    max_delay: 60      # seconds
+    max_attempts: 0    # 0 = unlimited
+
+# ============================================================================
+# API SERVER
+# ============================================================================
+
+api:
+  # HTTP server settings
+  host: "0.0.0.0"
+  port: 8080
+
+  # TLS configuration (recommended for production)
+  tls:
+    enabled: false
+    cert_file: ""
+    key_file: ""
+
+  # Request timeouts
+  timeouts:
+    read: 30    # seconds
+    write: 30   # seconds
+    idle: 60    # seconds
+
+  # CORS settings (for web admin)
+  cors:
+    allowed_origins:
+      - "http://localhost:3000"
+      - "https://admin.local"
+    allowed_methods:
+      - "GET"
+      - "POST"
+      - "PUT"
+      - "DELETE"
+    allowed_headers:
+      - "Authorization"
+      - "Content-Type"
+
+# ============================================================================
+# WEBSOCKET
+# ============================================================================
+
+websocket:
+  # Path for WebSocket connections
+  path: "/ws"
+
+  # Maximum message size (bytes)
+  max_message_size: 8192
+
+  # Ping interval to keep connections alive
+  ping_interval: 30  # seconds
+
+  # Pong timeout (how long to wait for pong response)
+  pong_timeout: 10   # seconds
+
+# ============================================================================
+# INFLUXDB (Time-Series Data)
+# ============================================================================
+
+influxdb:
+  # Enable InfluxDB integration for PHM and energy data
+  enabled: false
+
+  # Connection settings
+  url: "http://localhost:8086"
+  token: ""  # Set via GRAYLOGIC_INFLUXDB_TOKEN environment variable
+  org: "graylogic"
+  bucket: "telemetry"
+
+  # Write batch settings
+  batch_size: 100
+  flush_interval: 10  # seconds
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Output format: json, text
+  format: "json"
+
+  # Output destination: stdout, file
+  output: "stdout"
+
+  # If output is "file":
+  file:
+    path: "./logs/graylogic.log"
+    max_size: 100      # megabytes
+    max_backups: 5     # number of old files to keep
+    max_age: 30        # days
+    compress: true
+
+# ============================================================================
+# PROTOCOLS (Bridge Configuration)
+# ============================================================================
+
+protocols:
+  # KNX protocol bridge
+  knx:
+    enabled: false
+    # knxd connection
+    knxd_host: "localhost"
+    knxd_port: 6720
+
+  # DALI lighting protocol bridge
+  dali:
+    enabled: false
+    # Gateway connection details
+    gateway_type: "tridonic"  # or "helvar", "eldoled", etc.
+    gateway_host: "192.168.1.100"
+    gateway_port: 502
+
+  # Modbus protocol bridge
+  modbus:
+    enabled: false
+    # For Modbus TCP
+    mode: "tcp"  # or "rtu"
+    tcp_host: "192.168.1.101"
+    tcp_port: 502
+    # For Modbus RTU (serial)
+    rtu_device: "/dev/ttyUSB0"
+    rtu_baud: 9600
+
+# ============================================================================
+# SECURITY
+# ============================================================================
+
+security:
+  # JWT token settings
+  jwt:
+    # Secret key for signing (MUST be changed in production!)
+    # Generate with: openssl rand -base64 32
+    secret: "CHANGE_ME_IN_PRODUCTION"
+    # Token expiry time
+    access_token_ttl: 15     # minutes
+    refresh_token_ttl: 1440  # minutes (24 hours)
+
+  # API key settings (for integrations)
+  api_keys:
+    enabled: false
+
+  # Rate limiting
+  rate_limit:
+    enabled: true
+    requests_per_minute: 100
