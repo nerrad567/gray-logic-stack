@@ -342,17 +342,19 @@ User says "Hey Gray, turn on the kitchen lights"
 
 | Spec | Minimum (No AI) | Recommended (With AI) | High Performance |
 |------|-----------------|-----------------------|------------------|
-| **CPU** | x86_64 or ARM64, 4 cores | Intel i5/i7 (12th+ gen) or AMD Ryzen 5000+ | Intel i7/i9 or AMD Ryzen 7/9 |
-| **RAM** | 4GB | 16GB | 32GB+ |
-| **Storage** | 64GB SSD | 512GB NVMe | 1TB NVMe |
-| **Network** | 1GbE | 2.5GbE | Dual 2.5GbE / 10GbE |
-| **AI Accelerator** | N/A | Google Coral TPU or NPU | NVIDIA Jetson / Discrete GPU |
-| **Form Factor** | Raspberry Pi 4 / CM4 | Intel NUC / Mini PC | Small Form Factor Server |
+| **CPU** | Ind. ARM64/x86 (4 core) | Intel i5/i7 or Ryzen Embedded | Intel Xeon / Core i9 |
+| **RAM** | 4GB ECC Recommended | 16GB | 32GB+ |
+| **Storage** | 128GB Ind. SSD/NVMe | 512GB NVMe (Redundant) | 1TB NVMe RAID1 |
+| **RTC** | **Required (Battery Backed)** | **Required (Battery Backed)** | **Required (Battery Backed)** |
+| **Network** | Dual 1GbE | Dual 2.5GbE | Dual 10GbE |
+| **AI Accelerator** | N/A | **Google Coral / NPU Required** | NVIDIA Jetson / Discrete GPU |
+| **Form Factor** | Industrial Fanless PC | Industrial NUC / Rack | 1U Server |
 
 **Key Considerations:**
-- **AI Workloads:** Local LLM and Whisper STT require significant compute. Dedicated accelerators (Coral, NPU) are strongly recommended to offload CPU.
-- **Reliability:** Industrial fanless PCs are preferred for the "Set and Forget" 10-year goal.
-- **Storage:** High-quality NVMe drives are essential for database reliability and speed.
+- **Strict Hardware Requirement:** Consumer hardware (Raspberry Pi, standard NUCs) is **NOT SUPPORTED** for Core due to lack of reliable RTC and thermal throttling risk.
+- **RTC Deadlock Prevention:** A battery-backed Hardware RTC is mandatory to prevent boot deadlocks during offline power recovery (Time source required for Auth/Cert validation).
+- **AI Reliability:** Local LLM and Whisper STT workloads require dedicated acceleration (Coral/NPU) to ensure the main CPU remains available for automation.
+- **Storage:** Industrial-grade NVMe with high TBW (Terabytes Written) rating is required for InfluxDB reliability.
 
 ### Wall Panels
 
@@ -481,9 +483,9 @@ Sites remain fully independent — no cross-site automation or shared state.
 
 | Scale | Devices | CPU | RAM | Storage | Example Hardware |
 |-------|---------|-----|-----|---------|-----------------|
-| **Minimum** | <100 | 2 cores | 2 GB | 32 GB SSD | Raspberry Pi 4 |
-| **Recommended** | 100-300 | 4 cores | 4 GB | 64 GB SSD | Intel NUC, Mini PC |
-| **Large** | 300-1000 | 8 cores | 8 GB | 128 GB SSD | Small server |
+| **Minimum** | <100 | 2 cores | 4 GB | 128 GB SSD | Entry Level Industrial PC |
+| **Recommended** | 100-300 | 4 cores | 16 GB | 256 GB SSD | OnLogic / Advantech |
+| **Large** | 300-1000 | 8 cores | 32 GB | 512 GB SSD | Dell XR / Supermicro IoT |
 
 **Voice processing adds:** +2 GB RAM, +2 cores (or GPU recommended)
 

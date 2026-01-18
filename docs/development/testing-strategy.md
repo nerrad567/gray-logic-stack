@@ -120,7 +120,7 @@ A physical board containing:
 - 1x KNX Interface + Actuator + Switch.
 - 1x Modbus TCP Slave (simulated or PLC).
 - 1x DALI Gateway + LED Driver.
-- 1x Raspberry Pi (Core).
+- 1x Industrial PC (Core).
 
 **Soak Test:**
 - Run the "Lab Bench" 24/7.

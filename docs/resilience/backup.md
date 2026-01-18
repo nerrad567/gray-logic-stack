@@ -207,6 +207,7 @@ config_backup:
     # Create config archive
     tar -czf "${BACKUP_DIR}/config_${TIMESTAMP}.tar.gz" \
       --exclude="secrets.yaml" \
+      --exclude="*.key" \
       /etc/graylogic/
 ```
 
@@ -227,10 +228,10 @@ secrets_backup:
     BACKUP_DIR="/var/backup/graylogic/secrets"
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     
-    # Encrypt secrets
-    gpg --encrypt --recipient backup@graylogic.local \
-      --output "${BACKUP_DIR}/secrets_${TIMESTAMP}.yaml.gpg" \
-      /etc/graylogic/secrets.yaml
+    # Encrypt secrets (tar first to include keys)
+    tar -cf - /etc/graylogic/secrets.yaml /etc/graylogic/*.key | \
+      gpg --encrypt --recipient backup@graylogic.local \
+      --output "${BACKUP_DIR}/secrets_${TIMESTAMP}.tar.gpg"
       
   # Key management
   key_storage:

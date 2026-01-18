@@ -462,7 +462,7 @@ time_sync_verification:
 ### Verification Commands
 
 ```bash
-# On Raspberry Pi bridge
+# On Bridge Host
 timedatectl status
 # Look for: "System clock synchronized: yes"
 # Look for: NTP service: active

@@ -61,7 +61,7 @@ services:
 
 ### 2. OS Provisioning (Ansible)
 
-For bare-metal (NUC/Pi) provisioning, we use Ansible.
+For bare-metal (Industrial PC) provisioning, we use Ansible.
 
 **Playbook Responsibilities:**
 1.  **Security Hardening:** Configure UFW firewall, fail2ban, SSH keys.

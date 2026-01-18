@@ -52,7 +52,7 @@ The system provides a specific `swap_device` operation that updates the *protoco
 
 ## 2. Controller Migration
 
-If the Gray Logic Core server (NUC/Pi) fails, the entire system configuration must be movable to new hardware.
+If the Gray Logic Core server (Industrial PC) fails, the entire system configuration must be movable to new hardware.
 
 ### Restoration Workflow
 
@@ -76,9 +76,9 @@ Data is downsampled automatically to save space:
 
 | Metric | High Res (Raw) | Medium Res (1h avg) | Low Res (24h avg) |
 |--------|----------------|---------------------|-------------------|
-| Energy | 7 days | 1 year | Forever |
-| Temperature | 7 days | 1 year | 5 years |
-| Presence | 7 days | 90 days | Deleted |
+| Energy | 30 days | 1 year | Forever |
+| Temperature | 30 days | 1 year | 5 years |
+| Presence | 14 days | 90 days | Deleted |
 | Logs | 7 days | Deleted | Deleted |
 
 ### SQLite Vacuuming

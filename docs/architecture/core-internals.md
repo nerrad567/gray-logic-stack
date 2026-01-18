@@ -16,7 +16,7 @@ This document describes the internal architecture of Gray Logic Core — the cen
 
 ## Overview
 
-Gray Logic Core is a single Go binary (~30MB compiled) that runs on the on-site server. It contains all automation logic and provides APIs for user interfaces and protocol bridges.
+Gray Logic Core is a single Go binary (~30MB compiled) that runs on the on-site Industrial PC server. It contains all automation logic and provides APIs for user interfaces and protocol bridges.
 
 ### Design Goals
 
@@ -604,7 +604,7 @@ func (p *Processor) Execute(cmd Command) error {
     // 4. Check authorization
     // 5. Check for control associations (route via proxy if needed)
     // 6. Route to appropriate bridge via MQTT
-    // 7. Log command execution
+    // 7. Log command execution (Sanitize: redact PINs/Secrets from Parameters)
 }
 ```
 

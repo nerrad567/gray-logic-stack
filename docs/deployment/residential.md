@@ -157,7 +157,7 @@ server_requirements:
     
   # Form factor
   options:
-    - "Mini PC (NUC-style)"
+    - "Industrial Mini PC"
     - "Rack-mount (if comms cabinet)"
     - "Wall-mount (if space constrained)"
 ```
