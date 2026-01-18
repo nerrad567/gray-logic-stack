@@ -166,7 +166,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-#### M5: API Key Self-Rotation Pattern Missing
+#### M5: API Key Self-Rotation Pattern Missing (RESOLVED - Strike M5)
 
 | Attribute | Value |
 |-----------|-------|
@@ -436,6 +436,29 @@ No clock validation. No NTP requirement documented.
     -   Added `catch_up_context` with global Mode and Presence checks.
     -   Added `catch_up_condition` configuration field (whitelist/blacklist modes, presence requirement).
     -   Specified UI notification behavior when catch-up is skipped.
+
+    -   Added `catch_up_condition` configuration field (whitelist/blacklist modes, presence requirement).
+    -   Specified UI notification behavior when catch-up is skipped.
+
+---
+
+### Strike M5: API Key Self-Rotation Pattern (1.5 hours) — COMPLETED 2026-01-18
+
+**Priority:** MEDIUM  
+**Files:** `docs/interfaces/api.md`
+
+**Problem:** API keys expire by default, but integrations lack a way to rotate their own credentials without manual admin intervention.
+
+**Tasks:**
+1. Document "Service Account" pattern for API keys.
+2. Add `apikeys:rotate_self` permission.
+3. Add `POST /api/v1/auth/apikeys/{id}/rotate` endpoint specification.
+
+**Changes Made:**
+-   Updated `docs/interfaces/api.md`:
+    -   Added "API Key Rotation (Service Account Pattern)" section.
+    -   Defined rotation endpoint with 5-minute concurrency grace period.
+    -   Added `apikeys:rotate_self` to permission table.
 
 ---
 
