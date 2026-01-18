@@ -249,6 +249,9 @@ automatic_rollback:
     - "Bridges don't reconnect after 120s"
     - "Database migration fails"
 
+  > [!WARNING]
+  > **Data Loss Risk**: Rollback restores the database to its pre-update state. Any configuration changes, scene executions, or history recorded between the update and the rollback event will be LOST.
+
   procedure:
     - "Stop Core service"
     - "Restore previous binary from .bak"
@@ -262,6 +265,9 @@ automatic_rollback:
 ```
 
 ### Manual Rollback
+
+> [!WARNING]
+> **Data Loss Risk**: Rollback restores the database to its pre-update state. Any configuration changes made since the update will be lost.
 
 ```bash
 # Rollback Gray Logic Core
