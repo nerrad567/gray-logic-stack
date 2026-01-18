@@ -69,7 +69,7 @@ The improvements are real and meaningful. Remaining issues are subtler and lower
 
 ### High Severity Issues (2)
 
-#### H1: Scene Conflict Resolution Still Absent
+#### H1: Scene Conflict Resolution Still Absent (RESOLVED - Strike 1)
 
 | Attribute | Value |
 |-----------|-------|
@@ -95,7 +95,7 @@ No equivalent for "what if another scene also targets this device?"
 
 ---
 
-#### H2: Timestamp-Based State Reconciliation Trusts Untrusted Clocks
+#### H2: Timestamp-Based State Reconciliation Trusts Untrusted Clocks (RESOLVED - Strike 2)
 
 | Attribute | Value |
 |-----------|-------|
@@ -130,7 +130,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-#### M2: Voice-to-PIN Authentication Flow Undocumented
+#### M2: Voice-to-PIN Authentication Flow Undocumented (RESOLVED - Strike 3)
 
 | Attribute | Value |
 |-----------|-------|
@@ -154,7 +154,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-#### M4: Frost Protection Hardware Verification Has No Commissioning Gate
+#### M4: Frost Protection Hardware Verification Has No Commissioning Gate (RESOLVED - Strike 4)
 
 | Attribute | Value |
 |-----------|-------|
@@ -252,7 +252,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-#### L7: PHM Over-Specification Creates Expectation Gap
+#### L7: PHM Over-Specification Creates Expectation Gap (RESOLVED - Strike 5)
 
 | Attribute | Value |
 |-----------|-------|
