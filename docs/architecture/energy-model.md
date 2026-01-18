@@ -220,7 +220,41 @@ energy_nodes:
       energy_export: { address: 74, type: "float32", unit: "kWh" }
       frequency: { address: 70, type: "float32", unit: "Hz" }
 ```
+      frequency: { address: 70, type: "float32", unit: "Hz" }
 
+### Grid Meter Interface (Smart Meter)
+
+Utility meters use region-specific telemetry. Gray Logic supports both direct and bridged connections.
+
+| Interface | Region | Connection | Restriction | Offline? |
+| :--- | :--- | :--- | :--- | :--- |
+| **P1 Port (DSMR)** | Europe (Benelux/Nordics) | **Direct Serial** (RJ11/RJ12) | Open (plaintext or key provided) | ✅ Yes (Native) |
+| **Zigbee SE (HAN)**| UK (SMETS2), US, AUS | **Wireless Bridge (CAD)** | Restricted (Requires Provider Pairing) | ⚠️ Depends on Bridge |
+
+**Consumer Access Device (CAD) Requirement:**
+For Zigbee SE markets (UK/US), a "CAD" (e.g., Glow IHD, Rainforest) is required. This device pairs with the meter securely and re-broadcasts data via MQTT/HTTP types locally.
+
+**Configuration (Zigbee CAD Example):**
+```yaml
+energy_nodes:
+  - id: "grid-main-smart"
+    name: "Smart Meter (via CAD)"
+    type: "grid"
+    protocol: "mqtt"
+    address:
+      topic_base: "glow/cad/d48a27"   # CAD MQTT Topic
+    
+    properties:
+      direction: "bidirectional"
+      refresh_rate_s: 10              # Grid meters push every 10s
+    
+    # Mapping MQTT payload to Node State
+    mapping:
+      power_w: "electricity/power/value"
+      energy_import_kwh: "electricity/import/cumulative"
+      energy_export_kwh: "electricity/export/cumulative"
+      tariff_index: "electricity/tariff/value"  # 0001 or 0002
+```
 ### Solar Inverter
 
 ```yaml
