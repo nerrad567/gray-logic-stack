@@ -321,6 +321,9 @@ baseline_requirements:
         - vibration_mm_s: "periodic via sensor (if equipped)"
         - temperature_c: "periodic via sensor"
       baseline_learning: "extensive"
+      protection_limits:
+        vibration_max: 7.1          # mm/s (ISO 10816)
+        temp_max_c: 90              # Bearing limit
       typical_degradation_patterns:
         - pattern: "Bearing wear"
           indicators: ["vibration increase", "temperature increase"]
@@ -409,11 +412,36 @@ baseline_status:
 
   # Behavior during learning period
   during_learning:
-    alerts:
-      extreme_only: true            # Only alert on clearly extreme values
-      threshold_multiplier: 3       # 3x normal threshold during learning
-    trend_analysis: false           # Don't analyze trends until baseline ready
+    protection:
+      # Level 1: Safe Operating Limits (Absolute physical limits)
+      safe_operating_limits:
+        enabled: true
+        source: "device_profile"    # e.g., "Pump -> ISO 10816 limit"
+        
+      # Level 2: Reference Baseline (Generic "good" values)
+      reference_baseline:
+        enabled: true
+        source: "manufacturer_spec" # or "similar_device_average"
+        multiplier: 1.5             # Alert if > 1.5x reference
+        
+      # Level 3: Learning Baseline (The one being calculated)
+      learning_baseline:
+        extreme_only: true          # Only alert if > 3x current (unstable) mean
 ```
+
+### Safe Operating Limits (Day 0 Protection)
+
+To prevent the "learning blind spot" (where developing faults validly occur during the 7-30 day learning phase), PHM enforces multiple protection layers:
+
+1.  **Safe Operating Limits (SOL):** Hard physical limits that apply **always**, regardless of learning state.
+    *   *Example:* ISO 10816 Class II vibration limit (7.1 mm/s). If exceeded, PHM alerts immediately, even on Day 1.
+    *   *Example:* Bearing temperature > 90°C.
+2.  **Commissioning Baseline (Golden Trace):**
+    *   For critical equipment, the [Commissioning Checklist](../deployment/commissioning-checklist.md) requires capturing a "Golden Trace" (short-term baseline).
+    *   This serves as a temporary reference until the full statistical baseline is established.
+3.  **Reference Baselines:**
+    *   Generic "known good" profiles for common equipment (e.g., "Standard 10W LED Driver").
+    *   Used as a fallback comparison point during the learning phase.
 
 ### 3. Anomaly Detection
 

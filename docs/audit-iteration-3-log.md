@@ -118,7 +118,7 @@ No clock validation. No NTP requirement documented.
 
 ### Medium Severity Issues (5)
 
-#### M1: PHM Learning Period Creates Critical Equipment Blind Spot
+#### M1: PHM Learning Period Creates Critical Equipment Blind Spot (RESOLVED - Strike M1)
 
 | Attribute | Value |
 |-----------|-------|
@@ -393,7 +393,28 @@ No clock validation. No NTP requirement documented.
         -   **Tier 2 (Enhanced):** Power/Energy analysis - Requires CT clamps/Smart plugs.
         -   **Tier 3 (Advanced):** Physical sensing (Vibration/Temp) - Requires industrial sensors.
     -   Added "Typical Deployment Expectations" table comparing Residential vs Commercial.
+    -   Added "Typical Deployment Expectations" table comparing Residential vs Commercial.
 
+---
+
+### Strike M1: PHM Learning Blind Spot (1 hour) — COMPLETED 2026-01-18
+
+**Priority:** MEDIUM  
+**Files:** `docs/intelligence/phm.md`
+
+**Problem:** Developing faults during 7-30 day baseline learning doesn't trigger alerts because the baseline isn't finished.
+
+**Tasks:**
+1. Document absolute external limits (SOL) that apply DURING learning.
+2. Add "known-good reference baseline" option.
+3. Require manufacturer baseline/commissioning trace for critical equipment.
+
+**Changes Made:**
+-   Updated `docs/intelligence/phm.md`:
+    -   Added `safe_operating_limits` (Level 1 Protection).
+    -   Added `reference_baseline` (Level 2 Protection).
+    -   Added "Safe Operating Limits (Day 0 Protection)" section explaining the three protection layers.
+    -   Updated `motor_pump` example to include `protection_limits`.
 ---
 
 ## Summary
