@@ -109,6 +109,7 @@ Scene:
   actions: [Action]
   conditions: [Condition] | null
   
+  priority: integer | null            # 1-100, higher wins conflicts (default: 50)
   category: string                  # "entertainment", "comfort", "security"
   sort_order: integer
 ```
@@ -141,6 +142,9 @@ SceneExecution:
 
   # Failure details (if any)
   failures: [ActionFailure]
+
+  # Conflict tracking (see Scene Conflict Resolution)
+  conflicts: [ConflictRecord] | null
 
   # Timing
   duration_ms: integer | null       # Total execution time
@@ -451,6 +455,99 @@ Organize scenes by purpose:
 | `daily` | Good Morning, Good Night, Leaving, Arriving |
 | `security` | Panic, Vacation Simulation |
 | `energy` | Eco Mode, Away Setback |
+
+### Scene Conflict Resolution
+
+When multiple scenes target the same device within a short time window, Gray Logic applies conflict resolution to prevent flickering and ensure predictable behavior.
+
+#### Conflict Detection
+
+A **conflict** occurs when:
+1. Two or more scenes are triggered within the **stabilization window** (default: 500ms)
+2. Both scenes contain actions targeting the **same device**
+3. The actions specify **different target states**
+
+#### Resolution Rules
+
+Conflicts are resolved using these rules, in priority order:
+
+| Rule | Behavior |
+|------|----------|
+| **Physical control wins** | If a physical input (wall switch, keypad) triggers a command during scene execution, the physical command wins and clears pending scene actions for that device |
+| **Higher priority wins** | Scene with higher `priority` value executes; lower priority scene's conflicting actions are skipped |
+| **Last-write wins** | If priorities are equal, the most recently triggered scene wins |
+| **Stabilization window** | After a device receives a command, subsequent scene commands to that device are held for 500ms; if a newer command arrives, the older one is discarded |
+
+#### Priority Field
+
+Scenes have an optional `priority` field (1-100, default: 50):
+
+```yaml
+Scene:
+  priority: integer | null            # 1-100, higher wins conflicts (default: 50)
+```
+
+**Recommended priority ranges:**
+
+| Range | Use Case | Examples |
+|-------|----------|----------|
+| 80-100 | Safety/Security | Panic Mode, Alarm Response |
+| 60-79 | User-initiated | Cinema Mode, Good Night (manual trigger) |
+| 40-59 | Scheduled | Evening Lights, Morning Routine |
+| 20-39 | Automation/Events | Motion-triggered, Presence-based |
+| 1-19 | Background | Eco adjustments, Ambient scenes |
+
+#### Stabilization Window
+
+The stabilization window prevents rapid command flickering:
+
+```yaml
+conflict_resolution:
+  stabilization_window_ms: 500        # Configurable per-site
+```
+
+**Behavior:**
+1. Scene A sends `brightness: 5%` to `light-living-main`
+2. Within 500ms, Scene B sends `brightness: 75%` to same device
+3. Scene B's command replaces Scene A's command (if Scene B has equal or higher priority)
+4. Only one command is sent to the device
+
+#### Conflict Logging
+
+All conflicts are logged for debugging:
+
+```yaml
+ConflictEvent:
+  timestamp: timestamp
+  device_id: uuid
+  winning_scene_id: uuid
+  losing_scene_id: uuid
+  resolution_rule: "priority" | "last_write" | "physical_override"
+  winning_command: object
+  discarded_command: object
+```
+
+#### Conflict Record Structure
+
+The `SceneExecution` record includes conflict information via `ConflictRecord`:
+
+```yaml
+ConflictRecord:
+  device_id: uuid
+  conflicting_scene_id: uuid
+  resolution: "won" | "lost" | "physical_override"
+  action_taken: object | null         # null if this scene lost
+```
+
+#### UI Behavior
+
+When a conflict occurs:
+- **Wall panel / Mobile app:** Shows toast: "Cinema Mode activated (Evening Lights skipped for conflicting devices)"
+- **Scene execution API:** Returns `status: "completed"` with `conflicts` array listing skipped actions
+- **Audit log:** Records full conflict details
+
+> [!NOTE]
+> Physical controls (wall switches, keypads) always override scene commands. If a user presses a switch during scene execution, that input is applied immediately and any pending scene commands to that device are cancelled. This ensures [Physical Controls Always Work](../overview/principles.md#1-physical-controls-always-work).
 
 ---
 
