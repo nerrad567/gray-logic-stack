@@ -596,6 +596,54 @@ structure:
 
 ---
 
+## Voice Authentication
+
+Voice interaction introduces unique security challenges, particularly for authenticated actions like "disarm security" or "open garage door". Gray Logic treats voice as an untrusted input channel until specific conditions are met.
+
+### 1. Secure PIN Handling
+
+**Hard Rule:** PINs spoken via voice **MUST NEVER** be logged or persisted in plain text.
+
+- **Transcript Sanitization:** The Voice Bridge must redact potential PINs from MQTT transcripts before publishing, or the Core must redact them immediately upon receipt before any logging.
+- **Audio Privacy:** Raw audio containing PINs is discarded immediately after processing.
+
+**Example: Sanitized Log/Transcript**
+```json
+// graylogic/voice/transcript
+{
+  "transcript": "disarm security code [REDACTED]",
+  "intent": "security_disarm",
+  "pin_provided": true,  // Flag that a PIN was detected
+  "timestamp": "2026-01-18T10:00:00Z"
+}
+```
+
+### 2. Challenge-Response Flow
+
+Sensitive actions must use a two-step challenge-response flow to prevent accidental triggering and ensure user intent.
+
+**Flow:**
+1. **User:** "Hey Gray, disarm the alarm."
+2. **Gray (TTS):** "Disarming requires your code. Please say it now."
+3. **User:** "One two three four."
+4. **Gray:** processes PIN -> **Success:** "Alarm disarmed." / **Fail:** "Incorrect code."
+
+**Direct Flow (Allowed but Riskier):**
+1. **User:** "Hey Gray, disarm alarm code one two three four."
+2. **Gray:** processes PIN -> **Success:** "Alarm disarmed."
+
+### 3. Rate Limiting
+
+Voice PIN attempts share the **same rate limits** as physical keypads to prevent brute-force attacks via voice.
+
+- **Limit:** 3 failed attempts
+- **Penalty:** 5-minute lockout (Voice commands for security ignored)
+- **Scope:** Lockout applies to the specific user (if identified) or the room's voice interface.
+
+See `docs/architecture/security-model.md` for the authoritative rate-limiting specification.
+
+---
+
 ## Text-to-Speech (TTS)
 
 ### Piper Configuration

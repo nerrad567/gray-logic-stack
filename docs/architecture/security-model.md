@@ -429,6 +429,10 @@ voice_pin:
     never_log:
       - pin_value                    # NEVER log the actual PIN
       - audio_recording              # NEVER log raw audio
+
+  # Implementation Reference
+  # See docs/intelligence/voice.md "Voice Authentication" for interaction flows
+  # and transcript sanitization rules.
 ```
 
 ### LDAP/Active Directory

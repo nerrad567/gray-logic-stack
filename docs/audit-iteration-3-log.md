@@ -327,7 +327,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-### Strike 3: Voice Authentication Security (1.5 hours)
+### Strike 3: Voice Authentication Security (1.5 hours) — COMPLETED 2026-01-18
 
 **Priority:** MEDIUM  
 **Files:** `docs/intelligence/voice.md`, `docs/architecture/security-model.md`
@@ -338,6 +338,15 @@ No clock validation. No NTP requirement documented.
 3. Apply rate limiting to voice commands with authentication intent
 4. Require confirmation flow for security-sensitive voice commands
 5. Cross-reference from security-model.md PIN section
+
+**Changes Made:**
+-   Updated `docs/intelligence/voice.md`:
+    -   Added new "Voice Authentication" section.
+    -   Defined "Secure PIN Handling" (redaction rules).
+    -   Defined "Challenge-Response Flow" for sensitive actions.
+    -   Linked Voice PIN attempts to global security rate limits.
+-   Updated `docs/architecture/security-model.md`:
+    -   Added cross-reference to `voice.md` in the Voice PIN Rate Limiting section.
 
 ---
 
