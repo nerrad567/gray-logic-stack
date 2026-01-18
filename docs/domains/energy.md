@@ -294,10 +294,10 @@ LoadPriority:
     - device_id: "alarm-panel"
     
   # Load Shedding Priorities
-  # NOTE: Targets must be CONTROLLABLE devices (Smart Plug, Relay), not just monitored circuits.
-  # If a fridge is on a CT clamp only, it cannot be shed.
+  # NOTE: Targets must have the 'on_off' capability (Smart Plug, DIN-rail Relay, Contactor).
+  # This includes fixed circuits (e.g., KNX relay) but excludes purely monitored ones (e.g., non-switched breaker + CT).
   shed_loads:
-    - device_id: "fridge-kitchen" # Assumes Smart Plug control
+    - device_id: "fridge-kitchen" # Must resolve to a device with on_off capability
       priority: 1                 # 1 = First to shed
       min_off_minutes: 15         # Compressor protection
       max_off_minutes: 60
