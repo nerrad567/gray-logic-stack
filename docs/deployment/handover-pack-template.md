@@ -1,3 +1,11 @@
+---
+title: Handover Pack Template
+version: 1.0.0
+status: active
+implementation_status: n/a
+last_updated: 2026-01-18
+---
+
 # Handover Pack Template — Gray Logic Stack (Draft)
 
 **Status**: Template / working draft
@@ -134,3 +142,37 @@ Compliance notes:
 - Location of sealed credential package:
 - Dead Man's Switch clause reference (contract location):
 - "Yellow Pages" list (alternative integrators):
+
+---
+
+## 9. Completion Checklist
+
+Before handover, verify all sections are complete:
+
+| Section | Item | Complete |
+|---------|------|----------|
+| **1. Cover** | Site name and address | ☐ |
+| | Install/commissioning date | ☐ |
+| | Primary installer contact | ☐ |
+| | Support tier selected | ☐ |
+| **2. Scope** | Hard boundaries acknowledged | ☐ |
+| **3. Inventory** | Hardware inventory complete | ☐ |
+| | Network documentation complete | ☐ |
+| | Software versions recorded | ☐ |
+| **4. Access** | Credentials stored securely | ☐ |
+| | God mode exports sealed | ☐ |
+| | Ownership records complete | ☐ |
+| **5. Backup** | Backup scope defined | ☐ |
+| | Restore drill completed | ☐ |
+| **6. Data Sources** | All licenses documented | ☐ |
+| | Attribution requirements noted | ☐ |
+| **7. Support** | Support agreement linked | ☐ |
+| | Change control process defined | ☐ |
+| **8. Exit Path** | Doomsday appendix complete | ☐ |
+
+### Sign-off
+
+| Role | Name | Signature | Date |
+|------|------|-----------|------|
+| Commissioning Engineer | | | |
+| Client Representative | | | |

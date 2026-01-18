@@ -203,11 +203,16 @@ Updated `docs/resilience/offline.md`:
 Updated `docs/overview/principles.md`:
 - Clarified frost protection rule: "must run on thermostat hardware, not depend on Core"
 
-### Strike 5: Documentation Hygiene (30 minutes)
-- Remove reference to non-existent `bacnet.md` or create placeholder
-- Standardize example UUIDs across all documents
-- Add completion checklist to handover pack template
-- Fix any remaining broken cross-references
+### Strike 5: Documentation Hygiene (30 minutes) — COMPLETED 2026-01-18
+
+- Added YAML frontmatter to 3 files missing it:
+  - `data-model/schemas/README.md`
+  - `deployment/handover-pack-template.md`
+  - `intelligence/ai-premium-features.md`
+- Added completion checklist with sign-off fields to handover pack template
+- Verified `protocols/bacnet.md` exists (615-line Year 2 roadmap specification)
+- Verified all cross-references are valid (infrastructure.md, mqtt-resilience.md)
+- Confirmed RFC 2119 keyword usage is consistent
 
 ---
 

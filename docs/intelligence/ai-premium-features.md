@@ -1,7 +1,18 @@
-# AI Premium Features — Gray Logic Stack (Draft)
+---
+title: AI Premium Features
+version: 0.1.0
+status: draft
+implementation_status: n/a
+last_updated: 2026-01-18
+depends_on:
+  - overview/principles.md
+  - architecture/core-internals.md
+roadmap: Year 2+
+---
 
-**Date**: 2026-01-12  
-**Status**: Design notes / product boundaries (updated for Go Core architecture)
+# AI Premium Features
+
+> **Status**: Draft design notes / product boundaries (updated for Go Core architecture)
 
 ## 1. Purpose
 

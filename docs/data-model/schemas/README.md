@@ -1,3 +1,13 @@
+---
+title: Gray Logic JSON Schemas
+version: 1.0.0
+status: active
+implementation_status: specified
+last_updated: 2026-01-18
+depends_on:
+  - data-model/entities.md
+---
+
 # Gray Logic JSON Schemas
 
 This directory contains JSON Schema definitions for all Gray Logic entities. These schemas serve as the **single source of truth** for data contracts across the system.
