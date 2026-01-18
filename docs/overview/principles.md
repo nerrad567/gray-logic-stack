@@ -266,6 +266,16 @@ These are defaults that should be followed unless there's explicit justification
 - Alerts are warnings, not guarantees
 - No action is taken automatically on PHM alerts (notify only)
 
+### DIY Devices (Customer-Owned)
+
+- DIY wireless devices are **supplementary** to wired infrastructure
+- All DIY devices must support **local control** (no cloud-only devices)
+- DIY devices are isolated on **separate VLAN** (untrusted network)
+- Gray Logic provides no SLA for customer-managed integrations
+- Customers are responsible for device firmware updates
+
+See [DIY Integration Specification](../integration/diy-integration.md) for full guidance.
+
 ---
 
 ## Compliance Checklist

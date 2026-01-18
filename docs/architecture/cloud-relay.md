@@ -431,18 +431,19 @@ See [Subscription Pricing](../business/subscription-pricing.md) for detailed pri
 
 ### Feature Matrix
 
-| Feature | Free | Connect | Secure | Premium |
-|---------|------|---------|--------|---------|
-| **Local control** | ✅ | ✅ | ✅ | ✅ |
-| **VPN access** | ✅ | ✅ | ✅ | ✅ |
-| **Push notifications** | ✅ | ✅ | ✅ | ✅ |
-| **Cloud API relay** | ❌ | ✅ | ✅ | ✅ |
-| **Cloud config backup** | ❌ | ✅ | ✅ | ✅ |
-| **Remote CCTV viewing** | ❌ | ❌ | ✅ | ✅ |
-| **Video clip storage** | ❌ | ❌ | 7 days | 30 days |
-| **AI insights** | ❌ | ❌ | ❌ | ✅ |
-| **Multi-site dashboard** | ❌ | ❌ | ❌ | ✅ |
-| **Priority support** | ❌ | ❌ | ❌ | ✅ |
+| Feature | Free | Connect | Secure | Premium | Estate |
+|---------|------|---------|--------|---------|--------|
+| **Local control** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **VPN access** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Push notifications** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Cloud API relay** | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **Cloud config backup** | ❌ | ✅ | ✅ | ✅ | ✅ |
+| **Remote CCTV viewing** | ❌ | ❌ | ✅ | ✅ | ✅ |
+| **Video clip storage** | ❌ | ❌ | 7 days | 30 days | 90 days |
+| **AI insights** | ❌ | ❌ | ❌ | ✅ | ✅ |
+| **Multi-site dashboard** | ❌ | ❌ | ❌ | ✅ | ✅ (5 sites) |
+| **Priority support** | ❌ | ❌ | ❌ | ❌ | ✅ |
+| **SLA guarantee** | ❌ | ❌ | ❌ | ❌ | 99.9% |
 
 ---
 

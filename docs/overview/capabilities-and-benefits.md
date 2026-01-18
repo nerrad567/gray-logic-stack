@@ -1,166 +1,407 @@
 ---
 title: System Capabilities & Benefits
-version: 1.0.0
-status: draft
+version: 2.0.0
+status: active
 last_updated: 2026-01-18
 depends_on:
   - vision.md
   - principles.md
   - ../domains/*.md
+  - ../intelligence/phm.md
+  - ../architecture/cloud-relay.md
 ---
 
 # Gray Logic System: Capabilities & Benefits
 
+> **The building intelligence platform that works when everything else fails.**
+
+---
+
 ## 1. Executive Summary
 
-Gray Logic is a **future-proof, offline-first building intelligence platform** designed to serve as the "central nervous system" for properties. Unlike proprietary systems (Crestron, Savant) that lock users into specific dealers, or hobbyist platforms (Home Assistant) that lack stability, Gray Logic targets the underserved professional mid-market (£8k–£40k) with an **electrician-first approach**.
+Gray Logic is a **future-proof, offline-first building intelligence platform** designed as the "central nervous system" for properties. Unlike proprietary systems (Crestron, Savant) that lock users into specific dealers, or hobbyist platforms (Home Assistant) that lack stability, Gray Logic targets the underserved professional mid-market with an **electrician-first approach**.
 
-The system is built on four non-negotiable pillars:
-1.  **Offline-First**: 99%+ of functionality works without an internet connection. The cloud is an optional enhancement, not a dependency.
-2.  **No Vendor Lock-In**: Built on open standards (KNX, DALI, Modbus) and open-source software, ensuring owners are never held hostage by a single company or installer.
-3.  **Safety-First**: Hardware physical controls always work. Life-safety systems (fire, security) operate independently. Frost protection is enforced at the hardware layer.
-4.  **10-Year Horizon**: Designed for a decade of stable operation with version-pinned deployments and proven industrial technologies (Go, SQLite, MQTT).
+### The Four Pillars
 
----
+| Pillar | Promise | Proof |
+|--------|---------|-------|
+| **Offline-First** | 99%+ functionality without internet | Voice, automation, and all local control work identically with the cable cut |
+| **No Lock-In** | Customer owns their system | Open standards (KNX, DALI, Modbus), open source core, full documentation handover |
+| **Safety-First** | Physical controls always work | Wall switches work even if server, network, and internet all fail |
+| **10-Year Horizon** | Install once, run for a decade | Version-pinned deployments, no forced updates, proven technologies |
 
-## 2. System Layers & Core Capabilities
+### At a Glance
 
-The architecture is layered to ensure resilience. Failure in a higher layer never compromises a lower layer.
-
-### Layer 1: Hardware Backbone (The "Spine")
-*   **Technology**: KNX, DALI, Modbus.
-*   **Capability**: Direct physical control. Wall switches communicate directly with actuators via the bus.
-*   **Resilience**: Works even if the Core server, network, and internet are all down. Lights, heating, and blinds remain manually operable.
-
-### Layer 2: Gray Logic Core (The "Brain")
-*   **Technology**: Custom Go application, SQLite, MQTT.
-*   **Capability**:
-    *   **Automation**: Executing scenes, schedules, and logic.
-    *   **State Management**: Validating global state using timestamp conflict resolution.
-    *   **Context Awareness**: Understanding "Presence", "Modes" (Home, Away, Night), and "Time".
-*   **Resilience**: Auto-restarts via systemd. Caches state to survive restarts.
-
-### Layer 3: Feature Modules (The "Senses")
-*   **Voice Bridge**: Local, privacy-first voice control (Whisper STT, Piper TTS).
-*   **Resilience Engine**: Monitors component health, managing degradation levels (e.g., "Internet Down" vs "Core Down").
-*   **PHM (Predictive Health Monitoring)**: Analyzes device metrics (runtime, current, error rates) to predict failures before they occur.
-
----
-
-## 3. Domain-Specific Capabilities
-
-### 🌡️ Climate Control
-*   **Multi-Zone Intelligence**: Independent control of UFH, radiators, and A/C capabilities per room.
-*   **Predictive Comfort**: Uses weather forecasts to pre-cool or pre-heat homes (e.g., "It will be hot at 2 PM, start cooling at 11 AM").
-*   **Solar Gain Management**: Auto-closes blinds in summer to reduce cooling load; opens them in winter for free heat.
-*   **Air Quality**: CO2 and humidity monitoring drives MVHR/ventilation rates automatically (e.g., "Boost ventilation if CO2 > 1000ppm").
-*   **Edge Case Handling**:
-    *   **Frost Protection**: Hardware-enforced heating activation at 5°C, ensuring pipes never burst even if software fails.
-    *   **Window Open**: Instantly cuts heating in a specific zone to save energy.
-
-### 💡 Intelligent Lighting
-*   **Circadian Rhythms**: Temperature seamlessly shifts from cool white (morning) to warm glow (evening) to support natural sleep cycles.
-*   **Daylight Harvesting**: In commercial/workspace zones, lights auto-dim when natural sunlight is sufficient to maintain lux targets.
-*   **Scene Recall**: One touch transforms a room (e.g., "Cinema Mode": lights diff to 5%, blinds close, color temp warms).
-*   **Lumen Depreciation Tracking**: PHM tracks LED runtime and alerts facility managers before lights fail or become too dim.
-
-### 🪟 Blinds & Shading
-*   **Sun Tracking**: Slats tilt automatically to follow the sun angle, maximizing natural light while blocking direct glare.
-*   **Wind & Rain Safety**: Awnings retract immediately upon detecting high wind (>35km/h) or rain, overriding all manual or automated commands.
-*   **Privacy Automation**: Bedroom blinds close automatically at sunset or when "Night Mode" is active.
-*   **Wake Simulation**: Blinds slowly open over 20 minutes before an alarm for a natural wake-up.
-
-### 🛡️ Security & Access
-*   **Panel Integration**: bi-directional sync with professional panels (Texecom, Honeywell). Gray Logic arm state matches the panel.
-*   **Voice Security**: Authenticated voice commands (e.g., "Disarm alarm") require a PIN, which is virtually redacted from logs and never stored in plain text.
-*   **Hardware Independence**: If Gray Logic fails, the alarm panel, keypads, and sirens continue to function as a certified Grade 2/3 system.
-*   **Smart Triggers**: "Away" mode simulates presence by randomizing lights and blinds.
-
-### ⚡ Energy Management
-*   **Grid Intelligence**: Smart meter telemetry monitors voltage and frequency for brownout/surge protection.
-*   **Load Shedding**: Hierarchical limitation (Comfort > Safety > Cost > Carbon). Automatically sheds "Discretionary" loads (Hot tub, Towel rails) during peak tariff pricing.
-*   **Solar/Battery Arbitrage**: Charges batteries when energy is cheap/green; discharges during peak cost windows.
-*   **EV Charging**: "Solar-only" charging mode ensures cars run on 100% free sunshine.
-
-### 🗣️ Voice & AI
-*   **100% Local**: No audio ever leaves the building. No Amazon/Google listening.
-*   **Natural Language**: "It's a bit dark in here" understands intent to turn on lights.
-*   **Room Awareness**: "Turn on the lights" knows which room you are in via microphone location.
-*   **Intercom & TTS**: Text-to-speech announcements for events (e.g., "Doorbell", "Dinner Ready", "Fire Alarm").
+```
+┌──────────────────────────────────────────────────────────────────────────────┐
+│                           GRAY LOGIC ARCHITECTURE                            │
+├──────────────────────────────────────────────────────────────────────────────┤
+│                                                                              │
+│   ┌─────────────────────────────────────────────────────────────────────┐   │
+│   │  INTELLIGENCE LAYER                                                  │   │
+│   │  Voice • PHM • AI Insights • Presence Detection                     │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                     ▲                                        │
+│   ┌─────────────────────────────────┴───────────────────────────────────┐   │
+│   │  AUTOMATION LAYER                                                    │   │
+│   │  Scenes • Schedules • Modes • Logic Engine                          │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                     ▲                                        │
+│   ┌─────────────────────────────────┴───────────────────────────────────┐   │
+│   │  DEVICE LAYER                                                        │   │
+│   │  14 Domains • 6 Protocol Bridges • State Management                 │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                     ▲                                        │
+│   ┌─────────────────────────────────┴───────────────────────────────────┐   │
+│   │  HARDWARE BACKBONE (Always Works)                                    │   │
+│   │  KNX • DALI • Modbus • Physical Switches                            │   │
+│   └─────────────────────────────────────────────────────────────────────┘   │
+│                                                                              │
+└──────────────────────────────────────────────────────────────────────────────┘
+```
 
 ---
 
-## 4. Resilience, Safety & Offline Capabilities
+## 2. Core Platform Capabilities
 
-### Truly Offline-First
-*   **Zero Cloud Dependency**: Voice, automation, and app control function identically with the internet cable cut.
-*   **Timestamp Conflict Resolution**: When connectivity restores, conflicting states are resolved using precise timestamps and "Hardware Authority" rules.
-*   **Context-Aware Catch-Up**: If Core restarts (e.g., after a power cut), it intelligently "catches up" miss schedules—but only if safe (e.g., won't turn on lights in an empty house at 3 AM).
+### Hardware Backbone ("The Spine")
 
-### Safety Gates
-*   **Hardware Layer**: Direct electrical interlocking.
-*   **Software Layer**: "Hard Rules" (e.g., Frost Protection cannot be disabled via UI).
-*   **Commissioning Gates**: Installers must physically verify safety interlocks (e.g., E-Stop checks) before the system allows full automation.
+| Technology | Purpose | Key Benefit |
+|------------|---------|-------------|
+| **KNX** | Switching, dimming, sensors, keypads | Works without software — wall switches directly control actuators |
+| **DALI** | Advanced lighting control | Driver-level feedback, individual lamp addressing |
+| **Modbus** | Plant equipment, energy monitoring | Industrial-grade reliability for HVAC, pumps, meters |
+| **SIP** | Intercom, door stations | Local VoIP, no cloud dependency |
+| **ONVIF/RTSP** | CCTV cameras | Open standard, vendor-agnostic |
+
+**Resilience Guarantee**: If Gray Logic Core fails, lights still work. Heating still works. Blinds still work.
+
+### Gray Logic Core ("The Brain")
+
+| Component | Technology | Purpose |
+|-----------|------------|---------|
+| **Core Engine** | Go (single binary) | Automation, state management, API |
+| **Database** | SQLite | Configuration, device state, audit logs |
+| **Time-Series** | InfluxDB | Energy data, PHM telemetry, trends |
+| **Message Bus** | MQTT | Bridge communication, events |
+| **Local AI** | Whisper + Piper | Speech-to-text, text-to-speech |
+
+### Feature Modules ("The Senses")
+
+| Module | Capability | Offline? |
+|--------|------------|----------|
+| **Voice Bridge** | Local speech recognition, natural language | ✅ Yes |
+| **PHM Engine** | Predictive health monitoring, anomaly detection | ✅ Yes |
+| **Presence Engine** | Room occupancy, building modes (Home/Away/Night) | ✅ Yes |
+| **Scheduler** | Cron-like and event-driven automation | ✅ Yes |
+| **Scene Controller** | Multi-device coordinated actions | ✅ Yes |
 
 ---
 
-## 5. Integration & Extensibility
+## 3. The 14 Domains
 
-Gray Logic assumes a heterogeneous world ("Honest Disruption"). It doesn't force one brand but bridges best-in-class technologies.
+Gray Logic provides comprehensive control across 14 integrated domains:
 
-*   **Modular Bridges**: Individual micro-services for KNX, Modbus, DALI, etc. If the "Sonos Bridge" crashes, it does not affect the "Lighting Bridge".
-*   **Local API**: Full REST and WebSocket API for 3rd party integration (HomeKit, bespoke dashboards).
-*   **Upgrade Path**:
-    *   **Starter**: Single-room control (Lighting + Heating).
-    *   **Standard**: Full home automation (Energy, Security, Voice).
-    *   **Estate**: Multi-building coordination, central plant monitoring, dedicated server specs.
+### Core Comfort
+
+| Domain | Key Capabilities | Differentiators |
+|--------|------------------|-----------------|
+| **🌡️ Climate** | UFH, radiators, A/C, MVHR | Predictive pre-heating/cooling using weather forecasts; CO2-driven ventilation |
+| **💡 Lighting** | Scenes, circadian rhythms, daylight harvesting | Lumen depreciation tracking; sub-500ms scene recall |
+| **🪟 Blinds** | Sun tracking, privacy, wake simulation | Wind/rain safety override; slat angle optimisation |
+
+### Security & Safety
+
+| Domain | Key Capabilities | Differentiators |
+|--------|------------------|-----------------|
+| **🛡️ Security** | Panel integration (Texecom, Honeywell) | Voice PIN (sanitised from logs); hardware-independent |
+| **📹 Video** | Local NVR (Frigate), ANPR, face detection | 100% local AI processing; no cloud dependency |
+| **💧 Leak Protection** | Valve shutoff, floor sensors | Automatic shutoff in <5 seconds |
+| **🚰 Water Management** | Tank levels, pumps, irrigation zones | Rainwater harvesting integration |
+
+### Lifestyle & Efficiency
+
+| Domain | Key Capabilities | Differentiators |
+|--------|------------------|-----------------|
+| **⚡ Energy** | Smart meter, solar, battery, EV, load shedding | Grid frequency monitoring; tariff-aware automation |
+| **🔊 Audio** | Multi-room, streaming, TTS announcements | Local sources always work |
+| **📺 Video** | Matrix switching, display control | HDMI/HDBaseT matrix integration |
+| **🏊 Pool/Spa** | Temperature, chemistry, pumps, covers | Solar heating priority; safety interlocks |
+| **🌿 Irrigation** | Zones, soil moisture, weather-aware | ET-based watering; rain delay |
+| **🍔 Appliances** | Smart plugs, monitoring | Phantom load detection |
+| **🌱 Plant** | HVAC, boilers, heat pumps | Modbus integration; efficiency monitoring |
 
 ---
 
-## 6. User Benefits
+## 4. Predictive Health Monitoring (PHM)
 
-### 🏡 For Homeowners
-| Feature | Benefit | Quantifiable Impact |
-| :--- | :--- | :--- |
-| **Energy Management** | Lower bills without effort | 20–40% reduction in heating/cooling costs |
-| **Privacy First** | No creeping surveillance | 0 bytes of voice/video data sent to cloud |
-| **10-Year Horizon** | Investment protection | System won't be "obsolete" in 3 years |
-| **One App** | Simplified control | Replaces 5-6 fragmented apps (Hue, Ring, Hive, etc.) |
-| **Healthy Home** | Better sleep and air | Automation of CO2 levels and Circadian lighting |
+PHM transforms a reactive maintenance strategy into a proactive one — detecting equipment problems before they cause failures.
 
-### 🛠️ For Installers (Electricians)
+### Three Tiers of PHM
+
+| Tier | Hardware Required | Capabilities | Target Market |
+|------|-------------------|--------------|---------------|
+| **Tier 1: Basic** | Smart devices with built-in telemetry | Runtime tracking, on/off patterns, error rates | All installations |
+| **Tier 2: Enhanced** | CT clamps, external sensors | Power trending, efficiency curves, anomaly detection | High-end residential, light commercial |
+| **Tier 3: Advanced** | Vibration, thermal, pressure sensors | Bearing wear prediction, time-to-failure estimates | Commercial plant, critical infrastructure |
+
+### What PHM Detects
+
+| Equipment | Monitored Parameters | Detectable Issues |
+|-----------|---------------------|-------------------|
+| **Pumps** | Current, vibration, runtime | Bearing wear, impeller damage, dry running |
+| **HVAC** | Power, temperature differential | Refrigerant loss, filter blockage, efficiency drop |
+| **Lighting** | Lumen output, power, errors | LED degradation, driver failure |
+| **Motors** | Current, vibration, temperature | Winding faults, mechanical wear |
+
+### PHM Value Proposition
+
+| Without PHM | With PHM |
+|-------------|----------|
+| Equipment fails unexpectedly | 2-4 weeks warning before failure |
+| Emergency callout fees | Planned maintenance at convenience |
+| Cascade failures (pump → boiler → heating) | Isolated alerts prevent cascades |
+| "It was working yesterday" | "PHM flagged this 3 weeks ago" |
+
+---
+
+## 5. Resilience & Offline Capabilities
+
+### Degradation Hierarchy
+
+When things fail, Gray Logic degrades gracefully in a predictable order:
+
+```
+ALWAYS WORKS (even if everything else fails):
+├── Physical wall switches → actuators
+├── Hardware frost protection (thermostat-based)
+├── Life safety systems (fire, E-stop)
+└── Alarm panel keypads
+
+WORKS WITHOUT INTERNET:
+├── All lighting, climate, blinds control
+├── Voice commands (local processing)
+├── Scenes and schedules
+├── PHM monitoring
+└── Mobile app (on LAN)
+
+REQUIRES INTERNET (optional enhancements):
+├── Remote access via cloud relay
+├── Push notifications
+├── External weather data
+└── Cloud AI queries
+```
+
+### Failure Scenario Impact
+
+| Failure | Impact | Recovery |
+|---------|--------|----------|
+| **Internet down** | Minimal — designed for this | Automatic on restore |
+| **MQTT broker down** | Moderate — state becomes stale | Automatic reconnect |
+| **Core down** | Automation stops, physical controls work | systemd auto-restart |
+| **Database corrupted** | Config lost | USB backup restore |
+| **Power outage** | Everything stops | Full state recovery from cache |
+
+### Frost Protection Guarantee
+
+**Frost protection is hardware-enforced and works regardless of software state:**
+
+- ✅ Works during: Internet down, MQTT down, Core down, database corruption
+- ✅ Enforced by: Thermostat hardware, NOT software
+- ✅ Cannot be disabled: No UI or API can turn off frost protection
+
+---
+
+## 6. Cloud Services (Optional)
+
+> **Philosophy**: Free core, premium cloud. The building works perfectly offline; cloud adds convenience.
+
+### Subscription Tiers
+
+| Tier | Monthly | Key Features |
+|------|---------|--------------|
+| **Free** | £0 | Full local functionality, VPN remote access |
+| **Connect** | £9.99 | Cloud API relay, push notifications, config backup |
+| **Secure** | £24.99 | + Remote CCTV (4 cameras), 7-day clip storage |
+| **Premium** | £49.99 | + AI insights, 30-day storage, phone support |
+| **Estate** | £99.99 | + Multi-site, 90-day storage, priority support, SLA |
+| **Commercial** | Custom | + Unlimited sites, facility management features |
+
+### Zero-Knowledge Architecture
+
+| Principle | Implementation |
+|-----------|---------------|
+| **End-to-end encryption** | Control commands encrypted on-site, decrypted on-site |
+| **Cloud sees only metadata** | Site ID, timestamp, message size — never content |
+| **Video never stored unencrypted** | AES-256-GCM, keys held only by customer |
+| **No behaviour profiling** | Cloud cannot analyse what you do in your home |
+
+---
+
+## 7. User Benefits
+
+### For Homeowners
+
 | Feature | Benefit | Impact |
-| :--- | :--- | :--- |
-| **Remote Diagnostics** | Reduced truck rolls | Solve 80% of issues via VPN/SSH without travel |
-| **Standardized Config** | Predictable installation | Reduce commissioning time by 50% vs custom coding |
-| **Upsell Potential** | Modular capability | Easy to add "Voice" or "Energy" packages later |
-| **Documentation** | Transferable maintenance | Any qualified engineer can service the system |
+|---------|---------|--------|
+| **Energy Management** | Lower bills without effort | 20-40% reduction in heating/cooling costs |
+| **Privacy First** | No creeping surveillance | 0 bytes of voice/video to cloud |
+| **10-Year Horizon** | Investment protection | Won't be "obsolete" in 3 years |
+| **One App** | Simplified control | Replaces 5-6 fragmented apps |
+| **Healthy Home** | Better sleep and air | CO2 automation + circadian lighting |
 
-### 🏢 For Businesses / Commercial
+### For Installers
+
 | Feature | Benefit | Impact |
-| :--- | :--- | :--- |
-| **PHM (Predictive Health)** | Prevent downtime | Catch failing pumps/drivers before total failure |
-| **Compliance** | Auto-testing | Emergency lighting reports generated automatically |
-| **OpEx Reduction** | Automated efficiency | Lighting/HVAC off in empty meeting rooms |
-| **Scalability** | Multi-partition security | Granular access control for staff/cleaners |
+|---------|---------|--------|
+| **Remote Diagnostics** | Reduced truck rolls | 80% of issues resolved remotely |
+| **Standardised Config** | Predictable installation | 50% faster commissioning |
+| **Upsell Path** | Modular capability add-ons | Voice, energy, PHM packages |
+| **Documentation** | Transferable maintenance | Any qualified engineer can service |
+
+### For Commercial/Facilities
+
+| Feature | Benefit | Impact |
+|---------|---------|--------|
+| **PHM** | Prevent downtime | Catch failing pumps before total failure |
+| **Compliance** | Auto-testing | Emergency lighting reports automated |
+| **OpEx Reduction** | Automated efficiency | Lighting/HVAC off in empty rooms |
+| **Multi-Site Dashboard** | Centralised visibility | "Which gym has a DALI fault?" |
 
 ---
 
-## 7. Potential Limitations & Mitigations
+## 8. Competitive Positioning
 
-| Limitation | Impact | Mitigation Design |
-| :--- | :--- | :--- |
-| **Initial Cost** | Higher upfront than DIY (Hue/WiFi) | Positioned as "Infrastructure" (like plumbing) with 10yr+ lifespan to amortize cost. |
-| **Installation Skill** | Requires professional electrician | Use "Commissioning Checklists" and strict "Golden Paths" to guide installers. |
-| **Hardware Dependency** | Requires specific bus wiring (KNX) | Retrofit wireless bridges (Zigbee/Matter) planned for Year 3, though wired remains preferred. |
-| **Complexity** | More complex than a single switch | "Consumer Overlay" UI hides complexity; physical switches always remain as simple fallbacks. |
+### Market Position
+
+```
+                    HIGH COMPLEXITY
+                          │
+         Crestron ●       │       ● Savant
+                          │
+                          │
+    Control4 ●            │ ★ GRAY LOGIC
+                          │   (Target Zone)
+          Loxone ●        │
+                          │
+──────────────────────────┼──────────────────────────
+    LOW PRICE             │            HIGH PRICE
+                          │
+                          │
+Home Assistant ●          │
+                          │
+                    LOW COMPLEXITY
+```
+
+### Feature Comparison
+
+| Feature | Gray Logic | Crestron | Control4 | Loxone | Home Assistant |
+|---------|------------|----------|----------|--------|----------------|
+| **Offline operation** | ✅ 99%+ | ❌ | ❌ | ✅ | ✅ |
+| **Open source** | ✅ | ❌ | ❌ | ❌ | ✅ |
+| **Local voice AI** | ✅ | ❌ | ❌ | ❌ | ⚠️ Complex |
+| **PHM** | ✅ Tier 1-3 | ❌ | ❌ | ❌ | ❌ |
+| **No dealer lock-in** | ✅ | ❌ | ❌ | ⚠️ | ✅ |
+| **Professional support** | ✅ | ✅ | ✅ | ✅ | ❌ |
+| **10-year stability** | ✅ Designed | ⚠️ | ⚠️ | ✅ | ❌ |
+| **Typical project** | £8k-40k | £50k-200k | £15k-60k | £10k-30k | £2k-10k |
+
+### Why Choose Gray Logic?
+
+| If You Want... | Not This | Choose Gray Logic Because |
+|----------------|----------|---------------------------|
+| Professional quality | Home Assistant | Stability, documentation, support |
+| No vendor lock-in | Crestron, Savant | Open source, open standards |
+| Affordable mid-market | Control4 | Lower cost, no dealer markup |
+| True offline | Most systems | Internet ≠ requirement |
+| Privacy | Alexa-dependent | Local voice, no cloud surveillance |
+| 10-year lifespan | Consumer IoT | Designed for longevity |
 
 ---
 
-## 8. Conclusion
+## 9. Integration & Extensibility
 
-Gray Logic fundamentally reimagines the "Smart Home" not as a collection of gadgets, but as **infrastructure**. It transforms a property into a responsive, living entity that takes care of its occupants.
+### Bridge Architecture
 
-By rejecting the "move fast and break things" Silicon Valley model in favor of **industrial stability and openness**, Gray Logic offers the only viable path for properties that need to work reliably for decades. It is the "anti-Alexa": private, robust, and designed to work quietly in the background, ensuring that even when the internet fails, the home keeps running.
+Each protocol has an independent bridge. If one crashes, others continue:
 
-This is the central nervous system for the next generation of buildings—built to last.
+| Bridge | Protocol | Devices |
+|--------|----------|---------|
+| **KNX Bridge** | KNX/IP | Switches, actuators, sensors, keypads |
+| **DALI Bridge** | DALI-2 | LED drivers, emergency lighting |
+| **Modbus Bridge** | Modbus TCP/RTU | Energy meters, HVAC, heat pumps |
+| **Audio Bridge** | Proprietary | Audio matrix (Sonance, RTI) |
+| **Security Bridge** | Texecom, Honeywell | Alarm panels |
+| **CCTV Bridge** | Frigate/MQTT | NVR, cameras |
+
+### API Access
+
+| Interface | Purpose | Authentication |
+|-----------|---------|----------------|
+| **REST API** | Integrations, dashboards | JWT tokens |
+| **WebSocket** | Real-time state, notifications | Ticket-based |
+| **MQTT** | Internal communication | mTLS |
+
+### Upgrade Path
+
+| Package | Installation Type | Additions |
+|---------|-------------------|-----------|
+| **Starter** | Single room | Lighting + heating |
+| **Standard** | Full home | + Blinds, energy, security |
+| **Estate** | Multi-building | + Plant, pool, central monitoring |
+| **Commercial** | Light commercial | + RBAC, multi-tenant, SLA |
+
+### DIY Device Integration
+
+Gray Logic welcomes customer-owned smart devices — provided they respect our offline-first principle.
+
+| Integration Tier | Protocol | Examples | Support Level |
+|------------------|----------|----------|---------------|
+| **Tier 1: Matter** | Matter/Thread | Eve, Nanoleaf, newer Hue | ✅ Native |
+| **Tier 2: Zigbee** | Zigbee 3.0 | Aqara, IKEA, Sonoff | ✅ Full |
+| **Tier 3: Z-Wave** | Z-Wave 700/800 | Zooz, Aeotec, Yale | ✅ Full |
+| **Tier 4: Wi-Fi** | Local API | Shelly, Tasmota, ESPHome | ✅ Standard |
+| **Tier 5: Cloud** | Vendor API | Ring, Nest | ⚠️ Tolerated |
+
+**Key Requirements for DIY Devices:**
+- Must work **100% locally** (no cloud dependency)
+- Documented API (no reverse-engineering)
+- Standard protocols only
+
+**Ecosystem Bridges:**
+
+| Bridge | Direction | Notes |
+|--------|-----------|-------|
+| **HomeKit** | Gray Logic → Apple Home | 100% local, Siri control |
+| **Google Home** | Gray Logic → Google | Cloud required, opt-in |
+| **Alexa** | Gray Logic → Amazon | Cloud required, opt-in |
+
+> See [DIY Integration Specification](../integration/diy-integration.md) for full details on adding smart plugs, sensors, lights, and more.
+
+---
+
+## 10. Conclusion
+
+Gray Logic reimagines the "smart home" not as a collection of gadgets, but as **infrastructure**. Like electrical wiring or plumbing, it's designed to be installed once and run reliably for decades.
+
+### The Gray Logic Promise
+
+1. **Works without internet** — The building keeps running
+2. **No vendor lock-in** — You own your system
+3. **10-year stability** — Install once, run for a decade
+4. **Privacy by design** — Local processing, no surveillance
+5. **Professional quality** — Not a hobby project
+
+> **"This is the central nervous system for the next generation of buildings — built to last."**
+
+---
+
+## Related Documents
+
+- [Vision](vision.md) — What Gray Logic is and why
+- [Principles](principles.md) — Hard rules that cannot be broken
+- [System Architecture](../architecture/system-overview.md) — Technical design
+- [Cloud Relay](../architecture/cloud-relay.md) — Optional cloud services
+- [DIY Integration](../integration/diy-integration.md) — Customer-owned devices
+- [PHM Specification](../intelligence/phm.md) — Predictive health monitoring
+- [Subscription Pricing](../business/subscription-pricing.md) — Cloud tier details
