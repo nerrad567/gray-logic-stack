@@ -40,10 +40,124 @@ Gray Logic provides unified access to video streams and camera events, while res
 
 From [principles.md](../overview/principles.md):
 
-1. **No cloud video** — All streams stay on local network
-2. **No behaviour profiling** — Motion events trigger automation, not surveillance
-3. **User control** — Residents can disable camera views in private spaces
-4. **Audit logging** — Who viewed which camera, when
+1. **Local-first video** — All streams default to local network only
+2. **Opt-in remote viewing** — Remote CCTV available via [Gray Logic Cloud](../architecture/cloud-relay.md) (Secure tier+)
+3. **End-to-end encryption** — Remote streams encrypted; Gray Logic servers cannot view content
+4. **No behaviour profiling** — Motion events trigger automation, not surveillance
+5. **User control** — Residents can disable camera views in private spaces
+6. **Audit logging** — Who viewed which camera, when (local + cloud)
+
+---
+
+## Remote CCTV Viewing (Cloud Subscription)
+
+> **Requires**: [Gray Logic Cloud](../architecture/cloud-relay.md) — Secure tier or higher
+
+For customers who need to view cameras remotely without VPN, Gray Logic provides secure cloud-based video relay.
+
+### How It Works
+
+```
+┌─────────────────┐     ┌─────────────────┐     ┌─────────────────┐
+│   Mobile App    │────▶│  Gray Logic     │────▶│  Gray Logic     │
+│   (Remote)      │     │  Cloud Relay    │     │  Core (On-Site) │
+│                 │◀────│  (Pass-through) │◀────│                 │
+└─────────────────┘     └─────────────────┘     └────────┬────────┘
+         │                      │                        │
+         │                      │                   ┌────▼────┐
+         │    E2E Encrypted     │                   │ Frigate │
+         │    (Cloud cannot     │                   │  NVR    │
+         │     view content)    │                   └─────────┘
+         ▼                      ▼
+    User's Keys           Metadata Only
+```
+
+### Security Model
+
+```yaml
+remote_cctv_security:
+  encryption:
+    type: "end-to-end"
+    algorithm: "AES-256-GCM"
+    key_holder: "User only (not Gray Logic)"
+    cloud_can_decrypt: false
+
+  authentication:
+    method: "JWT + MFA"
+    mfa_required: "First access from new device"
+    device_binding: true
+
+  authorization:
+    per_camera_opt_in: true       # User explicitly enables each camera
+    indoor_cameras: "Additional confirmation required"
+    require_all_residents_consent: true
+
+  audit:
+    log_all_access: true
+    log_retention_site: "1 year"
+    log_retention_cloud: "90 days"
+    never_logged: ["video_content", "audio"]
+```
+
+### Per-Camera Opt-In
+
+```yaml
+camera_remote_settings:
+  # In camera configuration
+  camera_id: "camera-front-door"
+  remote_viewing:
+    enabled: true                  # User explicitly opted in
+    consent_date: "2026-01-18"
+    consented_by: ["user-darren", "user-emma"]   # All residents
+    
+  restrictions:
+    audio_remote: false            # Disable audio for remote viewing
+    recording_remote: false        # Cannot record to cloud
+    max_quality: "720p"            # Limit bandwidth
+    session_timeout_minutes: 15
+
+# Indoor camera requires additional confirmation
+camera_id: "camera-living-room"
+remote_viewing:
+  enabled: true
+  indoor_acknowledgement: "I understand this camera views a private space"
+  require_pin_each_view: true      # Extra security for indoor
+```
+
+### Subscription Requirements
+
+| Feature | Secure (£24.99) | Premium (£49.99) | Estate (£99.99) |
+|---------|-----------------|------------------|-----------------|
+| Remote live view | ✅ 4 cameras | ✅ 8 cameras | ✅ Unlimited |
+| Max concurrent streams | 2 | 4 | 8 |
+| Session timeout | 15 min | 30 min | 60 min |
+| Cloud clip storage | 7 days | 30 days | 90 days |
+| Event snapshots | ✅ | ✅ | ✅ |
+| Audio remote | ❌ | ✅ (opt-in) | ✅ (opt-in) |
+
+### Audit Trail Example
+
+```json
+{
+  "event": "camera.remote_view_started",
+  "timestamp": "2026-01-18T14:32:15Z",
+  "user_id": "usr-darren",
+  "camera_id": "camera-front-door",
+  "access_method": "cloud_relay",
+  "device": "iPhone-Darren-Personal",
+  "ip_address": "86.24.xxx.xxx",
+  "quality": "720p",
+  "session_id": "sess-abc123"
+}
+
+{
+  "event": "camera.remote_view_ended",
+  "timestamp": "2026-01-18T14:35:42Z",
+  "session_id": "sess-abc123",
+  "duration_seconds": 207,
+  "data_transferred_mb": 45.2
+}
+```
 
 ---
 

@@ -97,6 +97,49 @@ TLS certificates are critical for security but expire.
 *   **Internal CA:** The internal CA (managed by Core) automatically issues new certificates to Bridges and UIs 30 days before expiration.
 *   **Self-Healing:** If a Bridge connects with an expired cert, the Core rejects it but offers a specific "Renewal" handshake (requires shared secret).
 
+### Certificate Renewal Handshake Protocol
+
+When a bridge certificate has expired, the following recovery procedure applies:
+
+```yaml
+certificate_renewal_handshake:
+  # Scenario: Bridge has expired certificate
+  trigger: "TLS handshake fails due to expired certificate"
+
+  # Recovery flow
+  flow:
+    1: "Core rejects TLS connection (expired cert)"
+    2: "Bridge detects rejection reason from TLS error"
+    3: "Bridge connects to renewal endpoint (localhost:8443/renew or unix socket)"
+    4: "Bridge presents: { bridge_id, timestamp, hmac(bridge_id + timestamp, shared_secret) }"
+    5: "Core validates HMAC against stored bridge secret"
+    6: "Core issues new certificate to bridge (1 year validity)"
+    7: "Bridge stores new certificate, retries normal connection"
+
+  # Shared secret
+  shared_secret:
+    location: "/etc/graylogic/bridges/{bridge_id}.secret"
+    generated: "During bridge provisioning (stored on both Core and Bridge)"
+    length: "256-bit random"
+    rotation: "When bridge is re-provisioned"
+
+  # Security constraints
+  security:
+    renewal_endpoint: "localhost only (or mTLS with expired cert exception)"
+    request_rate_limit: "1 per minute per bridge_id"
+    max_attempts: 5                    # Before requiring manual intervention
+    audit_log: true                    # Log all renewal attempts
+
+  # Fallback: Manual renewal
+  manual_renewal:
+    when: "Renewal handshake fails or shared secret lost"
+    procedure:
+      1: "SSH to Core server"
+      2: "Run: graylogic bridge renew-cert --bridge-id={id}"
+      3: "Copy new certificate to bridge"
+      4: "Restart bridge service"
+```
+
 ---
 
 ## 5. Audit Log Archival

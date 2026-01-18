@@ -435,6 +435,47 @@ voice_pin:
   # and transcript sanitization rules.
 ```
 
+### WebSocket Authentication
+
+WebSocket connections use ticket-based authentication to avoid exposing JWT tokens in URL parameters:
+
+```yaml
+websocket_auth:
+  method: "ticket_based"
+
+  # Authentication flow
+  flow:
+    1: "Client authenticates via REST API (obtains JWT access token)"
+    2: "Client requests WebSocket ticket: POST /api/v1/auth/ws-ticket"
+    3: "Server issues single-use ticket (validated, linked to user session)"
+    4: "Client connects: wss://host/ws?ticket={ticket}"
+    5: "Server validates ticket, establishes WebSocket session"
+    6: "Ticket is immediately invalidated (single-use)"
+
+  # Ticket properties
+  ticket:
+    format: "32-byte random, base64url encoded"
+    generation: "crypto/rand (cryptographically secure)"
+    lifetime_seconds: 120            # 2 minutes to connect
+    single_use: true                 # Cannot be reused
+    bound_to:
+      user_id: true                  # Ticket belongs to specific user
+      session_id: true               # Linked to JWT session that requested it
+    storage: "in-memory only"        # Never persisted to disk
+
+  # Validation
+  validation:
+    check_expiry: true
+    check_user_session_valid: true   # Parent JWT session must still be valid
+    check_not_already_used: true
+
+  # Rejection handling
+  on_invalid_ticket:
+    log: "warning"
+    message: "WebSocket connection rejected: {reason}"
+    close_code: 4001                 # Custom close code for invalid auth
+```
+
 ### LDAP/Active Directory
 
 For enterprise/commercial deployments:
@@ -568,7 +609,9 @@ roles:
   - id: "integration"
     name: "Integration"
     description: "API access for integrations"
-    permissions: []                  # Defined per API key
+    permissions:
+      - "apikeys:rotate_self"       # Allow service accounts to auto-rotate their own keys
+    note: "Additional permissions defined per API key"
 ```
 
 ### Permission Model

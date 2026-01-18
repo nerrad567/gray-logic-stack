@@ -274,6 +274,38 @@ sensor_validation:
 *   **Sensor health score** degrades (affecting the monitoring confidence).
 *   **Baseline learning** pauses for that parameter until sensor is fixed.
 
+### 1b. Dual Fault Awareness
+
+When sensor correlation fails, PHM must consider BOTH sensor failure AND equipment failure possibilities:
+
+```yaml
+DualFaultAwareness:
+  # When sensor correlation fails (e.g., "Pump ON but Power = 0")
+  on_correlation_failure:
+    primary_action: "flag_sensor"
+    secondary_action:
+      notify: true
+      severity: "warning"
+      title: "Correlation Failure - Verify Equipment"
+      message: |
+        Correlation failure detected for {device_id}.
+        Possible causes:
+        1. Sensor failure ({sensor_id}) - most likely
+        2. Equipment failure ({device_id}) - verify manually
+        3. Wiring issue - check connections
+
+    # Require human verification
+    require_verification: true
+    verification_prompt: "Please confirm equipment status after sensor repair"
+
+  # Extra caution during learning phase
+  during_learning:
+    correlation_failure_action:
+      escalate: true
+      require_manual_verification: true
+      prevent_assumption: true   # Don't assume sensor-only failure
+```
+
 ### 2. Baseline Learning
 
 During the learning period, PHM establishes normal operating patterns:
@@ -456,6 +488,7 @@ baseline_status:
 
     stale:
       description: "Baseline too old, may not reflect current normal"
+      stale_after_days: 90             # Baseline older than 90 days is considered stale
       phm_enabled: "with_warning"
       ui_indicator: "Baseline outdated"
       action: "Offer to re-learn baseline"

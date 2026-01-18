@@ -80,6 +80,36 @@ Users can adjust this hierarchy via Energy Mode settings.
 | **Flexible** | 4 | EV charging, pool pump, laundry | Yes |
 | **Discretionary** | 5 | Entertainment, spa, sauna | Yes |
 
+### Phantom Load Detection (Tier 2)
+
+A "phantom load" is continuous power draw when a device should be off. Detection requires power monitoring hardware (CT clamps, smart plugs).
+
+```yaml
+phantom_load_detection:
+  definition: "Power draw when device state == 'off'"
+
+  threshold:
+    min_power_w: 5                     # Drawing >5W when off
+    duration_minutes: 30               # Must persist for 30 minutes
+    
+  detection:
+    exclude:
+      - device_types: ["refrigerator", "freezer"]   # Always draw power
+      - states: ["standby"]            # Standby power is expected
+      
+  actions:
+    on_phantom_detected:
+      alert: true
+      severity: "info"
+      message: "{device_name} drawing {power_w}W while off"
+      suggestion: "Check for stuck relay, faulty timer, or remove standby power"
+
+  examples:
+    - "TV drawing 35W while 'off' → TV in soft-off mode or faulty switch"
+    - "Heater drawing 1500W while 'off' → Stuck relay, immediate attention"
+    - "Printer drawing 8W while 'off' → Normal standby, can be suppressed"
+```
+
 ---
 
 ## User Interface
@@ -404,6 +434,36 @@ LoadPriority:
     - device_id: "hot-tub"
     - device_id: "sauna"
     - device_id: "towel-rail-bathroom"
+```
+
+### Load Shedding Validation
+
+To prevent silent failures when attempting to shed non-controllable loads:
+
+```yaml
+LoadSheddingValidation:
+  # Startup validation
+  on_startup:
+    validate_controllable: true
+    required_capability: "on_off"
+    action_on_invalid:
+      log: "warning"
+      message: "Device {device_id} in load shedding config lacks on_off capability"
+      remove_from_active: true    # Exclude from active shed list
+
+  # Runtime validation (before each shed command)
+  on_command:
+    verify_capability: true
+    on_missing_capability:
+      log: "error"
+      skip_device: true
+      notify_admin: true
+      message: "Cannot shed {device_id}: no on_off capability"
+
+  # Commissioning requirement
+  commissioning:
+    audit_required: true          # Must verify all shed targets are controllable
+    checklist_item: "Verify all load shedding devices have on_off capability"
 ```
 
 ### Demand Response

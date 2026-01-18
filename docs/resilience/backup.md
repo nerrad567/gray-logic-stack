@@ -240,6 +240,40 @@ secrets_backup:
     - "Sealed envelope in doomsday pack"
 ```
 
+### GPG Key Management
+
+The GPG encryption key for secrets backup must be available both on the server (for automated backups) and offsite (for disaster recovery):
+
+```yaml
+gpg_key_management:
+  # Key generation (during commissioning)
+  generation:
+    when: "During setup wizard or first commissioning"
+    command: "graylogic setup --generate-backup-key"
+    output:
+      private_key: "/etc/graylogic/backup.key"   # Mode 0600, graylogic:graylogic
+      public_key: "/etc/graylogic/backup.pub"
+
+  # Automated backup access
+  server_key:
+    location: "/etc/graylogic/backup.key"
+    permissions: "0600"
+    owner: "graylogic:graylogic"
+    purpose: "Automated nightly backups can encrypt without human intervention"
+
+  # Offsite recovery (critical for disaster scenarios)
+  offsite_key:
+    location: "Doomsday Pack (physical envelope)"
+    also_in: "Owner's password manager"
+    purpose: "If server is destroyed, backup can still be decrypted"
+
+  # Key never stored in:
+  never_store:
+    - "The backup itself (circular dependency)"
+    - "Cloud services"
+    - "Unencrypted email"
+```
+
 ---
 
 ## Backup Schedule

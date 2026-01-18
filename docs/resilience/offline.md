@@ -724,7 +724,8 @@ offline_schedules:
       on_skip:
         log: "info"
         message: "Skipped catch-up for schedule '{name}': {reason}"
-        ui_notification: true       # Alert user: "Skipped 'Good Morning' (House Empty)"
+        ui_notification: true              # Alert user: "Skipped 'Good Morning' (House Empty)"
+        notification_auto_dismiss_minutes: 60   # Auto-dismiss after 1 hour
 ```
 
 ### Context-Aware Catch-Up
