@@ -210,7 +210,7 @@ Authorization: Bearer eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
 | Access Token | 1 hour | Via refresh token | Short-lived, stateless |
 | Refresh Token | 30 days (rolling) | On use | **90-day absolute max** regardless of refresh |
 | API Key | 1 year default | Regenerate | Explicit opt-out required for never-expires |
-| WebSocket Ticket | 60 seconds | No | Single-use, for secure WS connection |
+| WebSocket Ticket | 120 seconds | No | Single-use, for secure WS connection |
 
 **Important Session Limits:**
 - Refresh tokens can extend sessions up to **90 days maximum** from initial login
