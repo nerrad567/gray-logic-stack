@@ -706,6 +706,44 @@ offline_schedules:
     behavior: "Catch up missed schedules on restart"
     max_catch_up_minutes: 30
     catch_up_action: "Run most recent state only"
+    
+    # Context-Based Catch-Up Logic
+    catch_up_context:
+      global_conditions:
+        - check: "mode"
+          logic: "If current_mode == 'away', skip comfort/lighting schedules"
+        - check: "presence"
+          logic: "If location_empty, skip room-specific schedules"
+          
+      on_skip:
+        log: "info"
+        message: "Skipped catch-up for schedule '{name}': {reason}"
+        ui_notification: true       # Alert user: "Skipped 'Good Morning' (House Empty)"
+```
+
+### Context-Aware Catch-Up
+
+To prevent "ghost actions" (e.g., blinds opening at 3 AM because Core restarted and replayed a missed "Sunset" schedule), schedules support explicit catch-up conditions.
+
+**Configuration Field:** `catch_up_condition`
+
+```yaml
+# Example Schedule Definition
+schedule_id: "good_morning"
+cron: "0 7 * * *"
+actions: [...]
+
+# Catch-up rules
+catch_up_condition:
+  # 1. Mode check (whitelist or blacklist)
+  mode_whitelist: ["home", "morning"]   # Only run if currently in these modes
+  mode_blacklist: ["away", "vacation"]  # Never run if in these modes
+  
+  # 2. Presence check
+  require_presence: true                # Only run if associated room/home is occupied
+  
+  # 3. Time window override
+  max_delay_minutes: 15                 # Override global 30m. If >15m late, skip.
 ```
 
 ### Event-Based Automation
