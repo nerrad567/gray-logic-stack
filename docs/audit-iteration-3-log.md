@@ -142,7 +142,7 @@ No clock validation. No NTP requirement documented.
 
 ---
 
-#### M3: Schedule Catch-Up Lacks Context Awareness
+#### M3: Schedule Catch-Up Lacks Context Awareness (RESOLVED - Strike M3)
 
 | Attribute | Value |
 |-----------|-------|
@@ -415,6 +415,28 @@ No clock validation. No NTP requirement documented.
     -   Added `reference_baseline` (Level 2 Protection).
     -   Added "Safe Operating Limits (Day 0 Protection)" section explaining the three protection layers.
     -   Updated `motor_pump` example to include `protection_limits`.
+    -   Updated `motor_pump` example to include `protection_limits`.
+
+---
+
+### Strike M3: Schedule Catch-Up Context Awareness (1.5 hours) — COMPLETED 2026-01-18
+
+**Priority:** MEDIUM  
+**Files:** `docs/resilience/offline.md`
+
+**Problem:** Core replays missed schedules after restart without context, causing inappropriate scene execution (e.g., "Good Morning" execution when house is empty).
+
+**Tasks:**
+1. Update `offline.md` catch-up logic to skip schedules based on Mode (Away) or Presence.
+2. Add configurable `catch_up_condition` field to schedule definitions.
+3. Add UI notification when catch-up is skipped.
+
+**Changes Made:**
+-   Updated `docs/resilience/offline.md`:
+    -   Added `catch_up_context` with global Mode and Presence checks.
+    -   Added `catch_up_condition` configuration field (whitelist/blacklist modes, presence requirement).
+    -   Specified UI notification behavior when catch-up is skipped.
+
 ---
 
 ## Summary
