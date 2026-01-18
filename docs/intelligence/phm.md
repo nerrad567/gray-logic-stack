@@ -224,6 +224,49 @@ associations:
 
 See [Data Model: DeviceAssociation](../data-model/entities.md#deviceassociation) for full association specification.
 
+### 1a. Sensor Health Validation
+
+Before data enters the baseline or anomaly engines, it must pass validation to filter out sensor failures.
+
+```yaml
+sensor_validation:
+  # 1. Range Validity (Physical Plausibility)
+  range_check:
+    - parameter: "temperature_c"
+      min: -30
+      max: 120
+      action: "discard_and_flag_sensor"
+    - parameter: "power_kw"
+      min: 0
+      max: 1000
+      action: "discard"
+
+  # 2. State Correlation (Logical Consistency)
+  # Prevents "Machine Running + Zero Power" scenarios
+  correlation_check:
+    - device_id: "pump-chw-1"
+      condition: "state == 'on'"
+      expect:
+        parameter: "power_kw"
+        operator: ">"
+        value: 0.1
+      on_fail:
+        flag_sensor: "ct-clamp-pump-1"
+        reason: "Pump ON but Power ZERO - Sensor Failure"
+
+  # 3. Stuck Value Detection
+  stuck_check:
+    method: "variance_over_time"
+    window_minutes: 60
+    min_variance: 0.001
+    action: "warn_sensor_stuck"
+```
+
+**Handling Invalid Data:**
+*   **Invalid readings** trigger a `sensor_fault` alert, NOT a machinery alert.
+*   **Sensor health score** degrades (affecting the monitoring confidence).
+*   **Baseline learning** pauses for that parameter until sensor is fixed.
+
 ### 2. Baseline Learning
 
 During the learning period, PHM establishes normal operating patterns:
