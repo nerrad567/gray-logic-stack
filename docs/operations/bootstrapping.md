@@ -50,7 +50,7 @@ The Core detects if it is uninitialized (missing `secrets.yaml` or `config.yaml`
 
 When the Gray Logic Core binary starts:
 1.  Check for `/etc/graylogic/config.yaml` and `/etc/graylogic/secrets.yaml`.
-2.  If missing, generate a **Claim Token** and print it to the console (stdout/logs).
+2.  If missing, generate a **Claim Token** and print it to the console (stdout only).
 3.  Start the Web Server in **Setup Mode**.
     - All standard API endpoints return `503 Service Unavailable`.
     - Only `/api/setup/*` endpoints are active.
@@ -222,7 +222,7 @@ On boot, if Core finds this file:
 
 1.  **Token Exposure Window:** The token is only visible in local logs for a maximum of 1 hour before rotation. This limits the window for log-based attacks.
 2.  **Token Rotation:** Every 15 minutes, a new token is generated. Old tokens are immediately invalidated. An attacker who captures a token from logs has at most 15 minutes to use it.
-3.  **Post-Claim Cleanup:** After successful claim, the token is scrubbed from logs where possible (e.g., journald --vacuum).
+3.  **Ephemeral Display:** The Claim Token is printed to `stdout` for console visibility. It SHOULD NOT be written to persistent logs (e.g., journald) where possible. If logged by the supervisor, the 15-minute rotation serves as the primary mitigation.
 4.  **Rate Limiting:** 5 failed claim attempts trigger a 15-minute lockout, preventing brute-force attacks on the 6-character token.
 
 ### Network Exposure
