@@ -274,6 +274,33 @@ AgileTariff:
     - start: "17:00"
       end: "19:00"
       average_rate: 0.38
+
+### Local Smart Meter Interface (Offline Resilience)
+
+For true offline resilience, we read the meter's **HAN/P1 Port** directly. This provides the "Active Tariff Register" (e.g., Rate 1 vs Rate 2) even if the internet is down.
+
+```yaml
+LocalSmartMeter:
+  interface: "p1_port"                # serial_p1, zigbee_se, etc.
+  device: "/dev/ttyUSB1"
+  baud_rate: 115200
+  
+  # Map meter register indices to internal Tariff states
+  tariff_map:
+    "0001":                           # Meter says "Rate 1"
+      tariff_mode: "off_peak"
+      fallback_price: 0.075           # Use this price if API is unreachable
+      
+    "0002":                           # Meter says "Rate 2"
+      tariff_mode: "peak"
+      fallback_price: 0.35
+      
+  # Actions on change
+  on_tariff_change:
+    - trigger: "peak_start"
+      action: "shed_loads"
+      parameters: { categories: ["flexible", "discretionary"] }
+```
 ```
 
 ---

@@ -43,6 +43,7 @@ We are extremely close. The data model, offline logic, and security model are ro
 | **MED** | **USB Backup Contradiction** | `backup.md` vs `commissioning.md` | `usb: enabled: true ... (optional)` vs `MANDATORY ... USB stick` | Installers will skip the USB drive, violating the "Physical Handover" principle. | Change `backup.md` to `usb: required_for_handover`. |
 | **MED** | **Load Shedding Target Ambiguity** | `domains/energy.md` / Load Management | `device_id: "fridge-kitchen"` | A fridge on a CT clamp cannot be shed. Logic implies control where none may exist. | Explicitly require `target_device_id` in Energy Load config to be a *controllable* switch/relay. |
 | **LOW** | **Broken Doc Link** | `operations/maintenance.md` | `depends_on: - operations/backup.md` | File does not exist. (Is in `resilience/backup.md`). | Update path. |
+| **ENHANCE**| **Offline Tariff Awareness** | `domains/energy.md` / Smart Meter | *New Feature* | User noted reliance on cloud API for pricing. | Added `LocalSmartMeter` spec to read HAN/P1 tariff index for offline price switching. |
 
 ---
 
