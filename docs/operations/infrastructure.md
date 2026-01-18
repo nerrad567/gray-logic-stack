@@ -10,7 +10,7 @@ depends_on:
 
 # Infrastructure & Data Strategy
 
-To ensure "10-year stability", the infrastructure (OS, containers, database) must be reproducible, version-controlled, and robust against upgrades.
+To ensure "multi-decade stability", the infrastructure (OS, containers, database) must be reproducible, version-controlled, and robust against upgrades.
 
 ---
 

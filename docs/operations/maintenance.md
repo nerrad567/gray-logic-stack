@@ -10,7 +10,7 @@ depends_on:
 
 # System Maintenance Procedures
 
-This document defines standard operating procedures for maintaining a Gray Logic system over its 10-year lifecycle, specifically focusing on hardware replacement (RMA) and data integrity.
+This document defines standard operating procedures for maintaining a Gray Logic system over its multi-decade lifecycle, specifically focusing on hardware replacement (RMA) and data integrity.
 
 ---
 
@@ -68,7 +68,7 @@ If the Gray Logic Core server (Industrial PC) fails, the entire system configura
 
 ## 3. Database Maintenance
 
-To ensure performance over 10 years, the database requires periodic grooming.
+To ensure performance over decades, the database requires periodic grooming.
 
 ### Time-Series Retention (InfluxDB)
 

@@ -24,7 +24,7 @@ All development decisions must satisfy the **7 Hard Rules** defined in [principl
 1. **Physical controls always work** — Wall switches function even if all software is down
 2. **Life safety systems are independent** — Fire alarms, E-stops use certified hardware
 3. **No cloud dependencies for core operation** — Full function without internet
-4. **Ten-year deployment horizon** — Systems deployed today work in 2036
+4. **Multi-decade deployment horizon** — Systems deployed today work in 2046
 5. **Open standards at field layer** — KNX, DALI, Modbus — no proprietary lock-in
 6. **Customer owns their system** — Full documentation, no dealer locks
 7. **Privacy by design** — Voice processed locally, no cloud surveillance
@@ -53,7 +53,7 @@ Within the boundaries of the Hard Rules, every implementation decision must sati
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Core | Go | Single binary, no runtime, 10-year stability |
+| Core | Go | Single binary, no runtime, multi-decade stability |
 | Database | SQLite | Embedded, zero maintenance, portable |
 | Time-Series | InfluxDB | PHM data, energy monitoring, historical trends |
 | Message Bus | MQTT (Mosquitto) | Simple, proven, debuggable |

@@ -11,7 +11,7 @@ This directory contains Architecture Decision Records — documents that capture
 
 ## Why ADRs?
 
-Gray Logic is designed for a 10-year deployment horizon. ADRs ensure:
+Gray Logic is designed for a multi-decade deployment horizon. ADRs ensure:
 - Future maintainers understand *why* decisions were made
 - Decisions aren't revisited without understanding original context
 - Trade-offs are documented for future reference

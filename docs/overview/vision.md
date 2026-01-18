@@ -89,7 +89,7 @@ Internet provides *optional enhancements*:
 
 **No golden handcuffs.** The customer owns their system.
 
-### 3. 10-Year Stability
+### 3. Multi-Decade Stability
 
 - Version-pinned deployments
 - Security patches only (no feature upgrades forced)
@@ -198,7 +198,7 @@ This is a **5-year part-time project** with no fixed deadline.
 
 When making any decision, ask:
 
-> "Will this still work and be supportable in 10 years, 
+> "Will this still work and be supportable in 20 years, 
 > without internet, without me, and without vendor cooperation?"
 
 If the answer is no, find another way.

@@ -1262,7 +1262,7 @@ MQTT is intentionally a single broker instance for Year 1-3. This is an architec
 1. **Simplicity** — One broker is easier to deploy, configure, and debug
 2. **Reduced latency** — No cluster coordination overhead
 3. **Sufficient for scope** — Single building, single server, ~1000 devices max
-4. **10-year stability** — Less complexity = fewer failure modes
+4. **Multi-decade stability** — Less complexity = fewer failure modes
 
 **Mitigations for MQTT Failure:**
 

@@ -89,8 +89,8 @@ This document summarizes the comprehensive audit process conducted during the Do
 3.  **Silence is dangerous.**
     *   Silent failures (shedding a clamp, ignoring a failed sensor) were common bugs in the spec. *Explicitly handle and log every failure mode.*
 
-4.  **The "10-Year" lens works.**
-    *   Asking "What happens in 2036?" successfully revealed issues like archive data loss and certificate rotation gaps. *Keep asking this question.*
+4.  **The "Multi-Decade" lens works.**
+    *   Asking "What happens in 2046?" successfully revealed issues like archive data loss and certificate rotation gaps. *Keep asking this question.*
 
 ---
 

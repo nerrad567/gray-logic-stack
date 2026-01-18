@@ -13,7 +13,7 @@ Accepted
 
 ## Context
 
-Gray Logic is designed for 10-year deployments with these requirements:
+Gray Logic is designed for multi-decade deployments with these requirements:
 - **Safe rollback** — Ability to revert to previous version if upgrade fails
 - **No data loss** — User data must never be accidentally deleted
 - **Reliability** — Upgrades should be low-risk operations
@@ -81,7 +81,7 @@ At major version (v2.0), we allow:
 2. Migration tool exports v1 data and imports to v2
 3. No in-place migration — v2 creates new database file
 
-This gives us ~10 years before cruft becomes a problem, by which time a v2 rewrite may be warranted anyway.
+This gives us decades before cruft becomes a problem, by which time a v2 rewrite may be warranted anyway.
 
 ## Implementation
 

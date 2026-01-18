@@ -11,7 +11,7 @@ depends_on:
 
 # Update and Upgrade Strategy
 
-This document defines how Gray Logic systems are updated, ensuring the 10-year deployment horizon while maintaining security and stability.
+This document defines how Gray Logic systems are updated, ensuring the multi-decade deployment horizon while maintaining security and stability.
 
 ---
 
@@ -19,7 +19,7 @@ This document defines how Gray Logic systems are updated, ensuring the 10-year d
 
 ### Update Philosophy
 
-Gray Logic follows a conservative update strategy aligned with the 10-year deployment horizon:
+Gray Logic follows a conservative update strategy aligned with the multi-decade deployment horizon:
 
 1. **Stability over features** — Security patches prioritized over new features
 2. **No forced updates** — Customer chooses when to update
@@ -536,7 +536,7 @@ updates:
 
 ## Related Documents
 
-- [Principles](../overview/principles.md) — 10-year deployment horizon
+- [Principles](../overview/principles.md) — Multi-decade deployment horizon
 - [Backup and Recovery](../resilience/backup.md) — Backup procedures
 - [Security Model](../architecture/security-model.md) — Security update handling
 - [Monitoring](monitoring.md) — System health monitoring

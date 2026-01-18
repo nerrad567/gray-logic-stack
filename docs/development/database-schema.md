@@ -10,7 +10,7 @@ depends_on:
 
 # Database Schema Strategy
 
-This document defines the rules for database schema design and evolution. To support the "10-year stability" goal and reliable rollbacks, we enforce strict **Additive-Only** schema policies.
+This document defines the rules for database schema design and evolution. To support the "multi-decade stability" goal and reliable rollbacks, we enforce strict **Additive-Only** schema policies.
 
 ---
 
@@ -82,7 +82,7 @@ Every schema change must pass the **Rollback Test**:
 
 ## Version 2.0 Strategy
 
-If the schema accumulates too much "cruft" (unused columns) over 10 years:
+If the schema accumulates too much "cruft" (unused columns) over decades:
 1.  **Major Release (v2.0):** This is the only time destructive changes are allowed.
 2.  **Migration Tool:** A specialized tool exports v1 data, transforms it, and imports it into a clean v2 schema.
 3.  **No In-Place Upgrade:** v2 creates a *new* database file.

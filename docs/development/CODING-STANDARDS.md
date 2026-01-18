@@ -22,7 +22,7 @@ This document defines how we write, document, and test Gray Logic code.
 **Every module, every function, every non-trivial block must be documented.**
 
 Why?
-1. **10-year horizon** — Future maintainers (including future you) need to understand intent
+1. **Multi-decade horizon** — Future maintainers (including future you) need to understand intent
 2. **Handover requirement** — Customers get full source; it must be comprehensible
 3. **Security audits** — Auditors need to understand what code does without running it
 4. **Onboarding** — New developers learn faster from good docs
@@ -1152,7 +1152,7 @@ go mod vendor
 ```
 
 **Commit `vendor/` directory:**
-- Ensures reproducible builds in 10 years
+- Ensures reproducible builds in 10+ years
 - No dependency on external package registries
 
 ### Dependency Selection

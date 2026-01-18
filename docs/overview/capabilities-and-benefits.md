@@ -28,7 +28,7 @@ Gray Logic is a **future-proof, offline-first building intelligence platform** d
 | **Offline-First** | 99%+ functionality without internet | Voice, automation, and all local control work identically with the cable cut |
 | **No Lock-In** | Customer owns their system | Open standards (KNX, DALI, Modbus), open source core, full documentation handover |
 | **Safety-First** | Physical controls always work | Wall switches work even if server, network, and internet all fail |
-| **10-Year Horizon** | Install once, run for a decade | Version-pinned deployments, no forced updates, proven technologies |
+| **Multi-Decade Horizon** | Install once, run for decades | Version-pinned deployments, no forced updates, proven technologies |
 
 ### At a Glance
 
@@ -246,7 +246,7 @@ REQUIRES INTERNET (optional enhancements):
 |---------|---------|--------|
 | **Energy Management** | Lower bills without effort | 20-40% reduction in heating/cooling costs |
 | **Privacy First** | No creeping surveillance | 0 bytes of voice/video to cloud |
-| **10-Year Horizon** | Investment protection | Won't be "obsolete" in 3 years |
+| **Multi-Decade Horizon** | Investment protection | Won't be "obsolete" in 3 years |
 | **One App** | Simplified control | Replaces 5-6 fragmented apps |
 | **Healthy Home** | Better sleep and air | CO2 automation + circadian lighting |
 
@@ -303,7 +303,7 @@ Home Assistant ●          │
 | **PHM** | ✅ Tier 1-3 | ❌ | ❌ | ❌ | ❌ |
 | **No dealer lock-in** | ✅ | ❌ | ❌ | ⚠️ | ✅ |
 | **Professional support** | ✅ | ✅ | ✅ | ✅ | ❌ |
-| **10-year stability** | ✅ Designed | ⚠️ | ⚠️ | ✅ | ❌ |
+| **Multi-decade stability** | ✅ Designed | ⚠️ | ⚠️ | ✅ | ❌ |
 | **Typical project** | £8k-40k | £50k-200k | £15k-60k | £10k-30k | £2k-10k |
 
 ### Why Choose Gray Logic?
@@ -315,7 +315,7 @@ Home Assistant ●          │
 | Affordable mid-market | Control4 | Lower cost, no dealer markup |
 | True offline | Most systems | Internet ≠ requirement |
 | Privacy | Alexa-dependent | Local voice, no cloud surveillance |
-| 10-year lifespan | Consumer IoT | Designed for longevity |
+| Multi-decade lifespan | Consumer IoT | Designed for longevity |
 
 ---
 
@@ -388,7 +388,7 @@ Gray Logic reimagines the "smart home" not as a collection of gadgets, but as **
 
 1. **Works without internet** — The building keeps running
 2. **No vendor lock-in** — You own your system
-3. **10-year stability** — Install once, run for a decade
+3. **Multi-decade stability** — Install once, run for decades
 4. **Privacy by design** — Local processing, no surveillance
 5. **Professional quality** — Not a hobby project
 

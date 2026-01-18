@@ -33,7 +33,7 @@ Modbus is a serial communication protocol published by Modicon in 1979. It has b
 | **Energy monitoring** | Power meters, CT clamps, solar inverters |
 | **HVAC** | Commercial equipment, BMS integration |
 | **Open standard** | Widely implemented, vendor-neutral |
-| **10-year stability** | Unchanged protocol, long-term support |
+| **Multi-decade stability** | Unchanged protocol, long-term support |
 
 ### Modbus Variants
 

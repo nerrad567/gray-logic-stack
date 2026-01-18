@@ -60,7 +60,7 @@ These rules are **absolute**. If a decision requires breaking one of these, it i
 - Push notifications (queue locally if unavailable)
 - AI enhancement queries (local AI handles basics)
 
-### 4. Ten-Year Deployment Horizon
+### 4. Multi-Decade Deployment Horizon
 
 **Systems deployed today must work in 2036 with:**
 - Security patches only (no forced feature updates)

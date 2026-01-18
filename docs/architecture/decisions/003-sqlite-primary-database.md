@@ -46,7 +46,7 @@ Key factors:
 3. **Battle-tested** — SQLite is used in billions of devices worldwide
 4. **Reliable** — Survives power loss with WAL journaling
 5. **Sufficient performance** — More than adequate for 500 devices, thousands of entities
-6. **10-year stability** — SQLite has excellent backward compatibility
+6. **Multi-decade stability** — SQLite has excellent backward compatibility
 7. **STRICT mode** — Enforces type safety (SQLite 3.37+)
 
 ## Consequences

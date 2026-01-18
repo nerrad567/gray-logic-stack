@@ -409,7 +409,7 @@ The system uses strict resource limits to prioritize Automation over Intelligenc
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| **Core** | Go | Single binary, no runtime, cross-compiles, 10-year stability |
+| **Core** | Go | Single binary, no runtime, cross-compiles, multi-decade stability |
 | **Database** | SQLite | Embedded, zero maintenance, reliable |
 | **Time-Series** | InfluxDB | PHM data, energy monitoring |
 | **Message Bus** | MQTT (Mosquitto) | Simple, proven, debuggable |

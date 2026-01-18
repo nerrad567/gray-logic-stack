@@ -18,7 +18,7 @@ Gray Logic is a professional building automation platform targeting the underser
 - Open source software (transparency, no vendor lock-in)
 - Custom hardware designed for reliability
 - Built by an electrician who understands real-world installation
-- 10-year deployment commitment
+- Multi-decade deployment commitment
 - True offline operation
 
 **Target price point:** £8,000 - £40,000 (comparable to an expensive home rewire)
@@ -165,14 +165,14 @@ Gray Logic software is released as open source. This is a deliberate strategic d
 Proprietary systems are black boxes. Customers must trust:
 - That the software does what it claims
 - That there are no backdoors or data collection
-- That the company will exist in 10 years
+- That the company will exist in 20 years
 - That they won't be held hostage for support
 
 Open source eliminates these concerns. Customers (or their representatives) can verify everything.
 
 #### 2. Longevity Guarantee
 
-The 10-year deployment commitment is credible because:
+The multi-decade deployment commitment is credible because:
 - Source code is publicly available
 - Any competent developer can maintain it
 - Community can continue development if original author stops
@@ -307,12 +307,12 @@ The **license** (GPL v3) controls the code. The **trademark** ("Gray Logic") con
 
 **Customer benefit:** "Designed by someone who's actually installed these systems."
 
-### 4. 10-Year Deployment Commitment
+### 4. Multi-Decade Deployment Commitment
 
 **The Problem:** Technology companies chase new features, deprecate old systems, and force upgrades. A system installed today may be unsupported in 3 years.
 
 **Gray Logic Solution:**
-- Explicit 10-year deployment target
+- Explicit multi-decade deployment target
 - Version-pinned deployments (no forced updates)
 - Security patches without feature churn
 - Technology choices made for longevity

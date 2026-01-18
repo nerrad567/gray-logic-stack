@@ -34,12 +34,12 @@ We considered several languages:
 **Use Go for Gray Logic Core.**
 
 Key factors:
-1. **Single binary deployment** — No runtime dependencies means simpler deployment and fewer failure modes over 10 years
+1. **Single binary deployment** — No runtime dependencies means simpler deployment and fewer failure modes over decades
 2. **Concurrency model** — Goroutines and channels are ideal for handling concurrent device state updates
 3. **Fast compilation** — Rapid development cycle
 4. **Mature ecosystem** — Stable libraries for MQTT, SQLite, HTTP
 5. **Cross-compilation** — Easy to build for ARM (Raspberry Pi) and x64 (NUC)
-6. **10-year viability** — Go has strong backward compatibility guarantees
+6. **Multi-decade viability** — Go has strong backward compatibility guarantees
 
 ## Consequences
 

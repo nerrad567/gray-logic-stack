@@ -39,7 +39,7 @@ Gray Logic provides two complementary interfaces:
 ### Design Principles
 
 1. **Offline-first** — API works without internet; authentication is local
-2. **10-year stability** — Versioned URLs; backwards compatibility guaranteed
+2. **Multi-decade stability** — Versioned URLs; backwards compatibility guaranteed
 3. **Simple and predictable** — RESTful conventions, consistent patterns
 4. **Secure by default** — Authentication required, audit logging enabled
 

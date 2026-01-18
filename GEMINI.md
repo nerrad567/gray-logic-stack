@@ -6,7 +6,7 @@ This file provides project-specific guidance for the Gemini CLI agent when worki
 
 **Gray Logic** is a next-generation building intelligence platform designed as a central nervous system for properties. It emphasizes complete openness, true offline capability, and zero vendor lock-in.
 
-- **Core Philosophy**: Offline-first (99%+ functionality without internet), open standards (KNX, DALI, Modbus), safety-first, 10-year deployment stability.
+- **Core Philosophy**: Offline-first (99%+ functionality without internet), open standards (KNX, DALI, Modbus), safety-first, multi-decade deployment stability.
 - **Current Status**: v1.0 Architecture Phase (January 2026). Custom **Gray Logic Core** being built in Go.
 
 ## Architecture
@@ -44,7 +44,7 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 1. **Physical controls always work**: Software failure must not break wall switches.
 2. **Life safety is independent**: Fire alarms and E-stops use certified hardware; the stack only observes.
 3. **No cloud dependencies for core**: Internet loss must not affect local automation.
-4. **10-year deployment horizon**: Use stable, version-pinned dependencies.
+4. **Multi-decade deployment horizon**: Use stable, version-pinned dependencies.
 5. **Privacy by design**: Local processing of voice and surveillance data.
 
 ## Development Standards
@@ -71,7 +71,7 @@ Follow the directory structure defined in `docs/architecture/core-internals.md`:
 When working on this project, adhere to these rules:
 
 1. **Be Proactive & Analytical**: Gemini is expected to analyze the entire context (architecture, data models, domain specs) before proposing or implementing changes.
-2. **Respect the 10-Year Goal**: Prefer stable Go patterns over bleeding-edge features. Avoid unnecessary external dependencies.
+2. **Respect the Multi-Decade Goal**: Prefer stable Go patterns over bleeding-edge features. Avoid unnecessary external dependencies.
 3. **Offline-First Implementation**: When adding features, ensure they work entirely on the local network.
 4. **Security Mindset**: Always validate inputs, use parameterized queries, and never log sensitive data. Check `docs/development/SECURITY-CHECKLIST.md`.
 5. **Documentation Maintenance**: If you change code, you MUST update the corresponding documentation in `docs/` and the inline comments.

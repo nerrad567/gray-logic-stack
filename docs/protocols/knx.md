@@ -32,7 +32,7 @@ KNX is an international standard (ISO/IEC 14543-3) for building automation. It p
 |-------------|----------------|
 | **Physical controls always work** | Devices respond directly to bus commands, no Gray Logic dependency |
 | **Open standard** | ISO/IEC 14543-3, no vendor lock-in |
-| **10-year deployment** | Products available and supported for decades |
+| **Multi-decade deployment** | Products available and supported for decades |
 | **Professional quality** | Designed for commercial/high-end residential |
 
 ### Gray Logic's Role
