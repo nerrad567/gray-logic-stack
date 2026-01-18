@@ -476,6 +476,32 @@ The repository has matured significantly. The issues identified are subtler and 
 
 ---
 
+## Low Severity Fixes Log
+
+### L1: Security Domain PIN Transmission Plaintext on MQTT (COMPLETED 2026-01-18)
+- **Fix:** Added mandate in `docs/domains/security.md` requiring TLS (MQTTS) or payload encryption for PIN transmission.
+
+### L3: Bootstrapping Claim Token Log Scrubbing Incomplete (COMPLETED 2026-01-18)
+- **Fix:** Updated `docs/operations/bootstrapping.md` to prioritize ephemeral stdout display and token rotation over unreliable log scrubbing.
+
+### L6: Handover Pack References Undocumented Weather Feature (COMPLETED 2026-01-18)
+- **Fix:** Updated `docs/deployment/handover-pack-template.md` to explicitly mark weather features as optional/planned (Year 2+) additions.
+
+### L8: Update Rollback with Partial Migration State (COMPLETED 2026-01-18)
+- **Fix:** Added explicit `[TIMED_DATA_LOSS]` warnings to `docs/operations/updates.md` regarding rollback behavior.
+
+### L2: PHM Sensor Health Layer Missing (COMPLETED 2026-01-18)
+- **Fix:** Added "Sensor Health Validation" layer to `docs/intelligence/phm.md` to prevent false positives from failed sensors.
+
+### L4: KNX Bridge Command Timeout Assumes Success (COMPLETED 2026-01-18)
+- **Fix:** Updated `docs/protocols/knx.md` to mark timed-out commands as "unconfirmed" rather than assuming success, enforcing explicit feedback states.
+
+### L5: WebSocket Ticket 60-Second Window Too Tight (COMPLETED 2026-01-18)
+- **Fix:** Extended WebSocket ticket lifetime to 120 seconds in `docs/interfaces/api.md` to accommodate slower networks.
+
+### L7: PHM Over-Specification Expectation Gap (COMPLETED 2026-01-18)
+- **Fix:** Resolved by Strike 5. Added atomic "PHM Capability Tiers" to `docs/intelligence/phm.md` to manage equipment expectations.
+
 ## Appendix: Files Reviewed
 
 | File | Lines | Status |
