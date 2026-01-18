@@ -435,7 +435,7 @@ See [Subscription Pricing](../business/subscription-pricing.md) for detailed pri
 |---------|------|---------|--------|---------|--------|
 | **Local control** | ✅ | ✅ | ✅ | ✅ | ✅ |
 | **VPN access** | ✅ | ✅ | ✅ | ✅ | ✅ |
-| **Push notifications** | ✅ | ✅ | ✅ | ✅ | ✅ |
+| **Push notifications** | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Cloud API relay** | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Cloud config backup** | ❌ | ✅ | ✅ | ✅ | ✅ |
 | **Remote CCTV viewing** | ❌ | ❌ | ✅ | ✅ | ✅ |
