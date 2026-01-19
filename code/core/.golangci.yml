@@ -202,6 +202,9 @@ linters-settings:
   # Misspell settings
   misspell:
     locale: UK  # Gray Logic uses British English
+    # Words to ignore (brand names, technical terms)
+    ignore-words:
+      - mosquitto  # Eclipse Mosquitto MQTT broker
 
   # Revive (replacement for golint)
   revive:

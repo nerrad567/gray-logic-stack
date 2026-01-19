@@ -3,7 +3,24 @@
     "allow": [
       "WebSearch",
       "Bash(git add:*)",
-      "Bash(git commit:*)"
+      "Bash(git commit:*)",
+      "Bash(git fetch:*)",
+      "Bash(git pull:*)",
+      "Bash(go get:*)",
+      "Bash(go mod tidy:*)",
+      "Bash(golangci-lint run:*)",
+      "Bash(make build:*)",
+      "Bash(tree:*)",
+      "Bash(gofmt:*)",
+      "Bash(make test:*)",
+      "Bash(make lint:*)",
+      "Bash(make check:*)",
+      "Bash(go fmt:*)",
+      "Bash(go vet:*)",
+      "Bash(go test:*)",
+      "Bash(docker compose:*)",
+      "Bash(docker ps:*)",
+      "Bash(docker logs:*)"
     ]
   },
   "outputStyle": "Explanatory"

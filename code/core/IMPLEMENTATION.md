@@ -6,16 +6,16 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-19 (Session 3)
-**Current milestone:** M1.1 Core Infrastructure (85% complete)
+**Last session:** 2026-01-19 (Session 4)
+**Current milestone:** M1.1 Core Infrastructure (90% complete)
 
-### Next Task: MQTT Client Package
+### Next Task: InfluxDB Client Package
 
 **What to do:**
-1. Create `internal/infrastructure/mqtt/` package
-2. Implement connection with auto-reconnect
-3. Publish/subscribe helpers
-4. Integration test against running Mosquitto
+1. Create `internal/infrastructure/influxdb/` package
+2. Implement connection with health check
+3. Write helpers for metrics ingestion
+4. Integration test against running InfluxDB
 
 **Docker services running:**
 ```bash
@@ -29,8 +29,8 @@ make build && make test  # Verify everything still works
 ```
 
 **Reference docs:**
-- `docs/protocols/mqtt-topics.md` — Topic structure (if exists)
-- `docs/architecture/system-overview.md` — Message flow
+- `docs/technical/packages/` — Package design documentation
+- `docs/technical/decisions/` — Implementation decision records
 
 ---
 
@@ -42,7 +42,7 @@ make build && make test  # Verify everything still works
 | 2 | Initial schema migration | ✅ Done | Task 1 |
 | 3 | Database tests | ✅ Done | Task 2 |
 | 4 | Docker Compose (Mosquitto + InfluxDB) | ✅ Done | - |
-| 5 | MQTT client package | ⬜ Pending | Task 4 |
+| 5 | MQTT client package | ✅ Done | Task 4 |
 | 6 | InfluxDB client package | ⬜ Pending | Task 4 |
 | 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5 |
 | 8 | Basic structured logging | ⬜ Pending | - |
@@ -470,9 +470,99 @@ internal/infrastructure/database/
 
 ---
 
+### Session 4: 2026-01-19 — MQTT Client Package
+
+**Goal:** Implement MQTT client package with auto-reconnect and subscription management
+
+**Steps Taken:**
+
+1. **Added paho.mqtt.golang dependency**
+   ```bash
+   go get github.com/eclipse/paho.mqtt.golang@v1.4.3
+   ```
+   - Eclipse Foundation library, 10+ years stable
+   - MIT licensed, widely used in production
+
+2. **Created package structure**
+   ```
+   internal/infrastructure/mqtt/
+   ├── doc.go          # Package documentation
+   ├── errors.go       # ErrNotConnected, etc.
+   ├── options.go      # Connection options builder
+   ├── topics.go       # Topic namespace helpers
+   ├── client.go       # Main client with lifecycle
+   ├── publish.go      # Publish with QoS
+   ├── subscribe.go    # Subscribe with tracking
+   └── client_test.go  # Integration tests
+   ```
+
+3. **Implemented key features:**
+
+   | Feature | Implementation |
+   |---------|----------------|
+   | **Auto-reconnect** | Paho built-in with exponential backoff |
+   | **LWT (Last Will)** | Published on unexpected disconnect |
+   | **Subscription tracking** | `map[string]subscription` restored on reconnect |
+   | **Handler wrapping** | Panic recovery prevents crash |
+   | **Thread safety** | RWMutex for subscriptions and state |
+
+4. **Topic namespace design:**
+   ```go
+   mqtt.Topics{}.BridgeState("knx-01", "light-living")
+   // → "graylogic/bridge/knx-01/state/light-living"
+   
+   mqtt.Topics{}.SystemStatus()
+   // → "graylogic/system/status"
+   ```
+
+5. **Fixed synchronous connected state issue:**
+   - OnConnectHandler runs asynchronously
+   - Set `connected = true` immediately after Connect() returns
+   - Prevents race where IsConnected() returns false after successful connect
+
+**Dependencies Added:**
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| github.com/eclipse/paho.mqtt.golang | v1.4.3 | MQTT client library |
+
+**Files Created:**
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| doc.go | 57 | Package documentation with usage examples |
+| errors.go | ~35 | Domain-specific error types |
+| options.go | ~100 | Connection options and LWT configuration |
+| topics.go | ~200 | Topic builders for namespace |
+| client.go | 259 | Main client with connect/close/health |
+| publish.go | ~60 | Publish with timeout and QoS |
+| subscribe.go | ~100 | Subscribe/Unsubscribe with tracking |
+| client_test.go | ~500 | Integration tests against Mosquitto |
+
+**Technical Decisions:**
+
+| Decision | Rationale |
+|----------|-----------|
+| Subscription tracking | Restore subscriptions after reconnect |
+| Synchronous connected state | Avoid race condition with async callback |
+| Wrapped handlers | Panic recovery prevents broker disconnect |
+| Topic builders | Type-safe topic construction |
+
+**Issues Encountered:**
+
+| Issue | Resolution |
+|-------|------------|
+| Connect callback async | Set connected state synchronously after Connect() |
+| Handler panic crashes | Wrap all handlers with recover() |
+
+**Outcome:** MQTT package complete with auto-reconnect, subscription tracking, and topic helpers. M1.1 progress: 85% → 90%.
+
+---
+
 ## Notes
 
 - Project started: 2026-01-18
 - Using UK English throughout (per project standards)
 - All timestamps in UTC (per CODING-STANDARDS.md)
 - Configuration supports environment variable overrides for secrets
+
