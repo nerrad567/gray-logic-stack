@@ -127,12 +127,12 @@ Multiple Rooms → Scenes → Modes → Scheduling → Protocols
 
 ---
 
-### Year 3: Integration
+### Year 3: Integration & Resilience
 
-**Goal:** Audio/video distribution, security panel integration, CCTV.
+**Goal:** Audio/video distribution, security panel integration, CCTV, and System Supervisor foundation.
 
 ```
-Audio Matrix → Video Matrix → Security Panel → CCTV
+Audio Matrix → Video Matrix → Security Panel → CCTV → Supervisor Foundation
 ```
 
 **Milestones:**
@@ -142,12 +142,16 @@ Audio Matrix → Video Matrix → Security Panel → CCTV
 4. **M3.4** — CCTV integration (RTSP/ONVIF)
 5. **M3.5** — BACnet bridge (commercial HVAC)
 6. **M3.6** — Advanced conditional logic engine
+7. **M3.7** — Health aggregation system (Supervisor Level 1)
+8. **M3.8** — Machine-readable error catalog (see [Error Catalog Specification](../errors/catalog.md))
 
 **Success Criteria:**
 - Security events trigger automation (e.g., "Armed Away" → activate scene)
 - Audio zones respond to presence detection
 - Complex conditions work: "If motion in hallway AND mode=Night AND time=22:00-06:00 THEN pathway lights"
 - CCTV streams accessible from wall panels
+- Health endpoint returns unified status of all subsystems
+- Error logs include machine-readable error IDs
 
 **Security Requirements:**
 - CCTV streams encrypted in transit
@@ -156,12 +160,12 @@ Audio Matrix → Video Matrix → Security Panel → CCTV
 
 ---
 
-### Year 4: Intelligence
+### Year 4: Intelligence & Autonomous Recovery
 
-**Goal:** Voice control, predictive health monitoring, and local AI insights.
+**Goal:** Voice control, predictive health monitoring, local AI insights, and full System Supervisor with chaos testing.
 
 ```
-Voice Pipeline → PHM Baselines → AI Engine → Learning
+Voice Pipeline → PHM Baselines → AI Engine → Learning → Supervisor → Chaos Testing
 ```
 
 **Milestones:**
@@ -170,17 +174,29 @@ Voice Pipeline → PHM Baselines → AI Engine → Learning
 3. **M4.3** — Local AI engine for natural language commands
 4. **M4.4** — Pattern learning for occupancy prediction
 5. **M4.5** — Energy insights and recommendations
+6. **M4.6** — System Supervisor with playbook-based recovery (see [Supervisor Specification](../architecture/supervisor.md))
+7. **M4.7** — Simulation framework for chaos testing (see [Simulation Specification](simulation.md))
+8. **M4.8** — Circuit breaker patterns for all external connections
+9. **M4.9** — Failure Memory system (see [Failure Memory Specification](../architecture/failure-memory.md))
+10. **M4.10** — Workflow Learning system (see [Workflow Learning Specification](../architecture/workflow-learning.md))
 
 **Success Criteria:**
 - Voice commands execute in <2 seconds
 - Voice data never leaves site (local processing only)
 - PHM detects failing HVAC fan 48hrs before failure
 - AI provides actionable energy recommendations
+- Supervisor automatically recovers from MQTT broker failure
+- Chaos tests validate recovery under simulated failures
+- AI agents can reference error catalog for automated diagnosis
+- System learns from failures and avoids repeating mistakes
+- Playbooks improve over time based on actual outcomes
 
 **Security Requirements:**
 - Voice data processed and discarded locally
 - PHM alerts are warnings only (no automatic action)
 - AI queries don't expose device state externally
+- Supervisor actions logged in immutable audit trail
+- Playbook changes require human approval
 
 ---
 

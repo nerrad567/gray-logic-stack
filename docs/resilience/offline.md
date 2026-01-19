@@ -7,7 +7,11 @@ depends_on:
   - overview/principles.md
   - architecture/system-overview.md
   - architecture/core-internals.md
+see_also:
+  - architecture/supervisor.md       # Future: Intelligent orchestration layer
+  - errors/catalog.md                # Future: Machine-readable error IDs
 ---
+
 
 # Offline Behavior Specification
 

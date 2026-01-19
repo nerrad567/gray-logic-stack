@@ -153,3 +153,44 @@ This document breaks down the Year 1 milestones defined in `DEVELOPMENT-STRATEGY
 ### 1.6.3 API
 - [ ] `GET /api/v1/scenes`
 - [ ] `POST /api/v1/scenes/{id}/activate`
+
+---
+
+## Future Roadmap (Year 2+)
+
+The following specifications cover milestones beyond Year 1. These are documented for planning purposes but not part of the current implementation focus.
+
+### Year 2: Automation Expansion
+
+See [DEVELOPMENT-STRATEGY.md](DEVELOPMENT-STRATEGY.md#year-2-automation-expansion) for milestones M2.1–M2.8.
+
+### Year 3: Integration & Resilience
+
+See [DEVELOPMENT-STRATEGY.md](DEVELOPMENT-STRATEGY.md#year-3-integration--resilience) for milestones M3.1–M3.8.
+
+Key new specifications:
+- [System Supervisor](../architecture/supervisor.md) — Intelligent orchestration for system stability (M3.7)
+- [Error Catalog](../errors/catalog.md) — Machine-readable error IDs for AI agents (M3.8)
+
+### Year 4: Intelligence & Autonomous Recovery
+
+See [DEVELOPMENT-STRATEGY.md](DEVELOPMENT-STRATEGY.md#year-4-intelligence--autonomous-recovery) for milestones M4.1–M4.10.
+
+Key new specifications:
+- [Simulation Framework](simulation.md) — Chaos testing and sandbox environments (M4.7)
+- [Failure Memory](../architecture/failure-memory.md) — Learning from actual failures (M4.9)
+- [Workflow Learning](../architecture/workflow-learning.md) — Improving playbooks over time (M4.10)
+
+---
+
+## Related Documents
+
+- [Development Strategy](DEVELOPMENT-STRATEGY.md) — 5-year roadmap overview
+- [Coding Standards](CODING-STANDARDS.md) — How to write code
+- [Testing Strategy](testing-strategy.md) — How to test code
+- [Development Environment](environment.md) — Local development setup
+- [System Supervisor](../architecture/supervisor.md) — Future resilience layer
+- [Error Catalog](../errors/catalog.md) — Machine-readable error system
+- [Simulation Framework](simulation.md) — Chaos testing framework
+- [Failure Memory](../architecture/failure-memory.md) — Learning from failures
+- [Workflow Learning](../architecture/workflow-learning.md) — Playbook improvement
