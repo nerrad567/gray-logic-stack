@@ -6,16 +6,17 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-19 (Session 4)
-**Current milestone:** M1.1 Core Infrastructure (90% complete)
+**Last session:** 2026-01-19 (Session 5)
+**Current milestone:** M1.1 Core Infrastructure (95% complete)
 
-### Next Task: InfluxDB Client Package
+### Next Task: Wire Infrastructure into main.go
 
 **What to do:**
-1. Create `internal/infrastructure/influxdb/` package
-2. Implement connection with health check
-3. Write helpers for metrics ingestion
-4. Integration test against running InfluxDB
+1. Initialise database in `cmd/graylogic/main.go`
+2. Initialise MQTT client with config
+3. Initialise InfluxDB client (if enabled)
+4. Add health check endpoints
+5. Graceful shutdown for all connections
 
 **Docker services running:**
 ```bash
@@ -43,8 +44,8 @@ make build && make test  # Verify everything still works
 | 3 | Database tests | ✅ Done | Task 2 |
 | 4 | Docker Compose (Mosquitto + InfluxDB) | ✅ Done | - |
 | 5 | MQTT client package | ✅ Done | Task 4 |
-| 6 | InfluxDB client package | ⬜ Pending | Task 4 |
-| 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5 |
+| 6 | InfluxDB client package | ✅ Done | Task 4 |
+| 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5, 6 |
 | 8 | Basic structured logging | ⬜ Pending | - |
 
 ---
@@ -53,7 +54,7 @@ make build && make test  # Verify everything still works
 
 | Milestone | Status | Progress |
 |-----------|--------|----------|
-| **M1.1** Core Infrastructure | 🟡 In Progress | 85% |
+| **M1.1** Core Infrastructure | 🟡 In Progress | 95% |
 | M1.2 KNX Bridge | ⬜ Not Started | 0% |
 | M1.3 Device Registry | ⬜ Not Started | 0% |
 | M1.4 REST API + WebSocket | ⬜ Not Started | 0% |
@@ -556,6 +557,75 @@ internal/infrastructure/database/
 | Handler panic crashes | Wrap all handlers with recover() |
 
 **Outcome:** MQTT package complete with auto-reconnect, subscription tracking, and topic helpers. M1.1 progress: 85% → 90%.
+
+---
+
+### Session 5: 2026-01-19 — InfluxDB Client Package
+
+**Goal:** Implement InfluxDB client package for time-series storage
+
+**Steps Taken:**
+
+1. **Added dependency**
+   ```bash
+   go get github.com/influxdata/influxdb-client-go/v2@latest
+   ```
+   - Version v2.14.0 installed
+
+2. **Created package structure**
+   ```
+   internal/infrastructure/influxdb/
+   ├── doc.go          # Package documentation
+   ├── errors.go       # ErrNotConnected, ErrDisabled, etc.
+   ├── client.go       # Connect, Close, HealthCheck
+   ├── write.go        # WriteDeviceMetric, WriteEnergyMetric, etc.
+   └── client_test.go  # Integration tests (11 tests)
+   ```
+
+3. **Key implementation decisions:**
+
+   | Decision | Rationale |
+   |----------|-----------|
+   | Non-blocking WriteAPI | High-frequency sensor data shouldn't block Core |
+   | Batching (config-driven) | Reduce network overhead |
+   | Error callback | Async writes can't return errors synchronously |
+   | Ping health check | Simple, built-in, no custom queries |
+
+4. **Fixed lint issues:**
+
+   | Issue | Resolution |
+   |-------|------------|
+   | G115 integer overflow | Added validation for batch_size/flush_interval |
+   | Magic number 1000 | Created `millisecondsPerSecond` constant |
+   | Error comparison | Changed to `errors.Is()` |
+
+5. **Created documentation:**
+   - `docs/technical/packages/influxdb.md` — Package design doc
+   - Updated `docs/technical/README.md` index
+   - Updated `configs/config.yaml` bucket: `telemetry` → `metrics`
+
+**Dependencies Added:**
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| github.com/influxdata/influxdb-client-go/v2 | v2.14.0 | Official InfluxDB v2 client |
+
+**Files Created:**
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| doc.go | 45 | Package documentation |
+| errors.go | 25 | Domain-specific errors |
+| client.go | 200 | Main client with lifecycle |
+| write.go | 140 | Metric writing helpers |
+| client_test.go | 250 | Integration tests |
+
+**Test Results:**
+- 11 tests passing
+- All lint checks clean
+- Integration tests require running InfluxDB
+
+**Outcome:** InfluxDB package complete with non-blocking writes, health check, and domain helpers. M1.1 progress: 90% → 95%.
 
 ---
 

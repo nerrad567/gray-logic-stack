@@ -15,6 +15,7 @@ This directory contains comprehensive documentation covering the **what**, **how
 | [database](packages/database.md) | SQLite with WAL mode, embedded migrations | Active |
 | [mqtt](packages/mqtt.md) | MQTT client with auto-reconnect | Active |
 | [config](packages/config.md) | YAML configuration with env overrides | Active |
+| [influxdb](packages/influxdb.md) | InfluxDB time-series for PHM/energy | Active |
 
 ### Architecture Docs
 
