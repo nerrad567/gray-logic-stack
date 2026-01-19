@@ -6,33 +6,31 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-19 (Session 2)
-**Current milestone:** M1.1 Core Infrastructure (70% complete)
+**Last session:** 2026-01-19 (Session 3)
+**Current milestone:** M1.1 Core Infrastructure (85% complete)
 
-### Next Task: Database Tests & Docker Compose
+### Next Task: MQTT Client Package
 
-**What to do (choose one):**
+**What to do:**
+1. Create `internal/infrastructure/mqtt/` package
+2. Implement connection with auto-reconnect
+3. Publish/subscribe helpers
+4. Integration test against running Mosquitto
 
-**Option A: Add Database Tests**
-1. Create `internal/infrastructure/database/database_test.go`
-2. Test connection, migrations, health check
-3. Use in-memory SQLite for fast tests (`:memory:`)
-
-**Option B: Docker Compose Setup**
-1. Create `docker-compose.yml` for Mosquitto + InfluxDB
-2. Configure volumes and networking
-3. Test local startup
+**Docker services running:**
+```bash
+docker compose ps  # Should show graylogic-mosquitto and graylogic-influxdb healthy
+```
 
 **Start command:**
 ```bash
 cd /home/darren/Development/Projects/gray-logic-stack/code/core
-make build  # Verify everything still works
-make lint   # Ensure code quality
+make build && make test  # Verify everything still works
 ```
 
 **Reference docs:**
-- `docs/development/database-schema.md` — Schema design
-- `docs/architecture/system-overview.md` — Service dependencies
+- `docs/protocols/mqtt-topics.md` — Topic structure (if exists)
+- `docs/architecture/system-overview.md` — Message flow
 
 ---
 
@@ -42,8 +40,8 @@ make lint   # Ensure code quality
 |---|------|--------|------------|
 | 1 | SQLite database package | ✅ Done | - |
 | 2 | Initial schema migration | ✅ Done | Task 1 |
-| 3 | Database tests | ⬜ Pending | Task 2 |
-| 4 | Docker Compose (Mosquitto + InfluxDB) | ⬜ Pending | - |
+| 3 | Database tests | ✅ Done | Task 2 |
+| 4 | Docker Compose (Mosquitto + InfluxDB) | ✅ Done | - |
 | 5 | MQTT client package | ⬜ Pending | Task 4 |
 | 6 | InfluxDB client package | ⬜ Pending | Task 4 |
 | 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5 |
@@ -55,7 +53,7 @@ make lint   # Ensure code quality
 
 | Milestone | Status | Progress |
 |-----------|--------|----------|
-| **M1.1** Core Infrastructure | 🟡 In Progress | 70% |
+| **M1.1** Core Infrastructure | 🟡 In Progress | 85% |
 | M1.2 KNX Bridge | ⬜ Not Started | 0% |
 | M1.3 Device Registry | ⬜ Not Started | 0% |
 | M1.4 REST API + WebSocket | ⬜ Not Started | 0% |
@@ -131,12 +129,12 @@ code/core/
 ### Remaining Tasks (M1.1)
 
 - [x] SQLite database package with migrations ✅
-- [ ] Database tests (in-memory SQLite)
+- [x] Database tests (80.4% coverage) ✅
+- [x] Docker Compose for Mosquitto + InfluxDB ✅
 - [ ] MQTT client package with auto-reconnect
-- [ ] Docker Compose for Mosquitto + InfluxDB
 - [ ] InfluxDB client package
 - [ ] Basic structured logging
-- [ ] Wire database into main.go
+- [ ] Wire everything into main.go
 
 ---
 
@@ -391,6 +389,84 @@ migrations/
 - **Deferred Rollback**: `defer tx.Rollback()` is no-op after commit
 
 **Outcome:** Database package complete. Migrations compile into binary. Ready for tests or Docker Compose setup.
+
+---
+
+### Session 3: 2026-01-19 — Database Tests & Docker Compose
+
+**Goal:** Add database tests and set up Docker infrastructure
+
+**Steps Taken:**
+
+1. **Created database tests**
+   - `database_test.go` — Connection, health check, transactions
+   - `migrations_test.go` — Migration apply, rollback, status
+   - `testdata/*.sql` — Embedded test fixtures
+   - Coverage: 80.4% of database package
+   - 21 test cases, all passing
+
+2. **Created Docker Compose infrastructure**
+   - File: `docker-compose.yml`
+   - Services: Mosquitto (MQTT), InfluxDB (time-series)
+   - **Isolation measures** (to protect existing media-stack):
+     - Project name: `graylogic`
+     - Network: `graylogic` (separate from `media-stack_default`)
+     - Ports bound to `127.0.0.1` only
+     - Container names: `graylogic-mosquitto`, `graylogic-influxdb`
+     - Volume names: `graylogic_*` prefix
+
+3. **Created Mosquitto configuration**
+   - File: `docker/mosquitto/config/mosquitto.conf`
+   - Listeners: 1883 (MQTT), 9001 (WebSocket)
+   - Anonymous access (dev only)
+   - Logging enabled for debugging
+
+4. **Verified isolation**
+   ```bash
+   # Gray Logic containers on separate network
+   docker network inspect graylogic  # Only graylogic containers
+
+   # Media stack unaffected
+   docker ps | grep jellyfin  # Still running
+
+   # Ports bound to localhost only
+   ss -tlnp | grep 1883  # Shows 127.0.0.1:1883
+   ```
+
+**Files Created:**
+
+```
+docker-compose.yml                    # Service definitions
+docker/
+├── mosquitto/
+│   └── config/
+│       └── mosquitto.conf            # Broker configuration
+└── influxdb/                         # (volumes managed by Docker)
+
+internal/infrastructure/database/
+├── database_test.go                  # 210 lines
+├── migrations_test.go                # 260 lines
+└── testdata/
+    ├── 20260101_000000_test.up.sql
+    └── 20260101_000000_test.down.sql
+```
+
+**Docker Services Running:**
+
+| Service | Container | Port | Status |
+|---------|-----------|------|--------|
+| Mosquitto | graylogic-mosquitto | 127.0.0.1:1883 | ✅ Healthy |
+| InfluxDB | graylogic-influxdb | 127.0.0.1:8086 | ✅ Healthy |
+
+**InfluxDB Credentials (dev):**
+- URL: http://127.0.0.1:8086
+- Username: admin
+- Password: graylogic-dev-password
+- Organisation: graylogic
+- Bucket: metrics
+- Token: graylogic-dev-token
+
+**Outcome:** Infrastructure complete. MQTT broker and time-series DB running locally. Ready for MQTT client package.
 
 ---
 
