@@ -6,46 +6,48 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-18 (Session 1)
-**Current milestone:** M1.1 Core Infrastructure (40% complete)
+**Last session:** 2026-01-19 (Session 2)
+**Current milestone:** M1.1 Core Infrastructure (70% complete)
 
-### Next Task: SQLite Database Package
+### Next Task: Database Tests & Docker Compose
 
-**What to do:**
-1. Create `internal/infrastructure/database/` package
-2. Implement connection manager with WAL mode
-3. Create migration runner
-4. Write `migrations/001_initial_schema.sql` with:
-   - `sites` table
-   - `areas` table
-   - `rooms` table
-   - `devices` table
-   - `audit_logs` table
+**What to do (choose one):**
+
+**Option A: Add Database Tests**
+1. Create `internal/infrastructure/database/database_test.go`
+2. Test connection, migrations, health check
+3. Use in-memory SQLite for fast tests (`:memory:`)
+
+**Option B: Docker Compose Setup**
+1. Create `docker-compose.yml` for Mosquitto + InfluxDB
+2. Configure volumes and networking
+3. Test local startup
 
 **Start command:**
 ```bash
 cd /home/darren/Development/Projects/gray-logic-stack/code/core
 make build  # Verify everything still works
+make lint   # Ensure code quality
 ```
 
 **Reference docs:**
-- `docs/data-model/entities.md` — Entity definitions
 - `docs/development/database-schema.md` — Schema design
-- `docs/development/CODING-STANDARDS.md` — Migration file format
+- `docs/architecture/system-overview.md` — Service dependencies
 
 ---
 
 ### Remaining M1.1 Tasks (in order)
 
-| # | Task | Depends On |
-|---|------|------------|
-| 1 | **SQLite database package** ← START HERE | - |
-| 2 | Initial schema migration | Task 1 |
-| 3 | Docker Compose (Mosquitto + InfluxDB) | - |
-| 4 | MQTT client package | Task 3 |
-| 5 | InfluxDB client package | Task 3 |
-| 6 | Wire config → main.go | Tasks 1, 4 |
-| 7 | Basic structured logging | - |
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | SQLite database package | ✅ Done | - |
+| 2 | Initial schema migration | ✅ Done | Task 1 |
+| 3 | Database tests | ⬜ Pending | Task 2 |
+| 4 | Docker Compose (Mosquitto + InfluxDB) | ⬜ Pending | - |
+| 5 | MQTT client package | ⬜ Pending | Task 4 |
+| 6 | InfluxDB client package | ⬜ Pending | Task 4 |
+| 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5 |
+| 8 | Basic structured logging | ⬜ Pending | - |
 
 ---
 
@@ -53,7 +55,7 @@ make build  # Verify everything still works
 
 | Milestone | Status | Progress |
 |-----------|--------|----------|
-| **M1.1** Core Infrastructure | 🟡 In Progress | 40% |
+| **M1.1** Core Infrastructure | 🟡 In Progress | 70% |
 | M1.2 KNX Bridge | ⬜ Not Started | 0% |
 | M1.3 Device Registry | ⬜ Not Started | 0% |
 | M1.4 REST API + WebSocket | ⬜ Not Started | 0% |
@@ -80,7 +82,7 @@ code/core/
 ├── internal/
 │   ├── infrastructure/
 │   │   ├── config/             # Configuration loading ✓
-│   │   ├── database/           # SQLite (pending)
+│   │   ├── database/           # SQLite + migrations ✓
 │   │   ├── mqtt/               # MQTT client (pending)
 │   │   └── api/                # HTTP server (pending)
 │   ├── device/
@@ -91,7 +93,9 @@ code/core/
 │       ├── scene/              # Scene engine (pending)
 │       └── scheduler/          # Time triggers (pending)
 ├── pkg/models/                 # Shared data structures (pending)
-├── migrations/                 # SQLite migrations (pending)
+├── migrations/                 # SQLite migrations ✓
+│   ├── embed.go
+│   └── *.sql
 ├── configs/config.yaml         # Default configuration ✓
 ├── tests/
 │   ├── integration/            # Integration tests (pending)
@@ -126,11 +130,13 @@ code/core/
 
 ### Remaining Tasks (M1.1)
 
-- [ ] SQLite database package with migrations
+- [x] SQLite database package with migrations ✅
+- [ ] Database tests (in-memory SQLite)
 - [ ] MQTT client package with auto-reconnect
 - [ ] Docker Compose for Mosquitto + InfluxDB
 - [ ] InfluxDB client package
 - [ ] Basic structured logging
+- [ ] Wire database into main.go
 
 ---
 
@@ -151,6 +157,7 @@ code/core/
 | Package | Version | Purpose |
 |---------|---------|---------|
 | gopkg.in/yaml.v3 | v3.0.1 | YAML configuration parsing |
+| github.com/mattn/go-sqlite3 | v1.14.33 | SQLite database driver (CGO) |
 
 ---
 
@@ -294,6 +301,96 @@ gofmt -w .
 **Time Spent:** ~1 hour
 
 **Outcome:** Foundation complete. Project builds, lints clean, and runs with graceful shutdown.
+
+---
+
+### Session 2: 2026-01-19 — SQLite Database Package
+
+**Goal:** Implement SQLite database package with migrations (Step 2 of M1.1)
+
+**Steps Taken:**
+
+1. **Read specification documents**
+   - `docs/data-model/entities.md` — Entity definitions (Site, Area, Room, Device, etc.)
+   - `docs/development/database-schema.md` — Schema design (STRICT mode, additive-only)
+
+2. **Created database package**
+   - Location: `internal/infrastructure/database/`
+   - Files created:
+     - `doc.go` — Package documentation
+     - `database.go` — Connection manager with WAL mode
+     - `migrations.go` — Migration runner with embed.FS support
+
+3. **Key implementation decisions:**
+
+   | Decision | Rationale |
+   |----------|-----------|
+   | `embed.FS` for migrations | Compiles SQL into binary, no external files needed at runtime |
+   | WAL mode | Better concurrent access (readers don't block writers) |
+   | STRICT mode | SQLite type enforcement (prevents silent data issues) |
+   | Additive-only migrations | 10-year stability — never ALTER/DROP in production |
+
+4. **Created initial schema migration**
+   - File: `migrations/20260118_200000_initial_schema.up.sql`
+   - Tables: `sites`, `areas`, `rooms`, `devices`, `audit_logs`
+   - Includes indexes on foreign keys and common query fields
+   - View: `devices_with_location` for hierarchical queries
+
+5. **Created down migration**
+   - File: `migrations/20260118_200000_initial_schema.down.sql`
+   - Drops tables in reverse dependency order
+   - For development/testing only
+
+6. **Created embed package**
+   - Location: `migrations/embed.go`
+   - Uses `//go:embed *.sql` directive
+   - Registers with database package via `init()`
+
+7. **Fixed linter issues:**
+
+   | Issue | Resolution |
+   |-------|------------|
+   | Magic numbers (0750, 0600, 1000) | Added named constants |
+   | gofmt formatting | Ran `gofmt -w` |
+   | Error wrapping (wrapcheck) | Added `fmt.Errorf("context: %w", err)` |
+   | Cognitive complexity (>20) | Refactored into helper functions |
+   | Unchecked os.Chmod error | Added `//nolint:errcheck` with explanation |
+
+8. **Verified build**
+   ```bash
+   make lint   # All checks pass
+   make build  # Compiles successfully
+   ./build/graylogic --version  # Runs correctly
+   ```
+
+**Dependencies Added:**
+
+| Package | Version | Purpose |
+|---------|---------|---------|
+| github.com/mattn/go-sqlite3 | v1.14.33 | SQLite driver (CGO) |
+
+**Files Created:**
+
+```
+internal/infrastructure/database/
+├── doc.go         # Package documentation
+├── database.go    # Connection manager (Config, Open, Close, HealthCheck)
+└── migrations.go  # Migration runner (Migrate, MigrateDown, GetMigrationStatus)
+
+migrations/
+├── embed.go                                    # Embeds SQL files
+├── 20260118_200000_initial_schema.up.sql      # Create tables
+└── 20260118_200000_initial_schema.down.sql    # Drop tables
+```
+
+**Code Patterns Introduced:**
+
+- **Embedded Filesystem (`embed.FS`)**: Compiles files into binary
+- **Named Return Values**: `(upFiles, downFiles map[string]string)` for clarity
+- **Helper Functions**: Reduce cognitive complexity, improve testability
+- **Deferred Rollback**: `defer tx.Rollback()` is no-op after commit
+
+**Outcome:** Database package complete. Migrations compile into binary. Ready for tests or Docker Compose setup.
 
 ---
 
