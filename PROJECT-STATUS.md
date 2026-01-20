@@ -152,8 +152,8 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.2 In Progress | M1.1 complete, KNX bridge 30% done |
-| KNX Bridge | 🟡 30% complete | telegram, knxd client, address, DPT done |
+| Gray Logic Core (Go) | 🟢 M1.2 In Progress | M1.1 complete, KNX bridge 95% done |
+| KNX Bridge | 🟢 95% complete | Core complete, integration tests pending |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
 | Flutter UI | ❌ Not started | M1.5 (later Year 1) |
@@ -172,16 +172,17 @@
 - [x] Structured logging
 - [x] Infrastructure wired into main.go
 
-### M1.2 Progress (KNX Bridge) — 🔨 In Progress (30%)
+### M1.2 Progress (KNX Bridge) — 🔨 In Progress (95%)
 - [x] telegram.go — KNX telegram parsing/encoding
 - [x] knxd.go — knxd client (TCP/Unix socket)
 - [x] address.go — Group address parsing
 - [x] dpt.go — Datapoint type encoding/decoding
-- [ ] config.go — Bridge configuration
-- [ ] messages.go — MQTT message types
-- [ ] health.go — Health reporting
-- [ ] bridge.go — Main orchestration
-- [ ] Integration tests
+- [x] config.go — Bridge configuration with YAML + env vars
+- [x] messages.go — MQTT message types (command, ack, state, health)
+- [x] health.go — Health status reporting to MQTT
+- [x] bridge.go — Main orchestration (KNX ↔ MQTT translation)
+- [x] Comprehensive unit tests (91 tests passing)
+- [ ] Integration tests with real MQTT + mock knxd
 
 ---
 
