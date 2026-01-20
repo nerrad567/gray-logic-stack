@@ -205,7 +205,8 @@ security:
   jwt:
     # Secret key for signing (MUST be changed in production!)
     # Generate with: openssl rand -base64 32
-    secret: "CHANGE_ME_IN_PRODUCTION"
+    # Minimum 32 characters required for adequate security.
+    secret: "dev-only-secret-CHANGE-IN-PRODUCTION!"
     # Token expiry time
     access_token_ttl: 15     # minutes
     refresh_token_ttl: 1440  # minutes (24 hours)

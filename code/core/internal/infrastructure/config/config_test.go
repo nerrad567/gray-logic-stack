@@ -26,6 +26,9 @@ mqtt:
 api:
   host: "0.0.0.0"
   port: 8080
+security:
+  jwt:
+    secret: "test-secret-key-at-least-32-chars!"
 `
 	tmpDir := t.TempDir()
 	configPath := filepath.Join(tmpDir, "config.yaml")
@@ -94,6 +97,9 @@ api:
 }
 
 func TestConfig_Validate(t *testing.T) {
+	// validJWTSecret is a secret that meets the 32-character minimum requirement
+	validJWTSecret := "test-secret-key-at-least-32-chars!"
+
 	tests := []struct {
 		name    string
 		config  *Config
@@ -112,6 +118,9 @@ func TestConfig_Validate(t *testing.T) {
 				API: APIConfig{
 					Port: 8080,
 				},
+				Security: SecurityConfig{
+					JWT: JWTConfig{Secret: validJWTSecret},
+				},
 			},
 			wantErr: false,
 		},
@@ -121,6 +130,7 @@ func TestConfig_Validate(t *testing.T) {
 				Site:     SiteConfig{ID: ""},
 				Database: DatabaseConfig{Path: "/data/graylogic.db"},
 				API:      APIConfig{Port: 8080},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: validJWTSecret}},
 			},
 			wantErr: true,
 		},
@@ -130,6 +140,7 @@ func TestConfig_Validate(t *testing.T) {
 				Site:     SiteConfig{ID: "site-001"},
 				Database: DatabaseConfig{Path: ""},
 				API:      APIConfig{Port: 8080},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: validJWTSecret}},
 			},
 			wantErr: true,
 		},
@@ -140,6 +151,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database: DatabaseConfig{Path: "/data/graylogic.db"},
 				MQTT:     MQTTConfig{QoS: 3},
 				API:      APIConfig{Port: 8080},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: validJWTSecret}},
 			},
 			wantErr: true,
 		},
@@ -150,6 +162,7 @@ func TestConfig_Validate(t *testing.T) {
 				Database: DatabaseConfig{Path: "/data/graylogic.db"},
 				MQTT:     MQTTConfig{QoS: 1},
 				API:      APIConfig{Port: 0},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: validJWTSecret}},
 			},
 			wantErr: true,
 		},
@@ -160,6 +173,29 @@ func TestConfig_Validate(t *testing.T) {
 				Database: DatabaseConfig{Path: "/data/graylogic.db"},
 				MQTT:     MQTTConfig{QoS: 1},
 				API:      APIConfig{Port: 70000},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: validJWTSecret}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "missing JWT secret",
+			config: &Config{
+				Site:     SiteConfig{ID: "site-001"},
+				Database: DatabaseConfig{Path: "/data/graylogic.db"},
+				MQTT:     MQTTConfig{QoS: 1},
+				API:      APIConfig{Port: 8080},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: ""}},
+			},
+			wantErr: true,
+		},
+		{
+			name: "JWT secret too short",
+			config: &Config{
+				Site:     SiteConfig{ID: "site-001"},
+				Database: DatabaseConfig{Path: "/data/graylogic.db"},
+				MQTT:     MQTTConfig{QoS: 1},
+				API:      APIConfig{Port: 8080},
+				Security: SecurityConfig{JWT: JWTConfig{Secret: "short"}},
 			},
 			wantErr: true,
 		},

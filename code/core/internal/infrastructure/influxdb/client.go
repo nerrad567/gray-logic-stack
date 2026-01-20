@@ -146,9 +146,14 @@ func (c *Client) handleWriteErrors(errorsCh <-chan error) {
 // Close gracefully shuts down the InfluxDB connection.
 //
 // It performs:
-//  1. Signals the error handler goroutine to stop
-//  2. Flushes any pending writes
-//  3. Closes the underlying client
+//  1. Marks client as disconnected
+//  2. Flushes any pending writes (while error handler is still running)
+//  3. Signals the error handler goroutine to stop
+//  4. Closes the underlying client
+//
+// The flush happens BEFORE signaling the goroutine to stop, ensuring
+// any errors during the final flush can still be processed by the
+// error handler callback.
 //
 // Returns:
 //   - error: nil (InfluxDB client Close doesn't return errors)
@@ -161,13 +166,14 @@ func (c *Client) Close() error {
 	c.connected = false
 	c.mu.Unlock()
 
-	// Signal goroutine to stop
+	// Flush pending writes FIRST (while error handler goroutine is still running)
+	// This ensures any errors during flush are still delivered to the callback
+	c.writeAPI.Flush()
+
+	// THEN signal goroutine to stop
 	if c.done != nil {
 		close(c.done)
 	}
-
-	// Flush pending writes
-	c.writeAPI.Flush()
 
 	// Close the client
 	c.client.Close()

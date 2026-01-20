@@ -358,10 +358,15 @@ func (c *Config) Validate() error {
 		errs = append(errs, "api.port must be between 1 and 65535")
 	}
 
-	// Security validation - warn about default JWT secret
-	// In development, we allow the default secret for convenience.
-	// Production deployments MUST override via GRAYLOGIC_JWT_SECRET.
-	// Note: Logging of default secret usage is done in main.go after config load.
+	// Security validation - JWT secret is REQUIRED
+	// For building automation systems, authentication security is critical.
+	// Empty or weak secrets could allow attackers to forge tokens and
+	// gain unauthorized access to physical security devices.
+	if c.Security.JWT.Secret == "" {
+		errs = append(errs, "security.jwt.secret is required (set GRAYLOGIC_JWT_SECRET environment variable)")
+	} else if len(c.Security.JWT.Secret) < 32 {
+		errs = append(errs, "security.jwt.secret must be at least 32 characters for adequate security")
+	}
 
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration errors: %s", strings.Join(errs, "; "))
