@@ -6,33 +6,49 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-20 (Session 8 - KNX Bridge Phase 1)
-**Current milestone:** M1.2 KNX Bridge (30% complete)
+**Last session:** 2026-01-20 (Session 10 - M1.2 Complete!)
+**Current milestone:** M1.3 Device Registry (Not Started)
 
-### Next Task: Continue KNX Bridge Implementation (Phase 2)
+### ✅ M1.2 KNX Bridge — COMPLETE
 
-**Completed:**
+**KNX Bridge Package (10 files, ~3,500 lines):**
 - ✅ telegram.go — KNX telegram parsing/encoding
 - ✅ knxd.go — knxd client with TCP/Unix socket support
-- ✅ telegram_test.go — 21 tests
-- ✅ knxd_test.go — 12 tests (includes MockKNXDServer)
+- ✅ address.go — Group address parsing (1/2/3 format)
+- ✅ dpt.go — Datapoint encoding/decoding (DPT1, DPT5, DPT9)
+- ✅ config.go — Bridge configuration (YAML loading, validation)
+- ✅ messages.go — MQTT message types (state, command, ack, health)
+- ✅ health.go — Health reporting to MQTT
+- ✅ bridge.go — Main orchestration (KNX↔MQTT translation)
+- ✅ errors.go — Domain-specific error types
+- ✅ doc.go — Package documentation
+- ✅ **Wired into main.go** (Session 10)
 
-**What to do next:**
-1. Create `config.go` — Bridge configuration types (YAML loading)
-2. Create `messages.go` — MQTT message types for state/command
-3. Create `health.go` — Health reporting to MQTT
-4. Create `bridge.go` — Main orchestration logic
+**Tests:** 69.4% coverage, all passing with race detector
+
+**Code Quality (4 audit cycles, 15 issues fixed):**
+- Audit 5: 6 issues (closeOnce, handshake context, protocol desync, etc.)
+- Audit 6: 5 issues (MarshalJSON, state cache, bounds validation, etc.)
+- Audit 7: 4 issues (bridge context, PruneStateCache race, etc.)
+- Audit 8: Clean (1 false positive dismissed)
+
+**Configuration Files:**
+- `configs/config.yaml` — Main config with `protocols.knx` settings
+- `configs/knx-bridge.yaml` — Sample KNX bridge config (devices, GAs)
 
 **All tests passing:**
 ```bash
 cd /home/graylogic-dev/gray-logic-stack/code/core
-go test -v ./internal/bridges/knx/...  # 33 tests OK
+go test ./...  # All pass
 ```
 
 **Reference docs:**
-- `.claude/plans/dynamic-snacking-fiddle.md` — Full implementation plan
 - `docs/technical/packages/knx-bridge.md` — Package design doc
 - `docs/protocols/knx.md` — KNX protocol specification
+
+### Next Task: M1.3 Device Registry
+
+Start with `internal/device/registry/` package for CRUD operations.
 
 ### M1.1 Hardening Complete (Session 7)
 
@@ -75,8 +91,8 @@ go test -v ./internal/bridges/knx/...  # 33 tests OK
 | Milestone | Goal | Status |
 |-----------|------|--------|
 | **M1.1** | Core Infrastructure (SQLite, MQTT, InfluxDB) | ✅ Complete |
-| **M1.2** | KNX Bridge | 🔨 30% |
-| M1.3 | Device Registry | ⬜ Not Started |
+| **M1.2** | KNX Bridge | ✅ Complete |
+| **M1.3** | Device Registry | ⬜ Not Started |
 | M1.4 | REST API + WebSocket | ⬜ Not Started |
 | M1.5 | Flutter Wall Panel | ⬜ Not Started |
 | M1.6 | Basic Scenes | ⬜ Not Started |
@@ -134,7 +150,7 @@ go test -v ./internal/bridges/knx/...  # 33 tests OK
 
 ## Year 1 Task Breakdown
 
-### M1.2: KNX Bridge
+### M1.2: KNX Bridge — ✅ COMPLETE
 
 | # | Task | Status | Depends On |
 |---|------|--------|------------|
@@ -142,12 +158,15 @@ go test -v ./internal/bridges/knx/...  # 33 tests OK
 | 2 | knxd.go — knxd client (TCP/Unix) | ✅ Done | Task 1 |
 | 3 | address.go — Group address parsing | ✅ Done | - |
 | 4 | dpt.go — Datapoint type encoding/decoding | ✅ Done | - |
-| 5 | config.go — Bridge configuration (YAML) | ⬜ Not Started | - |
-| 6 | messages.go — MQTT message types | ⬜ Not Started | - |
-| 7 | health.go — Health reporting | ⬜ Not Started | - |
-| 8 | bridge.go — Main orchestration | ⬜ Not Started | Tasks 1-7 |
-| 9 | Integration tests | ⬜ Not Started | Task 8 |
-| 10 | Fix lint issues | ⬜ Not Started | Tasks 1-4 |
+| 5 | config.go — Bridge configuration (YAML) | ✅ Done | - |
+| 6 | messages.go — MQTT message types | ✅ Done | - |
+| 7 | health.go — Health reporting | ✅ Done | - |
+| 8 | bridge.go — Main orchestration | ✅ Done | Tasks 1-7 |
+| 9 | errors.go — Domain error types | ✅ Done | - |
+| 10 | Unit tests (69% coverage) | ✅ Done | Tasks 1-8 |
+| 11 | Code audit (4 rounds, 15 issues fixed) | ✅ Done | Task 10 |
+| 12 | Wire into main.go | ✅ Done | Task 8 |
+| 13 | Integration test with real knxd | ⬜ Optional | Task 12 |
 
 ### M1.3: Device Registry
 
@@ -916,6 +935,137 @@ docs/technical/packages/
 | TCP + Unix socket support | Flexible deployment options |
 
 **Outcome:** Phase 1 complete (telegram parsing + knxd client). M1.2 progress: 30%.
+
+---
+
+### Session 9: 2026-01-20 — M1.2 KNX Bridge Phase 2 (Complete)
+
+**Goal:** Complete KNX bridge package and harden with code audits
+
+**Steps Taken:**
+
+1. **Completed remaining KNX bridge files**
+   - `config.go` — YAML configuration with validation, env overrides, password redaction
+   - `messages.go` — MQTT message types (CommandMessage, StateMessage, AckMessage, etc.)
+   - `health.go` — Health reporting with device counts, connection status
+   - `bridge.go` — Main orchestration (KNX↔MQTT bidirectional translation)
+   - `errors.go` — Domain-specific error types
+   - `doc.go` — Package documentation
+
+2. **Created comprehensive tests**
+   - `bridge_test.go` — Mock-based tests for orchestration
+   - `integration_test.go` — End-to-end tests with mock MQTT and knxd
+   - Coverage: 69.4%
+
+3. **Ran 4 code audit cycles on KNX code**
+
+   | Audit | Commit | Issues Fixed | Summary |
+   |-------|--------|--------------|---------|
+   | #5 | f8a6d17 | 6 | closeOnce, handshake context, protocol desync, password masking, health sync.Once |
+   | #6 | 0e2a52c | 5 | MarshalJSON for password, state cache clearing, bounds 0-100%, dropped telegram metrics |
+   | #7 | c259ab6 | 4 | Bridge-level context, PruneStateCache race, address length overflow, bounded errors |
+   | #8 | 337a2d8 | 0 | Clean audit (1 false positive dismissed) |
+
+4. **Key patterns implemented**
+   - Bridge-level context for graceful shutdown cancellation
+   - State cache with pruning for multi-decade memory management
+   - Password redaction via `String()` and `MarshalJSON()`
+   - Bounds validation on all percentage values (0-100)
+   - Dropped telegram metrics for health monitoring
+
+**Files Created:**
+
+```
+internal/bridges/knx/
+├── address.go        # Group address parsing
+├── bridge.go         # Main orchestration (~800 lines)
+├── bridge_test.go    # Unit tests
+├── config.go         # YAML configuration (~400 lines)
+├── doc.go            # Package documentation
+├── dpt.go            # Datapoint encoding (~250 lines)
+├── errors.go         # Error types
+├── health.go         # Health reporting (~200 lines)
+├── integration_test.go  # E2E tests
+├── knxd.go           # knxd client (~500 lines)
+├── knxd_test.go      # knxd tests
+├── messages.go       # MQTT messages (~500 lines)
+├── telegram.go       # Telegram parsing
+└── telegram_test.go  # Telegram tests
+```
+
+**Total Lines:** ~3,500 lines of Go code + tests
+
+**Outcome:** KNX bridge package complete and production-hardened. M1.2 progress: 95%.
+
+---
+
+### Session 10: 2026-01-20 — M1.2 Complete (Wiring)
+
+**Goal:** Wire KNX bridge into main.go to complete M1.2
+
+**Steps Taken:**
+
+1. **Updated main.go imports and initialization**
+   - Added import for `internal/bridges/knx` package
+   - Added `startKNXBridge()` helper function with:
+     - Loading KNX bridge config from `protocols.knx.config_file`
+     - Creating knxd connection URL from host/port
+     - Connecting to knxd daemon
+     - Creating MQTT adapter (interface compatibility)
+     - Starting bridge with graceful shutdown
+
+2. **Created MQTT adapter**
+   - `mqttBridgeAdapter` wraps infrastructure mqtt.Client
+   - Adapts Subscribe handler signature (error return → void)
+   - Implements `knx.MQTTClient` interface
+
+3. **Updated configuration**
+   - Added `config_file` field to `KNXConfig` in config.go
+   - Updated `configs/config.yaml` with sample path
+   - Created `configs/knx-bridge.yaml` sample configuration
+     - Complete device examples (dimmers, switches, blinds, sensors)
+     - Documented all DPT types and flag meanings
+
+4. **Fixed compile errors**
+   - `Bridge.Stop()` returns void, not error
+   - Removed non-existent `Bridge.HealthCheck()` (health verified at startup)
+   - Added missing `Disconnect()` method to MQTT adapter
+
+5. **Verified build and tests**
+   ```bash
+   go build ./cmd/graylogic          # ✅ Success
+   go test ./...                      # ✅ All pass
+   golangci-lint run                  # ✅ Clean
+   ```
+
+**Files Modified:**
+
+| File | Changes |
+|------|---------|
+| `cmd/graylogic/main.go` | +80 lines (KNX wiring, adapter) |
+| `internal/infrastructure/config/config.go` | Added ConfigFile field |
+| `configs/config.yaml` | Added config_file under protocols.knx |
+| `configs/knx-bridge.yaml` | NEW: Sample KNX bridge config (~180 lines) |
+
+**Technical Pattern: MQTT Adapter**
+
+```go
+// Bridge adapts the infrastructure MQTT client to the KNX interface
+type mqttBridgeAdapter struct {
+    client *mqtt.Client
+    log    *logging.Logger
+}
+
+// Subscribe wraps void handler to return nil error
+func (a *mqttBridgeAdapter) Subscribe(topic string, qos byte, handler func(topic, payload)) error {
+    return a.client.Subscribe(topic, qos, func(t, p) error {
+        handler(t, p)
+        return nil
+    })
+}
+```
+
+**Outcome:** M1.2 KNX Bridge milestone complete! Ready for M1.3 Device Registry.
 
 ---
 

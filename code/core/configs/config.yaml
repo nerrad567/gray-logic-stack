@@ -173,6 +173,8 @@ protocols:
   # KNX protocol bridge
   knx:
     enabled: false
+    # Path to KNX bridge configuration (devices, group addresses, mappings)
+    config_file: "configs/knx-bridge.yaml"
     # knxd connection
     knxd_host: "localhost"
     knxd_port: 6720

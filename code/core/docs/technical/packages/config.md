@@ -239,5 +239,5 @@ Test scenarios:
 
 ## Related Documents
 
-- [doc.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/config/doc.go) — Package-level godoc
-- [configs/config.yaml](file:///home/darren/Development/Projects/gray-logic-stack/code/core/configs/config.yaml) — Default configuration file
+- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/config/doc.go) — Package-level godoc
+- [configs/config.yaml](file:///home/graylogic-dev/gray-logic-stack/code/core/configs/config.yaml) — Default configuration file

@@ -361,6 +361,138 @@ stats := client.Stats()
 
 ---
 
+## knxd Setup Guide
+
+The KNX bridge requires the `knxd` daemon to communicate with KNX hardware. This section covers installation, configuration, and troubleshooting.
+
+### Prerequisites
+
+**Hardware Requirements:**
+- KNX USB interface (e.g., Weinzierl KNX-USB Interface, ABB USB/S 1.1)
+- OR KNX/IP router/gateway for network-based connection
+- **Critical:** KNX bus must be powered (24V DC from KNX power supply)
+- Physical connection to KNX bus cable (green/red twisted pair)
+
+**Software Requirements:**
+- Debian/Ubuntu Linux (tested on Debian 12)
+- knxd package from official repositories
+
+### Installation
+
+```bash
+# Install knxd from official Debian/Ubuntu repositories
+sudo apt-get update
+sudo apt-get install knxd knxd-tools
+```
+
+### USB Device Permissions
+
+For USB interfaces, create a udev rule to allow non-root access:
+
+```bash
+# Create udev rule for KNX USB interface
+sudo tee /etc/udev/rules.d/99-knx-usb.rules << 'EOF'
+# Weinzierl KNX-USB Interface
+SUBSYSTEM=="usb", ATTR{idVendor}=="0e77", ATTR{idProduct}=="0104", MODE="0666"
+
+# ABB USB/S 1.1
+SUBSYSTEM=="usb", ATTR{idVendor}=="147b", ATTR{idProduct}=="5120", MODE="0666"
+EOF
+
+# Reload udev rules
+sudo udevadm control --reload-rules
+sudo udevadm trigger
+```
+
+### Configuration
+
+knxd 0.14+ uses INI-style configuration files. Create a configuration:
+
+```ini
+# /etc/knxd.ini - Example for USB interface
+[A.tcp]
+server = knxd_tcp
+
+[B.usb]
+driver = usb
+filters = single
+
+[main]
+addr = 1.0.250
+client-addrs = 1.0.251:8
+connections = A.tcp,B.usb
+systemd = systemd
+```
+
+**Key configuration options:**
+
+| Option | Description |
+|--------|-------------|
+| `addr` | knxd's own KNX address (must be unique on bus) |
+| `client-addrs` | Address range for clients (e.g., `1.0.251:8` = 8 addresses) |
+| `driver = usb` | Auto-detect USB KNX interface |
+| `driver = ipt:HOST` | Connect to KNX/IP tunneling gateway |
+| `server = knxd_tcp` | Enable TCP server on port 6720 |
+| `filters = single` | Required for some USB interfaces |
+
+### Running knxd
+
+**Standalone (for testing):**
+```bash
+# Run with INI configuration
+knxd /etc/knxd.ini
+
+# Or use command-line arguments
+knxd -e 1.0.250 -E 1.0.251:8 -i -D -T -R -S -b usb:
+```
+
+**As systemd service:**
+```bash
+# Edit /etc/knxd.conf to reference your INI file
+echo 'KNXD_OPTS=/etc/knxd.ini' | sudo tee /etc/knxd.conf
+
+# Enable and start
+sudo systemctl enable knxd
+sudo systemctl start knxd
+sudo systemctl status knxd
+```
+
+### Verifying Connection
+
+```bash
+# Check knxd is listening
+ss -tlnp | grep 6720
+
+# Test with knxtool (requires powered KNX bus)
+knxtool vbusmonitor1 ip:localhost
+
+# If bus is connected, you should see telegrams when switches are pressed
+```
+
+### Troubleshooting
+
+| Symptom | Cause | Solution |
+|---------|-------|----------|
+| `Permission denied` on USB | Missing udev rule | Add udev rule (see above) |
+| knxd exits immediately | Config error | Check `journalctl -u knxd` for details |
+| TCP connects but times out | No KNX bus power | Verify 24V DC to bus |
+| `libusb: error [do_close]` | USB device conflict | Kill other knxd processes |
+| knxtool hangs | Bus not responding | Check physical wiring and power |
+
+**Common issues:**
+1. **USB interface detected but no response:** The interface needs bus power. Without 24V DC on the KNX bus, the interface cannot communicate.
+2. **Multiple knxd instances:** Only one process can use the USB device. Check with `pgrep -la knxd` and kill extras.
+3. **INI vs command-line:** knxd 0.14+ prefers INI files. Use `knxd_args` to convert old command-line syntax.
+
+### Converting Command Line to INI
+
+```bash
+# Convert legacy command line to INI format
+/usr/lib/knxd_args -e 1.0.250 -E 1.0.251:8 -i -B single -b usb: > /etc/knxd.ini
+```
+
+---
+
 ## Files Overview
 
 | File | Lines | Purpose |

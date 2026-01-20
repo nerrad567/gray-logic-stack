@@ -20,6 +20,7 @@ import (
 
 	_ "github.com/nerrad567/gray-logic-core/migrations"
 
+	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/database"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/influxdb"
@@ -157,6 +158,21 @@ func run(ctx context.Context) error {
 		log.Info("InfluxDB disabled")
 	}
 
+	// Start KNX bridge (if enabled)
+	var knxBridge *knx.Bridge
+	if cfg.Protocols.KNX.Enabled {
+		knxBridge, err = startKNXBridge(ctx, cfg, mqttClient, log)
+		if err != nil {
+			return fmt.Errorf("starting KNX bridge: %w", err)
+		}
+		defer func() {
+			log.Info("stopping KNX bridge")
+			knxBridge.Stop()
+		}()
+	} else {
+		log.Info("KNX bridge disabled")
+	}
+
 	// Verify all connections are healthy
 	if err := healthCheck(ctx, db, mqttClient, influxClient); err != nil {
 		return fmt.Errorf("health check failed: %w", err)
@@ -216,5 +232,103 @@ func healthCheck(ctx context.Context, db *database.DB, mqttClient *mqtt.Client, 
 		}
 	}
 
+	// KNX bridge health is verified during Start() - it connects to knxd
+	// and sets up MQTT subscriptions before returning successfully.
+
 	return nil
+}
+
+// startKNXBridge initialises and starts the KNX protocol bridge.
+//
+// Parameters:
+//   - ctx: Context for connection/cancellation
+//   - cfg: Application configuration
+//   - mqttClient: MQTT client for publishing/subscribing
+//   - log: Logger instance
+//
+// Returns:
+//   - *knx.Bridge: Running KNX bridge
+//   - error: If bridge fails to start
+func startKNXBridge(ctx context.Context, cfg *config.Config, mqttClient *mqtt.Client, log *logging.Logger) (*knx.Bridge, error) {
+	// Load KNX bridge configuration (devices, group addresses, mappings)
+	knxBridgeCfg, err := knx.LoadConfig(cfg.Protocols.KNX.ConfigFile)
+	if err != nil {
+		return nil, fmt.Errorf("loading KNX bridge config: %w", err)
+	}
+	log.Info("KNX bridge config loaded",
+		"path", cfg.Protocols.KNX.ConfigFile,
+		"devices", len(knxBridgeCfg.Devices),
+	)
+
+	// Create connection URL from host/port
+	connURL := fmt.Sprintf("tcp://%s:%d", cfg.Protocols.KNX.KNXDHost, cfg.Protocols.KNX.KNXDPort)
+
+	// Connect to knxd daemon
+	knxdClient, err := knx.Connect(ctx, knx.KNXDConfig{
+		Connection: connURL,
+	})
+	if err != nil {
+		return nil, fmt.Errorf("connecting to knxd: %w", err)
+	}
+	log.Info("connected to knxd", "url", connURL)
+
+	// Create MQTT adapter to satisfy KNX bridge interface
+	mqttAdapter := &mqttBridgeAdapter{client: mqttClient, log: log}
+
+	// Create the bridge
+	bridge, err := knx.NewBridge(knx.BridgeOptions{
+		Config:     knxBridgeCfg,
+		MQTTClient: mqttAdapter,
+		KNXDClient: knxdClient,
+		Logger:     log,
+	})
+	if err != nil {
+		// Clean up knxd connection on error
+		_ = knxdClient.Close()
+		return nil, fmt.Errorf("creating KNX bridge: %w", err)
+	}
+
+	// Start the bridge
+	if err := bridge.Start(ctx); err != nil {
+		_ = knxdClient.Close()
+		return nil, fmt.Errorf("starting KNX bridge: %w", err)
+	}
+	log.Info("KNX bridge started")
+
+	return bridge, nil
+}
+
+// mqttBridgeAdapter adapts the infrastructure MQTT client to the KNX bridge's
+// MQTTClient interface. The primary difference is the Subscribe handler signature:
+// - Infrastructure mqtt: func(topic, payload []byte) error
+// - KNX bridge expects: func(topic, payload []byte)
+type mqttBridgeAdapter struct {
+	client *mqtt.Client
+	log    *logging.Logger
+}
+
+// Publish implements knx.MQTTClient.
+func (a *mqttBridgeAdapter) Publish(topic string, payload []byte, qos byte, retained bool) error {
+	return a.client.Publish(topic, payload, qos, retained)
+}
+
+// Subscribe implements knx.MQTTClient.
+func (a *mqttBridgeAdapter) Subscribe(topic string, qos byte, handler func(topic string, payload []byte)) error {
+	// Wrap the void handler to return nil error (KNX handlers don't return errors)
+	return a.client.Subscribe(topic, qos, func(t string, p []byte) error {
+		handler(t, p)
+		return nil
+	})
+}
+
+// IsConnected implements knx.MQTTClient.
+func (a *mqttBridgeAdapter) IsConnected() bool {
+	return a.client.IsConnected()
+}
+
+// Disconnect implements knx.MQTTClient.
+// Note: When wired into main.go, the MQTT client is managed by the Core,
+// so this is a no-op. The actual disconnect happens via the defer chain.
+func (a *mqttBridgeAdapter) Disconnect(_ uint) {
+	// No-op: MQTT client lifecycle is managed by Core's defer chain
 }

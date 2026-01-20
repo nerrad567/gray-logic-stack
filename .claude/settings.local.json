@@ -26,7 +26,17 @@
       "Bash(~/go/bin/golangci-lint run:*)",
       "Bash(PATH=\"/usr/local/go/bin:$PATH\" gofmt:*)",
       "Bash(/usr/local/go/bin/go test:*)",
-      "Bash(PATH=\"/usr/local/go/bin:$PATH\" ~/go/bin/golangci-lint run:*)"
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" ~/go/bin/golangci-lint run:*)",
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" ~/go/bin/govulncheck:*)",
+      "Bash(git rev-parse:*)",
+      "Bash(/usr/local/go/bin/gofmt:*)",
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" go test:*)",
+      "Bash(ls:*)",
+      "Bash(wc:*)",
+      "Bash(go build:*)",
+      "Bash(/usr/local/go/bin/go build:*)",
+      "Bash(/home/graylogic-dev/go/bin/golangci-lint run:*)",
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" /home/graylogic-dev/go/bin/golangci-lint run:*)"
     ]
   },
   "outputStyle": "Explanatory"

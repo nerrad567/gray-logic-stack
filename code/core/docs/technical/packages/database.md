@@ -36,10 +36,10 @@ Provides SQLite database connectivity for Gray Logic Core with:
 
 | Type | File | Purpose |
 |------|------|---------|
-| `DB` | [database.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/database/database.go#L34-L37) | Wraps `*sql.DB` with migrations and health checks |
-| `Config` | [database.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/database/database.go#L41-L53) | Database configuration options |
-| `Migration` | [migrations.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/database/migrations.go#L42-L55) | Single migration with up/down SQL |
-| `MigrationRecord` | [migrations.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/database/migrations.go#L58-L61) | Applied migration tracking |
+| `DB` | [database.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/database/database.go#L34-L37) | Wraps `*sql.DB` with migrations and health checks |
+| `Config` | [database.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/database/database.go#L41-L53) | Database configuration options |
+| `Migration` | [migrations.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/database/migrations.go#L42-L55) | Single migration with up/down SQL |
+| `MigrationRecord` | [migrations.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/database/migrations.go#L58-L61) | Applied migration tracking |
 
 ### External Dependencies
 
@@ -61,8 +61,9 @@ cfg := database.Config{
     BusyTimeout: 5,
 }
 
-// 2. Open connection
-db, err := database.Open(cfg)
+// 2. Open connection (context for cancellation/timeout)
+ctx := context.Background()
+db, err := database.Open(ctx, cfg)
 if err != nil {
     log.Fatal(err)
 }
@@ -74,11 +75,11 @@ if err := db.Migrate(ctx); err != nil {
 }
 ```
 
-**Open() performs:**
+**Open(ctx, cfg) performs:**
 1. Creates database directory if not exists (`0750` permissions)
 2. Opens database with connection string pragmas
 3. Configures connection pool (1 writer, 1 idle)
-4. Pings to verify connectivity
+4. Verifies connectivity with ping (5s timeout enforced, even if context has no deadline)
 5. Sets file permissions (`0600`)
 
 ### Core Operations
@@ -245,7 +246,7 @@ database:
 **Unit tests:** Require no external dependencies.
 
 ```bash
-cd /home/darren/Development/Projects/gray-logic-stack/code/core
+cd /home/graylogic-dev/gray-logic-stack/code/core
 make test PKG=./internal/infrastructure/database/...
 ```
 
@@ -269,6 +270,6 @@ make test PKG=./internal/infrastructure/database/...
 
 ## Related Documents
 
-- [doc.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/database/doc.go) — Package-level godoc
-- [docs/development/database-schema.md](file:///home/darren/Development/Projects/gray-logic-stack/docs/development/database-schema.md) — Schema design strategy
-- [docs/data-model/entities.md](file:///home/darren/Development/Projects/gray-logic-stack/docs/data-model/entities.md) — Entity definitions
+- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/database/doc.go) — Package-level godoc
+- [docs/development/database-schema.md](file:///home/graylogic-dev/gray-logic-stack/docs/development/database-schema.md) — Schema design strategy
+- [docs/data-model/entities.md](file:///home/graylogic-dev/gray-logic-stack/docs/data-model/entities.md) — Entity definitions

@@ -43,10 +43,10 @@ Provides MQTT connectivity for Gray Logic Core with:
 
 | Type | File | Purpose |
 |------|------|---------|
-| `Client` | [client.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L21-L37) | Main client wrapping paho with reconnect handling |
-| `MessageHandler` | [client.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L46-L57) | Callback for received messages |
-| `Topics` | [topics.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/mqtt/topics.go) | Topic builder utilities |
-| `subscription` | [client.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L40-L44) | Internal tracking for reconnect restoration |
+| `Client` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L21-L37) | Main client wrapping paho with reconnect handling |
+| `MessageHandler` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L46-L57) | Callback for received messages |
+| `Topics` | [topics.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/mqtt/topics.go) | Topic builder utilities |
+| `subscription` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/mqtt/client.go#L40-L44) | Internal tracking for reconnect restoration |
 
 ### External Dependencies
 
@@ -190,6 +190,7 @@ if errors.Is(err, mqtt.ErrNotConnected) {
 | `Unsubscribe()` | Yes | Protected by `subMu` mutex |
 | `IsConnected()` | Yes | Protected by `connMu` mutex |
 | `HealthCheck()` | Yes | Read-only check |
+| `SetLogger()` | Yes | Protected by mutex |
 
 **Handler invocation:** Handlers run in paho goroutines. They should not block.
 
@@ -227,7 +228,7 @@ mqtt:
 
 ```bash
 # Start Docker services
-cd /home/darren/Development/Projects/gray-logic-stack/code/core
+cd /home/graylogic-dev/gray-logic-stack/code/core
 docker compose up -d
 
 # Run tests
@@ -243,11 +244,10 @@ make test PKG=./internal/infrastructure/mqtt/...
 1. **No QoS 2 testing** — Theoretically supported but not tested
 2. **No TLS client certificates** — Only username/password auth
 3. **No message persistence** — Relies on broker persistence
-4. **Logging TODO** — Handler errors silently recovered (pending logging package)
 
 ---
 
 ## Related Documents
 
-- [doc.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/mqtt/doc.go) — Package-level godoc
-- [docs/protocols/mqtt.md](file:///home/darren/Development/Projects/gray-logic-stack/docs/protocols/mqtt.md) — Topic structure and message formats
+- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/mqtt/doc.go) — Package-level godoc
+- [docs/protocols/mqtt.md](file:///home/graylogic-dev/gray-logic-stack/docs/protocols/mqtt.md) — Topic structure and message formats

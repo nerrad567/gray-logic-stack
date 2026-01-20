@@ -42,8 +42,8 @@ Provides InfluxDB v2 connectivity for Gray Logic Core with:
 
 | Type | File | Purpose |
 |------|------|---------|
-| `Client` | [client.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/influxdb/client.go#L28-L39) | Wraps InfluxDB client with lifecycle and health |
-| `ErrNotConnected` | [errors.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/influxdb/errors.go) | Sentinel error types |
+| `Client` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/client.go#L28-L39) | Wraps InfluxDB client with lifecycle and health |
+| `ErrNotConnected` | [errors.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/errors.go) | Sentinel error types |
 
 ### External Dependencies
 
@@ -69,19 +69,22 @@ cfg := config.InfluxDBConfig{
     FlushInterval: 10,
 }
 
-// 2. Connect to InfluxDB
-client, err := influxdb.Connect(cfg)
+// 2. Connect to InfluxDB (context for cancellation/timeout)
+ctx := context.Background()
+client, err := influxdb.Connect(ctx, cfg)
 if err != nil {
     log.Fatal(err)
 }
 defer client.Close()
 ```
 
-**Connect() performs:**
+**Connect(ctx, cfg) performs:**
 1. Validates config (disabled returns ErrDisabled)
-2. Creates client with token authentication
-3. Verifies connectivity via ping
-4. Creates non-blocking write API with batching
+2. Validates batch settings (bounds: batch_size ≤ 100,000; flush_interval ≤ 3,600s)
+3. Creates client with token authentication
+4. Verifies connectivity via ping (10s timeout enforced, even if context has no deadline)
+5. Creates non-blocking write API with batching
+6. Starts error handler goroutine for async write errors
 
 ### Core Operations
 
@@ -117,8 +120,12 @@ if err := client.Close(); err != nil {
 ```
 
 **Close() performs:**
-1. Flushes all pending batched writes
-2. Closes the underlying client
+1. Marks client as disconnected
+2. Flushes all pending batched writes (while error handler still running)
+3. Signals error handler goroutine to stop
+4. Closes the underlying client
+
+> **Note:** Flush() is safe to call after Close() (no-op).
 
 ---
 
@@ -215,7 +222,7 @@ influxdb:
 
 ```bash
 # Start Docker services
-cd /home/darren/Development/Projects/gray-logic-stack/code/core
+cd /home/graylogic-dev/gray-logic-stack/code/core
 docker compose up -d
 
 # Run tests
@@ -237,5 +244,5 @@ make test PKG=./internal/infrastructure/influxdb/...
 
 ## Related Documents
 
-- [doc.go](file:///home/darren/Development/Projects/gray-logic-stack/code/core/internal/infrastructure/influxdb/doc.go) — Package-level godoc
-- [docker-compose.yml](file:///home/darren/Development/Projects/gray-logic-stack/code/core/docker-compose.yml) — InfluxDB container config
+- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/doc.go) — Package-level godoc
+- [docker-compose.yml](file:///home/graylogic-dev/gray-logic-stack/code/core/docker-compose.yml) — InfluxDB container config

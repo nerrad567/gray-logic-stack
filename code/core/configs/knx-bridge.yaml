@@ -1,0 +1,214 @@
+# KNX Bridge Configuration
+# ========================
+#
+# This file configures the KNX protocol bridge, mapping Gray Logic devices
+# to KNX group addresses. The bridge translates MQTT commands to KNX telegrams
+# and publishes KNX state changes back to MQTT.
+#
+# Configuration can also be set via environment variables:
+#   KNX_BRIDGE_ID=knx-bridge-01
+#   KNX_BRIDGE_KNXD_CONNECTION=tcp://localhost:6720
+#   KNX_BRIDGE_MQTT_BROKER=tcp://localhost:1883
+#   KNX_BRIDGE_MQTT_USERNAME=user
+#   KNX_BRIDGE_MQTT_PASSWORD=secret
+
+# ============================================================================
+# BRIDGE IDENTITY
+# ============================================================================
+
+bridge:
+  # Unique identifier for this bridge instance.
+  # Used in MQTT client ID and health reporting topics.
+  id: "knx-bridge-01"
+
+  # How often to publish health status (seconds).
+  # Health is published to: graylogic/bridge/knx-bridge-01/health
+  health_interval: 30
+
+# ============================================================================
+# KNXD CONNECTION
+# ============================================================================
+#
+# The bridge connects to knxd (KNX daemon) to communicate with the KNX bus.
+# Install knxd: https://github.com/knxd/knxd
+#
+# Common connection formats:
+#   - Unix socket: unix:///run/knxd
+#   - TCP: tcp://localhost:6720
+
+knxd:
+  # Connection URL for knxd daemon
+  connection: "tcp://localhost:6720"
+
+  # Maximum time to wait for connection (seconds)
+  connect_timeout: 10
+
+  # Timeout for read operations (seconds)
+  read_timeout: 30
+
+  # Delay between reconnection attempts (seconds)
+  reconnect_interval: 5
+
+# ============================================================================
+# MQTT SETTINGS
+# ============================================================================
+#
+# NOTE: When the KNX bridge is wired into main.go, these settings are
+# typically ignored since the bridge uses the shared MQTT client from
+# Gray Logic Core. They are here for standalone bridge operation.
+
+mqtt:
+  # MQTT broker URL
+  broker: "tcp://localhost:1883"
+
+  # MQTT client ID (defaults to bridge.id + "-mqtt" if not set)
+  client_id: ""
+
+  # Authentication (optional)
+  username: ""
+  password: ""
+
+  # Quality of Service level (0, 1, or 2)
+  # QoS 1 = At least once delivery (recommended)
+  qos: 1
+
+  # Keep-alive interval (seconds)
+  keep_alive: 60
+
+# ============================================================================
+# LOGGING
+# ============================================================================
+
+logging:
+  # Log level: debug, info, warn, error
+  level: "info"
+
+  # Log format: json, text
+  format: "json"
+
+# ============================================================================
+# DEVICE MAPPINGS
+# ============================================================================
+#
+# Each device maps a Gray Logic device_id to one or more KNX group addresses.
+# The device_id must match what's registered in Gray Logic Core's device registry.
+#
+# Device Types:
+#   - light_switch: On/off only
+#   - light_dimmer: On/off + brightness level
+#   - blind: Position + optional slat angle
+#   - sensor: Read-only values (temperature, humidity, lux, etc.)
+#   - scene: Scene activation/recall
+#
+# Address Functions (common):
+#   - switch: On/off control (DPT 1.001)
+#   - switch_status: On/off feedback (DPT 1.001)
+#   - brightness: Brightness level 0-100% (DPT 5.001)
+#   - brightness_status: Brightness feedback (DPT 5.001)
+#   - position: Blind position 0-100% (DPT 5.001)
+#   - position_status: Blind position feedback (DPT 5.001)
+#   - slat: Blind slat angle 0-360 deg (DPT 5.003)
+#   - temperature: Temperature reading (DPT 9.001)
+#   - humidity: Humidity reading (DPT 9.007)
+#   - lux: Light level reading (DPT 9.004)
+#   - scene: Scene number 0-63 (DPT 17.001)
+#
+# Flags:
+#   - read: Bridge can send read requests to this GA
+#   - write: Bridge can send write commands to this GA
+#   - transmit: Device transmits state changes on this GA (used for state tracking)
+#
+# Example KNX group address structure (3-level format):
+#   Main/Middle/Sub
+#   1/x/x = Lighting
+#   2/x/x = Blinds
+#   3/x/x = HVAC
+#   4/x/x = Sensors
+#   5/x/x = Scenes
+
+devices:
+  # Example: Living room ceiling light (dimmer)
+  - device_id: "living-room-ceiling-light"
+    type: "light_dimmer"
+    addresses:
+      switch:
+        ga: "1/1/0"
+        dpt: "1.001"
+        flags: ["write"]
+      switch_status:
+        ga: "1/1/1"
+        dpt: "1.001"
+        flags: ["read", "transmit"]
+      brightness:
+        ga: "1/1/2"
+        dpt: "5.001"
+        flags: ["write"]
+      brightness_status:
+        ga: "1/1/3"
+        dpt: "5.001"
+        flags: ["read", "transmit"]
+
+  # Example: Kitchen pendant light (switch only)
+  - device_id: "kitchen-pendant-light"
+    type: "light_switch"
+    addresses:
+      switch:
+        ga: "1/2/0"
+        dpt: "1.001"
+        flags: ["write"]
+      switch_status:
+        ga: "1/2/1"
+        dpt: "1.001"
+        flags: ["read", "transmit"]
+
+  # Example: Living room blinds
+  - device_id: "living-room-blinds"
+    type: "blind"
+    addresses:
+      position:
+        ga: "2/1/0"
+        dpt: "5.001"
+        flags: ["write"]
+      position_status:
+        ga: "2/1/1"
+        dpt: "5.001"
+        flags: ["read", "transmit"]
+      slat:
+        ga: "2/1/2"
+        dpt: "5.003"
+        flags: ["write"]
+      slat_status:
+        ga: "2/1/3"
+        dpt: "5.003"
+        flags: ["read", "transmit"]
+
+  # Example: Living room temperature sensor
+  - device_id: "living-room-temperature"
+    type: "sensor"
+    addresses:
+      temperature:
+        ga: "4/1/0"
+        dpt: "9.001"
+        flags: ["read", "transmit"]
+
+  # Example: Living room presence detector (with lux)
+  - device_id: "living-room-presence"
+    type: "sensor"
+    addresses:
+      presence:
+        ga: "4/1/10"
+        dpt: "1.002"
+        flags: ["transmit"]
+      lux:
+        ga: "4/1/11"
+        dpt: "9.004"
+        flags: ["transmit"]
+
+  # Example: Scene controller
+  - device_id: "scene-controller"
+    type: "scene"
+    addresses:
+      scene:
+        ga: "5/0/0"
+        dpt: "17.001"
+        flags: ["write", "transmit"]

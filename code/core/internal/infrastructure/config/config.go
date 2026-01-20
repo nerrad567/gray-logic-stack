@@ -148,9 +148,10 @@ type ProtocolsConfig struct {
 
 // KNXConfig contains KNX protocol bridge settings.
 type KNXConfig struct {
-	Enabled  bool   `yaml:"enabled"`
-	KNXDHost string `yaml:"knxd_host"`
-	KNXDPort int    `yaml:"knxd_port"`
+	Enabled    bool   `yaml:"enabled"`
+	ConfigFile string `yaml:"config_file"` // Path to KNX bridge config (devices, mappings)
+	KNXDHost   string `yaml:"knxd_host"`
+	KNXDPort   int    `yaml:"knxd_port"`
 }
 
 // DALIConfig contains DALI protocol bridge settings.
