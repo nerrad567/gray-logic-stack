@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"runtime"
 	"sync"
 	"testing"
 	"time"
@@ -498,5 +499,30 @@ func TestIsConnected_AfterClose(t *testing.T) {
 
 	if client.IsConnected() {
 		t.Error("IsConnected() should return false after Close()")
+	}
+}
+
+func TestClose_NoGoroutineLeak(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	before := runtime.NumGoroutine()
+
+	for i := 0; i < 5; i++ {
+		client, err := influxdb.Connect(cfg)
+		if err != nil {
+			t.Fatalf("Connect() iteration %d error = %v", i, err)
+		}
+		client.WriteDeviceMetric("leak-test", "metric", float64(i))
+		client.Close()
+	}
+
+	time.Sleep(200 * time.Millisecond)
+
+	after := runtime.NumGoroutine()
+
+	diff := after - before
+	if diff > 2 {
+		t.Errorf("Potential goroutine leak: before=%d, after=%d, diff=%d", before, after, diff)
 	}
 }

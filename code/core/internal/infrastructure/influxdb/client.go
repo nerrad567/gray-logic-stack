@@ -40,6 +40,9 @@ type Client struct {
 
 	// onError is called when async write errors occur.
 	onError func(err error)
+
+	// done signals the error handler goroutine to stop.
+	done chan struct{}
 }
 
 // Connect establishes a connection to the InfluxDB server.
@@ -103,6 +106,7 @@ func Connect(cfg config.InfluxDBConfig) (*Client, error) {
 		writeAPI:  writeAPI,
 		cfg:       cfg,
 		connected: true,
+		done:      make(chan struct{}),
 	}
 
 	// Set up error callback for async write failures
@@ -113,14 +117,23 @@ func Connect(cfg config.InfluxDBConfig) (*Client, error) {
 }
 
 // handleWriteErrors processes async write errors from the WriteAPI.
+// Exits when the done channel is closed or the error channel is closed.
 func (c *Client) handleWriteErrors(errorsCh <-chan error) {
-	for err := range errorsCh {
-		c.mu.RLock()
-		callback := c.onError
-		c.mu.RUnlock()
+	for {
+		select {
+		case <-c.done:
+			return
+		case err, ok := <-errorsCh:
+			if !ok {
+				return
+			}
+			c.mu.RLock()
+			callback := c.onError
+			c.mu.RUnlock()
 
-		if callback != nil {
-			callback(err)
+			if callback != nil {
+				callback(err)
+			}
 		}
 	}
 }
@@ -128,8 +141,9 @@ func (c *Client) handleWriteErrors(errorsCh <-chan error) {
 // Close gracefully shuts down the InfluxDB connection.
 //
 // It performs:
-//  1. Flushes any pending writes
-//  2. Closes the underlying client
+//  1. Signals the error handler goroutine to stop
+//  2. Flushes any pending writes
+//  3. Closes the underlying client
 //
 // Returns:
 //   - error: nil (InfluxDB client Close doesn't return errors)
@@ -141,6 +155,11 @@ func (c *Client) Close() error {
 	c.mu.Lock()
 	c.connected = false
 	c.mu.Unlock()
+
+	// Signal goroutine to stop
+	if c.done != nil {
+		close(c.done)
+	}
 
 	// Flush pending writes
 	c.writeAPI.Flush()
