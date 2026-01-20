@@ -73,6 +73,7 @@ type MQTTSettings struct {
 	Username string `yaml:"username"`
 
 	// Password for MQTT authentication (optional).
+	// WARNING: Never log this value. Use String() method for safe logging.
 	Password string `yaml:"password"`
 
 	// QoS is the MQTT quality of service level (0, 1, or 2).
@@ -82,6 +83,17 @@ type MQTTSettings struct {
 	// KeepAlive is the MQTT keep-alive interval (seconds).
 	// Default: 60 seconds.
 	KeepAlive int `yaml:"keep_alive"`
+}
+
+// String returns a string representation with password masked.
+// Use this for logging to prevent credential exposure.
+func (m MQTTSettings) String() string {
+	password := ""
+	if m.Password != "" {
+		password = "[REDACTED]"
+	}
+	return fmt.Sprintf("MQTTSettings{Broker:%q, ClientID:%q, Username:%q, Password:%s, QoS:%d, KeepAlive:%d}",
+		m.Broker, m.ClientID, m.Username, password, m.QoS, m.KeepAlive)
 }
 
 // LoggingConfig contains logging settings.

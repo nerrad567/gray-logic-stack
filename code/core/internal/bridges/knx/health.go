@@ -21,9 +21,10 @@ type HealthReporter struct {
 	deviceCount   int
 	deviceCountMu sync.RWMutex
 
-	// Shutdown coordination
-	done chan struct{}
-	wg   sync.WaitGroup
+	// Shutdown coordination (stopOnce prevents double-close panics)
+	done     chan struct{}
+	wg       sync.WaitGroup
+	stopOnce sync.Once
 
 	// Logger (optional)
 	logger   Logger
@@ -95,16 +96,19 @@ func (h *HealthReporter) Start(ctx context.Context) {
 
 // Stop gracefully stops health reporting.
 // Publishes a final "stopping" status before returning.
+// Safe to call multiple times (uses sync.Once).
 func (h *HealthReporter) Stop() {
-	// Signal shutdown
-	close(h.done)
+	h.stopOnce.Do(func() {
+		// Signal shutdown
+		close(h.done)
 
-	// Wait for report loop to finish
-	h.wg.Wait()
+		// Wait for report loop to finish
+		h.wg.Wait()
 
-	// Publish final stopping status (best-effort, ignore errors)
-	//nolint:errcheck // Best-effort during shutdown, nothing we can do if it fails
-	h.publishStatus(HealthStopping, "")
+		// Publish final stopping status (best-effort, ignore errors)
+		//nolint:errcheck // Best-effort during shutdown, nothing we can do if it fails
+		h.publishStatus(HealthStopping, "")
+	})
 }
 
 // SetDeviceCount updates the managed device count.

@@ -13,6 +13,24 @@ import (
 	"time"
 )
 
+// closeOnce wraps a channel with sync.Once to prevent double-close panics.
+type closeOnce struct {
+	ch   chan struct{}
+	once sync.Once
+}
+
+func newCloseOnce() *closeOnce {
+	return &closeOnce{ch: make(chan struct{})}
+}
+
+func (c *closeOnce) Close() {
+	c.once.Do(func() { close(c.ch) })
+}
+
+func (c *closeOnce) Done() <-chan struct{} {
+	return c.ch
+}
+
 // Default timeouts and intervals for knxd communication.
 const (
 	// defaultConnectTimeout is the maximum time to wait for initial connection.
@@ -115,8 +133,8 @@ type KNXDClient struct {
 	// Callback worker pool (bounded goroutine spawning)
 	callbackQueue chan Telegram
 
-	// Shutdown coordination
-	done chan struct{}
+	// Shutdown coordination (closeOnce prevents double-close panics)
+	done *closeOnce
 	wg   sync.WaitGroup
 
 	// Logger (optional)
@@ -181,13 +199,13 @@ func Connect(ctx context.Context, cfg KNXDConfig) (*KNXDClient, error) {
 	client := &KNXDClient{
 		cfg:           cfg,
 		conn:          conn,
-		done:          make(chan struct{}),
+		done:          newCloseOnce(),
 		callbackQueue: make(chan Telegram, callbackQueueSize),
 	}
 	client.lastActivity.Store(time.Now().Unix())
 
-	// Open group communication mode
-	if err := client.openGroupCon(); err != nil {
+	// Open group communication mode (respects context deadline)
+	if err := client.openGroupCon(connectCtx); err != nil {
 		conn.Close()
 		return nil, fmt.Errorf("%w: handshake failed: %w", ErrConnectionFailed, err)
 	}
@@ -232,20 +250,46 @@ func parseConnectionURL(connURL string) (network, address string, err error) {
 }
 
 // openGroupCon sends the EIB_OPEN_GROUPCON message to knxd.
-func (c *KNXDClient) openGroupCon() error {
+// It respects the context deadline to ensure the overall connect timeout is honoured.
+func (c *KNXDClient) openGroupCon(ctx context.Context) error {
 	msg := EncodeKNXDMessage(EIBOpenGroupcon, nil)
 
-	if err := c.conn.SetWriteDeadline(time.Now().Add(defaultWriteTimeout)); err != nil {
+	// Calculate deadline: use context deadline if set and sooner than default
+	writeDeadline := time.Now().Add(defaultWriteTimeout)
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(writeDeadline) {
+		writeDeadline = deadline
+	}
+
+	if err := c.conn.SetWriteDeadline(writeDeadline); err != nil {
 		return fmt.Errorf("set write deadline: %w", err)
+	}
+
+	// Check context before write
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled: %w", ctx.Err())
+	default:
 	}
 
 	if _, err := c.conn.Write(msg); err != nil {
 		return fmt.Errorf("write: %w", err)
 	}
 
-	// Read response
-	if err := c.conn.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout)); err != nil {
+	// Read response - respect context deadline
+	readDeadline := time.Now().Add(c.cfg.ReadTimeout)
+	if deadline, ok := ctx.Deadline(); ok && deadline.Before(readDeadline) {
+		readDeadline = deadline
+	}
+
+	if err := c.conn.SetReadDeadline(readDeadline); err != nil {
 		return fmt.Errorf("set read deadline: %w", err)
+	}
+
+	// Check context before read
+	select {
+	case <-ctx.Done():
+		return fmt.Errorf("context cancelled: %w", ctx.Err())
+	default:
 	}
 
 	resp := make([]byte, readBufferSize)
@@ -274,7 +318,7 @@ func (c *KNXDClient) receiveLoop() {
 
 	for {
 		select {
-		case <-c.done:
+		case <-c.done.Done():
 			return
 		default:
 		}
@@ -296,6 +340,7 @@ func (c *KNXDClient) receiveLoop() {
 
 // readMessage reads a single knxd message from the connection.
 // Returns the message type, payload, and any error.
+// If the message is oversized, returns ErrProtocolDesync which is fatal.
 func (c *KNXDClient) readMessage(buf []byte) (uint16, []byte, error) {
 	// Set read deadline
 	if err := c.conn.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout)); err != nil {
@@ -310,10 +355,21 @@ func (c *KNXDClient) readMessage(buf []byte) (uint16, []byte, error) {
 
 	// Parse message size
 	msgSize := binary.BigEndian.Uint16(buf[:2])
-	if msgSize < knxdHeaderSize || int(msgSize) > len(buf) {
+	if msgSize < knxdHeaderSize {
 		c.errorsTotal.Add(1)
-		return 0, nil, fmt.Errorf("invalid message size: %d (expected %d-%d)",
-			msgSize, knxdHeaderSize, len(buf))
+		return 0, nil, fmt.Errorf("invalid message size: %d (minimum %d)",
+			msgSize, knxdHeaderSize)
+	}
+
+	// Oversized message detection - FATAL error to prevent protocol desync.
+	// We cannot safely skip the message because we'd need to read and discard
+	// an unknown number of bytes, risking buffer overflow or incorrect framing.
+	// Closing the connection forces a clean reconnect.
+	if int(msgSize) > len(buf) {
+		c.errorsTotal.Add(1)
+		c.logError("oversized message, closing connection to prevent desync",
+			fmt.Errorf("size %d exceeds buffer %d", msgSize, len(buf)))
+		return 0, nil, ErrProtocolDesync
 	}
 
 	// Read rest of message
@@ -341,6 +397,13 @@ func (c *KNXDClient) handleReadError(err error) bool {
 
 	if c.isClosed() {
 		return true // Clean shutdown
+	}
+
+	// Protocol desync is always fatal - stream is corrupted
+	if errors.Is(err, ErrProtocolDesync) {
+		c.logError("protocol desync detected", err)
+		c.handleDisconnect()
+		return true // Fatal, must reconnect
 	}
 
 	var netErr net.Error
@@ -391,7 +454,9 @@ func (c *KNXDClient) callbackWorker() {
 
 	for {
 		select {
-		case <-c.done:
+		case <-c.done.Done():
+			// Drain any remaining items (best-effort, non-blocking)
+			c.drainCallbackQueue()
 			return
 		case telegram := <-c.callbackQueue:
 			c.callbackMu.RLock()
@@ -421,10 +486,23 @@ func (c *KNXDClient) handleDisconnect() {
 	c.logInfo("connection lost")
 }
 
+// drainCallbackQueue removes and discards any remaining items from the callback queue.
+// Called during shutdown to prevent goroutines from blocking on send.
+func (c *KNXDClient) drainCallbackQueue() {
+	for {
+		select {
+		case <-c.callbackQueue:
+			// Discard item
+		default:
+			return // Queue is empty
+		}
+	}
+}
+
 // isClosed returns true if the client has been closed.
 func (c *KNXDClient) isClosed() bool {
 	select {
-	case <-c.done:
+	case <-c.done.Done():
 		return true
 	default:
 		return false
@@ -434,18 +512,13 @@ func (c *KNXDClient) isClosed() bool {
 // Close gracefully closes the connection.
 //
 // It signals the receive loop to stop and closes the underlying
-// network connection.
+// network connection. Safe to call multiple times (uses sync.Once).
 //
 // Returns:
 //   - error: nil (closing is best-effort)
 func (c *KNXDClient) Close() error {
-	// Prevent double-close panic by checking if already closed.
-	select {
-	case <-c.done:
-		return nil // Already closed
-	default:
-		close(c.done)
-	}
+	// Signal shutdown (safe to call multiple times via sync.Once)
+	c.done.Close()
 
 	// Mark disconnected
 	c.connMu.Lock()
@@ -457,7 +530,7 @@ func (c *KNXDClient) Close() error {
 		c.conn.Close()
 	}
 
-	// Wait for receive loop to finish
+	// Wait for all goroutines to finish
 	c.wg.Wait()
 
 	c.logInfo("connection closed")

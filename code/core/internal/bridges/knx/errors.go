@@ -32,4 +32,8 @@ var (
 
 	// ErrInvalidTelegram is returned when a received telegram is malformed.
 	ErrInvalidTelegram = errors.New("knx: invalid telegram")
+
+	// ErrProtocolDesync is returned when the protocol stream becomes corrupted.
+	// This is a fatal error requiring connection reset.
+	ErrProtocolDesync = errors.New("knx: protocol desync, connection must be reset")
 )

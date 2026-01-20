@@ -109,7 +109,7 @@ func TestKNXDConfigDefaults(t *testing.T) {
 func TestKNXDStats(t *testing.T) {
 	// Create a client without connecting to test stats
 	client := &KNXDClient{
-		done: make(chan struct{}),
+		done: newCloseOnce(),
 	}
 	client.lastActivity.Store(time.Now().Unix())
 
@@ -153,7 +153,7 @@ func TestKNXDStats(t *testing.T) {
 
 func TestKNXDClientIsConnected(t *testing.T) {
 	client := &KNXDClient{
-		done: make(chan struct{}),
+		done: newCloseOnce(),
 	}
 
 	if client.IsConnected() {
@@ -179,7 +179,7 @@ func TestKNXDClientIsConnected(t *testing.T) {
 
 func TestKNXDClientSetOnTelegram(t *testing.T) {
 	client := &KNXDClient{
-		done: make(chan struct{}),
+		done: newCloseOnce(),
 	}
 
 	callback := func(_ Telegram) {
@@ -198,7 +198,7 @@ func TestKNXDClientSetOnTelegram(t *testing.T) {
 
 func TestKNXDClientHealthCheck(t *testing.T) {
 	client := &KNXDClient{
-		done: make(chan struct{}),
+		done: newCloseOnce(),
 	}
 
 	// Not connected should return error
@@ -220,7 +220,7 @@ func TestKNXDClientHealthCheck(t *testing.T) {
 
 func TestKNXDClientSendNotConnected(t *testing.T) {
 	client := &KNXDClient{
-		done: make(chan struct{}),
+		done: newCloseOnce(),
 	}
 
 	err := client.Send(context.Background(), GroupAddress{1, 2, 3}, []byte{0x01})
