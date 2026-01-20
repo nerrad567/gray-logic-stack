@@ -151,7 +151,7 @@ func (c *Client) handleWriteErrors(errorsCh <-chan error) {
 //  3. Signals the error handler goroutine to stop
 //  4. Closes the underlying client
 //
-// The flush happens BEFORE signaling the goroutine to stop, ensuring
+// The flush happens BEFORE signalling the goroutine to stop, ensuring
 // any errors during the final flush can still be processed by the
 // error handler callback.
 //

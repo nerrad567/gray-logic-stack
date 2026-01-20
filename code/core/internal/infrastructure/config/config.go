@@ -361,10 +361,11 @@ func (c *Config) Validate() error {
 	// Security validation - JWT secret is REQUIRED
 	// For building automation systems, authentication security is critical.
 	// Empty or weak secrets could allow attackers to forge tokens and
-	// gain unauthorized access to physical security devices.
+	// gain unauthorised access to physical security devices.
+	const minJWTSecretLength = 32
 	if c.Security.JWT.Secret == "" {
 		errs = append(errs, "security.jwt.secret is required (set GRAYLOGIC_JWT_SECRET environment variable)")
-	} else if len(c.Security.JWT.Secret) < 32 {
+	} else if len(c.Security.JWT.Secret) < minJWTSecretLength {
 		errs = append(errs, "security.jwt.secret must be at least 32 characters for adequate security")
 	}
 
