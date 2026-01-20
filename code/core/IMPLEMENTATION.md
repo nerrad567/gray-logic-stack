@@ -148,7 +148,7 @@ code/core/
 | **Go 1.23** | Latest stable, no bleeding-edge features |
 | **gopkg.in/yaml.v3** | Mature, well-maintained, supports comments |
 | **golangci-lint** | Industry standard, catches security issues |
-| **Makefile** | Universal, works in 10 years, no dependencies |
+| **Makefile** | Universal, works for decades, no dependencies |
 | **internal/ directory** | Go-enforced encapsulation |
 
 ### Dependencies Added
@@ -327,7 +327,7 @@ gofmt -w .
    | `embed.FS` for migrations | Compiles SQL into binary, no external files needed at runtime |
    | WAL mode | Better concurrent access (readers don't block writers) |
    | STRICT mode | SQLite type enforcement (prevents silent data issues) |
-   | Additive-only migrations | 10-year stability — never ALTER/DROP in production |
+   | Additive-only migrations | Multi-decade stability — never ALTER/DROP in production |
 
 4. **Created initial schema migration**
    - File: `migrations/20260118_200000_initial_schema.up.sql`

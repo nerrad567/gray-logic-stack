@@ -6,7 +6,7 @@
 
 **v1.0 Architecture Phase** (January 2026) — Documentation complete, implementation starting.
 
-Pivoted from openHAB-based approach to custom **Gray Logic Core** written in Go for 10-year deployment stability.
+Pivoted from openHAB-based approach to custom **Gray Logic Core** written in Go for multi-decade deployment stability.
 
 ## Quick Links
 
@@ -45,7 +45,7 @@ docs/
 1. **Physical controls always work** — Wall switches function even if all software is down
 2. **Life safety is independent** — Fire alarms, E-stops are certified hardware; we observe, never control
 3. **No cloud dependencies** — 99%+ functionality without internet
-4. **10-year deployment horizon** — Systems installed today must work reliably in 2036
+4. **Multi-decade deployment horizon** — Systems installed today must work reliably for decades
 5. **Open standards** — KNX, DALI, Modbus; no proprietary lock-in
 
 ## Technology Stack

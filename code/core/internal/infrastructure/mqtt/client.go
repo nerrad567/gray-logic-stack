@@ -34,6 +34,7 @@ type Client struct {
 	// Callbacks for connection events (optional, set via SetOnConnect/SetOnDisconnect).
 	onConnect    func()
 	onDisconnect func(err error)
+	callbackMu   sync.RWMutex
 }
 
 // subscription holds subscription details for re-subscription on reconnect.
@@ -128,8 +129,11 @@ func (c *Client) handleConnect() {
 	c.publishOnlineStatus()
 
 	// Notify callback if set
-	if c.onConnect != nil {
-		c.onConnect()
+	c.callbackMu.RLock()
+	callback := c.onConnect
+	c.callbackMu.RUnlock()
+	if callback != nil {
+		callback()
 	}
 }
 
@@ -140,8 +144,11 @@ func (c *Client) handleDisconnect(err error) {
 	c.connMu.Unlock()
 
 	// Notify callback if set
-	if c.onDisconnect != nil {
-		c.onDisconnect(err)
+	c.callbackMu.RLock()
+	callback := c.onDisconnect
+	c.callbackMu.RUnlock()
+	if callback != nil {
+		callback(err)
 	}
 }
 
@@ -230,13 +237,17 @@ func (c *Client) IsConnected() bool {
 // SetOnConnect sets a callback to be invoked when connection is established.
 // This is called on initial connect and on every reconnect.
 func (c *Client) SetOnConnect(callback func()) {
+	c.callbackMu.Lock()
 	c.onConnect = callback
+	c.callbackMu.Unlock()
 }
 
 // SetOnDisconnect sets a callback to be invoked when connection is lost.
 // The error parameter describes why the connection was lost.
 func (c *Client) SetOnDisconnect(callback func(err error)) {
+	c.callbackMu.Lock()
 	c.onDisconnect = callback
+	c.callbackMu.Unlock()
 }
 
 // wrapHandler wraps a MessageHandler with panic recovery.

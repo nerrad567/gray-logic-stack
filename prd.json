@@ -1,0 +1,64 @@
+{
+  "name": "M1.1 Core Infrastructure Completion",
+  "branchName": "m1.1-core-infrastructure",
+  "stories": [
+    {
+      "id": "mqtt-race-fix",
+      "title": "Fix MQTT Race Condition",
+      "priority": 0,
+      "acceptanceCriteria": [
+        "go test -race ./internal/infrastructure/mqtt/... passes",
+        "OnConnect callback field access is protected by mutex",
+        "All MQTT tests pass with race detector enabled"
+      ],
+      "passes": false
+    },
+    {
+      "id": "main-wiring",
+      "title": "Wire main.go with all infrastructure",
+      "priority": 1,
+      "acceptanceCriteria": [
+        "main.go initialises config, database, MQTT client, InfluxDB client",
+        "Graceful shutdown on SIGTERM and SIGINT signals",
+        "./bin/graylogic --version prints version string",
+        "./bin/graylogic --config config.yaml loads config and connects to services"
+      ],
+      "passes": false
+    },
+    {
+      "id": "health-endpoint",
+      "title": "Add HTTP health endpoint",
+      "priority": 2,
+      "acceptanceCriteria": [
+        "HTTP server starts on configurable port from config",
+        "GET /health returns JSON with database, mqtt, influxdb status",
+        "Returns HTTP 200 if all healthy, 503 if any component unhealthy"
+      ],
+      "passes": false
+    },
+    {
+      "id": "device-registry-schema",
+      "title": "Add device registry database schema",
+      "priority": 2,
+      "acceptanceCriteria": [
+        "Migration adds devices table with fields from docs/data-model/entities.md",
+        "Migration adds areas table",
+        "Migration adds rooms table",
+        "Migration is additive-only with no ALTER or DROP statements",
+        "Tests verify tables are created correctly"
+      ],
+      "passes": false
+    },
+    {
+      "id": "documentation-update",
+      "title": "Update implementation documentation",
+      "priority": 3,
+      "acceptanceCriteria": [
+        "IMPLEMENTATION.md reflects all completed M1.1 items",
+        "GETTING-STARTED.md has accurate build and run instructions",
+        "All package doc.go files have complete documentation"
+      ],
+      "passes": false
+    }
+  ]
+}

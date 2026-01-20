@@ -2,7 +2,7 @@
 //
 // This is the main entry point for the Gray Logic Core application.
 // Gray Logic is a complete building automation system designed for:
-//   - 10-year deployment stability
+//   - Multi-decade deployment stability
 //   - Offline-first operation (99%+ functionality without internet)
 //   - Open standards (KNX, DALI, Modbus)
 //   - Zero vendor lock-in

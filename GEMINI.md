@@ -83,3 +83,29 @@ When working on this project, adhere to these rules:
 - `docs/architecture/system-overview.md`: Technical design.
 - `docs/development/CODING-STANDARDS.md`: Detailed style guide.
 - `docs/data-model/entities.md`: Core entity definitions.
+
+## Common Commands
+
+```bash
+# Build
+cd code/core && go build -o bin/graylogic ./cmd/graylogic
+
+# Run tests
+cd code/core && go test -v ./...
+
+# Lint
+cd code/core && golangci-lint run
+
+# Run locally (once complete)
+./code/core/bin/graylogic --config config/dev.yaml
+
+# Start dev services (MQTT + InfluxDB)
+docker compose -f docker-compose.dev.yml up -d
+```
+
+## Current Focus
+
+**Phase**: Year 1 — Foundation  
+**Milestone**: M1.1 Core Infrastructure  
+**Active Work**: See `PROJECT-STATUS.md` for current progress  
+**Next**: Docker Compose for dev services, main.go wiring

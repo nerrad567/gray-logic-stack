@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"os"
+	"sync"
 	"testing"
 	"time"
 
@@ -137,10 +138,13 @@ func TestWriteDeviceMetric(t *testing.T) {
 	}
 	defer client.Close()
 
-	// Track errors
+	// Track errors with mutex for race safety
 	var writeErr error
+	var mu sync.Mutex
 	client.SetOnError(func(err error) {
+		mu.Lock()
 		writeErr = err
+		mu.Unlock()
 	})
 
 	// Write a test metric
@@ -152,6 +156,8 @@ func TestWriteDeviceMetric(t *testing.T) {
 	// Give a moment for error callback
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
+	defer mu.Unlock()
 	if writeErr != nil {
 		t.Errorf("Write error = %v", writeErr)
 	}
@@ -168,8 +174,11 @@ func TestWriteEnergyMetric(t *testing.T) {
 	defer client.Close()
 
 	var writeErr error
+	var mu sync.Mutex
 	client.SetOnError(func(err error) {
+		mu.Lock()
 		writeErr = err
+		mu.Unlock()
 	})
 
 	client.WriteEnergyMetric("test-device-002", 150.5, 12.34)
@@ -177,6 +186,8 @@ func TestWriteEnergyMetric(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
+	defer mu.Unlock()
 	if writeErr != nil {
 		t.Errorf("Write error = %v", writeErr)
 	}
@@ -193,8 +204,11 @@ func TestWritePHMMetric(t *testing.T) {
 	defer client.Close()
 
 	var writeErr error
+	var mu sync.Mutex
 	client.SetOnError(func(err error) {
+		mu.Lock()
 		writeErr = err
+		mu.Unlock()
 	})
 
 	client.WritePHMMetric("test-device-003", "runtime_hours", 1234.5)
@@ -202,6 +216,8 @@ func TestWritePHMMetric(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
+	defer mu.Unlock()
 	if writeErr != nil {
 		t.Errorf("Write error = %v", writeErr)
 	}
@@ -218,8 +234,11 @@ func TestWritePoint(t *testing.T) {
 	defer client.Close()
 
 	var writeErr error
+	var mu sync.Mutex
 	client.SetOnError(func(err error) {
+		mu.Lock()
 		writeErr = err
+		mu.Unlock()
 	})
 
 	client.WritePoint(
@@ -231,6 +250,8 @@ func TestWritePoint(t *testing.T) {
 
 	time.Sleep(100 * time.Millisecond)
 
+	mu.Lock()
+	defer mu.Unlock()
 	if writeErr != nil {
 		t.Errorf("Write error = %v", writeErr)
 	}

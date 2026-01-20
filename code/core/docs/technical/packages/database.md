@@ -130,7 +130,7 @@ Closes underlying `*sql.DB`, releasing file handles.
 | **WAL mode** | Concurrent reads during writes; better crash recovery | DELETE mode (simpler but blocks) |
 | **Single writer** | SQLite limitation; prevents lock contention | Multiple connections (causes "database locked") |
 | **embed.FS migrations** | Single binary deployment; no external files | File-based (deployment complexity) |
-| **Additive-only schema** | Safe rollbacks over 10-year horizon | ALTER/DROP (risk of data loss) |
+| **Additive-only schema** | Safe rollbacks over multi-decade horizon | ALTER/DROP (risk of data loss) |
 | **STRICT mode** | Type enforcement prevents silent corruption | Flexible types (data integrity risk) |
 
 See also:

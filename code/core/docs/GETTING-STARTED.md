@@ -22,7 +22,7 @@
 
 Gray Logic Core is a building automation system written in Go. The project follows Go's standard conventions and is designed for:
 
-- **10-year deployment stability** — Dependencies are pinned, code is simple
+- **Multi-decade deployment stability** — Dependencies are pinned, code is simple
 - **Offline-first operation** — No cloud dependencies for core functionality
 - **Security** — Strict linting catches vulnerabilities early
 - **Testability** — Structure enables comprehensive testing
@@ -286,7 +286,7 @@ linters:
 
 2. **`gosec`** — Finds security vulnerabilities like SQL injection, command injection, hardcoded credentials. Critical for a system that controls physical infrastructure.
 
-3. **`gocyclo`** — Flags overly complex functions. Complex code has more bugs and is harder to maintain over 10 years.
+3. **`gocyclo`** — Flags overly complex functions. Complex code has more bugs and is harder to maintain over decades.
 
 4. **`misspell` (UK locale)** — Ensures consistent British English throughout the codebase.
 

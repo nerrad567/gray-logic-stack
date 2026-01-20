@@ -142,7 +142,7 @@ Expanded Gray Logic to properly support plant room environments and commercial/o
 
 This release marks a significant pivot from the openHAB-based approach (v0.4 and earlier) to a **custom-built Gray Logic Core** in Go. This decision was made after careful analysis of the project goals:
 
-- **10-year deployment stability** — Control over the entire stack, no dependency on third-party project decisions
+- **Multi-decade deployment stability** — Control over the entire stack, no dependency on third-party project decisions
 - **True offline operation** — Leaner runtime, faster startup, lower resource usage
 - **Custom UI** — Wall panels and mobile apps built to our specifications, not constrained by openHAB UI
 - **Native AI integration** — Local voice control without Alexa/Google dependency
@@ -177,7 +177,7 @@ This release marks a significant pivot from the openHAB-based approach (v0.4 and
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Core | Go | Single binary, no runtime, cross-compiles, 10-year stability |
+| Core | Go | Single binary, no runtime, cross-compiles, multi-decade stability |
 | Database | SQLite | Embedded, zero maintenance |
 | Time-Series | InfluxDB | PHM data, energy monitoring |
 | Message Bus | MQTT | Simple, proven, debuggable |

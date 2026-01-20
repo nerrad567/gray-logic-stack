@@ -6,7 +6,7 @@ This file provides guidance to Claude Code (claude.ai/code) and other AI assista
 
 **Gray Logic** is a complete building intelligence platform — the central nervous system of a property. It rivals and aims to surpass systems like Crestron, Savant, Lutron, Control4, and Loxone while maintaining complete openness, true offline capability, and zero vendor lock-in.
 
-**Core Philosophy**: Offline-first (99%+ functionality without internet), open standards at field layer (KNX, DALI, Modbus), safety-first, 10-year deployment stability, and zero vendor lock-in.
+**Core Philosophy**: Offline-first (99%+ functionality without internet), open standards at field layer (KNX, DALI, Modbus), safety-first, multi-decade deployment stability, and zero vendor lock-in.
 
 **Current Status**: v1.0 Architecture Phase (January 2026). We have pivoted from an openHAB-based approach to building a custom **Gray Logic Core** in Go. Previous openHAB/Node-RED documentation is archived in `docs/archive/v0.4-openhab-era.zip`.
 
@@ -50,7 +50,7 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 1. **Physical controls always work**: Wall switches, buttons function even if all software is down
 2. **Life safety is independent**: Fire alarms, E-stops use certified hardware — stack observes, never controls
 3. **No cloud dependencies for core**: Internet down = everything except remote access still works
-4. **10-year deployment horizon**: Version-pin, security patches only, no forced upgrades
+4. **Multi-decade deployment horizon**: Version-pin, security patches only, no forced upgrades
 5. **Open standards at field layer**: KNX, DALI, Modbus — no proprietary lock-in
 6. **Customer owns their system**: Full documentation, handover pack, no dealer locks
 7. **Privacy by design**: Voice processed locally, no cloud surveillance
@@ -103,7 +103,7 @@ Archived (for reference):
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
-| Core | Go | Single binary, no runtime, 10-year stability |
+| Core | Go | Single binary, no runtime, multi-decade stability |
 | Database | SQLite | Embedded, zero maintenance |
 | Time-Series | InfluxDB | PHM data, energy monitoring |
 | Message Bus | MQTT | Simple, proven, debuggable |
@@ -115,7 +115,7 @@ Archived (for reference):
 ### When Adding Features
 
 1. **Check offline-first**: Will this work without internet?
-2. **Check 10-year viability**: Will this still work in 2036?
+2. **Check multi-decade viability**: Will this still work in 2036 and beyond?
 3. **Check safety boundaries**: Does this touch life safety? Document rationale.
 4. **Maintain modularity**: Can this component be replaced independently?
 5. **Document for AI**: Keep docs modular, use YAML frontmatter, be explicit
@@ -145,6 +145,46 @@ When working on this project:
 1. **Read the principles first**: `docs/overview/principles.md` contains hard rules
 2. **Use standard terminology**: See `docs/overview/glossary.md`
 3. **Maintain modularity**: Don't create monolithic files
-4. **Respect the 10-year goal**: Avoid bleeding-edge, prefer stable
+4. **Respect the multi-decade goal**: Avoid bleeding-edge, prefer stable
 5. **Offline-first always**: Never add cloud dependencies for core features
 6. **Document changes**: Update relevant docs when making changes
+
+## Common Commands
+
+```bash
+# Build
+cd code/core && go build -o bin/graylogic ./cmd/graylogic
+
+# Run tests
+cd code/core && go test -v ./...
+
+# Lint
+cd code/core && golangci-lint run
+
+# Run locally (once complete)
+./code/core/bin/graylogic --config config/dev.yaml
+
+# Start dev services (MQTT + InfluxDB)
+docker compose -f docker-compose.dev.yml up -d
+```
+
+## Custom Commands
+
+These are available in `.claude/commands/`:
+
+| Command | Purpose |
+|---------|---------|
+| `/pre-commit` | Run lint + tests + principles check before committing |
+| `/check-principles` | Validate changes against Gray Logic hard boundaries |
+| `/audit-deps` | Check Go dependencies for multi-decade viability |
+| `/health-check` | Verify dev environment (Go, Docker, services) |
+| `/add-domain` | Scaffold a new domain specification |
+| `/new-bridge` | Scaffold a new protocol bridge |
+| `/add-entity` | Add entity to data model with JSON schema |
+
+## Current Focus
+
+**Phase**: Year 1 — Foundation  
+**Milestone**: M1.1 Core Infrastructure  
+**Active Work**: See `PROJECT-STATUS.md` for current progress  
+**Next**: Docker Compose for dev services, main.go wiring
