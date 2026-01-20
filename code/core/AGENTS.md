@@ -198,6 +198,107 @@ func (r *DeviceRegistry) Update(id string, state State) error {
 }
 ```
 
+### 5. UK English Spelling
+
+Use UK English throughout all code, comments, and documentation:
+
+| ✅ UK (correct) | ❌ US (wrong) |
+|-----------------|---------------|
+| initialise | initialize |
+| colour | color |
+| behaviour | behavior |
+| metre | meter |
+| cancelled | canceled |
+| organisation | organization |
+| serialise | serialize |
+| synchronise | synchronize |
+
+golangci-lint with `misspell` linter is configured to catch US spellings.
+```bash
+# Check for spelling issues
+golangci-lint run --enable=misspell
+```
+
+### 6. Context Usage
+
+All long-running or cancellable operations MUST accept context as first parameter:
+```go
+// ✅ Correct — context as first parameter
+func (s *Service) LoadDevices(ctx context.Context) ([]Device, error) {
+    // Check for cancellation
+    select {
+    case <-ctx.Done():
+        return nil, ctx.Err()
+    default:
+    }
+    
+    // Pass context to downstream calls
+    devices, err := s.repo.FindAll(ctx)
+    if err != nil {
+        return nil, fmt.Errorf("load devices: %w", err)
+    }
+    return devices, nil
+}
+
+// ❌ Wrong — no context support
+func (s *Service) LoadDevices() ([]Device, error)
+```
+
+**Rules:**
+- Pass context through the entire call chain
+- Never store context in structs
+- Use `context.WithTimeout` for operations with deadlines
+- Check `ctx.Done()` in loops and long operations
+
+### 7. Graceful Shutdown
+
+Use `signal.NotifyContext` for OS signal handling. Close resources in **reverse order** of creation (LIFO):
+```go
+func main() {
+    // Setup signal handling
+    ctx, stop := signal.NotifyContext(context.Background(), os.Interrupt, syscall.SIGTERM)
+    defer stop()
+
+    if err := run(ctx); err != nil {
+        log.Fatal(err)
+    }
+}
+
+func run(ctx context.Context) error {
+    // Open resources in order
+    db, err := database.Open(cfg.Database)
+    if err != nil {
+        return fmt.Errorf("database: %w", err)
+    }
+    defer db.Close() // Closed last
+
+    mqtt, err := mqtt.Connect(cfg.MQTT)
+    if err != nil {
+        return fmt.Errorf("mqtt: %w", err)
+    }
+    defer mqtt.Close() // Closed second
+
+    influx, err := influxdb.Connect(cfg.InfluxDB)
+    if err != nil {
+        return fmt.Errorf("influxdb: %w", err)
+    }
+    defer influx.Close() // Closed first
+
+    // Start services...
+
+    // Wait for shutdown signal
+    <-ctx.Done()
+    log.Info("shutting down gracefully")
+    return nil
+}
+```
+
+**Rules:**
+- `defer Close()` immediately after successful `Open()`
+- Defers execute in LIFO order (last defer runs first)
+- Log shutdown initiation for debugging
+- Give connections time to drain if needed (use timeout context)
+
 ---
 
 ## Database Rules
