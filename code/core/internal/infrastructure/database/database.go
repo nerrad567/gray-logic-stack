@@ -105,13 +105,15 @@ func Open(ctx context.Context, cfg Config) (*DB, error) {
 		path: cfg.Path,
 	}
 
-	// Verify connection with timeout (use provided context or default)
+	// Verify connection with timeout
+	// Always enforce a maximum timeout, even if caller provides a non-cancellable context.
+	// This prevents indefinite hangs in a 20-year deployment system.
 	pingCtx := ctx
 	if pingCtx == nil {
-		var cancel context.CancelFunc
-		pingCtx, cancel = context.WithTimeout(context.Background(), connectionTimeout)
-		defer cancel()
+		pingCtx = context.Background()
 	}
+	pingCtx, cancel := context.WithTimeout(pingCtx, connectionTimeout)
+	defer cancel()
 
 	if err := db.PingContext(pingCtx); err != nil {
 		sqlDB.Close() //nolint:errcheck // Best effort cleanup on error path

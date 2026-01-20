@@ -66,13 +66,21 @@ func Connect(ctx context.Context, cfg config.InfluxDBConfig) (*Client, error) {
 	}
 
 	// Validate and convert config values (ensure non-negative for uint conversion)
+	// Upper bounds prevent integer overflow when multiplying flushInterval by 1000.
+	const maxBatchSize = 100000
+	const maxFlushIntervalSeconds = 3600 // 1 hour max
+
 	batchSize := cfg.BatchSize
 	if batchSize <= 0 {
 		batchSize = 100 // Default
+	} else if batchSize > maxBatchSize {
+		return nil, fmt.Errorf("batch_size %d exceeds maximum %d", batchSize, maxBatchSize)
 	}
 	flushInterval := cfg.FlushInterval
 	if flushInterval <= 0 {
 		flushInterval = 10 // Default
+	} else if flushInterval > maxFlushIntervalSeconds {
+		return nil, fmt.Errorf("flush_interval %d exceeds maximum %d seconds", flushInterval, maxFlushIntervalSeconds)
 	}
 
 	// Create client with token auth
@@ -85,13 +93,15 @@ func Connect(ctx context.Context, cfg config.InfluxDBConfig) (*Client, error) {
 			SetFlushInterval(uint(flushInterval)*millisecondsPerSecond), // Convert to milliseconds
 	)
 
-	// Verify connectivity with timeout (use provided context or default)
+	// Verify connectivity with timeout
+	// Always enforce a maximum timeout, even if caller provides a non-cancellable context.
+	// This prevents indefinite hangs in a 20-year deployment system.
 	pingCtx := ctx
 	if pingCtx == nil {
-		var cancel context.CancelFunc
-		pingCtx, cancel = context.WithTimeout(context.Background(), defaultConnectTimeout)
-		defer cancel()
+		pingCtx = context.Background()
 	}
+	pingCtx, cancel := context.WithTimeout(pingCtx, defaultConnectTimeout)
+	defer cancel()
 
 	healthy, err := client.Ping(pingCtx)
 	if err != nil {

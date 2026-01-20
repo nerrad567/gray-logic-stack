@@ -4,11 +4,15 @@ import (
 	"fmt"
 )
 
+// Maximum payload size for MQTT messages (1MB).
+// This prevents resource exhaustion and aligns with typical broker limits.
+const maxPayloadSize = 1 << 20 // 1MB
+
 // Publish sends a message to the specified MQTT topic.
 //
 // Parameters:
 //   - topic: The topic to publish to (e.g., "graylogic/bridge/knx-01/command/light-living")
-//   - payload: The message payload (typically JSON)
+//   - payload: The message payload (typically JSON, max 1MB)
 //   - qos: Quality of Service level (0, 1, or 2)
 //   - retained: Whether the broker should retain the message for new subscribers
 //
@@ -37,6 +41,9 @@ func (c *Client) Publish(topic string, payload []byte, qos byte, retained bool) 
 	}
 	if qos > maxQoS {
 		return ErrInvalidQoS
+	}
+	if len(payload) > maxPayloadSize {
+		return fmt.Errorf("%w: payload size %d exceeds maximum %d bytes", ErrPublishFailed, len(payload), maxPayloadSize)
 	}
 
 	// Check connection state
