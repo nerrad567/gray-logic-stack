@@ -361,7 +361,7 @@ func (c *Config) Validate() error {
 	// Security validation - warn about default JWT secret
 	// In development, we allow the default secret for convenience.
 	// Production deployments MUST override via GRAYLOGIC_JWT_SECRET.
-	// TODO: Add startup warning log when default secret is used
+	// Note: Logging of default secret usage is done in main.go after config load.
 
 	if len(errs) > 0 {
 		return fmt.Errorf("configuration errors: %s", strings.Join(errs, "; "))

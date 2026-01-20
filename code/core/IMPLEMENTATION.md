@@ -6,7 +6,7 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-20 (Session 6)
+**Last session:** 2026-01-20 (Session 7 - Deep Review)
 **Current milestone:** M1.2 KNX Bridge (0% complete)
 
 ### Next Task: Start KNX Bridge Implementation
@@ -31,6 +31,22 @@ make build && make test  # Verify everything still works
 **Reference docs:**
 - `docs/protocols/knx.md` — KNX protocol specification
 - `docs/architecture/bridge-interface.md` — Bridge contract
+
+### M1.1 Hardening Complete (Session 7)
+
+**Edge case tests added:**
+- Database: unwritable directory, context cancellation, busy timeout, invalid SQL
+- Logging: invalid output defaults, empty config, chained loggers
+- InfluxDB: disabled returns nil, health check after close, flush after close
+- MQTT: broker refused, uninitialised state, multiple subscriptions, nil/large payloads
+
+**Bugs fixed:**
+- `influxdb.Flush()` panicked when called after `Close()` — now safe
+
+**Improvements:**
+- MQTT client now supports optional logger via `SetLogger()`
+- Removed obsolete TODO comments
+- Test coverage: config 100%, logging 100%, database 81.9%, influxdb 82.1%, mqtt 82.1%
 
 ---
 
