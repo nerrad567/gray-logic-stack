@@ -20,7 +20,13 @@
       "Bash(go test:*)",
       "Bash(docker compose:*)",
       "Bash(docker ps:*)",
-      "Bash(docker logs:*)"
+      "Bash(docker logs:*)",
+      "Bash(govulncheck:*)",
+      "Bash(export PATH=$PATH:/usr/local/go/bin:$HOME/go/bin)",
+      "Bash(~/go/bin/golangci-lint run:*)",
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" gofmt:*)",
+      "Bash(/usr/local/go/bin/go test:*)",
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" ~/go/bin/golangci-lint run:*)"
     ]
   },
   "outputStyle": "Explanatory"

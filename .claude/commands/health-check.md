@@ -10,7 +10,7 @@ Verifies that your development environment has all required tools and services.
 
 | Tool | Required Version | Purpose |
 |------|-----------------|---------|
-| Go | 1.23+ | Core development |
+| Go | 1.25+ | Core development |
 | golangci-lint | 1.55+ | Code quality |
 | Docker | 20.10+ | Dev services |
 | Docker Compose | 2.0+ | Multi-container |

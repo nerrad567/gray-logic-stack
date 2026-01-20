@@ -104,7 +104,7 @@ Default configuration files. Users copy and modify for their installation.
 ```go
 module github.com/nerrad567/gray-logic-core
 
-go 1.23.4
+go 1.25.6
 
 require gopkg.in/yaml.v3 v3.0.1
 ```

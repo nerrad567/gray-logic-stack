@@ -516,6 +516,7 @@ Understanding this helps calibrate expectations:
 ## Related Commands
 
 - `/pre-commit` — Quick quality gates before committing
-- `/check-principles` — Focused Hard Rules verification
-- `/audit-deps` — Deep dependency analysis
 - `/health-check` — Development environment verification
+
+> **Note**: Dependency auditing and principles checking are integrated into Phases 5-6 of this audit.
+> Use `/code-audit` for comprehensive verification rather than separate commands.
