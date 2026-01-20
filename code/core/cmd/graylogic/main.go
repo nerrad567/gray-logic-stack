@@ -139,8 +139,8 @@ func run(ctx context.Context) error {
 		}
 		defer func() {
 			log.Info("closing InfluxDB connection")
-			if err := influxClient.Close(); err != nil {
-				log.Error("error closing InfluxDB", "error", err)
+			if closeErr := influxClient.Close(); closeErr != nil {
+				log.Error("error closing InfluxDB", "error", closeErr)
 			}
 		}()
 		log.Info("InfluxDB connected",
