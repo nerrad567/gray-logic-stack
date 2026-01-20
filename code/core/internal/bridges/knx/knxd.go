@@ -82,11 +82,12 @@ type KNXDConfig struct {
 //
 //nolint:revive // KNXDStats is clearer than DStats for external use
 type KNXDStats struct {
-	TelegramsTx  uint64
-	TelegramsRx  uint64
-	ErrorsTotal  uint64
-	LastActivity time.Time
-	Connected    bool
+	TelegramsTx      uint64
+	TelegramsRx      uint64
+	TelegramsDropped uint64 // Telegrams dropped due to full callback queue
+	ErrorsTotal      uint64
+	LastActivity     time.Time
+	Connected        bool
 }
 
 // Logger interface for optional logging.
@@ -142,10 +143,11 @@ type KNXDClient struct {
 	loggerMu sync.RWMutex
 
 	// Statistics (atomic for performance)
-	telegramsTx  atomic.Uint64
-	telegramsRx  atomic.Uint64
-	errorsTotal  atomic.Uint64
-	lastActivity atomic.Int64 // Unix timestamp
+	telegramsTx      atomic.Uint64
+	telegramsRx      atomic.Uint64
+	telegramsDropped atomic.Uint64 // Telegrams dropped due to full queue
+	errorsTotal      atomic.Uint64
+	lastActivity     atomic.Int64 // Unix timestamp
 }
 
 // Connect establishes connection to knxd daemon.
@@ -400,8 +402,12 @@ func (c *KNXDClient) handleReadError(err error) bool {
 	}
 
 	// Protocol desync is always fatal - stream is corrupted
+	// Must close socket immediately to stop corrupted data flow
 	if errors.Is(err, ErrProtocolDesync) {
-		c.logError("protocol desync detected", err)
+		c.logError("protocol desync detected, closing socket", err)
+		if c.conn != nil {
+			c.conn.Close() // Force immediate close to prevent further corruption
+		}
 		c.handleDisconnect()
 		return true // Fatal, must reconnect
 	}
@@ -442,6 +448,7 @@ func (c *KNXDClient) handleGroupPacket(payload []byte) {
 		default:
 			// Queue full, drop telegram to prevent memory exhaustion
 			c.logError("callback queue full, dropping telegram", nil)
+			c.telegramsDropped.Add(1)
 			c.errorsTotal.Add(1)
 		}
 	}
@@ -651,11 +658,12 @@ func (c *KNXDClient) IsConnected() bool {
 // Stats returns current operational statistics.
 func (c *KNXDClient) Stats() KNXDStats {
 	return KNXDStats{
-		TelegramsTx:  c.telegramsTx.Load(),
-		TelegramsRx:  c.telegramsRx.Load(),
-		ErrorsTotal:  c.errorsTotal.Load(),
-		LastActivity: time.Unix(c.lastActivity.Load(), 0),
-		Connected:    c.IsConnected(),
+		TelegramsTx:      c.telegramsTx.Load(),
+		TelegramsRx:      c.telegramsRx.Load(),
+		TelegramsDropped: c.telegramsDropped.Load(),
+		ErrorsTotal:      c.errorsTotal.Load(),
+		LastActivity:     time.Unix(c.lastActivity.Load(), 0),
+		Connected:        c.IsConnected(),
 	}
 }
 

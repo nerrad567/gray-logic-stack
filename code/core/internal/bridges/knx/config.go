@@ -1,6 +1,7 @@
 package knx
 
 import (
+	"encoding/json"
 	"fmt"
 	"os"
 	"strings"
@@ -94,6 +95,18 @@ func (m MQTTSettings) String() string {
 	}
 	return fmt.Sprintf("MQTTSettings{Broker:%q, ClientID:%q, Username:%q, Password:%s, QoS:%d, KeepAlive:%d}",
 		m.Broker, m.ClientID, m.Username, password, m.QoS, m.KeepAlive)
+}
+
+// MarshalJSON implements json.Marshaler to redact password in JSON output.
+// This prevents accidental password exposure in logs or API responses.
+func (m MQTTSettings) MarshalJSON() ([]byte, error) {
+	// Create a copy with redacted password for serialisation
+	type redacted MQTTSettings
+	safe := redacted(m)
+	if safe.Password != "" {
+		safe.Password = "[REDACTED]"
+	}
+	return json.Marshal(safe)
 }
 
 // LoggingConfig contains logging settings.

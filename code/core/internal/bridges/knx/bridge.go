@@ -317,6 +317,13 @@ func (b *Bridge) executeDim(ctx context.Context, cmd CommandMessage, deviceGAs m
 		return fmt.Errorf("level must be a number")
 	}
 
+	// Validate range (0-100%)
+	if level < 0 || level > 100 {
+		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
+			fmt.Sprintf("'level' must be 0-100, got %.2f", level), 0)
+		return fmt.Errorf("level out of range: %.2f", level)
+	}
+
 	// Find the brightness address
 	addr, ok := deviceGAs["brightness"]
 	if !ok {
@@ -367,6 +374,13 @@ func (b *Bridge) executeSetPosition(ctx context.Context, cmd CommandMessage, dev
 		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
 			"'position' must be a number", 0)
 		return fmt.Errorf("position must be a number")
+	}
+
+	// Validate range (0-100%)
+	if position < 0 || position > 100 {
+		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
+			fmt.Sprintf("'position' must be 0-100, got %.2f", position), 0)
+		return fmt.Errorf("position out of range: %.2f", position)
 	}
 
 	// Find the position address
@@ -763,6 +777,36 @@ func (b *Bridge) stateUnchanged(deviceID, function string, value any) bool {
 	// Update cache
 	b.stateCache[deviceID][function] = value
 	return false
+}
+
+// ClearStateCache removes all entries from the state cache.
+// Call this when configuration is reloaded to prevent unbounded memory growth
+// from stale device IDs accumulating over multi-decade deployments.
+func (b *Bridge) ClearStateCache() {
+	b.stateCacheMu.Lock()
+	defer b.stateCacheMu.Unlock()
+
+	// Replace with fresh map to allow GC of old entries
+	b.stateCache = make(map[string]map[string]any)
+}
+
+// PruneStateCache removes cache entries for devices not in the current config.
+// This is a less disruptive alternative to ClearStateCache that preserves
+// state for active devices while removing orphaned entries.
+func (b *Bridge) PruneStateCache() {
+	b.stateCacheMu.Lock()
+	defer b.stateCacheMu.Unlock()
+
+	b.mappingMu.RLock()
+	validDevices := b.deviceToGAs
+	b.mappingMu.RUnlock()
+
+	// Remove entries for devices not in current config
+	for deviceID := range b.stateCache {
+		if _, exists := validDevices[deviceID]; !exists {
+			delete(b.stateCache, deviceID)
+		}
+	}
 }
 
 // SetLogger sets the logger for the bridge.
