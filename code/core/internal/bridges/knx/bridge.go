@@ -47,9 +47,11 @@ type Bridge struct {
 	stateCacheMu sync.RWMutex
 
 	// Shutdown coordination
-	done     chan struct{}
-	wg       sync.WaitGroup
-	stopOnce sync.Once
+	done      chan struct{}
+	wg        sync.WaitGroup
+	stopOnce  sync.Once
+	ctx       context.Context    // Bridge-level context, cancelled on Stop()
+	ctxCancel context.CancelFunc // Cancel function for ctx
 
 	// Logger
 	logger   Logger
@@ -103,6 +105,9 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 	// Build device index from config
 	gaToDevice, deviceToGAs := opts.Config.BuildDeviceIndex()
 
+	// Create bridge-level context for command cancellation on shutdown
+	ctx, ctxCancel := context.WithCancel(context.Background())
+
 	b := &Bridge{
 		cfg:         opts.Config,
 		mqtt:        opts.MQTTClient,
@@ -111,6 +116,8 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		deviceToGAs: deviceToGAs,
 		stateCache:  make(map[string]map[string]any),
 		done:        make(chan struct{}),
+		ctx:         ctx,
+		ctxCancel:   ctxCancel,
 		logger:      opts.Logger,
 	}
 
@@ -175,6 +182,9 @@ func (b *Bridge) Start(ctx context.Context) error {
 func (b *Bridge) Stop() {
 	b.stopOnce.Do(func() {
 		close(b.done)
+
+		// Cancel bridge context to abort in-flight commands
+		b.ctxCancel()
 
 		// Stop health reporting (publishes "stopping" status)
 		b.health.Stop()
@@ -246,7 +256,8 @@ func (b *Bridge) handleCommand(payload []byte) {
 
 // executeCommand translates and sends a command to the KNX bus.
 func (b *Bridge) executeCommand(cmd CommandMessage, deviceGAs map[string]AddressConfig) error {
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	// Derive timeout from bridge context so commands are cancelled on shutdown
+	ctx, cancel := context.WithTimeout(b.ctx, commandTimeout)
 	defer cancel()
 
 	switch cmd.Command {
@@ -565,7 +576,8 @@ func (b *Bridge) handleReadState(req RequestMessage) ResponseMessage {
 	}
 
 	// Send read requests for readable addresses
-	ctx, cancel := context.WithTimeout(context.Background(), commandTimeout)
+	// Derive timeout from bridge context so reads are cancelled on shutdown
+	ctx, cancel := context.WithTimeout(b.ctx, commandTimeout)
 	defer cancel()
 
 	for funcName, addr := range deviceGAs {
@@ -597,7 +609,8 @@ func (b *Bridge) handleReadState(req RequestMessage) ResponseMessage {
 
 // handleReadAll handles a read_all request.
 func (b *Bridge) handleReadAll(req RequestMessage) ResponseMessage {
-	ctx, cancel := context.WithTimeout(context.Background(), readAllTimeout)
+	// Derive timeout from bridge context so reads are cancelled on shutdown
+	ctx, cancel := context.WithTimeout(b.ctx, readAllTimeout)
 	defer cancel()
 
 	b.mappingMu.RLock()
@@ -797,13 +810,17 @@ func (b *Bridge) PruneStateCache() {
 	b.stateCacheMu.Lock()
 	defer b.stateCacheMu.Unlock()
 
+	// Deep copy valid device IDs to avoid data race with concurrent config reload
 	b.mappingMu.RLock()
-	validDevices := b.deviceToGAs
+	validIDs := make(map[string]struct{}, len(b.deviceToGAs))
+	for id := range b.deviceToGAs {
+		validIDs[id] = struct{}{}
+	}
 	b.mappingMu.RUnlock()
 
 	// Remove entries for devices not in current config
 	for deviceID := range b.stateCache {
-		if _, exists := validDevices[deviceID]; !exists {
+		if _, exists := validIDs[deviceID]; !exists {
 			delete(b.stateCache, deviceID)
 		}
 	}

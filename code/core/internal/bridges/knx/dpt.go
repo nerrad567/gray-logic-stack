@@ -230,7 +230,7 @@ func DecodeDPT5Angle(data []byte) (float64, error) {
 //   - error: If value is out of range
 func EncodeDPT9(value float64) ([]byte, error) {
 	if value < -671088.64 || value > 670760.96 {
-		return nil, fmt.Errorf("%w: DPT9 value out of range: %f", ErrEncodingFailed, value)
+		return nil, fmt.Errorf("%w: DPT9 value out of range: %.2f (valid: -671088.64 to 670760.96)", ErrEncodingFailed, value)
 	}
 
 	var sign uint16
@@ -248,7 +248,7 @@ func EncodeDPT9(value float64) ([]byte, error) {
 	}
 
 	if exp > dpt9MaxExponent {
-		return nil, fmt.Errorf("%w: DPT9 exponent overflow: %f", ErrEncodingFailed, value)
+		return nil, fmt.Errorf("%w: DPT9 exponent overflow for value %.2f", ErrEncodingFailed, value)
 	}
 
 	m := int16(mantissa)

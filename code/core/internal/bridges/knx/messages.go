@@ -488,10 +488,20 @@ func ConfigTopic() string {
 // encodedSlashLen is the length of URL-encoded slash (%2F).
 const encodedSlashLen = 3
 
+// maxAddressLen is the maximum address length we'll process.
+// KNX addresses are at most ~10 chars (e.g., "31/7/255").
+// This prevents integer overflow in buffer allocation for malformed input.
+const maxAddressLen = 64
+
 // EncodeTopicAddress URL-encodes an address for use in MQTT topics.
 // KNX addresses contain slashes which must be encoded.
 // Example: "1/2/3" → "1%2F2%2F3"
 func EncodeTopicAddress(address string) string {
+	// Defensive truncation to prevent overflow in allocation
+	if len(address) > maxAddressLen {
+		address = address[:maxAddressLen]
+	}
+
 	// Simple encoding for KNX addresses (replace / with %2F)
 	result := make([]byte, 0, len(address)*encodedSlashLen)
 	for i := 0; i < len(address); i++ {
