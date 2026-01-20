@@ -536,7 +536,7 @@ func TestOnConnectCallback(t *testing.T) {
 	// Connect first, then set callback.
 	// Note: The callback may or may not fire depending on timing - the paho
 	// library's on-connect handler fires asynchronously and might race with
-	// our SetOnConnect call. This is expected behavior - the callback mechanism
+	// our SetOnConnect call. This is expected behaviour - the callback mechanism
 	// is for reconnection notifications primarily.
 	client, err := Connect(cfg)
 	if err != nil {
