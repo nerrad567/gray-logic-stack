@@ -63,17 +63,33 @@ type MigrationRecord struct {
 // Migrate applies all pending migrations to the database.
 // Migrations are applied in version order (oldest first).
 //
+// # Atomicity
+//
+// Each migration runs in its own transaction. If migration N fails:
+//   - Migrations 1 to N-1 remain committed
+//   - Migration N is rolled back
+//   - Migrations N+1 onwards are not attempted
+//
+// This per-migration atomicity is intentional:
+//   - Allows partial progress on large migration batches
+//   - Matches SQLite's single-writer model
+//   - Enables debugging by seeing which migration failed
+//   - Re-running Migrate() after fixing the issue continues from N
+//
+// For all-or-nothing semantics, wrap the call in your own transaction,
+// but be aware this may hit SQLite lock timeouts on large migrations.
+//
 // This method:
 //  1. Creates the schema_migrations table if it doesn't exist
 //  2. Loads all migration files from MigrationsFS
 //  3. Determines which migrations haven't been applied
-//  4. Applies pending migrations in order within a transaction
+//  4. Applies pending migrations in order, each in its own transaction
 //
 // Parameters:
 //   - ctx: Context for timeout/cancellation
 //
 // Returns:
-//   - error: If migration fails (database is rolled back to pre-migration state)
+//   - error: If any migration fails (that migration is rolled back)
 func (db *DB) Migrate(ctx context.Context) error {
 	// Ensure migrations table exists
 	if err := db.createMigrationsTable(ctx); err != nil {

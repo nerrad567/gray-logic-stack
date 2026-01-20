@@ -132,6 +132,24 @@ Closes underlying `*sql.DB`, releasing file handles.
 | **embed.FS migrations** | Single binary deployment; no external files | File-based (deployment complexity) |
 | **Additive-only schema** | Safe rollbacks over multi-decade horizon | ALTER/DROP (risk of data loss) |
 | **STRICT mode** | Type enforcement prevents silent corruption | Flexible types (data integrity risk) |
+| **Per-migration atomicity** | Allows partial progress, matches SQLite model | All-or-nothing (lock timeout risk) |
+
+### Migration Atomicity
+
+Migrations use **per-migration atomicity**: each migration runs in its own transaction.
+
+If migration N fails:
+- Migrations 1 to N-1 **remain committed**
+- Migration N is **rolled back**
+- Migrations N+1 onwards are **not attempted**
+
+This design is intentional:
+- **Partial progress**: Large migration batches can make progress even with one failure
+- **SQLite model**: Matches single-writer semantics; avoids lock timeouts
+- **Debuggability**: `schema_migrations` table shows exactly which migration failed
+- **Resumable**: Re-running `Migrate()` after fixing the issue continues from N
+
+For all-or-nothing semantics, wrap the `Migrate()` call in your own transaction, but be aware this may hit SQLite busy timeouts on large migrations.
 
 See also:
 - [IMP-001: Embedded Migrations](../decisions/IMP-001-embedded-migrations.md)
