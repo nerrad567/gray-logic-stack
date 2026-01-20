@@ -54,12 +54,13 @@ type Client struct {
 //  4. Sets up error callback for async write failures
 //
 // Parameters:
+//   - ctx: Context for cancellation (used for ping verification)
 //   - cfg: InfluxDB configuration from config.yaml
 //
 // Returns:
 //   - *Client: Connected client ready for use
 //   - error: If InfluxDB is disabled or connection fails
-func Connect(cfg config.InfluxDBConfig) (*Client, error) {
+func Connect(ctx context.Context, cfg config.InfluxDBConfig) (*Client, error) {
 	if !cfg.Enabled {
 		return nil, ErrDisabled
 	}
@@ -84,11 +85,15 @@ func Connect(cfg config.InfluxDBConfig) (*Client, error) {
 			SetFlushInterval(uint(flushInterval)*millisecondsPerSecond), // Convert to milliseconds
 	)
 
-	// Verify connectivity
-	ctx, cancel := context.WithTimeout(context.Background(), defaultConnectTimeout)
-	defer cancel()
+	// Verify connectivity with timeout (use provided context or default)
+	pingCtx := ctx
+	if pingCtx == nil {
+		var cancel context.CancelFunc
+		pingCtx, cancel = context.WithTimeout(context.Background(), defaultConnectTimeout)
+		defer cancel()
+	}
 
-	healthy, err := client.Ping(ctx)
+	healthy, err := client.Ping(pingCtx)
 	if err != nil {
 		client.Close()
 		return nil, fmt.Errorf("%w: ping failed: %w", ErrConnectionFailed, err)

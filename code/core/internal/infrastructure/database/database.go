@@ -62,12 +62,13 @@ type Config struct {
 //  5. Verifies the connection with a ping
 //
 // Parameters:
+//   - ctx: Context for cancellation (used for ping verification)
 //   - cfg: Database configuration
 //
 // Returns:
 //   - *DB: Connected database wrapper
 //   - error: If connection or configuration fails
-func Open(cfg Config) (*DB, error) {
+func Open(ctx context.Context, cfg Config) (*DB, error) {
 	// Ensure directory exists
 	dir := filepath.Dir(cfg.Path)
 	if err := os.MkdirAll(dir, dirPermissions); err != nil {
@@ -104,11 +105,15 @@ func Open(cfg Config) (*DB, error) {
 		path: cfg.Path,
 	}
 
-	// Verify connection
-	ctx, cancel := context.WithTimeout(context.Background(), connectionTimeout)
-	defer cancel()
+	// Verify connection with timeout (use provided context or default)
+	pingCtx := ctx
+	if pingCtx == nil {
+		var cancel context.CancelFunc
+		pingCtx, cancel = context.WithTimeout(context.Background(), connectionTimeout)
+		defer cancel()
+	}
 
-	if err := db.PingContext(ctx); err != nil {
+	if err := db.PingContext(pingCtx); err != nil {
 		sqlDB.Close() //nolint:errcheck // Best effort cleanup on error path
 		return nil, fmt.Errorf("verifying database connection: %w", err)
 	}

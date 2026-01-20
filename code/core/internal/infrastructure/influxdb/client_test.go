@@ -33,7 +33,7 @@ func skipIfNoInfluxDB(t *testing.T) {
 	if os.Getenv("RUN_INTEGRATION") == "" {
 		// Quick check: try to connect
 		cfg := testConfig()
-		client, err := influxdb.Connect(cfg)
+		client, err := influxdb.Connect(context.Background(), cfg)
 		if err != nil {
 			t.Skip("InfluxDB not available, skipping integration test")
 		}
@@ -49,7 +49,7 @@ func TestConnect(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -64,7 +64,7 @@ func TestConnect_Disabled(t *testing.T) {
 	cfg := testConfig()
 	cfg.Enabled = false
 
-	_, err := influxdb.Connect(cfg)
+	_, err := influxdb.Connect(context.Background(), cfg)
 	if err == nil {
 		t.Fatal("Connect() should return error when disabled")
 	}
@@ -77,7 +77,7 @@ func TestConnect_InvalidURL(t *testing.T) {
 	cfg := testConfig()
 	cfg.URL = "http://127.0.0.1:59999" // Non-existent port
 
-	_, err := influxdb.Connect(cfg)
+	_, err := influxdb.Connect(context.Background(), cfg)
 	if err == nil {
 		t.Fatal("Connect() should return error for invalid URL")
 	}
@@ -89,7 +89,7 @@ func TestConnect_DefaultBatchSettings(t *testing.T) {
 	cfg.BatchSize = 0     // Should use default
 	cfg.FlushInterval = 0 // Should use default
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -106,7 +106,7 @@ func TestConnect_NegativeBatchSettings(t *testing.T) {
 	cfg.BatchSize = -5     // Negative, should use default
 	cfg.FlushInterval = -1 // Negative, should use default
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -125,7 +125,7 @@ func TestHealthCheck(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -143,7 +143,7 @@ func TestHealthCheck_Cancelled(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -167,7 +167,7 @@ func TestWriteDeviceMetric(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -202,7 +202,7 @@ func TestWriteEnergyMetric(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -232,7 +232,7 @@ func TestWritePHMMetric(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -262,7 +262,7 @@ func TestWritePoint(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -300,7 +300,7 @@ func TestClose(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -331,7 +331,7 @@ func TestWritePointWithTime(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -368,7 +368,7 @@ func TestWriteEnergyMetric_ZeroEnergy(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -403,7 +403,7 @@ func TestConnect_DisabledReturnsNilClient(t *testing.T) {
 	cfg := testConfig()
 	cfg.Enabled = false
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 
 	if client != nil {
 		t.Error("Connect() should return nil client when disabled")
@@ -418,7 +418,7 @@ func TestHealthCheck_NotConnected(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -437,7 +437,7 @@ func TestFlush_AfterClose(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -451,7 +451,7 @@ func TestSetOnError_CallbackInvoked(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -475,7 +475,7 @@ func TestIsConnected_AfterConnect(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -490,7 +490,7 @@ func TestIsConnected_AfterClose(t *testing.T) {
 	skipIfNoInfluxDB(t)
 	cfg := testConfig()
 
-	client, err := influxdb.Connect(cfg)
+	client, err := influxdb.Connect(context.Background(), cfg)
 	if err != nil {
 		t.Fatalf("Connect() error = %v", err)
 	}
@@ -509,7 +509,7 @@ func TestClose_NoGoroutineLeak(t *testing.T) {
 	before := runtime.NumGoroutine()
 
 	for i := 0; i < 5; i++ {
-		client, err := influxdb.Connect(cfg)
+		client, err := influxdb.Connect(context.Background(), cfg)
 		if err != nil {
 			t.Fatalf("Connect() iteration %d error = %v", i, err)
 		}

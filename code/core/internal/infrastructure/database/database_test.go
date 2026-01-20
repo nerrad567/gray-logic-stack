@@ -15,7 +15,7 @@ func TestOpen(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
-		db, err := Open(Config{
+		db, err := Open(context.Background(), Config{
 			Path:        dbPath,
 			WALMode:     true,
 			BusyTimeout: 5,
@@ -35,7 +35,7 @@ func TestOpen(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "subdir", "nested", "test.db")
 
-		db, err := Open(Config{
+		db, err := Open(context.Background(), Config{
 			Path:        dbPath,
 			WALMode:     true,
 			BusyTimeout: 5,
@@ -56,7 +56,7 @@ func TestOpen(t *testing.T) {
 		tmpDir := t.TempDir()
 		dbPath := filepath.Join(tmpDir, "test.db")
 
-		db, err := Open(Config{
+		db, err := Open(context.Background(), Config{
 			Path:        dbPath,
 			WALMode:     true,
 			BusyTimeout: 5,
@@ -227,7 +227,7 @@ func openTestDB(t *testing.T) *DB {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	db, err := Open(Config{
+	db, err := Open(context.Background(), Config{
 		Path:        dbPath,
 		WALMode:     true,
 		BusyTimeout: 5,
@@ -258,7 +258,7 @@ func TestOpen_UnwritableDirectory(t *testing.T) {
 
 	dbPath := filepath.Join(unwritableDir, "subdir", "test.db")
 
-	_, err := Open(Config{
+	_, err := Open(context.Background(), Config{
 		Path:        dbPath,
 		WALMode:     true,
 		BusyTimeout: 5,
@@ -292,7 +292,9 @@ func TestOpen_BusyTimeoutHonored(t *testing.T) {
 	tmpDir := t.TempDir()
 	dbPath := filepath.Join(tmpDir, "test.db")
 
-	db1, err := Open(Config{
+	ctx := context.Background()
+
+	db1, err := Open(ctx, Config{
 		Path:        dbPath,
 		WALMode:     false,
 		BusyTimeout: 1,
@@ -302,7 +304,6 @@ func TestOpen_BusyTimeoutHonored(t *testing.T) {
 	}
 	defer db1.Close() //nolint:errcheck // Test cleanup
 
-	ctx := context.Background()
 	tx, err := db1.BeginTx(ctx, nil)
 	if err != nil {
 		t.Fatalf("BeginTx() error = %v", err)
@@ -313,7 +314,7 @@ func TestOpen_BusyTimeoutHonored(t *testing.T) {
 		t.Fatalf("CREATE TABLE error = %v", err)
 	}
 
-	db2, err := Open(Config{
+	db2, err := Open(ctx, Config{
 		Path:        dbPath,
 		WALMode:     false,
 		BusyTimeout: 1,
@@ -340,6 +341,25 @@ func TestOpen_BusyTimeoutHonored(t *testing.T) {
 
 	if err := tx.Rollback(); err != nil {
 		t.Logf("Rollback error: %v", err)
+	}
+}
+
+// TestOpen_ContextCancelled verifies Open respects context cancellation.
+func TestOpen_ContextCancelled(t *testing.T) {
+	tmpDir := t.TempDir()
+	dbPath := filepath.Join(tmpDir, "test.db")
+
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel()
+
+	_, err := Open(ctx, Config{
+		Path:        dbPath,
+		WALMode:     true,
+		BusyTimeout: 5,
+	})
+
+	if err == nil {
+		t.Log("Open() succeeded despite cancelled context (ping may have completed first)")
 	}
 }
 

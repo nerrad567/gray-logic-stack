@@ -84,7 +84,7 @@ func run(ctx context.Context) error {
 	)
 
 	// Open database
-	db, err := database.Open(database.Config{
+	db, err := database.Open(ctx, database.Config{
 		Path:        cfg.Database.Path,
 		WALMode:     cfg.Database.WALMode,
 		BusyTimeout: cfg.Database.BusyTimeout,
@@ -133,7 +133,7 @@ func run(ctx context.Context) error {
 	// Connect to InfluxDB (optional)
 	var influxClient *influxdb.Client
 	if cfg.InfluxDB.Enabled {
-		influxClient, err = influxdb.Connect(cfg.InfluxDB)
+		influxClient, err = influxdb.Connect(ctx, cfg.InfluxDB)
 		if err != nil {
 			return fmt.Errorf("connecting to InfluxDB: %w", err)
 		}
