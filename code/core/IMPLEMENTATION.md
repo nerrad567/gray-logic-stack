@@ -6,17 +6,16 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-19 (Session 5)
-**Current milestone:** M1.1 Core Infrastructure (95% complete)
+**Last session:** 2026-01-20 (Session 6)
+**Current milestone:** M1.2 KNX Bridge (0% complete)
 
-### Next Task: Wire Infrastructure into main.go
+### Next Task: Start KNX Bridge Implementation
 
 **What to do:**
-1. Initialise database in `cmd/graylogic/main.go`
-2. Initialise MQTT client with config
-3. Initialise InfluxDB client (if enabled)
-4. Add health check endpoints
-5. Graceful shutdown for all connections
+1. Create KNX bridge package structure in `internal/bridges/knx/`
+2. Implement knxd client connection
+3. Add group address message parsing
+4. Implement command/state message translation
 
 **Docker services running:**
 ```bash
@@ -25,13 +24,13 @@ docker compose ps  # Should show graylogic-mosquitto and graylogic-influxdb heal
 
 **Start command:**
 ```bash
-cd /home/darren/Development/Projects/gray-logic-stack/code/core
+cd /home/graylogic-dev/gray-logic-stack/code/core
 make build && make test  # Verify everything still works
 ```
 
 **Reference docs:**
-- `docs/technical/packages/` — Package design documentation
-- `docs/technical/decisions/` — Implementation decision records
+- `docs/protocols/knx.md` — KNX protocol specification
+- `docs/architecture/bridge-interface.md` — Bridge contract
 
 ---
 
@@ -45,8 +44,8 @@ make build && make test  # Verify everything still works
 | 4 | Docker Compose (Mosquitto + InfluxDB) | ✅ Done | - |
 | 5 | MQTT client package | ✅ Done | Task 4 |
 | 6 | InfluxDB client package | ✅ Done | Task 4 |
-| 7 | Wire database + config → main.go | ⬜ Pending | Tasks 2, 5, 6 |
-| 8 | Basic structured logging | ⬜ Pending | - |
+| 7 | Wire database + config → main.go | ✅ Done | Tasks 2, 5, 6 |
+| 8 | Basic structured logging | ✅ Done | - |
 
 ---
 
@@ -54,7 +53,7 @@ make build && make test  # Verify everything still works
 
 | Milestone | Status | Progress |
 |-----------|--------|----------|
-| **M1.1** Core Infrastructure | 🟡 In Progress | 95% |
+| **M1.1** Core Infrastructure | ✅ Complete | 100% |
 | M1.2 KNX Bridge | ⬜ Not Started | 0% |
 | M1.3 Device Registry | ⬜ Not Started | 0% |
 | M1.4 REST API + WebSocket | ⬜ Not Started | 0% |
@@ -626,6 +625,51 @@ internal/infrastructure/database/
 - Integration tests require running InfluxDB
 
 **Outcome:** InfluxDB package complete with non-blocking writes, health check, and domain helpers. M1.1 progress: 90% → 95%.
+
+---
+
+### Session 6: 2026-01-20 — Infrastructure Wiring & Structured Logging
+
+**Goal:** Complete M1.1 by wiring infrastructure into main.go and adding structured logging
+
+**Steps Taken:**
+
+1. **Created structured logging package**
+   ```
+   internal/infrastructure/logging/
+   ├── doc.go          # Package documentation
+   ├── logger.go       # Logger setup with JSON/Text output
+   └── logger_test.go  # Unit tests (8 tests)
+   ```
+   - Uses Go stdlib `log/slog` (no external dependencies)
+   - Supports JSON (production) and text (development) formats
+   - Default fields: service="graylogic", version from build vars
+   - Level-based filtering (debug, info, warn, error)
+
+2. **Updated main.go with infrastructure wiring**
+   - Load configuration from YAML file
+   - Open SQLite database with `database.Open()`
+   - Run migrations with `db.Migrate()`
+   - Connect MQTT client with `mqtt.Connect()`
+   - Connect InfluxDB client (if enabled) with `influxdb.Connect()`
+   - Added health check for all connections
+   - Graceful shutdown with defers in reverse order (LIFO)
+   - MQTT connect/disconnect logging callbacks
+
+3. **Fixed lint issues**
+   - Resolved variable shadowing in defer closures
+   - All lint checks pass
+
+**Files Created/Modified:**
+
+| File | Lines | Purpose |
+|------|-------|---------|
+| logging/doc.go | 32 | Package documentation |
+| logging/logger.go | 107 | Logger implementation |
+| logging/logger_test.go | 162 | Unit tests |
+| cmd/graylogic/main.go | 197 | Infrastructure wiring |
+
+**Outcome:** M1.1 Core Infrastructure complete (100%). Ready to start M1.2 KNX Bridge.
 
 ---
 
