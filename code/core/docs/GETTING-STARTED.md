@@ -536,6 +536,26 @@ make clean
 make all
 ```
 
+### Integration Tests
+
+Some packages have integration tests that require external services (MQTT broker, InfluxDB).
+
+```bash
+# Start dev services first
+docker compose -f docker-compose.dev.yml up -d
+
+# Run integration tests (requires running broker)
+go test -tags=integration -v ./internal/infrastructure/mqtt/...
+
+# Run all tests including integration
+go test -tags=integration -v ./...
+
+# Skip integration tests (default behaviour)
+go test -v ./...
+```
+
+Integration test files use the `//go:build integration` build tag and are skipped by default.
+
 ---
 
 ## Next Steps
