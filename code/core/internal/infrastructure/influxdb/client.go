@@ -122,8 +122,6 @@ func (c *Client) handleWriteErrors(errorsCh <-chan error) {
 		if callback != nil {
 			callback(err)
 		}
-		// TODO: Log error when logging package is available
-		_ = err // Acknowledge error until logging is available
 	}
 }
 
@@ -204,8 +202,19 @@ func (c *Client) SetOnError(callback func(err error)) {
 //
 // This blocks until all buffered points are written.
 // Useful for testing or before graceful shutdown.
+// Safe to call after Close() (no-op).
 func (c *Client) Flush() {
-	if c.writeAPI != nil {
-		c.writeAPI.Flush()
+	if c.writeAPI == nil {
+		return
 	}
+
+	c.mu.RLock()
+	connected := c.connected
+	c.mu.RUnlock()
+
+	if !connected {
+		return
+	}
+
+	c.writeAPI.Flush()
 }

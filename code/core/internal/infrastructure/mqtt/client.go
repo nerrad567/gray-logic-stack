@@ -35,6 +35,17 @@ type Client struct {
 	onConnect    func()
 	onDisconnect func(err error)
 	callbackMu   sync.RWMutex
+
+	// logger for error/panic logging (optional, set via SetLogger).
+	logger   Logger
+	loggerMu sync.RWMutex
+}
+
+// Logger interface for optional logging support.
+// Compatible with logging.Logger and slog.Logger.
+type Logger interface {
+	Error(msg string, args ...any)
+	Warn(msg string, args ...any)
 }
 
 // subscription holds subscription details for re-subscription on reconnect.
@@ -250,20 +261,42 @@ func (c *Client) SetOnDisconnect(callback func(err error)) {
 	c.callbackMu.Unlock()
 }
 
-// wrapHandler wraps a MessageHandler with panic recovery.
+// SetLogger sets a logger for error and panic logging.
+// If not set, errors in handlers are silently ignored.
+func (c *Client) SetLogger(logger Logger) {
+	c.loggerMu.Lock()
+	c.logger = logger
+	c.loggerMu.Unlock()
+}
+
+// getLogger returns the current logger (may be nil).
+func (c *Client) getLogger() Logger {
+	c.loggerMu.RLock()
+	defer c.loggerMu.RUnlock()
+	return c.logger
+}
+
+// wrapHandler wraps a MessageHandler with panic recovery and optional logging.
 func (c *Client) wrapHandler(handler MessageHandler) pahomqtt.MessageHandler {
 	return func(_ pahomqtt.Client, msg pahomqtt.Message) {
 		defer func() {
 			if r := recover(); r != nil {
-				// TODO: Log panic when logging package is available
-				// For now, silently recover to prevent crash
-				_ = r // Acknowledge recovered panic
+				if logger := c.getLogger(); logger != nil {
+					logger.Error("MQTT handler panic recovered",
+						"topic", msg.Topic(),
+						"panic", r,
+					)
+				}
 			}
 		}()
 
 		if err := handler(msg.Topic(), msg.Payload()); err != nil {
-			// TODO: Log handler error when logging package is available
-			_ = err // Acknowledge error until logging is available
+			if logger := c.getLogger(); logger != nil {
+				logger.Warn("MQTT handler returned error",
+					"topic", msg.Topic(),
+					"error", err,
+				)
+			}
 		}
 	}
 }

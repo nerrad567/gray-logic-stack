@@ -776,3 +776,162 @@ func TestTopicBuilders(t *testing.T) {
 		})
 	}
 }
+
+// =============================================================================
+// Edge Case Tests
+// =============================================================================
+
+func TestConnect_BrokerRefused(t *testing.T) {
+	cfg := testConfig()
+	cfg.Broker.Port = 19998
+
+	_, err := Connect(cfg)
+	if err == nil {
+		t.Fatal("Connect() should fail for refused connection")
+	}
+
+	if !errors.Is(err, ErrConnectionFailed) {
+		t.Errorf("Connect() error = %v, want ErrConnectionFailed", err)
+	}
+}
+
+func TestIsConnected_InitialState(t *testing.T) {
+	client := &Client{}
+
+	if client.IsConnected() {
+		t.Error("IsConnected() should be false for uninitialised client")
+	}
+}
+
+func TestSubscriptionCount_Empty(t *testing.T) {
+	cfg := testConfig()
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	if client.SubscriptionCount() != 0 {
+		t.Errorf("SubscriptionCount() = %d, want 0", client.SubscriptionCount())
+	}
+}
+
+func TestHasSubscription_NotSubscribed(t *testing.T) {
+	cfg := testConfig()
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	if client.HasSubscription("nonexistent/topic") {
+		t.Error("HasSubscription() should be false for unsubscribed topic")
+	}
+}
+
+func TestMultipleSubscriptions(t *testing.T) {
+	cfg := testConfig()
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	topics := []string{
+		"graylogic/test/topic1",
+		"graylogic/test/topic2",
+		"graylogic/test/topic3",
+	}
+
+	handler := func(string, []byte) error { return nil }
+
+	for _, topic := range topics {
+		err := client.Subscribe(topic, 1, handler)
+		if err != nil {
+			t.Fatalf("Subscribe(%s) error = %v", topic, err)
+		}
+	}
+
+	if client.SubscriptionCount() != 3 {
+		t.Errorf("SubscriptionCount() = %d, want 3", client.SubscriptionCount())
+	}
+
+	for _, topic := range topics {
+		if !client.HasSubscription(topic) {
+			t.Errorf("HasSubscription(%s) = false, want true", topic)
+		}
+	}
+}
+
+func TestPublishNilPayload(t *testing.T) {
+	cfg := testConfig()
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	err = client.Publish("test/topic", nil, 1, false)
+	if err != nil {
+		t.Errorf("Publish() with nil payload error = %v", err)
+	}
+}
+
+func TestPublishLargePayload(t *testing.T) {
+	cfg := testConfig()
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	largePayload := make([]byte, 64*1024)
+	for i := range largePayload {
+		largePayload[i] = byte(i % 256)
+	}
+
+	err = client.Publish("test/large", largePayload, 1, false)
+	if err != nil {
+		t.Errorf("Publish() with large payload error = %v", err)
+	}
+}
+
+func TestHandlerReturnsError(t *testing.T) {
+	cfg := testConfig()
+	cfg.Broker.ClientID = "graylogic-test-handler-err"
+
+	client, err := Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	topic := "graylogic/test/handler-error"
+	handlerCalled := make(chan struct{}, 1)
+
+	err = client.Subscribe(topic, 1, func(t string, p []byte) error {
+		handlerCalled <- struct{}{}
+		return errors.New("handler error")
+	})
+	if err != nil {
+		t.Fatalf("Subscribe() error = %v", err)
+	}
+
+	time.Sleep(100 * time.Millisecond)
+
+	err = client.PublishString(topic, "test", 1, false)
+	if err != nil {
+		t.Fatalf("Publish() error = %v", err)
+	}
+
+	select {
+	case <-handlerCalled:
+	case <-time.After(2 * time.Second):
+		t.Error("Handler was not called")
+	}
+}

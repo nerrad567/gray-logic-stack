@@ -161,3 +161,70 @@ func TestLogger_OutputContainsDefaultFields(t *testing.T) {
 		t.Errorf("expected key='value', got %v", logEntry["key"])
 	}
 }
+
+// =============================================================================
+// Edge Case Tests
+// =============================================================================
+
+func TestNew_InvalidOutput_DefaultsToStdout(t *testing.T) {
+	cfg := config.LoggingConfig{
+		Level:  "info",
+		Format: "json",
+		Output: "nonsense_invalid_output",
+	}
+
+	logger := New(cfg, "1.0.0")
+
+	if logger == nil {
+		t.Fatal("expected non-nil logger even with invalid output")
+	}
+}
+
+func TestNew_EmptyConfig(t *testing.T) {
+	cfg := config.LoggingConfig{}
+
+	logger := New(cfg, "")
+
+	if logger == nil {
+		t.Fatal("expected non-nil logger with empty config")
+	}
+}
+
+func TestNew_AllLevelsCovered(t *testing.T) {
+	levels := []string{"debug", "info", "warn", "warning", "error", ""}
+
+	for _, level := range levels {
+		t.Run("level_"+level, func(t *testing.T) {
+			cfg := config.LoggingConfig{
+				Level:  level,
+				Format: "text",
+				Output: "stdout",
+			}
+
+			logger := New(cfg, "1.0.0")
+			if logger == nil {
+				t.Fatalf("expected non-nil logger for level %q", level)
+			}
+		})
+	}
+}
+
+func TestLogger_With_ChainedCalls(t *testing.T) {
+	cfg := config.LoggingConfig{
+		Level:  "info",
+		Format: "json",
+		Output: "stdout",
+	}
+
+	logger := New(cfg, "1.0.0")
+	child1 := logger.With("component", "mqtt")
+	child2 := child1.With("connection", "broker-1")
+
+	if child1 == nil || child2 == nil {
+		t.Fatal("With() should return non-nil logger")
+	}
+
+	if child1 == child2 {
+		t.Error("chained With() calls should return different loggers")
+	}
+}

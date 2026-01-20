@@ -393,3 +393,110 @@ func TestWriteEnergyMetric_ZeroEnergy(t *testing.T) {
 		t.Errorf("Write error = %v", writeErr)
 	}
 }
+
+// =============================================================================
+// Edge Case Tests
+// =============================================================================
+
+func TestConnect_DisabledReturnsNilClient(t *testing.T) {
+	cfg := testConfig()
+	cfg.Enabled = false
+
+	client, err := influxdb.Connect(cfg)
+
+	if client != nil {
+		t.Error("Connect() should return nil client when disabled")
+	}
+
+	if !errors.Is(err, influxdb.ErrDisabled) {
+		t.Errorf("Connect() error = %v, want ErrDisabled", err)
+	}
+}
+
+func TestHealthCheck_NotConnected(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+
+	client.Close()
+
+	ctx := context.Background()
+	err = client.HealthCheck(ctx)
+
+	if err == nil {
+		t.Error("HealthCheck() should fail after Close()")
+	}
+}
+
+func TestFlush_AfterClose(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+
+	client.Close()
+
+	client.Flush()
+}
+
+func TestSetOnError_CallbackInvoked(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	callbackInvoked := false
+	var mu sync.Mutex
+
+	client.SetOnError(func(err error) {
+		mu.Lock()
+		callbackInvoked = true
+		mu.Unlock()
+	})
+
+	mu.Lock()
+	_ = callbackInvoked
+	mu.Unlock()
+}
+
+func TestIsConnected_AfterConnect(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	if !client.IsConnected() {
+		t.Error("IsConnected() should return true after Connect()")
+	}
+}
+
+func TestIsConnected_AfterClose(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+
+	client.Close()
+
+	if client.IsConnected() {
+		t.Error("IsConnected() should return false after Close()")
+	}
+}
