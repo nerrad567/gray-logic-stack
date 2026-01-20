@@ -97,7 +97,9 @@ code/core/
 │   ├── infrastructure/
 │   │   ├── config/             # Configuration loading ✓
 │   │   ├── database/           # SQLite + migrations ✓
-│   │   ├── mqtt/               # MQTT client (pending)
+│   │   ├── mqtt/               # MQTT client ✓
+│   │   ├── influxdb/           # InfluxDB client ✓
+│   │   ├── logging/            # Structured logging ✓
 │   │   └── api/                # HTTP server (pending)
 │   ├── device/
 │   │   ├── registry/           # Device CRUD (pending)
@@ -142,15 +144,15 @@ code/core/
 - [x] Context-based cancellation pattern
 - [x] Testable structure (run function separated from main)
 
-### Remaining Tasks (M1.1)
+### Completed Tasks (M1.1)
 
 - [x] SQLite database package with migrations ✅
 - [x] Database tests (80.4% coverage) ✅
 - [x] Docker Compose for Mosquitto + InfluxDB ✅
-- [ ] MQTT client package with auto-reconnect
-- [ ] InfluxDB client package
-- [ ] Basic structured logging
-- [ ] Wire everything into main.go
+- [x] MQTT client package with auto-reconnect ✅
+- [x] InfluxDB client package ✅
+- [x] Basic structured logging ✅
+- [x] Wire everything into main.go ✅
 
 ---
 
