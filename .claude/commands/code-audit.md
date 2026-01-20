@@ -1,5 +1,6 @@
 ---
 description: Comprehensive code audit for stability, security, and project fitness
+allowed_args: ["final"]
 ---
 
 # Code Audit — Rock Solid Verification
@@ -7,6 +8,22 @@ description: Comprehensive code audit for stability, security, and project fitne
 A comprehensive, iterative audit to ensure Gray Logic Core is production-quality, secure, and aligned with project principles.
 
 **Run this after any significant code changes or before milestones.**
+
+## Audit Modes
+
+| Mode | Command | Purpose |
+|------|---------|---------|
+| **Standard** | `/code-audit` | Find and fix issues (use for first 2-3 audits) |
+| **Final Advisory** | `/code-audit final` | Realistic assessment of whether to ship or fix |
+
+### When to Use Final Mode
+
+Use `/code-audit final` when:
+- You've already done 2-3 audit rounds on this code
+- Static tools (tests, lint, vulncheck) pass clean
+- You want honest advice on whether findings are worth fixing
+
+**Important Reality Check**: AI code reviewers will *always* find something if you keep asking. There is no such thing as perfect code. The goal is not zero findings — the goal is **code that is safe, reliable, and maintainable**.
 
 ---
 
@@ -336,6 +353,104 @@ After completing the audit, document findings:
 | After dependency updates | Full with extra Phase 6 focus |
 | After security-related changes | Full with extra Phase 4 focus |
 | Weekly (during active development) | Full |
+| After 2-3 clean audit rounds | **Final advisory mode** |
+
+---
+
+## Final Advisory Mode (`/code-audit final`)
+
+Use this mode when you've already done multiple audit rounds and want realistic guidance on whether to ship or keep fixing.
+
+### What Changes in Final Mode
+
+| Aspect | Standard Mode | Final Advisory Mode |
+|--------|---------------|---------------------|
+| Tone | "Fix these issues" | "Here's what I found — here's whether it matters" |
+| AI Review | Lists all findings | Categorises as "Must Fix" vs "Can Ship With" |
+| Verdict | READY/BLOCKED | Ship recommendation with rationale |
+| Output | Issue list | Decision framework |
+
+### Final Mode Instructions for Claude
+
+When running `/code-audit final`, Claude should:
+
+1. **Run Phases 1-3 as normal** (tests, lint, vulncheck)
+   - If any of these fail → **BLOCKED, must fix**
+
+2. **Run Phase 4 (AI Review) with advisory framing**:
+   ```
+   Review the infrastructure packages with a "final audit" mindset:
+
+   For each finding, categorise it as:
+   - 🛑 MUST FIX: Real bugs, security holes, data loss risks, crashes
+   - 🟡 CONSIDER: Defensive improvements that add measurable safety
+   - 🟢 CAN SHIP: Theoretical issues, style preferences, over-engineering suggestions
+
+   Remember: This code has already passed 2-3 audit rounds. Be honest about
+   whether findings are genuine risks or just "things that could be different".
+   ```
+
+3. **Skip Phases 5-7** (already verified in previous audits)
+
+4. **Provide a Ship/Fix Verdict**:
+   ```markdown
+   ## Final Verdict
+
+   ### Static Tools: [PASS/FAIL]
+   - Tests: ✅/❌
+   - Lint: ✅/❌
+   - Vulncheck: ✅/❌
+
+   ### AI Review Findings
+
+   | Category | Count | Action |
+   |----------|-------|--------|
+   | 🛑 Must Fix | N | Fix before shipping |
+   | 🟡 Consider | N | Your call — risk is [low/medium] |
+   | 🟢 Can Ship | N | Ignore — these are not real issues |
+
+   ### Recommendation
+
+   **[SHIP IT / FIX FIRST]**
+
+   [Rationale: Why this code is ready, or what specifically must be fixed]
+
+   ### The Reality Check
+
+   This codebase has now been audited [N] times. The findings above represent
+   [real risks / diminishing returns / style preferences].
+
+   Remember: Perfect is the enemy of shipped. For a 20-year deployment system,
+   stability comes from *not changing working code*, not from endless refinement.
+   ```
+
+### Decision Framework for Findings
+
+Use this to evaluate each AI finding in final mode:
+
+| Question | If Yes → | If No → |
+|----------|----------|---------|
+| Will this cause a crash in production? | 🛑 Must Fix | Continue |
+| Will this leak secrets or allow unauthorised access? | 🛑 Must Fix | Continue |
+| Will this cause data loss or corruption? | 🛑 Must Fix | Continue |
+| Is this a real bug that will manifest in normal use? | 🛑 Must Fix | Continue |
+| Does this add meaningful protection against a plausible threat? | 🟡 Consider | Continue |
+| Has similar code been running fine in production systems? | 🟢 Can Ship | 🟡 Consider |
+| Is this primarily a style/readability preference? | 🟢 Can Ship | — |
+| Does fixing this add complexity? | 🟢 Can Ship | 🟡 Consider |
+| Would a senior engineer call this "over-engineering"? | 🟢 Can Ship | — |
+
+### Why AI Always Finds Something
+
+Understanding this helps calibrate expectations:
+
+1. **LLMs aren't deterministic** — different runs surface different patterns
+2. **Code can always be "improved"** — more validation, more checks, more abstraction
+3. **Each fix creates new surface** — changes expose new code to critique
+4. **Confidence isn't calibrated** — "High" on run 4 ≠ "High" on run 1
+5. **AI errs toward caution** — suggesting more checks is "safer" for the AI
+
+**The stopping criterion isn't "zero findings" — it's "no real bugs".**
 
 ---
 
