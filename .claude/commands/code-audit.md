@@ -1,6 +1,5 @@
 ---
 description: Comprehensive code audit for stability, security, and project fitness
-allowed_args: ["final"]
 ---
 
 # Code Audit — Rock Solid Verification
@@ -9,19 +8,79 @@ A comprehensive, iterative audit to ensure Gray Logic Core is production-quality
 
 **Run this after any significant code changes or before milestones.**
 
+---
+
+## IMPORTANT: Automatic Audit Tracking
+
+**Claude MUST track audit runs automatically.** Before starting any audit:
+
+### Step 0: Check and Update Audit History
+
+1. **Read the tracking file** (create if missing):
+   ```
+   .claude/audit-history.json
+   ```
+
+2. **Check if code has changed** since last audit:
+   ```bash
+   git rev-parse HEAD
+   ```
+   Compare with `last_commit` in tracking file.
+
+3. **Determine audit mode**:
+   - If `last_commit` differs from current HEAD → **Reset count to 1, run Standard mode**
+   - If count is 1 or 2 → **Increment count, run Standard mode**
+   - If count is 3+ → **Run Final Advisory mode automatically**
+
+4. **Update the tracking file** with new count and commit hash.
+
+### Tracking File Format
+
+```json
+{
+  "last_commit": "abc123def",
+  "audit_count": 2,
+  "last_audit": "2026-01-20T14:30:00Z",
+  "audits": [
+    {"date": "2026-01-20T10:00:00Z", "commit": "abc123def", "mode": "standard", "issues_fixed": 2},
+    {"date": "2026-01-20T12:00:00Z", "commit": "abc123def", "mode": "standard", "issues_fixed": 4}
+  ]
+}
+```
+
+### What Claude Should Say
+
+**On runs 1-2:**
+```
+📋 Audit Run #1 (Standard Mode)
+Code: abc123d | Last audit: Never
+Running full 7-phase audit...
+```
+
+**On run 3+:**
+```
+📋 Audit Run #3 (Final Advisory Mode)
+Code: abc123d | Previous audits: 2 (6 issues fixed)
+
+This is your 3rd audit on unchanged code. Switching to Final Advisory mode.
+I'll tell you honestly whether findings are worth fixing or if you should ship.
+```
+
+**When code changes:**
+```
+📋 Audit Run #1 (Standard Mode) — Reset
+Code changed: def456g (was abc123d)
+Starting fresh audit cycle...
+```
+
+---
+
 ## Audit Modes
 
-| Mode | Command | Purpose |
-|------|---------|---------|
-| **Standard** | `/code-audit` | Find and fix issues (use for first 2-3 audits) |
-| **Final Advisory** | `/code-audit final` | Realistic assessment of whether to ship or fix |
-
-### When to Use Final Mode
-
-Use `/code-audit final` when:
-- You've already done 2-3 audit rounds on this code
-- Static tools (tests, lint, vulncheck) pass clean
-- You want honest advice on whether findings are worth fixing
+| Mode | Triggered | Behaviour |
+|------|-----------|-----------|
+| **Standard** | Runs 1-2 on same code | Find and fix issues |
+| **Final Advisory** | Run 3+ on same code | Honest ship/fix recommendation |
 
 **Important Reality Check**: AI code reviewers will *always* find something if you keep asking. There is no such thing as perfect code. The goal is not zero findings — the goal is **code that is safe, reliable, and maintainable**.
 
