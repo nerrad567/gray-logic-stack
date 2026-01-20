@@ -82,6 +82,40 @@ func TestConnect_InvalidURL(t *testing.T) {
 	}
 }
 
+func TestConnect_DefaultBatchSettings(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+	cfg.BatchSize = 0     // Should use default
+	cfg.FlushInterval = 0 // Should use default
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	if !client.IsConnected() {
+		t.Error("IsConnected() = false after Connect() with default batch settings")
+	}
+}
+
+func TestConnect_NegativeBatchSettings(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+	cfg.BatchSize = -5     // Negative, should use default
+	cfg.FlushInterval = -1 // Negative, should use default
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	if !client.IsConnected() {
+		t.Error("IsConnected() = false after Connect() with negative batch settings")
+	}
+}
+
 // =============================================================================
 // Health Check Tests
 // =============================================================================
@@ -290,4 +324,72 @@ func TestClose_Nil(t *testing.T) {
 	// This will panic if we don't handle nil properly
 	// For now, we can't call methods on nil pointer
 	_ = client
+}
+
+func TestWritePointWithTime(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	var writeErr error
+	var mu sync.Mutex
+	client.SetOnError(func(err error) {
+		mu.Lock()
+		writeErr = err
+		mu.Unlock()
+	})
+
+	// Write with a specific timestamp
+	timestamp := time.Now().Add(-1 * time.Hour)
+	client.WritePointWithTime(
+		"custom_measurement",
+		map[string]string{"source": "test-with-time"},
+		map[string]interface{}{"value": 88.8},
+		timestamp,
+	)
+	client.Flush()
+
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if writeErr != nil {
+		t.Errorf("Write error = %v", writeErr)
+	}
+}
+
+func TestWriteEnergyMetric_ZeroEnergy(t *testing.T) {
+	skipIfNoInfluxDB(t)
+	cfg := testConfig()
+
+	client, err := influxdb.Connect(cfg)
+	if err != nil {
+		t.Fatalf("Connect() error = %v", err)
+	}
+	defer client.Close()
+
+	var writeErr error
+	var mu sync.Mutex
+	client.SetOnError(func(err error) {
+		mu.Lock()
+		writeErr = err
+		mu.Unlock()
+	})
+
+	// Write energy metric with zero kWh (should skip energy_kwh field)
+	client.WriteEnergyMetric("test-device-energy", 100.0, 0)
+	client.Flush()
+
+	time.Sleep(100 * time.Millisecond)
+
+	mu.Lock()
+	defer mu.Unlock()
+	if writeErr != nil {
+		t.Errorf("Write error = %v", writeErr)
+	}
 }
