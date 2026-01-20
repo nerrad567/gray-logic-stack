@@ -16,6 +16,7 @@ This directory contains comprehensive documentation covering the **what**, **how
 | [mqtt](packages/mqtt.md) | MQTT client with auto-reconnect | Active |
 | [config](packages/config.md) | YAML configuration with env overrides | Active |
 | [influxdb](packages/influxdb.md) | InfluxDB time-series for PHM/energy | Active |
+| [knx-bridge](packages/knx-bridge.md) | KNX protocol bridge via knxd daemon | Active |
 
 ### Architecture Docs
 
@@ -70,4 +71,4 @@ For significant implementation choices:
 
 ---
 
-*Last updated: 2026-01-19*
+*Last updated: 2026-01-20*

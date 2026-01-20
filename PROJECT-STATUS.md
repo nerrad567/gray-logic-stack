@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-18
-> **Current Phase:** Implementation (M1.1 - Core Infrastructure)
+> **Last Updated:** 2026-01-20
+> **Current Phase:** Implementation (M1.2 - KNX Bridge)
 
 ---
 
@@ -23,7 +23,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | 🟡 M1.1 In Progress |
+| Code | 🟢 M1.2 In Progress |
 
 ---
 
@@ -152,22 +152,36 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟡 M1.1 In Progress | Project structure, config, build system complete |
-| KNX Bridge | ❌ Not started | Spec complete |
-| DALI Bridge | ❌ Not started | Spec complete |
-| Modbus Bridge | ❌ Not started | Spec complete |
-| Flutter UI | ❌ Not started | API spec complete |
-| Voice Pipeline | ❌ Not started | Spec complete |
+| Gray Logic Core (Go) | 🟢 M1.2 In Progress | M1.1 complete, KNX bridge 30% done |
+| KNX Bridge | 🟡 30% complete | telegram, knxd client, address, DPT done |
+| DALI Bridge | ❌ Not started | Spec complete (Year 2) |
+| Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
+| Flutter UI | ❌ Not started | M1.5 (later Year 1) |
+| Voice Pipeline | ❌ Not started | Year 4 |
 
-### M1.1 Progress (Core Infrastructure)
+### M1.1 Progress (Core Infrastructure) — ✅ Complete
 - [x] Go module initialised
 - [x] Directory structure created
 - [x] Makefile with build automation
 - [x] golangci-lint configured
 - [x] Configuration system (YAML + env vars)
-- [ ] SQLite database package
-- [ ] MQTT client package
-- [ ] Docker Compose (Mosquitto, InfluxDB)
+- [x] SQLite database package with migrations
+- [x] MQTT client package with auto-reconnect
+- [x] InfluxDB client package
+- [x] Docker Compose (Mosquitto, InfluxDB)
+- [x] Structured logging
+- [x] Infrastructure wired into main.go
+
+### M1.2 Progress (KNX Bridge) — 🔨 In Progress (30%)
+- [x] telegram.go — KNX telegram parsing/encoding
+- [x] knxd.go — knxd client (TCP/Unix socket)
+- [x] address.go — Group address parsing
+- [x] dpt.go — Datapoint type encoding/decoding
+- [ ] config.go — Bridge configuration
+- [ ] messages.go — MQTT message types
+- [ ] health.go — Health reporting
+- [ ] bridge.go — Main orchestration
+- [ ] Integration tests
 
 ---
 

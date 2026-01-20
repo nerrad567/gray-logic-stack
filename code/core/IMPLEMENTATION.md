@@ -6,31 +6,33 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-20 (Session 7 - Deep Review)
-**Current milestone:** M1.2 KNX Bridge (0% complete)
+**Last session:** 2026-01-20 (Session 8 - KNX Bridge Phase 1)
+**Current milestone:** M1.2 KNX Bridge (30% complete)
 
-### Next Task: Start KNX Bridge Implementation
+### Next Task: Continue KNX Bridge Implementation (Phase 2)
 
-**What to do:**
-1. Create KNX bridge package structure in `internal/bridges/knx/`
-2. Implement knxd client connection
-3. Add group address message parsing
-4. Implement command/state message translation
+**Completed:**
+- ✅ telegram.go — KNX telegram parsing/encoding
+- ✅ knxd.go — knxd client with TCP/Unix socket support
+- ✅ telegram_test.go — 21 tests
+- ✅ knxd_test.go — 12 tests (includes MockKNXDServer)
 
-**Docker services running:**
-```bash
-docker compose ps  # Should show graylogic-mosquitto and graylogic-influxdb healthy
-```
+**What to do next:**
+1. Create `config.go` — Bridge configuration types (YAML loading)
+2. Create `messages.go` — MQTT message types for state/command
+3. Create `health.go` — Health reporting to MQTT
+4. Create `bridge.go` — Main orchestration logic
 
-**Start command:**
+**All tests passing:**
 ```bash
 cd /home/graylogic-dev/gray-logic-stack/code/core
-make build && make test  # Verify everything still works
+go test -v ./internal/bridges/knx/...  # 33 tests OK
 ```
 
 **Reference docs:**
+- `.claude/plans/dynamic-snacking-fiddle.md` — Full implementation plan
+- `docs/technical/packages/knx-bridge.md` — Package design doc
 - `docs/protocols/knx.md` — KNX protocol specification
-- `docs/architecture/bridge-interface.md` — Bridge contract
 
 ### M1.1 Hardening Complete (Session 7)
 
@@ -65,16 +67,136 @@ make build && make test  # Verify everything still works
 
 ---
 
-## Current Status
+## 5-Year Roadmap Overview
 
-| Milestone | Status | Progress |
-|-----------|--------|----------|
-| **M1.1** Core Infrastructure | ✅ Complete | 100% |
-| M1.2 KNX Bridge | ⬜ Not Started | 0% |
-| M1.3 Device Registry | ⬜ Not Started | 0% |
-| M1.4 REST API + WebSocket | ⬜ Not Started | 0% |
-| M1.5 Flutter Wall Panel | ⬜ Not Started | 0% |
-| M1.6 Basic Scenes | ⬜ Not Started | 0% |
+> Full details in [DEVELOPMENT-STRATEGY.md](../../docs/development/DEVELOPMENT-STRATEGY.md)
+
+### Year 1 — Foundation (2026) ← **Current**
+| Milestone | Goal | Status |
+|-----------|------|--------|
+| **M1.1** | Core Infrastructure (SQLite, MQTT, InfluxDB) | ✅ Complete |
+| **M1.2** | KNX Bridge | 🔨 30% |
+| M1.3 | Device Registry | ⬜ Not Started |
+| M1.4 | REST API + WebSocket | ⬜ Not Started |
+| M1.5 | Flutter Wall Panel | ⬜ Not Started |
+| M1.6 | Basic Scenes | ⬜ Not Started |
+
+### Year 2 — Automation Expansion (2027)
+| Milestone | Goal |
+|-----------|------|
+| M2.1 | Area/Room hierarchy |
+| M2.2 | Scene engine (multi-device, timed) |
+| M2.3 | Mode system (Home/Away/Night/Holiday) |
+| M2.4 | Astronomical clock + scheduler |
+| M2.5 | DALI bridge |
+| M2.6 | Blind control |
+| M2.7 | Climate integration (Modbus → HVAC) |
+| M2.8 | Flutter mobile app |
+
+### Year 3 — Integration & Resilience (2028)
+| Milestone | Goal |
+|-----------|------|
+| M3.1 | Audio matrix (HTD/Russound) |
+| M3.2 | Video matrix (Atlona) |
+| M3.3 | Security panel (monitoring only) |
+| M3.4 | CCTV (RTSP/ONVIF) |
+| M3.5 | BACnet bridge |
+| M3.6 | Advanced conditional logic |
+| M3.7 | System Supervisor (Level 1) |
+| M3.8 | Machine-readable error catalog |
+
+### Year 4 — Intelligence (2029)
+| Milestone | Goal |
+|-----------|------|
+| M4.1 | Voice pipeline (Whisper → NLU → Piper) |
+| M4.2 | PHM baseline learning |
+| M4.3 | Local AI engine |
+| M4.4 | Occupancy prediction |
+| M4.5 | Energy insights |
+| M4.6 | System Supervisor with playbook recovery |
+| M4.7 | Simulation/chaos testing |
+| M4.8 | Circuit breaker patterns |
+| M4.9 | Failure Memory system |
+| M4.10 | Workflow Learning |
+
+### Year 5 — Commercial Readiness (2030)
+| Milestone | Goal |
+|-----------|------|
+| M5.1 | Web-based commissioning tool |
+| M5.2 | Configuration backup/restore |
+| M5.3 | Remote diagnostics (WireGuard) |
+| M5.4 | Installer documentation |
+| M5.5 | Customer handover pack generator |
+| M5.6 | Automated testing framework |
+| M5.7 | First customer deployment |
+
+---
+
+## Year 1 Task Breakdown
+
+### M1.2: KNX Bridge
+
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | telegram.go — KNX telegram parsing/encoding | ✅ Done | - |
+| 2 | knxd.go — knxd client (TCP/Unix) | ✅ Done | Task 1 |
+| 3 | address.go — Group address parsing | ✅ Done | - |
+| 4 | dpt.go — Datapoint type encoding/decoding | ✅ Done | - |
+| 5 | config.go — Bridge configuration (YAML) | ⬜ Not Started | - |
+| 6 | messages.go — MQTT message types | ⬜ Not Started | - |
+| 7 | health.go — Health reporting | ⬜ Not Started | - |
+| 8 | bridge.go — Main orchestration | ⬜ Not Started | Tasks 1-7 |
+| 9 | Integration tests | ⬜ Not Started | Task 8 |
+| 10 | Fix lint issues | ⬜ Not Started | Tasks 1-4 |
+
+### M1.3: Device Registry
+
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | Database schema (devices, capabilities) | ⬜ Not Started | M1.1 |
+| 2 | repository.go — CRUD operations | ⬜ Not Started | Task 1 |
+| 3 | service.go — Business logic, validation | ⬜ Not Started | Task 2 |
+| 4 | KNX device registration with GAs | ⬜ Not Started | M1.2, Task 3 |
+| 5 | Seed script for test devices | ⬜ Not Started | Task 4 |
+| 6 | Unit tests (80%+ coverage) | ⬜ Not Started | Tasks 2-3 |
+
+### M1.4: REST API + WebSocket
+
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | server.go — Router setup, middleware | ⬜ Not Started | - |
+| 2 | GET /api/v1/devices | ⬜ Not Started | M1.3 |
+| 3 | GET /api/v1/devices/{id} | ⬜ Not Started | M1.3 |
+| 4 | POST /api/v1/devices/{id}/command | ⬜ Not Started | M1.3 |
+| 5 | websocket.go — Real-time state updates | ⬜ Not Started | Task 1 |
+| 6 | TLS configuration (self-signed) | ⬜ Not Started | Task 1 |
+| 7 | Basic auth placeholder | ⬜ Not Started | Task 1 |
+| 8 | Load test (10 clients, 100 cmd/s) | ⬜ Not Started | Tasks 1-5 |
+
+### M1.5: Flutter Wall Panel
+
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | Flutter project setup (ui/wallpanel) | ⬜ Not Started | - |
+| 2 | Device models (matching Go structs) | ⬜ Not Started | M1.3 |
+| 3 | Repository pattern for API calls | ⬜ Not Started | M1.4 |
+| 4 | WebSocket connection for state updates | ⬜ Not Started | M1.4 |
+| 5 | RoomView widget | ⬜ Not Started | Tasks 2-4 |
+| 6 | SwitchTile (on/off) | ⬜ Not Started | Task 5 |
+| 7 | DimmerTile (slider) | ⬜ Not Started | Task 5 |
+| 8 | Response time <200ms validation | ⬜ Not Started | Tasks 5-7 |
+
+### M1.6: Basic Scenes
+
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | Database schema (scenes, scene_actions) | ⬜ Not Started | M1.1 |
+| 2 | Scene struct definition | ⬜ Not Started | Task 1 |
+| 3 | scene_engine.go — Activate, parallel execution | ⬜ Not Started | Task 2 |
+| 4 | GET /api/v1/scenes | ⬜ Not Started | M1.4 |
+| 5 | POST /api/v1/scenes/{id}/activate | ⬜ Not Started | Task 3 |
+| 6 | Scene execution <500ms for 10 devices | ⬜ Not Started | Task 3 |
+| 7 | Persist scene state across restarts | ⬜ Not Started | Task 3 |
 
 ---
 
@@ -86,7 +208,7 @@ make build && make test  # Verify everything still works
 
 **Go Module Setup**
 - [x] Initialised Go module: `github.com/nerrad567/gray-logic-core`
-- [x] Go version: 1.23.4
+- [x] Go version: 1.25.6
 - [x] Created directory structure per CODING-STANDARDS.md
 
 **Directory Structure Created:**
@@ -162,7 +284,7 @@ code/core/
 
 | Decision | Rationale |
 |----------|-----------|
-| **Go 1.23** | Latest stable, no bleeding-edge features |
+| **Go 1.25** | Latest stable, no bleeding-edge features |
 | **gopkg.in/yaml.v3** | Mature, well-maintained, supports comments |
 | **golangci-lint** | Industry standard, catches security issues |
 | **Makefile** | Universal, works for decades, no dependencies |
@@ -214,7 +336,7 @@ make help
 
 1. **Checked prerequisites**
    ```bash
-   go version  # Confirmed Go 1.23.4 installed
+   go version  # Confirmed Go 1.25.6 installed
    ls code/    # Found only archive/ directory existed
    ```
 
@@ -688,6 +810,112 @@ internal/infrastructure/database/
 | cmd/graylogic/main.go | 197 | Infrastructure wiring |
 
 **Outcome:** M1.1 Core Infrastructure complete (100%). Ready to start M1.2 KNX Bridge.
+
+---
+
+### Session 7: 2026-01-20 — M1.1 Final Code Audit
+
+**Goal:** Complete code audit before starting M1.2
+
+**Steps Taken:**
+
+1. **Ran `/code-audit` command** (4 iterations)
+   - All static checks passed (lint, vet, vulncheck)
+   - Fixed JWT validation (cache + hmac.Equal)
+   - Fixed InfluxDB shutdown order (flush before close)
+   - Added context timeout validation
+   - Added bounds validation for batch sizes
+   - Added MQTT payload size limit
+
+2. **Modified `/code-audit` command**
+   - Added automatic run tracking (`.claude/audit-history.json`)
+   - Auto-switches to Final Advisory mode on 3rd+ run
+   - Resets count when git HEAD changes
+
+**Files Created:**
+- `.claude/audit-history.json` — Tracks audit runs
+- Updated `.claude/commands/code-audit.md` — Auto-tracking
+
+**Outcome:** M1.1 shipped with all audit findings addressed. Ready for M1.2.
+
+---
+
+### Session 8: 2026-01-20 — M1.2 KNX Bridge Phase 1
+
+**Goal:** Implement low-level KNX communication (telegram parsing, knxd client)
+
+**Steps Taken:**
+
+1. **Created implementation plan**
+   - Explored MQTT client patterns for template
+   - Researched knxd protocol format
+   - Plan saved to `.claude/plans/dynamic-snacking-fiddle.md`
+
+2. **Created telegram.go (~180 lines)**
+   - KNX telegram parsing and encoding
+   - knxd message framing (EIB_OPEN_GROUPCON, EIB_GROUP_PACKET)
+   - APCI types: Read (0x00), Response (0x40), Write (0x80)
+
+3. **Created telegram_test.go (~340 lines)**
+   - 21 test cases: parse, encode, roundtrip, helpers
+   - Found and fixed bug: single-byte values > 0x3F were not being encoded correctly
+
+4. **Created knxd.go (~350 lines)**
+   - `KNXDClient` with TCP/Unix socket support
+   - `Connect()` with handshake (EIB_OPEN_GROUPCON)
+   - `Send()` and `SendRead()` for group telegrams
+   - `SetOnTelegram()` callback for incoming telegrams
+   - Atomic statistics (TelegramsTx, TelegramsRx, Errors)
+   - `Connector` interface for mocking in tests
+
+5. **Created knxd_test.go (~380 lines)**
+   - `MockKNXDServer` simulates knxd for testing
+   - 12 test cases: connect, send, receive, close, stats
+
+6. **Created technical documentation**
+   - `docs/technical/packages/knx-bridge.md` — Full package design doc
+   - Updated `docs/technical/README.md` index
+
+7. **Created `/explain-code` command**
+   - For understanding recently written code
+   - Includes ASCII diagrams, data flows, key concepts
+
+**Files Created:**
+
+```
+internal/bridges/knx/
+├── telegram.go        # NEW: KNX telegram parse/encode
+├── telegram_test.go   # NEW: 21 tests
+├── knxd.go           # NEW: knxd client
+└── knxd_test.go      # NEW: 12 tests + MockKNXDServer
+
+docs/technical/packages/
+└── knx-bridge.md     # NEW: Package design doc
+
+.claude/commands/
+└── explain-code.md   # NEW: Code explanation command
+```
+
+**Bugs Fixed:**
+
+| Bug | Fix |
+|-----|-----|
+| telegram.Encode() single-byte > 0x3F | Added `smallData` check to detect when value fits in APCI byte |
+
+**Test Results:**
+- All 33 KNX tests passing
+- All lint checks clean
+
+**Technical Patterns Used:**
+
+| Pattern | Purpose |
+|---------|---------|
+| Atomic counters | Lock-free stats (TelegramsTx, etc.) |
+| Connector interface | Enables mock testing |
+| Callback with panic recovery | Prevents crashes from bad handlers |
+| TCP + Unix socket support | Flexible deployment options |
+
+**Outcome:** Phase 1 complete (telegram parsing + knxd client). M1.2 progress: 30%.
 
 ---
 
