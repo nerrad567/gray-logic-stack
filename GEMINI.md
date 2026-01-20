@@ -78,8 +78,10 @@ When working on this project, adhere to these rules:
 6. **Git Excellence**: Follow the commit message format: `<type>(<scope>): <subject>`. Keep commits atomic.
 
 ## Key Documents to Reference
+- **`docs/CONSTRAINTS.md`**: Canonical constraints reference (REQUIRED)
+- **`code/core/AGENTS.md`**: Go-specific development guidance
 - `docs/overview/vision.md`: Core mission.
-- `docs/overview/principles.md`: Hard rules.
+- `docs/overview/principles.md`: Hard rules (source document).
 - `docs/architecture/system-overview.md`: Technical design.
 - `docs/development/CODING-STANDARDS.md`: Detailed style guide.
 - `docs/data-model/entities.md`: Core entity definitions.

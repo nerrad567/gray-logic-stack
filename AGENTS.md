@@ -1,6 +1,21 @@
 # AGENTS.md
 
-This file provides guidance for AI coding agents (Amp, Claude, Cursor) when working on the Gray Logic Stack.
+This file provides guidance for AI coding agents (Amp, Claude, Cursor, Gemini) when working on the Gray Logic Stack.
+
+---
+
+## ⚠️ MANDATORY READING — BEFORE ANY WORK
+
+> **You MUST read `docs/CONSTRAINTS.md` before making any changes.**
+>
+> This is the canonical reference for all rules, patterns, and standards.
+> It consolidates constraints from ~80 documentation files.
+
+**Also read for context:**
+- `docs/overview/principles.md` — Hard rules (source document)
+- `code/core/AGENTS.md` — Go-specific guidance (if working on Core)
+
+---
 
 ## Project Overview
 
@@ -65,7 +80,9 @@ docker compose -f docker-compose.dev.yml up -d
 
 ## Key Documents
 
-- `docs/overview/principles.md` — Hard rules
+- **`docs/CONSTRAINTS.md`** — Canonical constraints reference (REQUIRED)
+- **`code/core/AGENTS.md`** — Go-specific development guidance
+- `docs/overview/principles.md` — Hard rules (source document)
 - `docs/overview/glossary.md` — Terminology
 - `docs/architecture/system-overview.md` — Technical design
 - `docs/data-model/entities.md` — Data model

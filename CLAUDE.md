@@ -89,8 +89,10 @@ gray-logic-stack/
 ## Key Documents
 
 Start here:
+- **Constraints**: `docs/CONSTRAINTS.md` — Canonical constraints reference (REQUIRED)
+- **Go Guidance**: `code/core/AGENTS.md` — Go-specific development guidance
 - **Vision**: `docs/overview/vision.md` — What we're building and why
-- **Principles**: `docs/overview/principles.md` — Hard rules that cannot be broken
+- **Principles**: `docs/overview/principles.md` — Hard rules (source document)
 - **System Overview**: `docs/architecture/system-overview.md` — Technical architecture
 - **Entities**: `docs/data-model/entities.md` — Core data model
 
