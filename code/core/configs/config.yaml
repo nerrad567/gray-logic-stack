@@ -149,7 +149,7 @@ influxdb:
 
 logging:
   # Log level: debug, info, warn, error
-  level: "info"
+  level: "debug"
 
   # Output format: json, text
   format: "json"
@@ -172,12 +172,84 @@ logging:
 protocols:
   # KNX protocol bridge
   knx:
-    enabled: false
+    enabled: true
     # Path to KNX bridge configuration (devices, group addresses, mappings)
     config_file: "configs/knx-bridge.yaml"
-    # knxd connection
+    # knxd connection (used when managed: false or as fallback)
     knxd_host: "localhost"
     knxd_port: 6720
+
+    # knxd Daemon Management
+    # ----------------------
+    # When managed: true, Gray Logic will spawn and manage knxd as a subprocess.
+    # This eliminates the need for engineers to edit /etc/knxd.conf or use sudo.
+    knxd:
+      # If true, Gray Logic spawns and manages knxd
+      # If false, expects knxd to be running externally (e.g., systemd service)
+      managed: true
+
+      # Path to knxd executable
+      binary: "/usr/bin/knxd"
+
+      # knxd's own address on the KNX bus
+      # Format: area.line.device (e.g., "0.0.1")
+      physical_address: "0.0.1"
+
+      # Range of addresses knxd can assign to clients
+      # Format: area.line.device:count (e.g., "0.0.2:8" = 0.0.2 through 0.0.9)
+      client_addresses: "0.0.2:8"
+
+      # Backend connection to the KNX bus
+      backend:
+        # Connection type: "usb", "ipt" (IP tunnelling), or "ip" (IP routing)
+        # TESTING: Using ipt to connect to virtual KNX (Oakwood House VM)
+        type: "ipt"
+
+        # IP Tunnelling settings - connects to KNX/IP gateway via KNXnet/IP
+        # This is the REAL-WORLD scenario for IP-based installations
+        host: "192.168.4.60"
+        port: 3671
+
+        # USB device settings (for type: "usb")
+        # These IDs are for Weinzierl KNX-USB Interface
+        usb_vendor_id: "0e77"
+        usb_product_id: "0104"
+
+        # Enable automatic USB reset before restart attempts
+        # This helps recover from LIBUSB_ERROR_BUSY without requiring sudo.
+        # Requires: usbreset utility and udev rule granting write access.
+        usb_reset_on_retry: true
+
+        # Enable proactive USB reset when bus-level health checks fail.
+        # This provides faster recovery for USB interface issues without
+        # waiting for the full watchdog restart cycle (3 failures × 30s).
+        # Requires: usbreset utility and udev rule granting write access.
+        usb_reset_on_bus_failure: true
+
+      # Automatic restart on failure
+      restart_on_failure: true
+      restart_delay_seconds: 5
+      max_restart_attempts: 10
+
+      # Watchdog health check interval
+      # knxd is killed and restarted after 3 consecutive health check failures
+      health_check_interval: 10s  # Shortened for testing (normally 30s)
+
+      # Bus-level health check (optional but recommended)
+      # ------------------------------------------------
+      # Specify a KNX group address to read during health checks.
+      # This verifies end-to-end communication: knxd → interface → bus → device
+      #
+      # Recommended: Use PSU diagnostic address or any always-responsive device
+      # Common PSU addresses: 1/7/0 (status), 1/7/1 (diagnostics)
+      # Leave empty to disable bus-level checks (only protocol checks)
+      #
+      # RE-ENABLED: Testing PSU response path
+      health_check_device_address: "1/7/0"
+      health_check_device_timeout: 5s  # Increased timeout
+
+      # knxd log verbosity (0-9, 0 = minimal)
+      log_level: 3
 
   # DALI lighting protocol bridge
   dali:

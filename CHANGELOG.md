@@ -4,6 +4,117 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.3 – knxd Subprocess Management & Multi-Layer Health Checks (2026-01-21)
+
+**Feature: Managed knxd Lifecycle with Watchdog**
+
+Added the ability for Gray Logic Core to spawn and manage the knxd daemon as a subprocess, with comprehensive multi-layer health monitoring and automatic recovery.
+
+**Rationale**
+
+- **Container-friendly deployment**: knxd runs inside the same container as Gray Logic Core, simplifying deployment
+- **No sudo required on site**: Engineers configure everything via YAML, not system files
+- **Self-healing**: Automatic restart on failure with configurable backoff
+- **Observability**: Health checks, uptime monitoring, and restart tracking
+- **Multi-decade deployments**: Critical infrastructure should be monitored and automatically recovered
+
+**Multi-Layer Health Check System**
+
+| Layer | Check | Purpose |
+|-------|-------|---------|
+| 0 | USB device presence | Verify physical interface exists (USB backends only) |
+| 1 | /proc/PID/stat | Verify process exists and is in runnable state |
+| 2 | TCP connection | Verify knxd is accepting connections on port 6720 |
+| 3 | EIB protocol handshake | Verify knxd speaks EIB protocol correctly |
+| 4 | Bus-level device read | End-to-end verification (knxd → interface → bus → device) |
+
+Layer 4 is optional but recommended — configure a KNX device (e.g., PSU at 1/7/0) that always responds to READ requests.
+
+**Watchdog Behaviour**
+
+- Configurable health check interval (default: 30s)
+- After 3 consecutive failures: knxd is killed and restarted
+- Configurable max restart attempts (default: 10, 0 = unlimited)
+- For USB backends: optional USB reset before restart (recovers from LIBUSB_ERROR_BUSY)
+
+**New Packages**
+
+- `internal/process/` — Generic subprocess lifecycle management (~590 lines, reusable for DALI, Modbus, etc.)
+  - Graceful shutdown (SIGTERM → timeout → SIGKILL)
+  - Automatic restart with configurable delay
+  - stdout/stderr capture for logging
+  - Health monitoring callbacks with consecutive failure tracking
+
+- `internal/knxd/` — knxd-specific wrapper (~720 lines)
+  - KNX address validation (physical addresses, client address pools)
+  - Command-line argument building from YAML config
+  - TCP readiness polling before bridge startup
+  - Multi-layer health checks (Layers 0-4)
+  - Bus-level health check via KNX READ request
+
+**Configuration**
+
+New `knxd:` section under `protocols.knx` in config.yaml:
+
+```yaml
+protocols:
+  knx:
+    enabled: true
+    knxd:
+      managed: true                    # If true, Gray Logic spawns knxd
+      binary: "/usr/bin/knxd"
+      physical_address: "0.0.1"
+      client_addresses: "0.0.2:8"
+      backend:
+        type: "usb"                    # usb, ipt, or ip
+        # host: "192.168.1.100"        # For ipt mode
+        # multicast_address: "224.0.23.12"  # For ip mode
+      restart_on_failure: true
+      restart_delay_seconds: 5
+      max_restart_attempts: 10
+
+      # Watchdog health checks
+      health_check_interval: 30s       # How often to run checks
+
+      # Bus-level health check (Layer 4) - optional but recommended
+      # Specify a KNX device that always responds to READ requests
+      health_check_device_address: "1/7/0"   # e.g., PSU status
+      health_check_device_timeout: 3s
+```
+
+**Files Created**
+
+- `internal/process/doc.go` — Package documentation
+- `internal/process/manager.go` — Generic subprocess manager (~490 lines)
+- `internal/knxd/doc.go` — Package documentation
+- `internal/knxd/config.go` — Configuration and arg building (~320 lines)
+- `internal/knxd/manager.go` — knxd-specific manager (~270 lines)
+
+**Files Modified**
+
+- `internal/infrastructure/config/config.go` — Added `KNXDConfig` and `KNXDBackendConfig` types
+- `configs/config.yaml` — Added `knxd:` section with full documentation
+- `cmd/graylogic/main.go` — Added `startKNXD()` and updated startup sequence
+
+**Startup Sequence**
+
+```
+1. Load configuration
+2. Connect to database, MQTT
+3. If knx.enabled && knxd.managed:
+   a. Spawn knxd subprocess with args from config
+   b. Wait for TCP port 6720 to accept connections (up to 30s)
+   c. Log connection URL
+4. Start KNX bridge using managed connection URL
+5. On shutdown: Stop bridge first, then stop knxd
+```
+
+**Backwards Compatibility**
+
+When `knxd.managed: false`, the system behaves exactly as before — expects knxd to be running externally (e.g., as a systemd service) and connects to the configured `knxd_host:knxd_port`.
+
+---
+
 ## 1.0.2 – AI Assistant Context (2026-01-17)
 
 **Tooling & Guidance**

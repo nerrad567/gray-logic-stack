@@ -1,9 +1,9 @@
 ---
 title: KNX Protocol Specification
-version: 1.0.0
+version: 1.1.0
 status: active
-implementation_status: specified
-last_updated: 2026-01-17
+implementation_status: implemented
+last_updated: 2026-01-21
 depends_on:
   - architecture/system-overview.md
   - architecture/bridge-interface.md
@@ -209,7 +209,116 @@ Gray Logic primarily uses:
 - Bus monitoring and logging
 - Client API for applications
 
-### Installation
+### Deployment Modes
+
+Gray Logic supports two modes for knxd:
+
+| Mode | Description | Use Case |
+|------|-------------|----------|
+| **Managed** | Gray Logic spawns and manages knxd as a subprocess | Recommended. Container-friendly, YAML-only config, self-healing |
+| **External** | knxd runs independently (e.g., systemd service) | Legacy installations, shared knxd with other applications |
+
+---
+
+### Managed Mode (Recommended)
+
+When `knxd.managed: true`, Gray Logic Core:
+1. Spawns knxd with command-line arguments derived from YAML config
+2. Waits for TCP port to accept connections before starting KNX bridge
+3. Monitors knxd health and restarts automatically on failure
+4. Gracefully stops knxd on shutdown (after stopping KNX bridge)
+
+**Advantages:**
+- **No sudo required on site** — Engineers configure via YAML, not system files
+- **Container-friendly** — Single container with Gray Logic + knxd
+- **Self-healing** — Automatic restart with configurable backoff
+- **Observability** — Health checks, uptime monitoring, restart tracking
+- **Consistent deployments** — Same config works across all sites
+
+**Configuration (config.yaml):**
+
+```yaml
+protocols:
+  knx:
+    enabled: true
+    knxd_port: 6720    # Port for KNX bridge to connect to knxd
+
+    knxd:
+      managed: true
+      binary: "/usr/bin/knxd"
+
+      # knxd's own address on the KNX bus (area.line.device)
+      physical_address: "0.0.1"
+
+      # Range of addresses for clients (area.line.device:count)
+      client_addresses: "0.0.2:8"
+
+      # Backend connection to KNX bus
+      backend:
+        type: "usb"    # usb, ipt, or ip
+
+        # For ipt (IP tunnelling to KNX/IP interface):
+        # type: "ipt"
+        # host: "192.168.1.100"
+        # port: 3671
+
+        # For ip (IP routing via multicast):
+        # type: "ip"
+        # multicast_address: "224.0.23.12"
+
+      # Self-healing settings
+      restart_on_failure: true
+      restart_delay_seconds: 5
+      max_restart_attempts: 10
+
+      # knxd log verbosity (0-9, 0 = minimal)
+      log_level: 0
+```
+
+**Backend Types:**
+
+| Type | Description | knxd Argument | When to Use |
+|------|-------------|---------------|-------------|
+| `usb` | USB KNX interface | `-b usb:` | Weinzierl, MDT USB interfaces |
+| `ipt` | IP tunnelling | `-b ipt:host:port` | KNX/IP interface (one tunnel) |
+| `ip` | IP routing | `-b ip:multicast` | KNX/IP router (multicast) |
+
+**Startup Sequence:**
+
+```
+Gray Logic Core starts
+    ↓
+Load config.yaml
+    ↓
+If knx.enabled && knxd.managed:
+    ├── Build knxd args from config
+    │   Example: /usr/bin/knxd -e 0.0.1 -E 0.0.2:8 -b usb:
+    ├── Spawn knxd subprocess
+    ├── Wait for TCP port 6720 to accept connections (up to 30s)
+    └── Log connection URL (tcp://localhost:6720)
+    ↓
+Start KNX bridge using managed connection URL
+    ↓
+... application runs ...
+    ↓
+Shutdown signal received
+    ├── Stop KNX bridge first
+    ├── Send SIGTERM to knxd
+    ├── Wait up to 10s for graceful exit
+    └── Send SIGKILL if still running
+```
+
+---
+
+### External Mode
+
+When `knxd.managed: false`, Gray Logic expects knxd to be running externally (e.g., as a systemd service). This is the legacy mode and should only be used when:
+
+- knxd is shared with other applications
+- Custom knxd configuration is required beyond what Gray Logic supports
+- Existing installations that cannot be migrated
+
+**Installation (External):**
 
 ```bash
 # Debian/Ubuntu
@@ -224,9 +333,7 @@ make
 sudo make install
 ```
 
-### Configuration
-
-**`/etc/knxd.ini`** (recommended configuration):
+**Configuration (`/etc/knxd.ini`):**
 
 ```ini
 [main]
@@ -251,13 +358,27 @@ tunnel = server
 discover = true
 ```
 
+**Gray Logic Configuration (External Mode):**
+
+```yaml
+protocols:
+  knx:
+    enabled: true
+    knxd_host: "localhost"
+    knxd_port: 6720
+    knxd:
+      managed: false    # Use external knxd
+```
+
+---
+
 ### knxd Client Connection
 
 Gray Logic KNX Bridge connects via:
 
-1. **Unix socket**: `/run/knxd` (preferred for local)
-2. **TCP**: `localhost:6720` (for remote or containerized)
-3. **EIBnet/IP tunneling**: Direct to knxd's EIBnet/IP server
+1. **TCP**: `localhost:6720` (default, used by managed mode)
+2. **Unix socket**: `/tmp/eib` (optional, for local optimization)
+3. **Remote TCP**: `host:port` (for external knxd on different machine)
 
 ---
 

@@ -8,9 +8,11 @@ import (
 
 // knxd protocol message types.
 const (
-	// EIBOpenGroupcon opens group communication mode with knxd.
+	// EIBOpenTGroup opens group communication mode with knxd.
+	// Format: type(2) + group_addr(2) + flags(1)
 	// After sending this, the client can send/receive group telegrams.
-	EIBOpenGroupcon uint16 = 0x0026
+	// Note: This is EIB_OPEN_T_GROUP (0x0022), not EIB_OPEN_GROUPCON (0x0026).
+	EIBOpenTGroup uint16 = 0x0022
 
 	// EIBGroupPacket is used to send and receive group telegrams.
 	EIBGroupPacket uint16 = 0x0027
@@ -229,7 +231,7 @@ func NewReadTelegram(dest GroupAddress) Telegram {
 //	Byte 4+:  Payload
 //
 // Parameters:
-//   - msgType: knxd message type (e.g., EIBOpenGroupcon, EIBGroupPacket)
+//   - msgType: knxd message type (e.g., EIBOpenTGroup, EIBGroupPacket)
 //   - payload: Message payload (may be nil)
 //
 // Returns:
@@ -238,8 +240,10 @@ func EncodeKNXDMessage(msgType uint16, payload []byte) []byte {
 	totalSize := knxdHeaderSize + len(payload)
 	buf := make([]byte, totalSize)
 
-	// Size (includes header) - safe: knxdHeaderSize(4) + payload is always < 65535
-	binary.BigEndian.PutUint16(buf[0:2], uint16(totalSize)) //nolint:gosec // bounded by buffer allocation
+	// Size field = type(2) + payload length (does NOT include size field itself)
+	// This matches the eibd protocol specification
+	sizeField := 2 + len(payload) // type(2) + payload
+	binary.BigEndian.PutUint16(buf[0:2], uint16(sizeField)) //nolint:gosec // bounded by small message sizes
 
 	// Message type
 	binary.BigEndian.PutUint16(buf[2:4], msgType)
@@ -266,11 +270,12 @@ func ParseKNXDMessage(data []byte) (msgType uint16, payload []byte, err error) {
 		return 0, nil, fmt.Errorf("%w: message too short (%d bytes)", ErrInvalidTelegram, len(data))
 	}
 
-	// Validate size field
+	// Validate size field (size = type(2) + payload, does NOT include size field itself)
 	declaredSize := binary.BigEndian.Uint16(data[0:2])
-	if int(declaredSize) != len(data) {
-		return 0, nil, fmt.Errorf("%w: size mismatch (declared %d, got %d)",
-			ErrInvalidTelegram, declaredSize, len(data))
+	expectedSize := len(data) - 2 // total bytes minus the 2-byte size field
+	if int(declaredSize) != expectedSize {
+		return 0, nil, fmt.Errorf("%w: size mismatch (declared %d, expected %d)",
+			ErrInvalidTelegram, declaredSize, expectedSize)
 	}
 
 	msgType = binary.BigEndian.Uint16(data[2:4])

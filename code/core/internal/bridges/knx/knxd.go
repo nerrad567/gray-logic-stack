@@ -251,10 +251,18 @@ func parseConnectionURL(connURL string) (network, address string, err error) {
 	}
 }
 
-// openGroupCon sends the EIB_OPEN_GROUPCON message to knxd.
+// openGroupCon sends the EIB_OPEN_T_GROUP message to knxd.
 // It respects the context deadline to ensure the overall connect timeout is honoured.
+//
+// The EIB_OPEN_T_GROUP (0x0022) message format:
+//   - type: 0x0022
+//   - group_addr: 2 bytes (0x0000 for all groups)
+//   - flags: 1 byte (0xFF for read/write mode)
 func (c *KNXDClient) openGroupCon(ctx context.Context) error {
-	msg := EncodeKNXDMessage(EIBOpenGroupcon, nil)
+	// EIB_OPEN_T_GROUP payload: group_addr(2) + flags(1)
+	// Use 0x0000 for all groups, 0xFF for read/write mode
+	payload := []byte{0x00, 0x00, 0xFF}
+	msg := EncodeKNXDMessage(EIBOpenTGroup, payload)
 
 	// Calculate deadline: use context deadline if set and sooner than default
 	writeDeadline := time.Now().Add(defaultWriteTimeout)
@@ -294,18 +302,32 @@ func (c *KNXDClient) openGroupCon(ctx context.Context) error {
 	default:
 	}
 
-	resp := make([]byte, readBufferSize)
-	n, err := c.conn.Read(resp)
-	if err != nil {
-		return fmt.Errorf("read response: %w", err)
+	// Read response using proper message framing
+	// First read 2-byte size field
+	sizeBytes := make([]byte, 2)
+	if _, err := io.ReadFull(c.conn, sizeBytes); err != nil {
+		return fmt.Errorf("read response size: %w", err)
 	}
 
-	msgType, _, err := ParseKNXDMessage(resp[:n])
+	// Parse size (size = type(2) + payload, does NOT include size field)
+	msgSize := binary.BigEndian.Uint16(sizeBytes)
+	if msgSize < 2 {
+		return fmt.Errorf("invalid response size: %d", msgSize)
+	}
+
+	// Read remaining bytes (type + payload)
+	resp := make([]byte, 2+int(msgSize))
+	copy(resp[:2], sizeBytes)
+	if _, err := io.ReadFull(c.conn, resp[2:]); err != nil {
+		return fmt.Errorf("read response body: %w", err)
+	}
+
+	msgType, _, err := ParseKNXDMessage(resp)
 	if err != nil {
 		return fmt.Errorf("parse response: %w", err)
 	}
 
-	if msgType != EIBOpenGroupcon {
+	if msgType != EIBOpenTGroup {
 		return fmt.Errorf("unexpected response type: 0x%04X", msgType)
 	}
 
@@ -355,33 +377,35 @@ func (c *KNXDClient) readMessage(buf []byte) (uint16, []byte, error) {
 		return 0, nil, fmt.Errorf("read size: %w", err)
 	}
 
-	// Parse message size
+	// Parse message size (size field = type(2) + payload, NOT including size field itself)
 	msgSize := binary.BigEndian.Uint16(buf[:2])
-	if msgSize < knxdHeaderSize {
+	if msgSize < 2 {
 		c.errorsTotal.Add(1)
-		return 0, nil, fmt.Errorf("invalid message size: %d (minimum %d)",
-			msgSize, knxdHeaderSize)
+		return 0, nil, fmt.Errorf("invalid message size: %d (minimum 2 for type field)",
+			msgSize)
 	}
+
+	// Total message length = size field(2) + msgSize (type + payload)
+	totalLen := 2 + int(msgSize)
 
 	// Oversized message detection - FATAL error to prevent protocol desync.
 	// We cannot safely skip the message because we'd need to read and discard
 	// an unknown number of bytes, risking buffer overflow or incorrect framing.
 	// Closing the connection forces a clean reconnect.
-	if int(msgSize) > len(buf) {
+	if totalLen > len(buf) {
 		c.errorsTotal.Add(1)
 		c.logError("oversized message, closing connection to prevent desync",
-			fmt.Errorf("size %d exceeds buffer %d", msgSize, len(buf)))
+			fmt.Errorf("size %d exceeds buffer %d", totalLen, len(buf)))
 		return 0, nil, ErrProtocolDesync
 	}
 
-	// Read rest of message
-	remaining := int(msgSize) - 2
-	if _, err := io.ReadFull(c.conn, buf[2:2+remaining]); err != nil {
+	// Read rest of message (type + payload = msgSize bytes)
+	if _, err := io.ReadFull(c.conn, buf[2:totalLen]); err != nil {
 		return 0, nil, fmt.Errorf("read message: %w", err)
 	}
 
 	// Parse message
-	msgType, payload, err := ParseKNXDMessage(buf[:msgSize])
+	msgType, payload, err := ParseKNXDMessage(buf[:totalLen])
 	if err != nil {
 		c.logError("parse message failed", err)
 		c.errorsTotal.Add(1)

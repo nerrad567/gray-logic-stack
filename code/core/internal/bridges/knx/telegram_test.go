@@ -358,22 +358,22 @@ func TestEncodeKNXDMessage(t *testing.T) {
 		want    []byte
 	}{
 		{
-			name:    "open groupcon (no payload)",
-			msgType: EIBOpenGroupcon,
-			payload: nil,
-			want:    []byte{0x00, 0x04, 0x00, 0x26},
+			name:    "open T_GROUP (with payload)",
+			msgType: EIBOpenTGroup,
+			payload: []byte{0x00, 0x00, 0xFF}, // group_addr=0x0000, flags=0xFF
+			want:    []byte{0x00, 0x05, 0x00, 0x22, 0x00, 0x00, 0xFF}, // size=5 (type+payload)
 		},
 		{
 			name:    "group packet with telegram",
 			msgType: EIBGroupPacket,
 			payload: []byte{0x0A, 0x03, 0x81}, // GA 1/2/3, write true
-			want:    []byte{0x00, 0x07, 0x00, 0x27, 0x0A, 0x03, 0x81},
+			want:    []byte{0x00, 0x05, 0x00, 0x27, 0x0A, 0x03, 0x81}, // size=5 (type+payload)
 		},
 		{
 			name:    "close connection",
 			msgType: EIBClose,
 			payload: nil,
-			want:    []byte{0x00, 0x04, 0x00, 0x06},
+			want:    []byte{0x00, 0x02, 0x00, 0x06}, // size=2 (type only, no payload)
 		},
 	}
 
@@ -396,25 +396,25 @@ func TestParseKNXDMessage(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name:        "open groupcon response",
-			data:        []byte{0x00, 0x04, 0x00, 0x26},
-			wantType:    EIBOpenGroupcon,
+			name:        "open T_GROUP response",
+			data:        []byte{0x00, 0x02, 0x00, 0x22}, // size=2 (type only)
+			wantType:    EIBOpenTGroup,
 			wantPayload: nil,
 		},
 		{
 			name:        "group packet with telegram",
-			data:        []byte{0x00, 0x07, 0x00, 0x27, 0x0A, 0x03, 0x81},
+			data:        []byte{0x00, 0x05, 0x00, 0x27, 0x0A, 0x03, 0x81}, // size=5 (type+payload)
 			wantType:    EIBGroupPacket,
 			wantPayload: []byte{0x0A, 0x03, 0x81},
 		},
 		{
 			name:    "too short",
-			data:    []byte{0x00, 0x04, 0x00},
+			data:    []byte{0x00, 0x02, 0x00},
 			wantErr: true,
 		},
 		{
 			name:    "size mismatch",
-			data:    []byte{0x00, 0x10, 0x00, 0x27, 0x0A}, // declared 16, got 5
+			data:    []byte{0x00, 0x10, 0x00, 0x27, 0x0A}, // declared 16, expected 3 (5-2)
 			wantErr: true,
 		},
 	}
@@ -453,9 +453,9 @@ func TestKNXDMessageRoundTrip(t *testing.T) {
 		payload []byte
 	}{
 		{
-			name:    "open groupcon",
-			msgType: EIBOpenGroupcon,
-			payload: nil,
+			name:    "open T_GROUP",
+			msgType: EIBOpenTGroup,
+			payload: []byte{0x00, 0x00, 0xFF},
 		},
 		{
 			name:    "group packet",

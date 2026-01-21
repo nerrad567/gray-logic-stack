@@ -298,11 +298,12 @@ func (s *MockKNXDServer) acceptLoop(t *testing.T) {
 		s.received = append(s.received, append([]byte{}, buf[:n]...))
 		s.mu.Unlock()
 
-		// Respond to EIB_OPEN_GROUPCON
+		// Respond to EIB_OPEN_T_GROUP
 		if n >= 4 {
 			msgType, _, _ := ParseKNXDMessage(buf[:n])
-			if msgType == EIBOpenGroupcon {
-				resp := EncodeKNXDMessage(EIBOpenGroupcon, nil)
+			if msgType == EIBOpenTGroup {
+				// Echo back the same message type to indicate success
+				resp := EncodeKNXDMessage(EIBOpenTGroup, nil)
 				conn.Write(resp)
 			}
 		}

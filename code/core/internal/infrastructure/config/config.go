@@ -152,6 +152,78 @@ type KNXConfig struct {
 	ConfigFile string `yaml:"config_file"` // Path to KNX bridge config (devices, mappings)
 	KNXDHost   string `yaml:"knxd_host"`
 	KNXDPort   int    `yaml:"knxd_port"`
+	// KNXD contains knxd daemon management settings
+	KNXD KNXDConfig `yaml:"knxd"`
+}
+
+// KNXDConfig contains settings for managing the knxd daemon.
+type KNXDConfig struct {
+	// Managed indicates whether Gray Logic should manage knxd lifecycle.
+	// If false, knxd is expected to be running externally (e.g., as a systemd service).
+	Managed bool `yaml:"managed"`
+
+	// Binary is the path to the knxd executable.
+	// Default: "/usr/bin/knxd"
+	Binary string `yaml:"binary"`
+
+	// PhysicalAddress is knxd's own address on the KNX bus.
+	// Format: "area.line.device" (e.g., "0.0.1")
+	PhysicalAddress string `yaml:"physical_address"`
+
+	// ClientAddresses is the range of addresses knxd can assign to clients.
+	// Format: "area.line.device:count" (e.g., "0.0.2:8")
+	ClientAddresses string `yaml:"client_addresses"`
+
+	// Backend configures how knxd connects to the KNX bus.
+	Backend KNXDBackendConfig `yaml:"backend"`
+
+	// RestartOnFailure enables automatic restart if knxd crashes.
+	// Default: true
+	RestartOnFailure bool `yaml:"restart_on_failure"`
+
+	// RestartDelaySeconds is the time to wait before restarting (in seconds).
+	// Default: 5
+	RestartDelaySeconds int `yaml:"restart_delay_seconds"`
+
+	// MaxRestartAttempts limits restart attempts. 0 means unlimited.
+	// Default: 10
+	MaxRestartAttempts int `yaml:"max_restart_attempts"`
+
+	// HealthCheckInterval is how often to run watchdog health checks.
+	// Default: 30s
+	HealthCheckInterval time.Duration `yaml:"health_check_interval"`
+
+	// HealthCheckDeviceAddress is an optional KNX group address to read during
+	// health checks. This provides end-to-end verification that the entire
+	// communication chain works (knxd → interface → bus → device).
+	// Format: "main/middle/sub" (e.g., "1/7/0" for PSU status)
+	// If empty, bus-level health checks are disabled.
+	HealthCheckDeviceAddress string `yaml:"health_check_device_address,omitempty"`
+
+	// HealthCheckDeviceTimeout is how long to wait for a response from the
+	// health check device.
+	// Default: 3s
+	HealthCheckDeviceTimeout time.Duration `yaml:"health_check_device_timeout,omitempty"`
+
+	// LogLevel sets knxd's verbosity (0-9).
+	// Default: 0
+	LogLevel int `yaml:"log_level"`
+}
+
+// KNXDBackendConfig configures how knxd connects to the KNX bus.
+type KNXDBackendConfig struct {
+	// Type is the backend connection type: "usb", "ipt", or "ip"
+	Type string `yaml:"type"`
+
+	// Host is the IP address for ipt (tunnelling) connections.
+	Host string `yaml:"host,omitempty"`
+
+	// Port is the port for ipt connections. Default: 3671
+	Port int `yaml:"port,omitempty"`
+
+	// MulticastAddress is the multicast group for ip (routing) connections.
+	// Default: "224.0.23.12"
+	MulticastAddress string `yaml:"multicast_address,omitempty"`
 }
 
 // DALIConfig contains DALI protocol bridge settings.

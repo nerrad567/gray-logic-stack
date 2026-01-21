@@ -1,6 +1,6 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-20
+> **Last Updated:** 2026-01-21
 > **Current Phase:** Implementation (M1.3 - Device Registry)
 
 ---
@@ -226,6 +226,69 @@
 ---
 
 ## Change Log
+
+### 2026-01-21 — knxd Subprocess Management & Multi-Layer Health Checks
+
+**Enhancement to M1.2:**
+
+Added knxd subprocess management so Gray Logic Core can spawn and manage knxd as a child process. This eliminates the need for engineers to manually configure `/etc/knxd.conf` or use sudo on site.
+
+**Rationale:**
+- Container-friendly deployment (single container with Gray Logic + knxd)
+- No sudo required on site — YAML-only configuration
+- Self-healing with automatic restart on failure
+- Critical for multi-decade deployments where unattended operation is required
+
+**New Packages:**
+- `internal/process/` — Generic subprocess lifecycle management (~590 lines, reusable for DALI, Modbus)
+- `internal/knxd/` — knxd-specific wrapper (~720 lines) with multi-layer health checks
+
+**Files Created:**
+- `internal/process/doc.go`, `internal/process/manager.go`
+- `internal/knxd/doc.go`, `internal/knxd/config.go`, `internal/knxd/manager.go`
+
+**Files Modified:**
+- `internal/infrastructure/config/config.go` — Added `KNXDConfig` types with health check fields
+- `configs/config.yaml` — Added `knxd:` section with health check config
+- `cmd/graylogic/main.go` — Added knxd startup before KNX bridge
+
+**Multi-Layer Health Check System:**
+| Layer | Check | Purpose |
+|-------|-------|---------|
+| 0 | USB device presence | Verify physical interface (USB backends only) |
+| 1 | /proc/PID/stat | Verify process exists and is runnable |
+| 2 | TCP connection | Verify knxd is accepting connections |
+| 3 | EIB protocol handshake | Verify knxd speaks EIB protocol |
+| 4 | Bus-level device read | Verify end-to-end communication (knxd → interface → bus → device) |
+
+**Watchdog Behaviour:**
+- Health check interval: configurable (default 30s, 10s for testing)
+- Failure threshold: 3 consecutive failures triggers restart
+- Max restart attempts: configurable (default 10)
+- On USB backends: optional USB reset before restart attempts
+
+**Testing Progress (in progress):**
+- ✅ USB backend: Tested with physical Weinzierl KNX-USB interface (0e77:0104)
+- ✅ IP Tunnel backend: Local knxd connects to VM's KNXnet/IP port 3671
+- ✅ Watchdog: Verified kill-and-restart after 3 health check failures
+- 🔄 Bus-level health check: READ requests reach VM, working on response routing
+
+**Virtual KNX Test Environment:**
+- Debian VM (192.168.4.60) running knxd with dummy backend
+- Python simulator emulating "Oakwood House" (15 lights, 8 sockets, sensors, PSU)
+- PSU diagnostics at 1/7/0-1/7/3 for health check responses
+- Architecture: Gray Logic → local knxd (ipt backend) → VM KNXnet/IP (3671) → VM knxd → dummy bus
+
+**Current Issue Being Resolved:**
+Simulator uses KNXnet/IP Routing (`ip:127.0.0.1`) which doesn't bridge to tunnel clients.
+Fix: Change simulator to use EIB via Unix socket (`local:/run/knx`).
+
+**Startup Flow:**
+1. Gray Logic loads config
+2. If `knxd.managed: true`, spawn knxd with args from YAML
+3. Wait for TCP port to accept connections
+4. Start KNX bridge using managed connection URL
+5. On shutdown: stop bridge first, then stop knxd
 
 ### 2026-01-20 — M1.2 KNX Bridge Complete
 

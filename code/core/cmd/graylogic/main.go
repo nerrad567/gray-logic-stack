@@ -17,15 +17,18 @@ import (
 	"os"
 	"os/signal"
 	"syscall"
+	"time"
 
 	_ "github.com/nerrad567/gray-logic-core/migrations"
 
 	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
+	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/database"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/influxdb"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt"
+	"github.com/nerrad567/gray-logic-core/internal/knxd"
 )
 
 // Version information - set at build time via ldflags
@@ -107,6 +110,19 @@ func run(ctx context.Context) error {
 	}
 	log.Info("database migrations complete")
 
+	// Initialise device registry
+	deviceRepo := device.NewSQLiteRepository(db.DB)
+	deviceRegistry := device.NewRegistry(deviceRepo)
+	deviceRegistry.SetLogger(log)
+
+	if refreshErr := deviceRegistry.RefreshCache(ctx); refreshErr != nil {
+		return fmt.Errorf("loading device registry: %w", refreshErr)
+	}
+	log.Info("device registry initialised", "devices", deviceRegistry.GetDeviceCount())
+
+	// Mark deviceRegistry as used (will be needed by REST API in M1.4)
+	_ = deviceRegistry
+
 	// Connect to MQTT broker
 	mqttClient, err := mqtt.Connect(cfg.MQTT)
 	if err != nil {
@@ -158,10 +174,25 @@ func run(ctx context.Context) error {
 		log.Info("InfluxDB disabled")
 	}
 
+	// Start knxd daemon (if managed)
+	var knxdManager *knxd.Manager
+	if cfg.Protocols.KNX.Enabled && cfg.Protocols.KNX.KNXD.Managed {
+		knxdManager, err = startKNXD(ctx, cfg, log)
+		if err != nil {
+			return fmt.Errorf("starting knxd: %w", err)
+		}
+		defer func() {
+			log.Info("stopping knxd")
+			if stopErr := knxdManager.Stop(); stopErr != nil {
+				log.Error("error stopping knxd", "error", stopErr)
+			}
+		}()
+	}
+
 	// Start KNX bridge (if enabled)
 	var knxBridge *knx.Bridge
 	if cfg.Protocols.KNX.Enabled {
-		knxBridge, err = startKNXBridge(ctx, cfg, mqttClient, log)
+		knxBridge, err = startKNXBridge(ctx, cfg, knxdManager, mqttClient, log)
 		if err != nil {
 			return fmt.Errorf("starting KNX bridge: %w", err)
 		}
@@ -238,18 +269,76 @@ func healthCheck(ctx context.Context, db *database.DB, mqttClient *mqtt.Client, 
 	return nil
 }
 
+// startKNXD initialises and starts the knxd daemon.
+//
+// Parameters:
+//   - ctx: Context for startup/cancellation
+//   - cfg: Application configuration
+//   - log: Logger instance
+//
+// Returns:
+//   - *knxd.Manager: Running knxd manager
+//   - error: If knxd fails to start
+func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*knxd.Manager, error) {
+	// Convert config types
+	knxdCfg := knxd.Config{
+		Managed:                  cfg.Protocols.KNX.KNXD.Managed,
+		Binary:                   cfg.Protocols.KNX.KNXD.Binary,
+		PhysicalAddress:          cfg.Protocols.KNX.KNXD.PhysicalAddress,
+		ClientAddresses:          cfg.Protocols.KNX.KNXD.ClientAddresses,
+		ListenTCP:                true, // Always listen on TCP for Gray Logic
+		TCPPort:                  cfg.Protocols.KNX.KNXDPort,
+		RestartOnFailure:         cfg.Protocols.KNX.KNXD.RestartOnFailure,
+		RestartDelay:             time.Duration(cfg.Protocols.KNX.KNXD.RestartDelaySeconds) * time.Second,
+		MaxRestartAttempts:       cfg.Protocols.KNX.KNXD.MaxRestartAttempts,
+		HealthCheckInterval:      cfg.Protocols.KNX.KNXD.HealthCheckInterval,
+		HealthCheckDeviceAddress: cfg.Protocols.KNX.KNXD.HealthCheckDeviceAddress,
+		HealthCheckDeviceTimeout: cfg.Protocols.KNX.KNXD.HealthCheckDeviceTimeout,
+		LogLevel:                 cfg.Protocols.KNX.KNXD.LogLevel,
+		Backend: knxd.BackendConfig{
+			Type:             knxd.BackendType(cfg.Protocols.KNX.KNXD.Backend.Type),
+			Host:             cfg.Protocols.KNX.KNXD.Backend.Host,
+			Port:             cfg.Protocols.KNX.KNXD.Backend.Port,
+			MulticastAddress: cfg.Protocols.KNX.KNXD.Backend.MulticastAddress,
+		},
+	}
+
+	manager, err := knxd.NewManager(knxdCfg)
+	if err != nil {
+		return nil, fmt.Errorf("creating knxd manager: %w", err)
+	}
+	manager.SetLogger(log)
+
+	log.Info("starting knxd",
+		"backend", knxdCfg.Backend.Type,
+		"physical_address", knxdCfg.PhysicalAddress,
+	)
+
+	if err := manager.Start(ctx); err != nil {
+		return nil, fmt.Errorf("starting knxd: %w", err)
+	}
+
+	log.Info("knxd started",
+		"connection_url", manager.ConnectionURL(),
+		"managed", manager.IsManaged(),
+	)
+
+	return manager, nil
+}
+
 // startKNXBridge initialises and starts the KNX protocol bridge.
 //
 // Parameters:
 //   - ctx: Context for connection/cancellation
 //   - cfg: Application configuration
+//   - knxdManager: knxd manager (may be nil if not managed)
 //   - mqttClient: MQTT client for publishing/subscribing
 //   - log: Logger instance
 //
 // Returns:
 //   - *knx.Bridge: Running KNX bridge
 //   - error: If bridge fails to start
-func startKNXBridge(ctx context.Context, cfg *config.Config, mqttClient *mqtt.Client, log *logging.Logger) (*knx.Bridge, error) {
+func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger) (*knx.Bridge, error) {
 	// Load KNX bridge configuration (devices, group addresses, mappings)
 	knxBridgeCfg, err := knx.LoadConfig(cfg.Protocols.KNX.ConfigFile)
 	if err != nil {
@@ -260,8 +349,15 @@ func startKNXBridge(ctx context.Context, cfg *config.Config, mqttClient *mqtt.Cl
 		"devices", len(knxBridgeCfg.Devices),
 	)
 
-	// Create connection URL from host/port
-	connURL := fmt.Sprintf("tcp://%s:%d", cfg.Protocols.KNX.KNXDHost, cfg.Protocols.KNX.KNXDPort)
+	// Determine connection URL:
+	// - If knxd is managed, use its connection URL
+	// - Otherwise, use the configured host/port
+	var connURL string
+	if knxdManager != nil {
+		connURL = knxdManager.ConnectionURL()
+	} else {
+		connURL = fmt.Sprintf("tcp://%s:%d", cfg.Protocols.KNX.KNXDHost, cfg.Protocols.KNX.KNXDPort)
+	}
 
 	// Connect to knxd daemon
 	knxdClient, err := knx.Connect(ctx, knx.KNXDConfig{
