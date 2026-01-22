@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
 > **Last Updated:** 2026-01-22
-> **Current Phase:** Implementation (M1.3 - Device Registry ~70%)
+> **Current Phase:** Implementation (M1.4 - REST API)
 
 ---
 
@@ -23,7 +23,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | 🟢 M1.3 Next |
+| Code | 🟢 M1.4 Next |
 
 ---
 
@@ -152,10 +152,10 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.3 In Progress | M1.1 + M1.2 complete |
+| Gray Logic Core (Go) | 🟢 M1.4 Next | M1.1 + M1.2 + M1.3 complete |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
 | knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
-| Device Registry | 🔄 70% Complete | Types, repository, validation done; wiring to main pending |
+| Device Registry | ✅ Complete | Types, repository, validation, wired to main.go + KNX bridge |
 | Process Manager | ✅ Complete | Generic subprocess lifecycle (reusable for DALI, Modbus) |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
@@ -188,6 +188,18 @@
 - [x] 4 code audit cycles (15 issues fixed)
 - [x] Wired into main.go with MQTT adapter
 - [x] Sample knx-bridge.yaml configuration created
+
+### M1.3 Progress (Device Registry) — ✅ Complete
+- [x] types.go — 50+ device types, 12+ domains, 14 protocols, 45+ capabilities
+- [x] registry.go — Thread-safe in-memory cache with CRUD operations
+- [x] repository.go — SQLite persistence layer (Repository interface + SQLiteRepository)
+- [x] validation.go — Device validation, slug generation, protocol-specific address checks
+- [x] errors.go — Domain-specific error types with errors.Is support
+- [x] Wired into main.go — RefreshCache on startup, adapter to KNX bridge
+- [x] KNX bridge integration — State/health updates flow from bridge to registry
+- [x] Integration tests — Full lifecycle (create → cache → state → health → persist → delete)
+- [x] Unit tests for knxd package — Config validation, address parsing, BuildArgs
+- [x] Unit tests for process package — Construction, backoff, state transitions
 
 ---
 
@@ -229,6 +241,25 @@
 ---
 
 ## Change Log
+
+### 2026-01-22 — M1.3 Device Registry Complete
+
+**Milestone Complete:**
+- M1.3 Device Registry fully implemented, tested, and integrated
+- Device registry wired into main.go with KNX bridge adapter
+- All packages now have test coverage (knxd, process previously had none)
+
+**Tests Added:**
+- `internal/device/integration_test.go` — 4 integration tests exercising full lifecycle through real SQLite
+- `internal/knxd/manager_test.go` — 14 test functions covering config, validation, address parsing, BuildArgs
+- `internal/process/manager_test.go` — 13 test functions covering construction, state, backoff, lifecycle
+
+**Test Results:**
+- All packages pass (0 failures)
+- No lint warnings
+- Previously untested packages (knxd, process) now have comprehensive coverage
+
+**Next:** M1.4 REST API + WebSocket
 
 ### 2026-01-22 — Documentation Sync & Device Registry Progress
 

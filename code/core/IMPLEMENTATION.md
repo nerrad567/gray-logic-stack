@@ -6,8 +6,8 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-22 (Session 12 - knxd Manager Complete!)
-**Current milestone:** M1.3 Device Registry (In Progress - ~70%)
+**Last session:** 2026-01-22 (Session 13 - M1.3 Device Registry Complete!)
+**Current milestone:** M1.4 REST API + WebSocket
 
 ### ✅ M1.2 KNX Bridge — COMPLETE
 
@@ -62,23 +62,28 @@
 - Process group signaling for clean shutdown
 - RecoverableError interface for smart restart decisions
 
-### 🔄 M1.3 Device Registry — IN PROGRESS (~70%)
+### ✅ M1.3 Device Registry — COMPLETE
 
 **`internal/device/` — Device management (9 files, ~1,200 lines):**
-- ✅ types.go — Device, Domain, Protocol, Capability types
-- ✅ registry.go — CRUD with in-memory cache, thread-safe
-- ✅ repository.go — SQLite persistence layer
-- ✅ validation.go — Device validation, slug generation
-- ✅ errors.go — Domain-specific errors
+- ✅ types.go — Device, Domain, Protocol, Capability types (50+ types, 12+ domains, 45+ capabilities)
+- ✅ registry.go — CRUD with in-memory cache, thread-safe (RWMutex, deep-copy)
+- ✅ repository.go — SQLite persistence layer (Repository interface + SQLiteRepository)
+- ✅ validation.go — Device validation, slug generation, protocol-specific address checks
+- ✅ errors.go — Domain-specific errors (ErrDeviceNotFound, ErrDeviceExists, etc.)
 - ✅ doc.go — Package documentation
-- ✅ registry_test.go — Unit tests
-- ✅ repository_test.go — Repository tests
+- ✅ registry_test.go — Unit tests (mock repository)
+- ✅ repository_test.go — Repository tests (real SQLite)
 - ✅ validation_test.go — Validation tests
+- ✅ integration_test.go — End-to-end lifecycle tests (Session 13)
+- ✅ **Wired into main.go** — RefreshCache on startup, adapter to KNX bridge
+- ✅ **KNX bridge integration** — State/health updates from bus telegrams
 
-**Remaining M1.3 Tasks:**
-- ⬜ Wire into main.go
-- ⬜ Add KNX device auto-registration from bridge
-- ⬜ Integration test with real database
+**Also completed (Session 13):**
+- ✅ `internal/knxd/manager_test.go` — 14 test functions (config, validation, address parsing)
+- ✅ `internal/process/manager_test.go` — 13 test functions (construction, backoff, lifecycle)
+
+**Deferred to M1.4:**
+- KNX device auto-registration (requires REST API for user approval of discovered devices)
 
 **Reference docs:**
 - `docs/technical/packages/knx-bridge.md` — KNX bridge design
@@ -87,11 +92,12 @@
 - `docs/technical/packages/process-manager.md` — Process management
 - `docs/protocols/knx.md` — KNX protocol specification
 
-### Next Tasks
+### Next Tasks (M1.4)
 
-1. Wire device registry into main.go
-2. Add KNX device auto-registration
-3. Start M1.4: REST API + WebSocket
+1. REST API server (net/http or chi router)
+2. Device CRUD endpoints (GET/POST/PUT/DELETE /api/v1/devices)
+3. WebSocket for real-time state push
+4. Authentication (JWT or API key)
 
 ### M1.1 Hardening Complete (Session 7)
 

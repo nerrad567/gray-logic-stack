@@ -4,6 +4,77 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.5 – M1.3 Device Registry Complete (2026-01-22)
+
+**Milestone: M1.3 Device Registry — Complete**
+
+The device registry is fully implemented, tested, and integrated into the Gray Logic Core. It provides the central catalogue of all building devices with thread-safe in-memory caching and SQLite persistence.
+
+**What Was Built**
+
+- `internal/device/` package — 9 files, ~1,200 lines:
+  - 50+ device types across 12+ domains (lighting, climate, blinds, audio, etc.)
+  - 14 protocol types (KNX, DALI, Modbus RTU/TCP, MQTT, etc.)
+  - 45+ capabilities (on_off, dim, temperature_read, etc.)
+  - Thread-safe registry with RWMutex-protected cache and deep-copy semantics
+  - SQLite persistence via Repository interface pattern
+  - Protocol-specific address validation (KNX group addresses, DALI short addresses, Modbus host+unit)
+  - Automatic slug generation from device names
+
+**Integration**
+
+- Device registry wired into `main.go`: initialised at startup, cache refreshed from database
+- KNX bridge integration via adapter pattern: state and health updates flow from bus telegrams to registry
+- `deviceRegistryAdapter` bridges typed `device.HealthStatus` to KNX bridge's `string` interface
+
+**Tests Added**
+
+- `internal/device/integration_test.go` — 4 integration tests:
+  - Full device lifecycle (create → state → health → persist → restart → update → delete)
+  - Multi-device queries (by room, domain, protocol, slug)
+  - Cache consistency after simulated restart
+  - Rapid state updates (dimmer ramp simulation)
+- `internal/knxd/manager_test.go` — 14 test functions:
+  - NewManager with defaults, custom config, and invalid configs
+  - ConnectionURL for TCP and Unix socket modes
+  - BuildArgs for USB, IPT, and IP routing backends
+  - Group/individual address parsing and formatting round-trips
+  - HealthError type and recoverability
+  - Config validation (addresses, ports, USB IDs)
+- `internal/process/manager_test.go` — 13 test functions:
+  - Construction with defaults and custom config
+  - Initial state, start/stop lifecycle, invalid binary
+  - Exponential backoff delay calculation
+  - RecoverableError interface
+  - OnStart callback
+
+**Test Coverage**
+
+- All 11 packages pass (0 failures)
+- `knxd` and `process` packages previously had `[no test files]` — now fully covered
+- Build and lint clean
+
+**Next: M1.4 — REST API + WebSocket**
+
+---
+
+## 1.0.4 – KNX Bridge Integration with Device Registry (2026-01-22)
+
+**Enhancement: Device Registry Wiring**
+
+Connected the device registry to the KNX bridge so that incoming bus telegrams automatically update device state and health in the Core's central device catalogue.
+
+**Files Modified**
+
+- `cmd/graylogic/main.go` — Added device registry initialisation and `deviceRegistryAdapter`
+- `internal/bridges/knx/bridge.go` — Added optional `DeviceRegistry` interface calls in `handleKNXTelegram()`
+
+**Design Pattern**
+
+The adapter pattern bridges the type difference between the device package (typed `HealthStatus`) and the KNX bridge (plain `string`), keeping both packages decoupled.
+
+---
+
 ## 1.0.3 – knxd Subprocess Management & Multi-Layer Health Checks (2026-01-21)
 
 **Feature: Managed knxd Lifecycle with Watchdog**
