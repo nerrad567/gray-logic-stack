@@ -463,9 +463,8 @@ func (m *Manager) checkProtocolHealth(ctx context.Context) error {
 
 // EIB protocol constants for bus-level health check.
 const (
-	eibGroupPacket uint16 = 0x0027 // EIB_GROUP_PACKET - send/receive group telegrams
-	apciRead       byte   = 0x00   // APCI: group read request
-	apciResponse   byte   = 0x40   // APCI: group read response
+	apciRead     byte = 0x00 // APCI: group read request
+	apciResponse byte = 0x40 // APCI: group read response
 )
 
 // checkBusHealth performs end-to-end verification by sending a group read request
@@ -512,12 +511,13 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 		return fmt.Errorf("bus health check failed (set deadline): %w", err)
 	}
 
-	// Step 1: Send EIB_OPEN_T_GROUP handshake
+	// Step 1: Send EIB_OPEN_T_GROUP handshake for the specific target address
+	// EIBOpenT_Group(con, dest, write_only=0) - write_only=0 means receive enabled
 	handshake := []byte{
 		0x00, 0x05, // size = 5 (type + payload)
 		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
-		0x00, 0x00, // group address = 0/0/0 (subscribe to all)
-		0xFF, // flags
+		byte(ga >> 8), byte(ga & 0xFF), // target group address (not 0/0/0!)
+		0x00, // write_only=0 (receive enabled)
 	}
 
 	if _, err := conn.Write(handshake); err != nil {
@@ -535,13 +535,13 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 		return fmt.Errorf("bus health check failed: unexpected handshake response 0x%04X", respType)
 	}
 
-	// Step 2: Send group read request to health check device
-	// Format: size(2) + type(2) + dest_addr(2) + apci_data(2)
-	// APCI for read: 0x00 0x00 (read request, no data)
+	// Step 2: Send group read request via T_Group connection
+	// With T_Group open, we use EIB_APDU_PACKET (dest already set in handshake)
+	// Format: size(2) + type(2) + apci_data(2)
+	// APCI for read: 0x00 0x00 (read request)
 	readRequest := []byte{
-		0x00, 0x06, // size = 6 (type + payload)
-		0x00, 0x27, // type = EIB_GROUP_PACKET (0x0027)
-		byte(ga >> 8), byte(ga & 0xFF), // destination group address
+		0x00, 0x04, // size = 4 (type + payload)
+		0x00, 0x25, // type = EIB_APDU_PACKET (0x0025)
 		0x00, apciRead, // APCI: read request
 	}
 
@@ -586,29 +586,26 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 			}
 		}
 
-		// Check if this is a group packet response
-		if pktType != eibGroupPacket || len(payload) < 4 {
+		// With T_Group connection, responses come as EIB_APDU_PACKET (0x0025)
+		// Payload format: src_addr(2) + apdu(2+)
+		const eibApduPacket uint16 = 0x0025
+		if pktType != eibApduPacket || len(payload) < 4 {
 			continue // Not what we're looking for
 		}
 
-		// Parse response: dest_addr(2) + apci_data(2+)
-		respGA := uint16(payload[0])<<8 | uint16(payload[1])
-		apci := payload[3] & 0xC0 // High 2 bits of second APCI byte
+		// Parse: src_addr is payload[0:2], APDU is payload[2:]
+		// APCI is in the first 2 bytes of APDU: payload[2] and payload[3]
+		// For response: APCI low byte contains 0x40 (bits 6-7 of payload[3])
+		apci := payload[3] & 0xC0 // High 2 bits of APDU byte 2 indicate response type
 
-		// Check if this is a response to our address
-		if respGA == ga && apci == apciResponse {
+		// Check if this is a response (APCI = 0x40 for GroupValue_Response)
+		if apci == apciResponse {
 			m.logger.Debug("bus health check: received response",
 				"address", m.config.HealthCheckDeviceAddress,
-				"data_len", len(payload)-2,
 			)
 			return nil // Success!
 		}
-
-		// Not our response, keep waiting
-		m.logger.Debug("bus health check: received unrelated packet",
-			"type", fmt.Sprintf("0x%04X", pktType),
-			"ga", FormatGroupAddress(respGA),
-		)
+		// Not a response, keep waiting (might be our own read request echo)
 	}
 }
 
