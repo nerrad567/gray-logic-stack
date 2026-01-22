@@ -120,9 +120,6 @@ func run(ctx context.Context) error {
 	}
 	log.Info("device registry initialised", "devices", deviceRegistry.GetDeviceCount())
 
-	// Mark deviceRegistry as used (will be needed by REST API in M1.4)
-	_ = deviceRegistry
-
 	// Connect to MQTT broker
 	mqttClient, err := mqtt.Connect(cfg.MQTT)
 	if err != nil {
@@ -212,7 +209,7 @@ func run(ctx context.Context) error {
 	// Start KNX bridge (if enabled)
 	var knxBridge *knx.Bridge
 	if cfg.Protocols.KNX.Enabled {
-		knxBridge, err = startKNXBridge(ctx, cfg, knxdManager, mqttClient, log)
+		knxBridge, err = startKNXBridge(ctx, cfg, knxdManager, mqttClient, log, deviceRegistry)
 		if err != nil {
 			return fmt.Errorf("starting KNX bridge: %w", err)
 		}
@@ -358,11 +355,12 @@ func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*k
 //   - knxdManager: knxd manager (may be nil if not managed)
 //   - mqttClient: MQTT client for publishing/subscribing
 //   - log: Logger instance
+//   - deviceRegistry: Device registry for state/health persistence
 //
 // Returns:
 //   - *knx.Bridge: Running KNX bridge
 //   - error: If bridge fails to start
-func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger) (*knx.Bridge, error) {
+func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger, deviceRegistry *device.Registry) (*knx.Bridge, error) {
 	// Load KNX bridge configuration (devices, group addresses, mappings)
 	knxBridgeCfg, err := knx.LoadConfig(cfg.Protocols.KNX.ConfigFile)
 	if err != nil {
@@ -395,12 +393,16 @@ func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.M
 	// Create MQTT adapter to satisfy KNX bridge interface
 	mqttAdapter := &mqttBridgeAdapter{client: mqttClient, log: log}
 
+	// Create registry adapter to convert string health status to device.HealthStatus
+	registryAdapter := &deviceRegistryAdapter{registry: deviceRegistry}
+
 	// Create the bridge
 	bridge, err := knx.NewBridge(knx.BridgeOptions{
 		Config:     knxBridgeCfg,
 		MQTTClient: mqttAdapter,
 		KNXDClient: knxdClient,
 		Logger:     log,
+		Registry:   registryAdapter,
 	})
 	if err != nil {
 		// Clean up knxd connection on error
@@ -451,4 +453,22 @@ func (a *mqttBridgeAdapter) IsConnected() bool {
 // so this is a no-op. The actual disconnect happens via the defer chain.
 func (a *mqttBridgeAdapter) Disconnect(_ uint) {
 	// No-op: MQTT client lifecycle is managed by Core's defer chain
+}
+
+// deviceRegistryAdapter adapts the device.Registry to the knx.DeviceRegistry interface.
+// The primary difference is the HealthStatus type:
+// - device.Registry expects: device.HealthStatus (typed string)
+// - knx.DeviceRegistry expects: string (untyped)
+type deviceRegistryAdapter struct {
+	registry *device.Registry
+}
+
+// SetDeviceState implements knx.DeviceRegistry.
+func (a *deviceRegistryAdapter) SetDeviceState(ctx context.Context, id string, state map[string]any) error {
+	return a.registry.SetDeviceState(ctx, id, state)
+}
+
+// SetDeviceHealth implements knx.DeviceRegistry.
+func (a *deviceRegistryAdapter) SetDeviceHealth(ctx context.Context, id string, status string) error {
+	return a.registry.SetDeviceHealth(ctx, id, device.HealthStatus(status))
 }

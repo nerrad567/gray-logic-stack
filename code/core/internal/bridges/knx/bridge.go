@@ -32,10 +32,11 @@ const (
 //
 // Thread Safety: All methods are safe for concurrent use.
 type Bridge struct {
-	cfg    *Config
-	mqtt   MQTTClient
-	knxd   Connector
-	health *HealthReporter
+	cfg      *Config
+	mqtt     MQTTClient
+	knxd     Connector
+	health   *HealthReporter
+	registry DeviceRegistry // Optional device registry for state/health persistence
 
 	// Device mappings (built from config)
 	gaToDevice  map[string]GAMapping
@@ -74,6 +75,17 @@ type MQTTClient interface {
 	Disconnect(quiesce uint)
 }
 
+// DeviceRegistry provides device state and health persistence.
+// This interface is satisfied by *device.Registry.
+// It is optional - if nil, the bridge operates without registry integration.
+type DeviceRegistry interface {
+	// SetDeviceState updates the state of a device.
+	SetDeviceState(ctx context.Context, id string, state map[string]any) error
+
+	// SetDeviceHealth updates the health status of a device.
+	SetDeviceHealth(ctx context.Context, id string, status string) error
+}
+
 // BridgeOptions holds configuration for creating a bridge.
 type BridgeOptions struct {
 	// Config is the loaded bridge configuration.
@@ -87,6 +99,10 @@ type BridgeOptions struct {
 
 	// Logger is optional structured logger.
 	Logger Logger
+
+	// Registry is optional device registry for state/health persistence.
+	// If nil, the bridge operates without registry integration.
+	Registry DeviceRegistry
 }
 
 // NewBridge creates a new bridge instance.
@@ -112,6 +128,7 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		cfg:         opts.Config,
 		mqtt:        opts.MQTTClient,
 		knxd:        opts.KNXDClient,
+		registry:    opts.Registry, // May be nil (optional)
 		gaToDevice:  gaToDevice,
 		deviceToGAs: deviceToGAs,
 		stateCache:  make(map[string]map[string]any),
@@ -711,6 +728,23 @@ func (b *Bridge) handleKNXTelegram(t Telegram) {
 		return
 	}
 
+	// Update device registry (if configured)
+	if b.registry != nil {
+		if err := b.registry.SetDeviceState(b.ctx, mapping.DeviceID, state); err != nil {
+			// Log but don't fail - device may not be in registry yet
+			b.logDebug("registry state update skipped",
+				"device", mapping.DeviceID,
+				"reason", err.Error())
+		} else {
+			// Mark device as online since we received traffic
+			if healthErr := b.registry.SetDeviceHealth(b.ctx, mapping.DeviceID, "online"); healthErr != nil {
+				b.logDebug("registry health update skipped",
+					"device", mapping.DeviceID,
+					"reason", healthErr.Error())
+			}
+		}
+	}
+
 	b.logInfo("published state",
 		"device_id", mapping.DeviceID,
 		"function", mapping.Function,
@@ -856,5 +890,16 @@ func (b *Bridge) logError(msg string, err error) {
 
 	if logger != nil {
 		logger.Error(msg, "error", err)
+	}
+}
+
+// logDebug logs a debug message if logger is set.
+func (b *Bridge) logDebug(msg string, keysAndValues ...any) {
+	b.loggerMu.RLock()
+	logger := b.logger
+	b.loggerMu.RUnlock()
+
+	if logger != nil {
+		logger.Debug(msg, keysAndValues...)
 	}
 }
