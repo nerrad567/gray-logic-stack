@@ -21,6 +21,7 @@ import (
 
 	_ "github.com/nerrad567/gray-logic-core/migrations"
 
+	"github.com/nerrad567/gray-logic-core/internal/api"
 	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
@@ -143,6 +144,30 @@ func run(ctx context.Context) error {
 	mqttClient.SetOnDisconnect(func(err error) {
 		log.Warn("MQTT disconnected", "error", err)
 	})
+
+	// Start API server
+	apiServer, err := api.New(api.Deps{
+		Config:   cfg.API,
+		WS:       cfg.WebSocket,
+		Security: cfg.Security,
+		Logger:   log,
+		Registry: deviceRegistry,
+		MQTT:     mqttClient,
+		Version:  version,
+	})
+	if err != nil {
+		return fmt.Errorf("creating API server: %w", err)
+	}
+	if err := apiServer.Start(ctx); err != nil {
+		return fmt.Errorf("starting API server: %w", err)
+	}
+	defer func() {
+		log.Info("stopping API server")
+		if closeErr := apiServer.Close(); closeErr != nil {
+			log.Error("error stopping API server", "error", closeErr)
+		}
+	}()
+	log.Info("API server started", "address", fmt.Sprintf("%s:%d", cfg.API.Host, cfg.API.Port))
 
 	// Connect to InfluxDB (optional)
 	var influxClient *influxdb.Client

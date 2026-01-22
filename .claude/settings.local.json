@@ -53,7 +53,10 @@
       "WebFetch(domain:sources.debian.org)",
       "WebFetch(domain:github.com)",
       "Bash(lsusb:*)",
-      "Bash(timeout 30 ./bin/graylogic:*)"
+      "Bash(timeout 30 ./bin/graylogic:*)",
+      "mcp__acp__Bash",
+      "mcp__acp__Write",
+      "mcp__acp__Edit"
     ]
   },
   "outputStyle": "Explanatory"
