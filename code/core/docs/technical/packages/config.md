@@ -41,6 +41,10 @@ Provides configuration loading for Gray Logic Core with:
 | `InfluxDBConfig` | Time-series database |
 | `LoggingConfig` | Logging configuration |
 | `SecurityConfig` | Auth and JWT settings |
+| `ProtocolsConfig` | Protocol bridge settings |
+| `KNXConfig` | KNX bridge and knxd settings |
+| `KNXDConfig` | knxd daemon management |
+| `KNXDBackendConfig` | KNX bus connection (USB/IPT/IP) |
 
 ### External Dependencies
 
@@ -171,6 +175,34 @@ security:                # SecurityConfig
   jwt_secret: ""         # Set via GRAYLOGIC_JWT_SECRET
   token_expiry: 24
   bcrypt_cost: 12
+
+protocols:               # ProtocolsConfig
+  knx:                   # KNXConfig
+    enabled: true
+    config_file: "configs/knx-bridge.yaml"
+    knxd_host: "localhost"
+    knxd_port: 6720
+    knxd:                # KNXDConfig
+      managed: true      # Gray Logic manages knxd lifecycle
+      binary: "/usr/bin/knxd"
+      physical_address: "0.0.1"
+      client_addresses: "0.0.2:8"
+      backend:           # KNXDBackendConfig
+        type: "usb"      # "usb", "ipt", or "ip"
+        # USB settings
+        usb_vendor_id: "0e77"
+        usb_product_id: "0104"
+        usb_reset_on_retry: true
+        usb_reset_on_bus_failure: true
+        # IPT settings (when type: "ipt")
+        # host: "192.168.1.100"
+        # port: 3671
+      restart_on_failure: true
+      restart_delay_seconds: 5
+      max_restart_attempts: 10
+      health_check_interval: 30s
+      health_check_device_address: ""  # Optional: "1/7/0"
+      health_check_device_timeout: 3s
 ```
 
 ---
@@ -200,7 +232,44 @@ None — config is the root of the dependency tree.
 | `cmd/graylogic/main.go` | Loads configuration at startup |
 | `database` | Uses `cfg.Database` for connection |
 | `mqtt` | Uses `cfg.MQTT` for broker connection |
+| `influxdb` | Uses `cfg.InfluxDB` for time-series |
+| `internal/knxd` | Uses `cfg.Protocols.KNX.KNXD` for daemon management |
+| `internal/bridges/knx` | Uses `cfg.Protocols.KNX` for bridge settings |
 | `api` | (Future) Uses `cfg.API` for server |
+
+---
+
+## USB Configuration (KNX)
+
+For USB KNX interfaces (Weinzierl, etc.), the config supports automatic device reset:
+
+```yaml
+protocols:
+  knx:
+    knxd:
+      backend:
+        type: "usb"
+        usb_vendor_id: "0e77"      # Hex without 0x prefix
+        usb_product_id: "0104"     # Hex without 0x prefix
+        usb_reset_on_retry: true   # Reset before restart attempts
+        usb_reset_on_bus_failure: true  # Reset when health checks fail
+```
+
+**USB Reset Features:**
+
+| Setting | Purpose |
+|---------|---------|
+| `usb_vendor_id` | Vendor ID for USB device identification (e.g., "0e77" for Weinzierl) |
+| `usb_product_id` | Product ID for USB device identification (e.g., "0104") |
+| `usb_reset_on_retry` | Reset USB device before each restart attempt (recovers from LIBUSB_ERROR_BUSY) |
+| `usb_reset_on_bus_failure` | Proactively reset USB when Layer 3/4 health checks fail |
+
+**Requirements:**
+- `usbreset` utility installed (standard on most Linux systems)
+- udev rule for write access:
+  ```
+  SUBSYSTEM=="usb", ATTR{idVendor}=="0e77", ATTR{idProduct}=="0104", MODE="0666"
+  ```
 
 ---
 
@@ -241,3 +310,6 @@ Test scenarios:
 
 - [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/config/doc.go) — Package-level godoc
 - [configs/config.yaml](file:///home/graylogic-dev/gray-logic-stack/code/core/configs/config.yaml) — Default configuration file
+- [knxd Manager](./knxd-manager.md) — knxd daemon management (uses `protocols.knx.knxd`)
+- [KNX Bridge](./knx-bridge.md) — KNX protocol bridge (uses `protocols.knx`)
+- [Process Manager](./process-manager.md) — Generic subprocess management

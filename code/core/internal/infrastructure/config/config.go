@@ -224,6 +224,21 @@ type KNXDBackendConfig struct {
 	// MulticastAddress is the multicast group for ip (routing) connections.
 	// Default: "224.0.23.12"
 	MulticastAddress string `yaml:"multicast_address,omitempty"`
+
+	// USBVendorID is the vendor ID for USB reset and presence check operations.
+	// Format: "0e77" (hex without 0x prefix)
+	USBVendorID string `yaml:"usb_vendor_id,omitempty"`
+
+	// USBProductID is the product ID for USB reset and presence check operations.
+	// Format: "0104" (hex without 0x prefix)
+	USBProductID string `yaml:"usb_product_id,omitempty"`
+
+	// USBResetOnRetry enables USB device reset before retry attempts.
+	// Helps recover from LIBUSB_ERROR_BUSY conditions.
+	USBResetOnRetry bool `yaml:"usb_reset_on_retry,omitempty"`
+
+	// USBResetOnBusFailure enables USB device reset when bus-level health checks fail.
+	USBResetOnBusFailure bool `yaml:"usb_reset_on_bus_failure,omitempty"`
 }
 
 // DALIConfig contains DALI protocol bridge settings.

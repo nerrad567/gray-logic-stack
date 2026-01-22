@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-21
-> **Current Phase:** Implementation (M1.3 - Device Registry)
+> **Last Updated:** 2026-01-22
+> **Current Phase:** Implementation (M1.3 - Device Registry ~70%)
 
 ---
 
@@ -152,8 +152,11 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.3 Next | M1.1 + M1.2 complete |
+| Gray Logic Core (Go) | 🟢 M1.3 In Progress | M1.1 + M1.2 complete |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
+| knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
+| Device Registry | 🔄 70% Complete | Types, repository, validation done; wiring to main pending |
+| Process Manager | ✅ Complete | Generic subprocess lifecycle (reusable for DALI, Modbus) |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
 | Flutter UI | ❌ Not started | M1.5 (later Year 1) |
@@ -226,6 +229,22 @@
 ---
 
 ## Change Log
+
+### 2026-01-22 — Documentation Sync & Device Registry Progress
+
+**Documentation updates:**
+- Updated README.md to better showcase project for potential employers
+- Created package documentation for new packages:
+  - `docs/technical/packages/knxd-manager.md` — knxd daemon management
+  - `docs/technical/packages/device-registry.md` — Device catalogue
+  - `docs/technical/packages/process-manager.md` — Subprocess management
+- Updated `docs/technical/packages/config.md` with USB reset fields and protocols section
+- Updated IMPLEMENTATION.md with Sessions 11-12
+
+**Testing completed:**
+- Multi-layer health checks tested with KNX Virtual (IPT backend)
+- USB backend tested with Weinzierl interface + Theben PSU
+- Identified expected limitations with empty bus (no responding devices)
 
 ### 2026-01-21 — knxd Subprocess Management & Multi-Layer Health Checks
 

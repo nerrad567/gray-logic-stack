@@ -509,3 +509,58 @@ func FormatGroupAddress(ga uint16) string {
 	sub := ga & 0xFF
 	return fmt.Sprintf("%d/%d/%d", main, middle, sub)
 }
+
+// Individual address validation pattern: area.line.device
+var individualAddressPattern = regexp.MustCompile(`^\d{1,2}\.\d{1,2}\.\d{1,3}$`)
+
+// ParseIndividualAddress parses a KNX individual address string (e.g., "1.1.10") into
+// its 16-bit wire format representation.
+//
+// KNX individual addresses use dotted notation: area.line.device
+//   - area: 0-15 (4 bits)
+//   - line: 0-15 (4 bits)
+//   - device: 0-255 (8 bits)
+//
+// Wire format: AAAA LLLL DDDD DDDD (big-endian uint16)
+func ParseIndividualAddress(addr string) (uint16, error) {
+	if !individualAddressPattern.MatchString(addr) {
+		return 0, fmt.Errorf("invalid individual address format %q (use: area.line.device)", addr)
+	}
+
+	parts := strings.Split(addr, ".")
+
+	area, err := strconv.Atoi(parts[0])
+	if err != nil {
+		return 0, fmt.Errorf("invalid area: %w", err)
+	}
+	line, err := strconv.Atoi(parts[1])
+	if err != nil {
+		return 0, fmt.Errorf("invalid line: %w", err)
+	}
+	device, err := strconv.Atoi(parts[2])
+	if err != nil {
+		return 0, fmt.Errorf("invalid device: %w", err)
+	}
+
+	if area < 0 || area > 15 {
+		return 0, fmt.Errorf("area must be 0-15")
+	}
+	if line < 0 || line > 15 {
+		return 0, fmt.Errorf("line must be 0-15")
+	}
+	if device < 0 || device > 255 {
+		return 0, fmt.Errorf("device must be 0-255")
+	}
+
+	// Encode to wire format: area(4) | line(4) | device(8)
+	ia := uint16(area)<<12 | uint16(line)<<8 | uint16(device)
+	return ia, nil
+}
+
+// FormatIndividualAddress converts a 16-bit individual address to its string representation.
+func FormatIndividualAddress(ia uint16) string {
+	area := (ia >> 12) & 0x0F
+	line := (ia >> 8) & 0x0F
+	device := ia & 0xFF
+	return fmt.Sprintf("%d.%d.%d", area, line, device)
+}

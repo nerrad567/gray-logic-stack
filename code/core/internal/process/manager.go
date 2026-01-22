@@ -25,6 +25,34 @@ const (
 // outputBufferSize is the buffer size for capturing subprocess stdout/stderr.
 const outputBufferSize = 4096
 
+// RecoverableError is an interface that errors can implement to indicate
+// whether restarting the process might fix the issue.
+//
+// Examples:
+//   - Hardware missing (USB unplugged): NOT recoverable - restart won't help
+//   - Process deadlock: Recoverable - restart will fix
+//   - Network timeout: Recoverable - transient issue
+//
+// If an error doesn't implement this interface, it's assumed to be recoverable.
+type RecoverableError interface {
+	error
+	IsRecoverable() bool
+}
+
+// IsRecoverable checks if an error is recoverable (restart might help).
+// Returns true if the error doesn't implement RecoverableError interface.
+func IsRecoverable(err error) bool {
+	if err == nil {
+		return true
+	}
+	var re RecoverableError
+	if errors.As(err, &re) {
+		return re.IsRecoverable()
+	}
+	// Default: assume errors are recoverable (restart might help)
+	return true
+}
+
 // Config holds configuration for a managed subprocess.
 type Config struct {
 	// Name is a human-readable identifier for logging.
@@ -47,11 +75,21 @@ type Config struct {
 	// RestartOnFailure enables automatic restart when the process exits unexpectedly.
 	RestartOnFailure bool
 
-	// RestartDelay is the time to wait before restarting after a failure.
+	// RestartDelay is the initial time to wait before restarting after a failure.
+	// With exponential backoff, this is the minimum delay.
 	RestartDelay time.Duration
+
+	// MaxRestartDelay is the maximum delay between restarts (for exponential backoff).
+	// If 0, defaults to 5 minutes.
+	MaxRestartDelay time.Duration
 
 	// MaxRestartAttempts limits restart attempts. 0 means unlimited.
 	MaxRestartAttempts int
+
+	// StableThreshold is how long the process must run before restart count is reset.
+	// If the process runs for this duration, we consider it stable and reset backoff.
+	// If 0, defaults to 2 minutes.
+	StableThreshold time.Duration
 
 	// GracefulTimeout is how long to wait for graceful shutdown before SIGKILL.
 	GracefulTimeout time.Duration
@@ -81,7 +119,9 @@ func DefaultConfig(name, binary string, args []string) Config {
 		Args:                args,
 		RestartOnFailure:    true,
 		RestartDelay:        5 * time.Second,
+		MaxRestartDelay:     5 * time.Minute,
 		MaxRestartAttempts:  10,
+		StableThreshold:     2 * time.Minute,
 		GracefulTimeout:     10 * time.Second,
 		HealthCheckInterval: 30 * time.Second,
 	}
@@ -115,6 +155,7 @@ type Manager struct {
 	lastError     error
 	startTime     time.Time
 	stopRequested bool
+	doneClosed    bool // tracks if done channel has been closed this cycle
 
 	// Channels for coordination
 	done chan struct{}
@@ -125,6 +166,12 @@ func NewManager(cfg Config) *Manager {
 	// Apply defaults for zero values
 	if cfg.RestartDelay == 0 {
 		cfg.RestartDelay = 5 * time.Second
+	}
+	if cfg.MaxRestartDelay == 0 {
+		cfg.MaxRestartDelay = 5 * time.Minute
+	}
+	if cfg.StableThreshold == 0 {
+		cfg.StableThreshold = 2 * time.Minute
 	}
 	if cfg.GracefulTimeout == 0 {
 		cfg.GracefulTimeout = 10 * time.Second
@@ -145,6 +192,18 @@ func (m *Manager) SetLogger(logger Logger) {
 	m.logger = logger
 }
 
+// closeDone safely closes the done channel exactly once per Start() cycle.
+// Must be called with m.mu held OR from the monitor goroutine after all other
+// work is complete (since it acquires the lock internally).
+func (m *Manager) closeDone() {
+	m.mu.Lock()
+	defer m.mu.Unlock()
+	if m.done != nil && !m.doneClosed {
+		close(m.done)
+		m.doneClosed = true
+	}
+}
+
 // Start launches the subprocess and begins monitoring it.
 // Returns an error if the process fails to start.
 // The process will be automatically restarted on failure if configured.
@@ -157,6 +216,7 @@ func (m *Manager) Start(ctx context.Context) error {
 	m.status = StatusStarting
 	m.stopRequested = false
 	m.done = make(chan struct{})
+	m.doneClosed = false // Reset for new cycle
 	m.mu.Unlock()
 
 	if err := m.startProcess(ctx); err != nil {
@@ -164,6 +224,8 @@ func (m *Manager) Start(ctx context.Context) error {
 		m.status = StatusFailed
 		m.lastError = err
 		m.mu.Unlock()
+		// Close the done channel so Stop() doesn't block waiting for it
+		m.closeDone()
 		return err
 	}
 
@@ -257,6 +319,26 @@ func (m *Manager) captureOutput(stream string, r io.Reader) {
 	}
 }
 
+// calculateBackoffDelay returns the restart delay using exponential backoff.
+// The delay doubles with each attempt, capped at MaxRestartDelay.
+func (m *Manager) calculateBackoffDelay(attempt int) time.Duration {
+	if attempt <= 1 {
+		return m.config.RestartDelay
+	}
+
+	// Exponential backoff: delay * 2^(attempt-1)
+	delay := m.config.RestartDelay
+	for i := 1; i < attempt && delay < m.config.MaxRestartDelay; i++ {
+		delay *= 2
+	}
+
+	if delay > m.config.MaxRestartDelay {
+		delay = m.config.MaxRestartDelay
+	}
+
+	return delay
+}
+
 // waitForExitOrHealthFailure waits for the process to exit or for a health check to fail.
 // If a health check fails, it kills the process and returns an error.
 // This implements watchdog functionality to detect hung processes.
@@ -296,12 +378,28 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 			cancel()
 
 			if err != nil {
+				// Check if this error is recoverable (restart might help)
+				recoverable := IsRecoverable(err)
+
 				consecutiveFailures++
 				m.logger.Warn("health check failed",
 					"name", m.config.Name,
 					"error", err,
 					"consecutive_failures", consecutiveFailures,
+					"recoverable", recoverable,
 				)
+
+				// For non-recoverable errors (e.g., hardware missing), don't restart
+				// Just keep monitoring in case the hardware comes back
+				if !recoverable {
+					m.logger.Info("non-recoverable error, skipping restart (will keep monitoring)",
+						"name", m.config.Name,
+						"error", err,
+					)
+					// Reset failure count - we don't want to accumulate towards restart
+					consecutiveFailures = 0
+					continue
+				}
 
 				if consecutiveFailures >= maxConsecutiveFailures {
 					m.logger.Error("health check failed repeatedly, killing process",
@@ -341,7 +439,7 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 
 // monitor watches the process and handles restarts.
 func (m *Manager) monitor(ctx context.Context) {
-	defer close(m.done)
+	defer m.closeDone()
 
 	for {
 		m.mu.RLock()
@@ -359,8 +457,9 @@ func (m *Manager) monitor(ctx context.Context) {
 		stopRequested := m.stopRequested
 		m.mu.Unlock()
 
-		// If stop was requested, don't restart
-		if stopRequested {
+		// If stop was requested OR context was canceled (shutdown), don't restart
+		// Context cancellation during shutdown can race with Stop() being called
+		if stopRequested || errors.Is(err, context.Canceled) {
 			m.logger.Info("process stopped as requested", "name", m.config.Name)
 			m.mu.Lock()
 			m.status = StatusStopped
@@ -392,7 +491,18 @@ func (m *Manager) monitor(ctx context.Context) {
 			return
 		}
 
+		// Check if process ran stably before failing - if so, reset restart count
+		// This prevents exponential backoff from accumulating across unrelated failures
 		m.mu.Lock()
+		uptime := time.Since(m.startTime)
+		if uptime >= m.config.StableThreshold {
+			m.logger.Info("process was stable before failure, resetting restart count",
+				"name", m.config.Name,
+				"uptime", uptime,
+				"threshold", m.config.StableThreshold,
+			)
+			m.restartCount = 0
+		}
 		m.restartCount++
 		attempt := m.restartCount
 		m.mu.Unlock()
@@ -405,11 +515,14 @@ func (m *Manager) monitor(ctx context.Context) {
 			return
 		}
 
+		// Calculate delay with exponential backoff
+		delay := m.calculateBackoffDelay(attempt)
+
 		// Wait before restarting
 		m.logger.Info("restarting process",
 			"name", m.config.Name,
 			"attempt", attempt,
-			"delay", m.config.RestartDelay,
+			"delay", delay,
 		)
 
 		if m.config.OnRestart != nil {
@@ -420,7 +533,7 @@ func (m *Manager) monitor(ctx context.Context) {
 		case <-ctx.Done():
 			m.logger.Info("context cancelled, not restarting", "name", m.config.Name)
 			return
-		case <-time.After(m.config.RestartDelay):
+		case <-time.After(delay):
 		}
 
 		// Check if stop was requested during the delay

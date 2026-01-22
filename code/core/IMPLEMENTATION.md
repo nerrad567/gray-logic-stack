@@ -6,12 +6,12 @@
 
 ## 🚀 RESUME HERE — Next Session
 
-**Last session:** 2026-01-20 (Session 10 - M1.2 Complete!)
-**Current milestone:** M1.3 Device Registry (Not Started)
+**Last session:** 2026-01-22 (Session 12 - knxd Manager Complete!)
+**Current milestone:** M1.3 Device Registry (In Progress - ~70%)
 
 ### ✅ M1.2 KNX Bridge — COMPLETE
 
-**KNX Bridge Package (10 files, ~3,500 lines):**
+**KNX Bridge Package (11 files, ~4,000 lines):**
 - ✅ telegram.go — KNX telegram parsing/encoding
 - ✅ knxd.go — knxd client with TCP/Unix socket support
 - ✅ address.go — Group address parsing (1/2/3 format)
@@ -22,33 +22,76 @@
 - ✅ bridge.go — Main orchestration (KNX↔MQTT translation)
 - ✅ errors.go — Domain-specific error types
 - ✅ doc.go — Package documentation
+- ✅ busmonitor.go — Passive bus monitor for device discovery (NEW)
 - ✅ **Wired into main.go** (Session 10)
 
 **Tests:** 69.4% coverage, all passing with race detector
 
-**Code Quality (4 audit cycles, 15 issues fixed):**
-- Audit 5: 6 issues (closeOnce, handshake context, protocol desync, etc.)
-- Audit 6: 5 issues (MarshalJSON, state cache, bounds validation, etc.)
-- Audit 7: 4 issues (bridge context, PruneStateCache race, etc.)
-- Audit 8: Clean (1 false positive dismissed)
+### ✅ NEW: knxd Daemon Manager Package
 
-**Configuration Files:**
-- `configs/config.yaml` — Main config with `protocols.knx` settings
-- `configs/knx-bridge.yaml` — Sample KNX bridge config (devices, GAs)
+**`internal/knxd/` — Managed subprocess for knxd (3 files, ~1,300 lines):**
+- ✅ config.go — Configuration with validation, backend types (USB/IPT/IP)
+- ✅ manager.go — Process lifecycle, multi-layer health checks, USB reset
+- ✅ doc.go — Package documentation
 
-**All tests passing:**
-```bash
-cd /home/graylogic-dev/gray-logic-stack/code/core
-go test ./...  # All pass
-```
+**Key Features:**
+- Configuration-driven startup (no manual /etc/knxd.conf editing)
+- Multi-layer health check system (Layers 0-4)
+- USB device reset support (recovers from LIBUSB_ERROR_BUSY)
+- PID file management (prevents duplicate instances)
+- Graceful shutdown with process group signaling
+
+**Health Check Layers:**
+| Layer | Check | Detects | Speed |
+|-------|-------|---------|-------|
+| 0 | USB presence (lsusb) | Hardware disconnection | ~5ms |
+| 1 | Process state (/proc/stat) | SIGSTOP, zombie | ~0.1ms |
+| 3 | GroupValue_Read | Interface failure, bus issues | ~100-500ms |
+| 4 | DeviceDescriptor_Read | End-to-end bus health | ~100-500ms |
+
+### ✅ NEW: Process Manager Package
+
+**`internal/process/` — Generic subprocess management (2 files, ~700 lines):**
+- ✅ manager.go — Start/stop, auto-restart with backoff, watchdog
+- ✅ doc.go — Package documentation
+
+**Features:**
+- Automatic restart on failure with exponential backoff
+- Health check integration (watchdog)
+- Log capture from stdout/stderr
+- Process group signaling for clean shutdown
+- RecoverableError interface for smart restart decisions
+
+### 🔄 M1.3 Device Registry — IN PROGRESS (~70%)
+
+**`internal/device/` — Device management (9 files, ~1,200 lines):**
+- ✅ types.go — Device, Domain, Protocol, Capability types
+- ✅ registry.go — CRUD with in-memory cache, thread-safe
+- ✅ repository.go — SQLite persistence layer
+- ✅ validation.go — Device validation, slug generation
+- ✅ errors.go — Domain-specific errors
+- ✅ doc.go — Package documentation
+- ✅ registry_test.go — Unit tests
+- ✅ repository_test.go — Repository tests
+- ✅ validation_test.go — Validation tests
+
+**Remaining M1.3 Tasks:**
+- ⬜ Wire into main.go
+- ⬜ Add KNX device auto-registration from bridge
+- ⬜ Integration test with real database
 
 **Reference docs:**
-- `docs/technical/packages/knx-bridge.md` — Package design doc
+- `docs/technical/packages/knx-bridge.md` — KNX bridge design
+- `docs/technical/packages/knxd-manager.md` — knxd daemon management
+- `docs/technical/packages/device-registry.md` — Device registry design
+- `docs/technical/packages/process-manager.md` — Process management
 - `docs/protocols/knx.md` — KNX protocol specification
 
-### Next Task: M1.3 Device Registry
+### Next Tasks
 
-Start with `internal/device/registry/` package for CRUD operations.
+1. Wire device registry into main.go
+2. Add KNX device auto-registration
+3. Start M1.4: REST API + WebSocket
 
 ### M1.1 Hardening Complete (Session 7)
 

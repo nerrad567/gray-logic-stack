@@ -8,7 +8,9 @@ import (
 	"net"
 	"os"
 	"os/exec"
+	"strconv"
 	"strings"
+	"syscall"
 	"time"
 
 	"github.com/nerrad567/gray-logic-core/internal/process"
@@ -27,7 +29,47 @@ const (
 
 	// healthCheckTimeout is the timeout for health check connection attempts.
 	healthCheckTimeout = 5 * time.Second
+
+	// pidFilePath is the default location for the knxd PID file.
+	// This prevents multiple instances from running simultaneously.
+	pidFilePath = "/var/run/graylogic-knxd.pid"
+
+	// pidFileFallbackPath is used if we can't write to /var/run
+	pidFileFallbackPath = "/tmp/graylogic-knxd.pid"
 )
+
+// HealthError represents a health check failure with recoverability information.
+// This allows the process manager to decide whether restarting will help.
+type HealthError struct {
+	// Layer is which health check layer failed (0-4)
+	Layer int
+	// Recoverable indicates if restarting the process might fix the issue
+	Recoverable bool
+	// Err is the underlying error
+	Err error
+}
+
+func (e *HealthError) Error() string {
+	return fmt.Sprintf("health check layer %d failed: %v", e.Layer, e.Err)
+}
+
+func (e *HealthError) Unwrap() error {
+	return e.Err
+}
+
+// IsRecoverable implements the process.RecoverableError interface.
+func (e *HealthError) IsRecoverable() bool {
+	return e.Recoverable
+}
+
+// newHealthError creates a health check error for a specific layer.
+func newHealthError(layer int, recoverable bool, err error) *HealthError {
+	return &HealthError{
+		Layer:       layer,
+		Recoverable: recoverable,
+		Err:         err,
+	}
+}
 
 // Logger defines the logging interface for the knxd manager.
 type Logger interface {
@@ -45,11 +87,29 @@ func (noopLogger) Info(string, ...any)  {}
 func (noopLogger) Warn(string, ...any)  {}
 func (noopLogger) Error(string, ...any) {}
 
+// DeviceProvider supplies individual addresses for Layer 4 health checks.
+// This is typically implemented by the bus monitor which learns devices passively.
+type DeviceProvider interface {
+	// GetHealthCheckDevices returns individual addresses for health checks.
+	// Returns up to 'limit' devices, ordered by most recently active.
+	GetHealthCheckDevices(ctx context.Context, limit int) ([]string, error)
+}
+
+// GroupAddressProvider supplies group addresses for Layer 3 health checks.
+// This is typically implemented by the bus monitor which learns addresses passively.
+type GroupAddressProvider interface {
+	// GetHealthCheckGroupAddresses returns group addresses for health checks.
+	// Returns up to 'limit' addresses, prioritizing those with known read responses.
+	GetHealthCheckGroupAddresses(ctx context.Context, limit int) ([]string, error)
+}
+
 // Manager manages the knxd daemon process.
 type Manager struct {
-	config  Config
-	process *process.Manager
-	logger  Logger
+	config               Config
+	process              *process.Manager
+	logger               Logger
+	deviceProvider       DeviceProvider       // For Layer 4 health checks
+	groupAddressProvider GroupAddressProvider // For Layer 3 health checks
 }
 
 // NewManager creates a new knxd manager.
@@ -105,6 +165,18 @@ func NewManager(cfg Config) (*Manager, error) {
 // SetLogger sets the logger for the manager.
 func (m *Manager) SetLogger(logger Logger) {
 	m.logger = logger
+}
+
+// SetDeviceProvider sets the device provider for Layer 4 health checks.
+// The device provider supplies individual addresses learned from bus traffic.
+func (m *Manager) SetDeviceProvider(provider DeviceProvider) {
+	m.deviceProvider = provider
+}
+
+// SetGroupAddressProvider sets the group address provider for Layer 3 health checks.
+// The provider supplies group addresses learned from bus traffic.
+func (m *Manager) SetGroupAddressProvider(provider GroupAddressProvider) {
+	m.groupAddressProvider = provider
 }
 
 // Start launches the knxd daemon.
@@ -177,6 +249,18 @@ func (m *Manager) Start(ctx context.Context) error {
 		}
 	}
 
+	// Atomically acquire PID file to prevent duplicate instances
+	// This is done AFTER knxd starts so we have the real PID
+	pid := m.process.PID()
+	if pid > 0 {
+		if err := m.acquirePIDFile(pid); err != nil {
+			// Another instance started between our check - stop this one
+			m.logger.Error("failed to acquire PID file, stopping duplicate instance", "error", err)
+			m.process.Stop()
+			return fmt.Errorf("cannot start: %w", err)
+		}
+	}
+
 	m.logger.Info("knxd ready",
 		"connection_url", m.config.ConnectionURL(),
 		"physical_address", m.config.PhysicalAddress,
@@ -230,6 +314,10 @@ func (m *Manager) Stop() error {
 	}
 
 	m.logger.Info("stopping knxd")
+
+	// Remove PID file before stopping (so another instance can start immediately)
+	m.removePIDFile()
+
 	return m.process.Stop()
 }
 
@@ -292,31 +380,31 @@ type Stats struct {
 	LastError     string        `json:"last_error,omitempty"`
 }
 
-// HealthCheck verifies knxd is healthy using a multi-layer defense-in-depth approach:
+// HealthCheck verifies knxd is healthy using a multi-layer approach:
 //
 // Layer 0: USB device presence check (USB backend only)
 //   - Detects: USB device disconnection, hardware failure
-//   - Speed: ~0.1ms (filesystem check)
+//   - Speed: ~5ms (lsusb call)
+//   - NOT RECOVERABLE: If hardware is missing, restarting won't help
 //
 // Layer 1: Process state check (/proc/PID/stat)
 //   - Detects: SIGSTOP (T), zombie (Z), dead (X) states
 //   - Speed: ~0.1ms
 //
-// Layer 2: TCP connectivity
-//   - Detects: Process crash, port not bound
-//   - Speed: ~1ms
+// Layer 3: Group Read check (GroupValue_Read) - NEW
+//   - Detects: Interface failure, bus disconnection, knxd hang
+//   - Speed: ~100-500ms
+//   - Uses group addresses learned passively from bus monitor
+//   - Works with ALL devices including simulators
+//   - Fallback when Layer 4 fails
 //
-// Layer 3: EIB protocol handshake
-//   - Detects: Application deadlocks, infinite loops
-//   - Speed: ~10ms
+// Layer 4: Bus device check (A_DeviceDescriptor_Read) - preferred
+//   - Detects: Interface failure, bus disconnection, knxd hang
+//   - Speed: ~100-500ms
+//   - Uses individual addresses learned passively from bus monitor
+//   - Requires devices that support T_Connection (most real hardware)
 //
-// Layer 4: Bus-level device read (optional, if HealthCheckDeviceAddress configured)
-//   - Detects: Interface failure, bus disconnection, PSU failure
-//   - Speed: ~100-500ms (depends on bus)
-//   - Requires a responsive device on the bus (e.g., PSU diagnostic address)
-//
-// Each layer catches issues the others miss, providing comprehensive health verification.
-// For USB backends, Layer 0 provides immediate detection of hardware disconnection.
+// The health check tries Layer 4 first, falls back to Layer 3 if needed.
 func (m *Manager) HealthCheck(ctx context.Context) error {
 	if !m.config.Managed && !m.config.ListenTCP {
 		return nil // Can't health check if no TCP
@@ -324,56 +412,93 @@ func (m *Manager) HealthCheck(ctx context.Context) error {
 
 	// Layer 0: USB device presence check (USB backend only)
 	// This is the fastest check and catches hardware disconnection immediately
+	// NOT RECOVERABLE: If hardware is missing, restarting knxd won't help
 	if m.config.Backend.Type == BackendUSB {
-		if err := m.checkUSBDevicePresent(); err != nil {
-			return err
+		if err := m.checkUSBDevicePresent(ctx); err != nil {
+			return newHealthError(0, false, err) // Layer 0, NOT recoverable
 		}
 	}
 
 	// Layer 1: Verify process state via /proc (fast, catches SIGSTOP/zombie)
+	// RECOVERABLE: Restarting will fix zombie/stopped states
 	if m.process != nil {
 		pid := m.process.PID()
 		if pid > 0 {
 			if err := m.checkProcessState(pid); err != nil {
-				return err
+				return newHealthError(1, true, err) // Layer 1, recoverable
 			}
 		}
 	}
 
-	// Layer 2+3: TCP connect + EIB protocol handshake
-	// This verifies knxd is actually processing messages, not just accepting connections
-	if err := m.checkProtocolHealth(ctx); err != nil {
-		return err
+	// Layer 4: Bus device check using DeviceDescriptor_Read (preferred)
+	// Uses devices learned passively from bus traffic (no config needed)
+	// If no devices learned yet, skip to Layer 3
+	var layer4Err error
+	if m.deviceProvider != nil {
+		devices, err := m.deviceProvider.GetHealthCheckDevices(ctx, 3)
+		if err != nil {
+			m.logger.Debug("failed to get health check devices", "error", err)
+		} else if len(devices) > 0 {
+			if err := m.checkBusHealthWithDevices(ctx, devices); err != nil {
+				layer4Err = err
+				m.logger.Debug("layer 4 health check failed, trying layer 3", "error", err)
+			} else {
+				return nil // Layer 4 succeeded
+			}
+		}
 	}
 
-	// Layer 4: Bus-level device read (optional)
-	// If a health check device is configured, verify actual KNX bus communication
-	if m.config.HealthCheckDeviceAddress != "" {
-		if err := m.checkBusHealth(ctx); err != nil {
-			// For USB backend, attempt USB reset before reporting failure
-			// This can recover from LIBUSB errors without waiting for full restart
-			if m.config.Backend.Type == BackendUSB && m.config.Backend.USBResetOnBusFailure {
-				m.logger.Warn("bus health check failed, attempting proactive USB reset",
-					"error", err,
-					"device", fmt.Sprintf("%s:%s", m.config.Backend.USBVendorID, m.config.Backend.USBProductID),
-				)
-				if resetErr := m.resetUSBDevice(); resetErr != nil {
-					m.logger.Warn("USB reset failed", "error", resetErr)
-				} else {
-					m.logger.Info("USB reset completed, will retry on next health check")
+	// Layer 3: Bus health check using GroupValue_Read (fallback)
+	// This works with ALL devices including simulators that don't support T_Connection
+	// Uses group addresses learned passively from bus traffic
+	if m.groupAddressProvider != nil {
+		addresses, err := m.groupAddressProvider.GetHealthCheckGroupAddresses(ctx, 5)
+		if err != nil {
+			m.logger.Debug("failed to get health check group addresses", "error", err)
+		} else if len(addresses) > 0 {
+			if err := m.checkBusHealthWithGroupAddresses(ctx, addresses); err != nil {
+				// Both Layer 4 and Layer 3 failed - bus is unhealthy
+				// For USB backend, attempt USB reset before reporting failure
+				if m.config.Backend.Type == BackendUSB && m.config.Backend.USBResetOnBusFailure {
+					m.logger.Warn("bus health check failed, attempting USB reset",
+						"layer4_error", layer4Err,
+						"layer3_error", err,
+						"device", fmt.Sprintf("%s:%s", m.config.Backend.USBVendorID, m.config.Backend.USBProductID),
+					)
+					if resetErr := m.resetUSBDeviceWithContext(ctx); resetErr != nil {
+						m.logger.Warn("USB reset failed", "error", resetErr)
+					}
 				}
+				// Report Layer 3 error since it's the more reliable check
+				return newHealthError(3, true, err)
 			}
-			return err
+			return nil // Layer 3 succeeded (Layer 4 failed but that's OK)
 		}
 	}
 
+	// If we had a Layer 4 error but no Layer 3 addresses to try, report Layer 4 error
+	if layer4Err != nil {
+		if m.config.Backend.Type == BackendUSB && m.config.Backend.USBResetOnBusFailure {
+			m.logger.Warn("bus health check failed (no layer 3 fallback), attempting USB reset",
+				"error", layer4Err,
+				"device", fmt.Sprintf("%s:%s", m.config.Backend.USBVendorID, m.config.Backend.USBProductID),
+			)
+			if resetErr := m.resetUSBDeviceWithContext(ctx); resetErr != nil {
+				m.logger.Warn("USB reset failed", "error", resetErr)
+			}
+		}
+		return newHealthError(4, true, layer4Err)
+	}
+
+	// No devices or addresses discovered yet - system still in discovery mode
 	return nil
 }
 
 // checkUSBDevicePresent verifies the USB KNX interface is physically connected.
 // This is Layer 0 of the health check - the fastest possible check for USB backends.
 // It uses lsusb to check if the device with the configured vendor:product ID exists.
-func (m *Manager) checkUSBDevicePresent() error {
+// The parent context is respected to allow clean shutdown during health checks.
+func (m *Manager) checkUSBDevicePresent(ctx context.Context) error {
 	vendorID := m.config.Backend.USBVendorID
 	productID := m.config.Backend.USBProductID
 
@@ -384,11 +509,23 @@ func (m *Manager) checkUSBDevicePresent() error {
 
 	// Use lsusb to check if device is present
 	// Format: lsusb -d vendor:product
+	// Apply timeout to prevent hanging if USB subsystem is unresponsive
+	const usbCheckTimeout = 5 * time.Second
+	checkCtx, cancel := context.WithTimeout(ctx, usbCheckTimeout)
+	defer cancel()
+
 	deviceID := fmt.Sprintf("%s:%s", vendorID, productID)
-	cmd := exec.Command("lsusb", "-d", deviceID)
+	cmd := exec.CommandContext(checkCtx, "lsusb", "-d", deviceID)
 	output, err := cmd.CombinedOutput()
 
 	if err != nil {
+		if checkCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("USB device check timed out after %v", usbCheckTimeout)
+		}
+		// Check if parent context was cancelled (shutdown in progress)
+		if ctx.Err() != nil {
+			return fmt.Errorf("USB device check cancelled: %w", ctx.Err())
+		}
 		// lsusb returns exit code 1 if device not found
 		return fmt.Errorf("USB KNX interface not detected (device %s): %w", deviceID, err)
 	}
@@ -512,12 +649,11 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 	}
 
 	// Step 1: Send EIB_OPEN_T_GROUP handshake for the specific target address
-	// EIBOpenT_Group(con, dest, write_only=0) - write_only=0 means receive enabled
 	handshake := []byte{
 		0x00, 0x05, // size = 5 (type + payload)
 		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
 		byte(ga >> 8), byte(ga & 0xFF), // target group address (not 0/0/0!)
-		0x00, // write_only=0 (receive enabled)
+		0xFF, // flags (matches knxtool behavior)
 	}
 
 	if _, err := conn.Write(handshake); err != nil {
@@ -534,6 +670,10 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 	if respType != eibOpenTGroup {
 		return fmt.Errorf("bus health check failed: unexpected handshake response 0x%04X", respType)
 	}
+
+	// Brief delay after T_Group handshake before sending traffic.
+	// USB interfaces need time to process the connection setup.
+	time.Sleep(200 * time.Millisecond)
 
 	// Step 2: Send group read request via T_Group connection
 	// With T_Group open, we use EIB_APDU_PACKET (dest already set in handshake)
@@ -556,7 +696,15 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 
 	// Step 3: Wait for response (EIB_GROUP_PACKET with response data)
 	// We need to read packets until we get a response to our address, or timeout
+	// Defense-in-depth: limit iterations in case of spurious packets on a busy bus
+	const maxBusHealthIterations = 100
+	iterations := 0
 	for {
+		iterations++
+		if iterations > maxBusHealthIterations {
+			return fmt.Errorf("bus health check failed: received %d packets without response from %s", iterations-1, m.config.HealthCheckDeviceAddress)
+		}
+
 		select {
 		case <-checkCtx.Done():
 			return fmt.Errorf("bus health check failed: timeout waiting for response from %s", m.config.HealthCheckDeviceAddress)
@@ -576,8 +724,14 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 		pktType := uint16(header[2])<<8 | uint16(header[3])
 
 		// Read rest of packet
+		// Defense-in-depth: limit packet size to prevent memory exhaustion from malformed data
+		// KNX telegrams are max ~23 bytes; EIB messages similarly small; 1KB is very generous
+		const maxPacketSize = 1024
 		if pktSize < 2 {
 			continue // Invalid packet, skip
+		}
+		if pktSize > maxPacketSize {
+			return fmt.Errorf("bus health check failed: packet size %d exceeds maximum %d", pktSize, maxPacketSize)
 		}
 		payload := make([]byte, pktSize-2)
 		if len(payload) > 0 {
@@ -615,6 +769,319 @@ func isTimeoutError(err error) bool {
 		return netErr.Timeout()
 	}
 	return false
+}
+
+// EIB protocol constants for individual address communication.
+const (
+	// EIB_OPEN_T_CONNECTION opens a point-to-point connection to an individual address.
+	eibOpenTConnection uint16 = 0x0020
+
+	// A_DeviceDescriptor_Read service - requests device descriptor (mask version).
+	// This is mandatory for all KNX devices to respond to (per KNX spec).
+	// Format: APCI 0x0300 | descriptor type (0 = mask version)
+	aDeviceDescriptorRead uint16 = 0x0300
+
+	// A_DeviceDescriptor_Response service - device responds with its descriptor.
+	aDeviceDescriptorResponse uint16 = 0x0340
+
+	// deviceDescriptorTimeout is how long to wait for a device response.
+	deviceDescriptorTimeout = 3 * time.Second
+)
+
+// checkBusHealthWithDevices verifies KNX bus health by sending A_DeviceDescriptor_Read
+// to one of the passively-learned devices. This check:
+//   - Verifies knxd is processing messages (catches deadlocks)
+//   - Verifies the KNX interface is working (USB/IP)
+//   - Verifies the bus is operational (at least one device responding)
+//
+// Unlike GroupValueRead, DeviceDescriptor_Read works with ANY device - no R flag needed.
+// Every certified KNX device MUST respond to this request per the specification.
+func (m *Manager) checkBusHealthWithDevices(ctx context.Context, devices []string) error {
+	if len(devices) == 0 {
+		return nil // No devices to check
+	}
+
+	// Try each device until one responds
+	var lastErr error
+	for _, addr := range devices {
+		err := m.checkDeviceDescriptor(ctx, addr)
+		if err == nil {
+			return nil // Success - bus is healthy
+		}
+		lastErr = err
+		m.logger.Debug("device descriptor check failed", "address", addr, "error", err)
+	}
+
+	return fmt.Errorf("bus health check failed: all %d devices unresponsive: %w", len(devices), lastErr)
+}
+
+// checkBusHealthWithGroupAddresses verifies KNX bus health by sending GroupValue_Read
+// to one of the passively-learned group addresses. This is Layer 3 - a fallback when
+// Layer 4 (DeviceDescriptor_Read) fails because devices don't support T_Connection.
+//
+// This check works with ALL KNX devices and simulators because group communication
+// is the fundamental KNX messaging model - every device supports it.
+func (m *Manager) checkBusHealthWithGroupAddresses(ctx context.Context, addresses []string) error {
+	if len(addresses) == 0 {
+		return nil // No addresses to check
+	}
+
+	// Try each address until one responds
+	var lastErr error
+	for _, addr := range addresses {
+		err := m.checkGroupAddressRead(ctx, addr)
+		if err == nil {
+			return nil // Success - bus is healthy
+		}
+		lastErr = err
+		m.logger.Debug("group address read check failed", "address", addr, "error", err)
+	}
+
+	return fmt.Errorf("layer 3 health check failed: all %d group addresses unresponsive: %w", len(addresses), lastErr)
+}
+
+// checkGroupAddressRead sends a GroupValue_Read to a group address and waits for response.
+func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) error {
+	// Parse group address
+	ga, err := ParseGroupAddress(groupAddr)
+	if err != nil {
+		return fmt.Errorf("invalid group address %q: %w", groupAddr, err)
+	}
+
+	// Determine timeout
+	timeout := m.config.HealthCheckDeviceTimeout
+	if timeout == 0 {
+		timeout = 3 * time.Second
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, timeout)
+	defer cancel()
+
+	addr := fmt.Sprintf("localhost:%d", m.config.TCPPort)
+
+	// Connect to knxd
+	var d net.Dialer
+	conn, err := d.DialContext(checkCtx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("connect failed: %w", err)
+	}
+	defer conn.Close()
+
+	// Set deadline for the entire operation
+	deadline := time.Now().Add(timeout)
+	if err := conn.SetDeadline(deadline); err != nil {
+		return fmt.Errorf("set deadline failed: %w", err)
+	}
+
+	// Step 1: Open T_Group connection for the target address
+	handshake := []byte{
+		0x00, 0x05, // size = 5 (type + payload)
+		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
+		byte(ga >> 8), byte(ga & 0xFF), // target group address
+		0xFF, // flags (matches knxtool behavior)
+	}
+
+	if _, err := conn.Write(handshake); err != nil {
+		return fmt.Errorf("write handshake failed: %w", err)
+	}
+
+	// Read handshake response
+	hsResponse := make([]byte, 4)
+	if _, err := io.ReadFull(conn, hsResponse); err != nil {
+		return fmt.Errorf("read handshake response failed: %w", err)
+	}
+
+	respType := uint16(hsResponse[2])<<8 | uint16(hsResponse[3])
+	if respType != eibOpenTGroup {
+		return fmt.Errorf("unexpected handshake response: 0x%04X", respType)
+	}
+
+	// Brief delay after T_Group handshake before sending traffic.
+	// USB interfaces need time to process the connection setup.
+	time.Sleep(200 * time.Millisecond)
+
+	// Step 2: Send GroupValue_Read request
+	readRequest := []byte{
+		0x00, 0x04, // size = 4 (type + payload)
+		0x00, 0x25, // type = EIB_APDU_PACKET (0x0025)
+		0x00, apciRead, // APCI: read request
+	}
+
+	if _, err := conn.Write(readRequest); err != nil {
+		return fmt.Errorf("write read request failed: %w", err)
+	}
+
+	m.logger.Debug("layer 3 health check: sent group read", "address", groupAddr)
+
+	// Step 3: Wait for GroupValue_Response
+	const maxIterations = 50
+	for i := 0; i < maxIterations; i++ {
+		select {
+		case <-checkCtx.Done():
+			return fmt.Errorf("timeout waiting for response from %s", groupAddr)
+		default:
+		}
+
+		// Read packet header
+		header := make([]byte, 4)
+		if _, err := io.ReadFull(conn, header); err != nil {
+			if isTimeoutError(err) {
+				return fmt.Errorf("timeout waiting for response from %s", groupAddr)
+			}
+			return fmt.Errorf("read response failed: %w", err)
+		}
+
+		pktSize := uint16(header[0])<<8 | uint16(header[1])
+		pktType := uint16(header[2])<<8 | uint16(header[3])
+
+		if pktSize < 2 || pktSize > 256 {
+			continue // Invalid packet, skip
+		}
+
+		// Read payload
+		payloadSize := int(pktSize) - 2
+		if payloadSize > 0 {
+			payload := make([]byte, payloadSize)
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				continue
+			}
+
+			// Check for APDU packet with response
+			// T_Group responses have format: src_addr(2) + apdu(2+)
+			// So we need at least 4 bytes: 2 for source, 2 for APCI
+			const eibApduPacket uint16 = 0x0025
+			if pktType == eibApduPacket && len(payload) >= 4 {
+				// Parse: src_addr is payload[0:2], APDU is payload[2:]
+				// APCI is in the first 2 bytes of APDU: payload[2] and payload[3]
+				// For response: APCI low byte contains 0x40 (bits 6-7 of payload[3])
+				apci := payload[3] & 0xC0 // High 2 bits of APDU byte 2 indicate response type
+				if apci == apciResponse {
+					srcAddr := uint16(payload[0])<<8 | uint16(payload[1])
+					m.logger.Debug("layer 3 health check: received response",
+						"address", groupAddr,
+						"from", FormatIndividualAddress(srcAddr),
+					)
+					return nil // Success!
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("no response from %s after %d packets", groupAddr, maxIterations)
+}
+
+// checkDeviceDescriptor sends A_DeviceDescriptor_Read to a device and waits for response.
+func (m *Manager) checkDeviceDescriptor(ctx context.Context, individualAddr string) error {
+	// Parse individual address
+	ia, err := ParseIndividualAddress(individualAddr)
+	if err != nil {
+		return fmt.Errorf("invalid individual address %q: %w", individualAddr, err)
+	}
+
+	checkCtx, cancel := context.WithTimeout(ctx, deviceDescriptorTimeout)
+	defer cancel()
+
+	addr := fmt.Sprintf("localhost:%d", m.config.TCPPort)
+
+	// Connect to knxd
+	var d net.Dialer
+	conn, err := d.DialContext(checkCtx, "tcp", addr)
+	if err != nil {
+		return fmt.Errorf("connect failed: %w", err)
+	}
+	defer conn.Close()
+
+	// Set deadline for the entire operation
+	deadline := time.Now().Add(deviceDescriptorTimeout)
+	if err := conn.SetDeadline(deadline); err != nil {
+		return fmt.Errorf("set deadline failed: %w", err)
+	}
+
+	// Step 1: Open T_Connection to the individual address
+	// Format: size(2) + type(2) + destination(2)
+	openConn := []byte{
+		0x00, 0x04, // size = 4 (type + destination)
+		byte(eibOpenTConnection >> 8), byte(eibOpenTConnection & 0xFF), // EIB_OPEN_T_CONNECTION
+		byte(ia >> 8), byte(ia & 0xFF), // destination individual address
+	}
+
+	if _, err := conn.Write(openConn); err != nil {
+		return fmt.Errorf("write open connection failed: %w", err)
+	}
+
+	// Read response - should echo back the message type
+	response := make([]byte, 4)
+	if _, err := io.ReadFull(conn, response); err != nil {
+		return fmt.Errorf("read open response failed: %w", err)
+	}
+
+	respType := uint16(response[2])<<8 | uint16(response[3])
+	if respType != eibOpenTConnection {
+		return fmt.Errorf("unexpected open response: 0x%04X", respType)
+	}
+
+	// Step 2: Send A_DeviceDescriptor_Read (ADC 0 = mask version)
+	// Format: size(2) + type(2) + apci(2)
+	// APCI for DeviceDescriptor_Read: 0x03 0x00 (ADC type 0)
+	descRead := []byte{
+		0x00, 0x04, // size = 4 (type + apci)
+		0x00, 0x25, // type = EIB_APDU_PACKET (0x0025)
+		0x03, 0x00, // APCI: A_DeviceDescriptor_Read, descriptor type 0
+	}
+
+	if _, err := conn.Write(descRead); err != nil {
+		return fmt.Errorf("write descriptor read failed: %w", err)
+	}
+
+	m.logger.Debug("device descriptor check: sent request", "address", individualAddr)
+
+	// Step 3: Wait for A_DeviceDescriptor_Response
+	// Defense-in-depth: limit iterations
+	const maxIterations = 20
+	for i := 0; i < maxIterations; i++ {
+		select {
+		case <-checkCtx.Done():
+			return fmt.Errorf("timeout waiting for response from %s", individualAddr)
+		default:
+		}
+
+		// Read packet header
+		header := make([]byte, 4)
+		if _, err := io.ReadFull(conn, header); err != nil {
+			if isTimeoutError(err) {
+				return fmt.Errorf("timeout waiting for response from %s", individualAddr)
+			}
+			return fmt.Errorf("read response failed: %w", err)
+		}
+
+		pktSize := uint16(header[0])<<8 | uint16(header[1])
+		pktType := uint16(header[2])<<8 | uint16(header[3])
+
+		if pktSize < 2 || pktSize > 256 {
+			continue // Invalid packet, skip
+		}
+
+		// Read payload
+		payloadSize := int(pktSize) - 2 // Subtract type field size
+		if payloadSize > 0 {
+			payload := make([]byte, payloadSize)
+			if _, err := io.ReadFull(conn, payload); err != nil {
+				continue
+			}
+
+			// Check for APDU packet with descriptor response
+			if pktType == 0x0025 && len(payload) >= 2 { // EIB_APDU_PACKET
+				apci := uint16(payload[0])<<8 | uint16(payload[1])
+				// Mask to get service code (top 10 bits for DeviceDescriptor)
+				if (apci & 0xFFC0) == aDeviceDescriptorResponse {
+					m.logger.Debug("device descriptor check: received response", "address", individualAddr)
+					return nil // Success!
+				}
+			}
+		}
+	}
+
+	return fmt.Errorf("no response from %s after %d packets", individualAddr, maxIterations)
 }
 
 // checkProcessState reads /proc/PID/stat to verify the process is in a healthy state.
@@ -668,7 +1135,7 @@ func (m *Manager) checkProcessState(pid int) error {
 	}
 }
 
-// resetUSBDevice resets the USB KNX interface using the usbreset utility.
+// resetUSBDeviceWithContext resets the USB KNX interface using the usbreset utility.
 // This helps recover from LIBUSB_ERROR_BUSY conditions without requiring
 // root privileges, as long as proper udev rules are in place.
 //
@@ -678,7 +1145,9 @@ func (m *Manager) checkProcessState(pid int) error {
 // Required udev rule (e.g., /etc/udev/rules.d/90-knx-usb.rules):
 //
 //	SUBSYSTEM=="usb", ATTR{idVendor}=="0e77", ATTR{idProduct}=="0104", MODE="0666"
-func (m *Manager) resetUSBDevice() error {
+//
+// The parent context is respected to allow clean shutdown during reset operations.
+func (m *Manager) resetUSBDeviceWithContext(ctx context.Context) error {
 	if m.config.Backend.Type != BackendUSB {
 		return nil // Only applicable for USB backends
 	}
@@ -696,9 +1165,21 @@ func (m *Manager) resetUSBDevice() error {
 
 	// Use usbreset utility (standard on most Linux systems with usbutils)
 	// Format: usbreset <vendor>:<product>
-	cmd := exec.Command("usbreset", deviceID)
+	// Apply timeout to prevent hanging if USB hardware is unresponsive
+	const usbResetTimeout = 10 * time.Second
+	resetCtx, cancel := context.WithTimeout(ctx, usbResetTimeout)
+	defer cancel()
+
+	cmd := exec.CommandContext(resetCtx, "usbreset", deviceID)
 	output, err := cmd.CombinedOutput()
 	if err != nil {
+		if resetCtx.Err() == context.DeadlineExceeded {
+			return fmt.Errorf("usbreset timed out after %v", usbResetTimeout)
+		}
+		// Check if parent context was cancelled (shutdown in progress)
+		if ctx.Err() != nil {
+			return fmt.Errorf("usbreset cancelled: %w", ctx.Err())
+		}
 		return fmt.Errorf("usbreset failed: %w (output: %s)", err, string(output))
 	}
 
@@ -710,8 +1191,119 @@ func (m *Manager) resetUSBDevice() error {
 	return nil
 }
 
+// resetUSBDevice resets the USB device without a context (uses background context).
+// Used by OnRestart callback which doesn't have access to a context.
+func (m *Manager) resetUSBDevice() error {
+	return m.resetUSBDeviceWithContext(context.Background())
+}
+
 // ResetUSBDevice is the public method to manually reset the USB device.
 // This can be called externally when USB issues are detected.
 func (m *Manager) ResetUSBDevice() error {
 	return m.resetUSBDevice()
+}
+
+// getPIDFilePath returns the path for the PID file, preferring /var/run but
+// falling back to /tmp if that's not writable.
+func (m *Manager) getPIDFilePath() string {
+	// Try /var/run first (standard location for daemon PID files)
+	if f, err := os.OpenFile(pidFilePath, os.O_CREATE|os.O_WRONLY, 0600); err == nil {
+		f.Close()
+		os.Remove(pidFilePath) // Remove the test file
+		return pidFilePath
+	}
+	// Fall back to /tmp
+	return pidFileFallbackPath
+}
+
+// acquirePIDFile atomically creates the PID file and writes our PID.
+// This uses O_EXCL to ensure no race condition between checking for existing
+// instances and claiming the PID file.
+//
+// Returns nil on success (PID file created with our PID).
+// Returns an error if another instance is already running.
+func (m *Manager) acquirePIDFile(pid int) error {
+	pidFile := m.getPIDFilePath()
+	content := fmt.Sprintf("%d\n", pid)
+
+	// Try atomic exclusive create - fails if file already exists
+	f, err := os.OpenFile(pidFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	if err == nil {
+		// Success - we got the lock, write our PID
+		defer f.Close()
+		if _, writeErr := f.WriteString(content); writeErr != nil {
+			os.Remove(pidFile)
+			return fmt.Errorf("writing PID file: %w", writeErr)
+		}
+		m.logger.Debug("acquired PID file", "path", pidFile, "pid", pid)
+		return nil
+	}
+
+	// File exists - check if it's stale
+	if !os.IsExist(err) {
+		return fmt.Errorf("creating PID file %s: %w", pidFile, err)
+	}
+
+	// Read existing PID
+	data, readErr := os.ReadFile(pidFile)
+	if readErr != nil {
+		// Can't read it, try to remove and retry
+		os.Remove(pidFile)
+		return m.acquirePIDFile(pid) // Retry once
+	}
+
+	pidStr := strings.TrimSpace(string(data))
+	existingPID, parseErr := strconv.Atoi(pidStr)
+	if parseErr != nil {
+		// Invalid PID file, remove and retry
+		m.logger.Warn("removing invalid PID file", "path", pidFile, "content", pidStr)
+		os.Remove(pidFile)
+		return m.acquirePIDFile(pid)
+	}
+
+	// Check if the existing PID is still alive
+	if !m.isKnxdProcessAlive(existingPID) {
+		// Stale PID file, remove and retry
+		m.logger.Info("removing stale PID file", "path", pidFile, "stale_pid", existingPID)
+		os.Remove(pidFile)
+		return m.acquirePIDFile(pid)
+	}
+
+	// Another knxd instance is actually running
+	return fmt.Errorf("another knxd instance is already running (PID %d, file %s)", existingPID, pidFile)
+}
+
+// isKnxdProcessAlive checks if a process with the given PID is running and is knxd.
+func (m *Manager) isKnxdProcessAlive(pid int) bool {
+	// Check if process exists and we can signal it
+	proc, err := os.FindProcess(pid)
+	if err != nil {
+		return false
+	}
+
+	// On Unix, FindProcess always succeeds - send signal 0 to check if alive
+	if err := proc.Signal(syscall.Signal(0)); err != nil {
+		return false // Process is dead
+	}
+
+	// Process is alive - verify it's actually knxd
+	commPath := fmt.Sprintf("/proc/%d/comm", pid)
+	commData, err := os.ReadFile(commPath)
+	if err != nil {
+		// Can't verify identity, assume it's not our knxd
+		return false
+	}
+
+	comm := strings.TrimSpace(string(commData))
+	return comm == "knxd"
+}
+
+// removePIDFile removes the PID file if it exists.
+func (m *Manager) removePIDFile() {
+	pidFile := m.getPIDFilePath()
+	if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
+		m.logger.Warn("failed to remove PID file", "path", pidFile, "error", err)
+	} else if err == nil {
+		m.logger.Debug("removed PID file", "path", pidFile)
+	}
 }

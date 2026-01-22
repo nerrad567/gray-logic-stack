@@ -16,7 +16,11 @@ This directory contains comprehensive documentation covering the **what**, **how
 | [mqtt](packages/mqtt.md) | MQTT client with auto-reconnect | Active |
 | [config](packages/config.md) | YAML configuration with env overrides | Active |
 | [influxdb](packages/influxdb.md) | InfluxDB time-series for PHM/energy | Active |
+| [logging](packages/logging.md) | Structured logging with slog | Active |
 | [knx-bridge](packages/knx-bridge.md) | KNX protocol bridge via knxd daemon | Active |
+| [knxd-manager](packages/knxd-manager.md) | knxd daemon lifecycle management | Active |
+| [device-registry](packages/device-registry.md) | Device catalogue with caching | Active |
+| [process-manager](packages/process-manager.md) | Generic subprocess management | Active |
 
 ### Architecture Docs
 
@@ -71,4 +75,4 @@ For significant implementation choices:
 
 ---
 
-*Last updated: 2026-01-20*
+*Last updated: 2026-01-22*

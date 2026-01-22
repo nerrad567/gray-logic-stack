@@ -1,82 +1,156 @@
 # Gray Logic
 
-**Gray Logic** is a complete building intelligence platform — the central nervous system for high-end homes, small estates, and light commercial buildings. It rivals systems like Crestron, Savant, and Loxone while maintaining complete openness, true offline capability, and zero vendor lock-in.
+A building automation platform I'm developing to teach myself BMS architecture and protocol integration. This is a personal learning project — not a commercial product — but it represents how I think through complex systems.
 
-## Status
+**Background:** I'm a qualified electrician (20 years) with strong IT skills, looking to move into building management systems. Rather than just reading about BMS, I decided to design and build one to properly understand how these systems work.
 
-**v1.0 Architecture Phase** (January 2026) — Documentation complete, implementation starting.
+## What's Working
 
-Pivoted from openHAB-based approach to custom **Gray Logic Core** written in Go for multi-decade deployment stability.
+| Component | Status | Description |
+|-----------|--------|-------------|
+| **KNX Bridge** | ✅ Complete | Tested protocol bridge connecting KNX bus to internal MQTT |
+| **knxd Manager** | ✅ Complete | Manages knxd daemon with health monitoring and auto-restart |
+| **Device Registry** | 🔄 In Progress | Central device catalogue with SQLite persistence |
+| **Core Infrastructure** | ✅ Complete | Config, logging, MQTT client, InfluxDB client, SQLite |
 
-## Quick Links
+### KNX Bridge Details
 
-| Document | Description |
-|----------|-------------|
-| [Vision](docs/overview/vision.md) | What we're building and why |
-| [Principles](docs/overview/principles.md) | Hard rules that can never be broken |
-| [System Overview](docs/architecture/system-overview.md) | Technical architecture |
-| [Entities](docs/data-model/entities.md) | Core data model |
-| [Development Strategy](docs/development/DEVELOPMENT-STRATEGY.md) | Build phases, security-first approach, milestones |
-| [Coding Standards](docs/development/CODING-STANDARDS.md) | Code documentation, testing, style standards |
-| [Security Checklist](docs/development/SECURITY-CHECKLIST.md) | Security gates for PRs and releases |
-| [CHANGELOG](CHANGELOG.md) | Version history |
-| [Business Case](docs/business/business-case.md) | Market positioning and strategy |
+The KNX bridge is the most complete component — a working Go implementation that:
 
-## Documentation Structure
+- Connects to knxd daemon (USB or IP tunnelling)
+- Parses and encodes KNX telegrams (group communication)
+- Translates between KNX and MQTT messages
+- Supports multiple datapoint types (DPT1, DPT5, DPT9, etc.)
+- Includes comprehensive unit tests (69% coverage)
 
 ```
-docs/
-├── overview/           # Vision, principles, glossary
-├── architecture/       # System design, bridges, energy model
-├── data-model/         # Entities, schemas
-├── development/        # Development strategy, coding standards, security checklist
-├── protocols/          # KNX, DALI, Modbus, MQTT, BACnet
-├── domains/            # Lighting, climate, blinds, plant
-├── integration/        # Access control, CCTV, fire alarm
-├── intelligence/       # AI, voice, PHM, weather
-├── resilience/         # Offline, backup, mesh comms
-├── deployment/         # Installation guides
-├── business/           # Business case, pricing, sales
-└── archive/            # v0.4 openHAB-era docs (zip)
+KNX Bus ←→ knxd daemon ←→ Gray Logic KNX Bridge ←→ MQTT ←→ Core
 ```
 
-## Core Principles
+I've tested this against both real hardware (Weinzierl USB interface) and KNX Virtual.
 
-1. **Physical controls always work** — Wall switches function even if all software is down
-2. **Life safety is independent** — Fire alarms, E-stops are certified hardware; we observe, never control
-3. **No cloud dependencies** — 99%+ functionality without internet
-4. **Multi-decade deployment horizon** — Systems installed today must work reliably for decades
-5. **Open standards** — KNX, DALI, Modbus; no proprietary lock-in
+## Architecture
 
-## Technology Stack
+```
+                        ┌─────────────────────────────────────────┐
+                        │           Gray Logic Core (Go)           │
+                        │                                          │
+                        │  • Device Registry    • Scene Engine     │
+                        │  • State Management   • Scheduler        │
+                        │  • REST API           • WebSocket        │
+                        └─────────────────┬─────────────────────────┘
+                                          │
+                                    Internal MQTT
+                                          │
+              ┌───────────────────────────┼───────────────────────────┐
+              │                           │                           │
+     ┌────────▼────────┐        ┌────────▼────────┐        ┌────────▼────────┐
+     │   KNX Bridge    │        │   DALI Bridge   │        │  Modbus Bridge  │
+     │   (Complete)    │        │   (Planned)     │        │   (Planned)     │
+     └────────┬────────┘        └─────────────────┘        └─────────────────┘
+              │
+        ┌─────▼─────┐
+        │   knxd    │
+        └─────┬─────┘
+              │
+     ═══════════════════  KNX Bus (30V DC twisted pair)
+         │         │
+     ┌───┴───┐ ┌───┴───┐
+     │Dimmer │ │Switch │  ... actual KNX devices
+     └───────┘ └───────┘
+```
 
-| Component | Technology | Rationale |
-|-----------|------------|-----------|
-| Core | Go | Single binary, no runtime, cross-compiles |
-| Database | SQLite | Embedded, zero maintenance |
-| Time-Series | InfluxDB | PHM data, energy monitoring |
-| Message Bus | MQTT | Simple, proven, debuggable |
-| Wall Panel/Mobile | Flutter | Cross-platform native |
-| Voice STT | Whisper | Local, accurate, open |
-| Voice TTS | Piper | Local, natural |
+## Technology Choices
 
-## Roadmap
+| Choice | Why |
+|--------|-----|
+| **Go** | Single binary, no runtime dependencies, compiles for any platform |
+| **MQTT** | Simple pub/sub, easy to debug with standard tools, proven in IoT |
+| **SQLite** | Embedded database, zero maintenance, works for decades |
+| **knxd** | Mature open-source KNX daemon, handles USB/IP interfaces |
 
-| Year | Focus | Deliverables |
-|------|-------|--------------|
-| 1 | Foundation | Core + KNX + lighting in own home |
-| 2 | Expansion | Scenes, modes, blinds, climate, BACnet |
-| 3 | Integration | Audio, video, security, CCTV |
-| 4 | Intelligence | Voice control, PHM, AI |
-| 5 | Product | Commissioning tools, first customer |
+## Design Principles
 
-## Archive
+These aren't just nice-to-haves — they're hard rules I've documented and designed around:
 
-Previous openHAB-based documentation (v0.4) preserved in:
-- `docs/archive/v0.4-openhab-era.zip`
-- `code/archive/v0.4-openhab-era.zip`
+1. **Physical controls always work** — Wall switches must function even if all software is down
+2. **Life safety is independent** — Fire alarms use certified hardware; software observes, never controls
+3. **No cloud dependencies** — Core functionality works without internet
+4. **Open standards** — KNX, DALI, Modbus, BACnet — no proprietary lock-in
 
-## License
+## Protocols Covered
 
-GPL v3 License — See [LICENSE](LICENSE) for details.
+| Protocol | Status | Notes |
+|----------|--------|-------|
+| KNX | Working | Bridge complete, tested with real hardware |
+| DALI | Documented | Understand addressable lighting concepts |
+| Modbus | Documented | TCP and RTU for plant equipment |
+| BACnet | Documented | For commercial BMS integration |
 
+## Documentation
+
+The `/docs` folder contains detailed specifications I've written covering:
+
+- **Architecture:** System design, component interactions, data flow
+- **Protocols:** KNX, DALI, Modbus, BACnet specifications
+- **Domains:** Lighting, climate, blinds, audio, security, energy, pool/plant
+- **Data Model:** Device entities, state management, automation rules
+
+This documentation represents how I think through complex systems before writing code.
+
+## Project Structure
+
+```
+gray-logic-stack/
+├── code/core/                    # Go implementation
+│   ├── cmd/graylogic/           # Main application entry point
+│   ├── internal/
+│   │   ├── bridges/knx/         # KNX protocol bridge (complete)
+│   │   ├── knxd/                # knxd daemon manager (complete)
+│   │   ├── device/              # Device registry (in progress)
+│   │   ├── infrastructure/      # Config, MQTT, database, logging
+│   │   └── process/             # Subprocess management
+│   ├── configs/                 # YAML configuration files
+│   └── docs/technical/          # Package design documentation
+├── docs/                        # Architecture and domain specs
+└── CHANGELOG.md                 # Project history
+```
+
+## Running the Code
+
+```bash
+# Build
+cd code/core
+go build -o bin/graylogic ./cmd/graylogic
+
+# Run tests
+go test -v ./...
+
+# Lint
+golangci-lint run
+```
+
+Requires Go 1.25+ and knxd for KNX functionality.
+
+## Current Focus
+
+**Milestone M1.3:** Device Registry — CRUD operations, caching, SQLite persistence
+
+**Next:** REST API and WebSocket for real-time state updates
+
+## Why I Built This
+
+I've been maintaining control systems for years — fault-finding through panels, replacing contactors, tracing circuits — without fully understanding how they're designed from the ground up. Building my own system is how I learn best: by thinking through the architecture decisions, understanding why protocols work the way they do, and writing code that actually runs.
+
+This project won't replace commercial BMS platforms, but it's taught me more about building automation than any course could. The domain thinking and architecture decisions are mine; I use AI tools to help with implementation.
+
+## Links
+
+- **Technical Docs:** [code/core/docs/technical/](code/core/docs/technical/)
+- **KNX Bridge Design:** [code/core/docs/technical/packages/knx-bridge.md](code/core/docs/technical/packages/knx-bridge.md)
+- **System Architecture:** [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
+- **Development Log:** [code/core/IMPLEMENTATION.md](code/core/IMPLEMENTATION.md)
+
+---
+
+*This is a personal learning project by Darren Gray, an electrician exploring building management systems.*

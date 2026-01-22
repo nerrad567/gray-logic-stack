@@ -176,6 +176,7 @@ func run(ctx context.Context) error {
 
 	// Start knxd daemon (if managed)
 	var knxdManager *knxd.Manager
+	var busMonitor *knx.BusMonitor
 	if cfg.Protocols.KNX.Enabled && cfg.Protocols.KNX.KNXD.Managed {
 		knxdManager, err = startKNXD(ctx, cfg, log)
 		if err != nil {
@@ -187,6 +188,25 @@ func run(ctx context.Context) error {
 				log.Error("error stopping knxd", "error", stopErr)
 			}
 		}()
+
+		// Start bus monitor for passive device discovery
+		// This learns KNX device addresses from bus traffic for health checks
+		busMonitor = knx.NewBusMonitor(db.DB)
+		busMonitor.SetLogger(log)
+		if err := busMonitor.Start(ctx, knxdManager.ConnectionURL()); err != nil {
+			log.Warn("bus monitor failed to start (health checks will use fallback)", "error", err)
+			busMonitor = nil
+		} else {
+			defer func() {
+				log.Info("stopping bus monitor")
+				busMonitor.Stop()
+			}()
+			log.Info("bus monitor started", "url", knxdManager.ConnectionURL())
+
+			// Wire bus monitor as provider for health checks
+			knxdManager.SetDeviceProvider(busMonitor)       // Layer 4: individual addresses
+			knxdManager.SetGroupAddressProvider(busMonitor) // Layer 3: group addresses
+		}
 	}
 
 	// Start KNX bridge (if enabled)
@@ -296,10 +316,14 @@ func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*k
 		HealthCheckDeviceTimeout: cfg.Protocols.KNX.KNXD.HealthCheckDeviceTimeout,
 		LogLevel:                 cfg.Protocols.KNX.KNXD.LogLevel,
 		Backend: knxd.BackendConfig{
-			Type:             knxd.BackendType(cfg.Protocols.KNX.KNXD.Backend.Type),
-			Host:             cfg.Protocols.KNX.KNXD.Backend.Host,
-			Port:             cfg.Protocols.KNX.KNXD.Backend.Port,
-			MulticastAddress: cfg.Protocols.KNX.KNXD.Backend.MulticastAddress,
+			Type:                 knxd.BackendType(cfg.Protocols.KNX.KNXD.Backend.Type),
+			Host:                 cfg.Protocols.KNX.KNXD.Backend.Host,
+			Port:                 cfg.Protocols.KNX.KNXD.Backend.Port,
+			MulticastAddress:     cfg.Protocols.KNX.KNXD.Backend.MulticastAddress,
+			USBVendorID:          cfg.Protocols.KNX.KNXD.Backend.USBVendorID,
+			USBProductID:         cfg.Protocols.KNX.KNXD.Backend.USBProductID,
+			USBResetOnRetry:      cfg.Protocols.KNX.KNXD.Backend.USBResetOnRetry,
+			USBResetOnBusFailure: cfg.Protocols.KNX.KNXD.Backend.USBResetOnBusFailure,
 		},
 	}
 

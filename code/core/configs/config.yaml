@@ -202,12 +202,11 @@ protocols:
       # Backend connection to the KNX bus
       backend:
         # Connection type: "usb", "ipt" (IP tunnelling), or "ip" (IP routing)
-        # TESTING: Using ipt to connect to virtual KNX (Oakwood House VM)
+        # TESTING: Using IPT to connect to Windows KNX Virtual
         type: "ipt"
 
         # IP Tunnelling settings - connects to KNX/IP gateway via KNXnet/IP
-        # This is the REAL-WORLD scenario for IP-based installations
-        # Using Windows KNX Virtual
+        # KNX Virtual on Windows VM
         host: "192.168.4.34"
         port: 3671
 
@@ -246,8 +245,10 @@ protocols:
       # Leave empty to disable bus-level checks (only protocol checks)
       #
       # KNX Virtual demo project - feedback address with Read flag enabled
-      health_check_device_address: "0/0/3"
-      health_check_device_timeout: 5s  # Increased timeout
+      # TESTING: Disabled - no physical KNX bus attached to USB interface
+      # health_check_device_address: "0/0/3"
+      health_check_device_address: ""
+      health_check_device_timeout: 2s  # Shorter timeout for USB
 
       # knxd log verbosity (0-9, 0 = minimal)
       log_level: 3
