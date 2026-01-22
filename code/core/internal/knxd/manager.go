@@ -27,12 +27,12 @@ const (
 	// dialTimeout is the timeout for individual TCP connection attempts.
 	dialTimeout = 500 * time.Millisecond
 
-	// healthCheckTimeout is the timeout for health check connection attempts.
-	healthCheckTimeout = 5 * time.Second
-
 	// pidFilePath is the default location for the knxd PID file.
 	// This prevents multiple instances from running simultaneously.
 	pidFilePath = "/var/run/graylogic-knxd.pid"
+
+	// pidFileMode is the permission mode for the PID file.
+	pidFileMode = 0600
 
 	// pidFileFallbackPath is used if we can't write to /var/run
 	pidFileFallbackPath = "/tmp/graylogic-knxd.pid"
@@ -99,7 +99,7 @@ type DeviceProvider interface {
 // This is typically implemented by the bus monitor which learns addresses passively.
 type GroupAddressProvider interface {
 	// GetHealthCheckGroupAddresses returns group addresses for health checks.
-	// Returns up to 'limit' addresses, prioritizing those with known read responses.
+	// Returns up to 'limit' addresses, prioritising those with known read responses.
 	GetHealthCheckGroupAddresses(ctx context.Context, limit int) ([]string, error)
 }
 
@@ -110,6 +110,15 @@ type Manager struct {
 	logger               Logger
 	deviceProvider       DeviceProvider       // For Layer 4 health checks
 	groupAddressProvider GroupAddressProvider // For Layer 3 health checks
+
+	// dStateCount tracks consecutive health checks where knxd is in D (uninterruptible sleep) state.
+	// Reset to 0 when knxd returns to a healthy state.
+	dStateCount int
+
+	// activePIDFilePath stores the path used when acquiring the PID file.
+	// This ensures removePIDFile() removes the same file that was acquired,
+	// even if /var/run permissions change at runtime.
+	activePIDFilePath string
 }
 
 // NewManager creates a new knxd manager.
@@ -256,7 +265,7 @@ func (m *Manager) Start(ctx context.Context) error {
 		if err := m.acquirePIDFile(pid); err != nil {
 			// Another instance started between our check - stop this one
 			m.logger.Error("failed to acquire PID file, stopping duplicate instance", "error", err)
-			m.process.Stop()
+			_ = m.process.Stop() //nolint:errcheck // Error ignored - we're already handling a fatal error
 			return fmt.Errorf("cannot start: %w", err)
 		}
 	}
@@ -315,10 +324,15 @@ func (m *Manager) Stop() error {
 
 	m.logger.Info("stopping knxd")
 
-	// Remove PID file before stopping (so another instance can start immediately)
+	// Stop the process first, then remove PID file.
+	// This prevents a race where a new instance could start before the old one
+	// has fully released resources (TCP port, USB device).
+	err := m.process.Stop()
+
+	// Remove PID file after process has stopped
 	m.removePIDFile()
 
-	return m.process.Stop()
+	return err
 }
 
 // IsRunning returns true if knxd is currently running.
@@ -544,60 +558,6 @@ const (
 	eibOpenTGroup uint16 = 0x0022 // EIB_OPEN_T_GROUP - opens group communication
 )
 
-// checkProtocolHealth connects to knxd and performs an EIB protocol handshake.
-// This verifies that knxd is actually processing protocol messages, catching
-// application-level hangs that /proc/stat cannot detect (deadlocks, infinite loops, etc).
-func (m *Manager) checkProtocolHealth(ctx context.Context) error {
-	addr := fmt.Sprintf("localhost:%d", m.config.TCPPort)
-
-	checkCtx, cancel := context.WithTimeout(ctx, healthCheckTimeout)
-	defer cancel()
-
-	// Connect to knxd
-	var d net.Dialer
-	conn, err := d.DialContext(checkCtx, "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("knxd health check failed (connect): %w", err)
-	}
-	defer conn.Close()
-
-	// Set deadlines for the handshake
-	deadline := time.Now().Add(healthCheckTimeout)
-	if err := conn.SetDeadline(deadline); err != nil {
-		return fmt.Errorf("knxd health check failed (set deadline): %w", err)
-	}
-
-	// Send EIB_OPEN_T_GROUP handshake
-	// Format: size(2) + type(2) + group_addr(2) + flags(1)
-	// We use group 0/0/0 (0x0000) with flags 0xFF
-	handshake := []byte{
-		0x00, 0x05, // size = 5 (type + payload)
-		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
-		0x00, 0x00, // group address = 0/0/0
-		0xFF, // flags
-	}
-
-	if _, err := conn.Write(handshake); err != nil {
-		return fmt.Errorf("knxd health check failed (write handshake): %w", err)
-	}
-
-	// Read the response - knxd should echo back the message type
-	// Response format: size(2) + type(2)
-	response := make([]byte, 4)
-	if _, err := io.ReadFull(conn, response); err != nil {
-		return fmt.Errorf("knxd health check failed (read response): %w", err)
-	}
-
-	// Verify response type matches (0x0022 = success)
-	respType := uint16(response[2])<<8 | uint16(response[3])
-	if respType != eibOpenTGroup {
-		return fmt.Errorf("knxd health check failed: unexpected response type 0x%04X (expected 0x%04X)", respType, eibOpenTGroup)
-	}
-
-	// Success - knxd responded to protocol message
-	return nil
-}
-
 // EIB protocol constants for bus-level health check.
 const (
 	apciRead     byte = 0x00 // APCI: group read request
@@ -653,7 +613,7 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 		0x00, 0x05, // size = 5 (type + payload)
 		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
 		byte(ga >> 8), byte(ga & 0xFF), // target group address (not 0/0/0!)
-		0xFF, // flags (matches knxtool behavior)
+		0xFF, // flags (matches knxtool behaviour)
 	}
 
 	if _, err := conn.Write(handshake); err != nil {
@@ -696,7 +656,7 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 
 	// Step 3: Wait for response (EIB_GROUP_PACKET with response data)
 	// We need to read packets until we get a response to our address, or timeout
-	// Defense-in-depth: limit iterations in case of spurious packets on a busy bus
+	// Defence-in-depth: limit iterations in case of spurious packets on a busy bus
 	const maxBusHealthIterations = 100
 	iterations := 0
 	for {
@@ -724,7 +684,7 @@ func (m *Manager) checkBusHealth(ctx context.Context) error {
 		pktType := uint16(header[2])<<8 | uint16(header[3])
 
 		// Read rest of packet
-		// Defense-in-depth: limit packet size to prevent memory exhaustion from malformed data
+		// Defence-in-depth: limit packet size to prevent memory exhaustion from malformed data
 		// KNX telegrams are max ~23 bytes; EIB messages similarly small; 1KB is very generous
 		const maxPacketSize = 1024
 		if pktSize < 2 {
@@ -775,11 +735,6 @@ func isTimeoutError(err error) bool {
 const (
 	// EIB_OPEN_T_CONNECTION opens a point-to-point connection to an individual address.
 	eibOpenTConnection uint16 = 0x0020
-
-	// A_DeviceDescriptor_Read service - requests device descriptor (mask version).
-	// This is mandatory for all KNX devices to respond to (per KNX spec).
-	// Format: APCI 0x0300 | descriptor type (0 = mask version)
-	aDeviceDescriptorRead uint16 = 0x0300
 
 	// A_DeviceDescriptor_Response service - device responds with its descriptor.
 	aDeviceDescriptorResponse uint16 = 0x0340
@@ -878,7 +833,7 @@ func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) e
 		0x00, 0x05, // size = 5 (type + payload)
 		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
 		byte(ga >> 8), byte(ga & 0xFF), // target group address
-		0xFF, // flags (matches knxtool behavior)
+		0xFF, // flags (matches knxtool behaviour)
 	}
 
 	if _, err := conn.Write(handshake); err != nil {
@@ -1036,7 +991,7 @@ func (m *Manager) checkDeviceDescriptor(ctx context.Context, individualAddr stri
 	m.logger.Debug("device descriptor check: sent request", "address", individualAddr)
 
 	// Step 3: Wait for A_DeviceDescriptor_Response
-	// Defense-in-depth: limit iterations
+	// Defence-in-depth: limit iterations
 	const maxIterations = 20
 	for i := 0; i < maxIterations; i++ {
 		select {
@@ -1125,12 +1080,18 @@ func (m *Manager) checkProcessState(pid int) error {
 	case "X", "x":
 		return fmt.Errorf("knxd process is dead (state=%s)", state)
 	case "D":
-		// D (uninterruptible sleep) is usually temporary (disk I/O)
-		// We log but don't fail immediately - let consecutive failure logic handle it
-		m.logger.Debug("knxd process in uninterruptible sleep (state=D)")
+		// D (uninterruptible sleep) is usually temporary (disk/USB I/O).
+		// However, if knxd is stuck in D-state for multiple health checks,
+		// the USB interface is likely hung and needs recovery.
+		m.dStateCount++
+		if m.dStateCount >= 3 {
+			return fmt.Errorf("knxd process stuck in uninterruptible sleep (state=D, count=%d)", m.dStateCount)
+		}
+		m.logger.Debug("knxd process in uninterruptible sleep (state=D)", "count", m.dStateCount)
 		return nil
 	default:
-		// R, S, I are all healthy states
+		// R, S, I are all healthy states - reset D-state counter
+		m.dStateCount = 0
 		return nil
 	}
 }
@@ -1207,7 +1168,7 @@ func (m *Manager) ResetUSBDevice() error {
 // falling back to /tmp if that's not writable.
 func (m *Manager) getPIDFilePath() string {
 	// Try /var/run first (standard location for daemon PID files)
-	if f, err := os.OpenFile(pidFilePath, os.O_CREATE|os.O_WRONLY, 0600); err == nil {
+	if f, err := os.OpenFile(pidFilePath, os.O_CREATE|os.O_WRONLY, pidFileMode); err == nil {
 		f.Close()
 		os.Remove(pidFilePath) // Remove the test file
 		return pidFilePath
@@ -1223,11 +1184,28 @@ func (m *Manager) getPIDFilePath() string {
 // Returns nil on success (PID file created with our PID).
 // Returns an error if another instance is already running.
 func (m *Manager) acquirePIDFile(pid int) error {
-	pidFile := m.getPIDFilePath()
+	return m.acquirePIDFileWithRetry(pid, 0)
+}
+
+// maxPIDFileRetries limits recursion depth for PID file acquisition.
+const maxPIDFileRetries = 3
+
+// acquirePIDFileWithRetry implements PID file acquisition with bounded retries.
+func (m *Manager) acquirePIDFileWithRetry(pid int, attempt int) error {
+	if attempt >= maxPIDFileRetries {
+		return fmt.Errorf("failed to acquire PID file after %d attempts", maxPIDFileRetries)
+	}
+
+	// Determine path once on first attempt and store it.
+	// This ensures removePIDFile() uses the same path even if /var/run permissions change.
+	if attempt == 0 {
+		m.activePIDFilePath = m.getPIDFilePath()
+	}
+	pidFile := m.activePIDFilePath
 	content := fmt.Sprintf("%d\n", pid)
 
 	// Try atomic exclusive create - fails if file already exists
-	f, err := os.OpenFile(pidFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, 0600)
+	f, err := os.OpenFile(pidFile, os.O_CREATE|os.O_EXCL|os.O_WRONLY, pidFileMode)
 	if err == nil {
 		// Success - we got the lock, write our PID
 		defer f.Close()
@@ -1249,7 +1227,7 @@ func (m *Manager) acquirePIDFile(pid int) error {
 	if readErr != nil {
 		// Can't read it, try to remove and retry
 		os.Remove(pidFile)
-		return m.acquirePIDFile(pid) // Retry once
+		return m.acquirePIDFileWithRetry(pid, attempt+1)
 	}
 
 	pidStr := strings.TrimSpace(string(data))
@@ -1258,7 +1236,7 @@ func (m *Manager) acquirePIDFile(pid int) error {
 		// Invalid PID file, remove and retry
 		m.logger.Warn("removing invalid PID file", "path", pidFile, "content", pidStr)
 		os.Remove(pidFile)
-		return m.acquirePIDFile(pid)
+		return m.acquirePIDFileWithRetry(pid, attempt+1)
 	}
 
 	// Check if the existing PID is still alive
@@ -1266,7 +1244,7 @@ func (m *Manager) acquirePIDFile(pid int) error {
 		// Stale PID file, remove and retry
 		m.logger.Info("removing stale PID file", "path", pidFile, "stale_pid", existingPID)
 		os.Remove(pidFile)
-		return m.acquirePIDFile(pid)
+		return m.acquirePIDFileWithRetry(pid, attempt+1)
 	}
 
 	// Another knxd instance is actually running
@@ -1282,7 +1260,7 @@ func (m *Manager) isKnxdProcessAlive(pid int) bool {
 	}
 
 	// On Unix, FindProcess always succeeds - send signal 0 to check if alive
-	if err := proc.Signal(syscall.Signal(0)); err != nil {
+	if signalErr := proc.Signal(syscall.Signal(0)); signalErr != nil {
 		return false // Process is dead
 	}
 
@@ -1300,10 +1278,16 @@ func (m *Manager) isKnxdProcessAlive(pid int) bool {
 
 // removePIDFile removes the PID file if it exists.
 func (m *Manager) removePIDFile() {
-	pidFile := m.getPIDFilePath()
+	// Use the stored path from acquisition, not a fresh determination.
+	// This ensures we remove the same file we created, even if /var/run permissions changed.
+	pidFile := m.activePIDFilePath
+	if pidFile == "" {
+		return // Never acquired a PID file
+	}
 	if err := os.Remove(pidFile); err != nil && !os.IsNotExist(err) {
 		m.logger.Warn("failed to remove PID file", "path", pidFile, "error", err)
 	} else if err == nil {
 		m.logger.Debug("removed PID file", "path", pidFile)
 	}
+	m.activePIDFilePath = "" // Clear after removal
 }

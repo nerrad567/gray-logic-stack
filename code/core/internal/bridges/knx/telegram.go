@@ -242,7 +242,7 @@ func EncodeKNXDMessage(msgType uint16, payload []byte) []byte {
 
 	// Size field = type(2) + payload length (does NOT include size field itself)
 	// This matches the eibd protocol specification
-	sizeField := 2 + len(payload) // type(2) + payload
+	sizeField := 2 + len(payload)                           // type(2) + payload
 	binary.BigEndian.PutUint16(buf[0:2], uint16(sizeField)) //nolint:gosec // bounded by small message sizes
 
 	// Message type

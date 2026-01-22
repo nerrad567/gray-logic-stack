@@ -498,7 +498,8 @@ func ParseGroupAddress(addr string) (uint16, error) {
 	}
 
 	// Encode to wire format: main(5) | middle(3) | sub(8)
-	ga := uint16(main)<<11 | uint16(middle)<<8 | uint16(sub)
+	// Bounds validated above: main 0-31, middle 0-7, sub 0-255 all fit in uint16.
+	ga := uint16(main)<<11 | uint16(middle)<<8 | uint16(sub) //nolint:gosec // G115: bounds validated above
 	return ga, nil
 }
 
@@ -553,7 +554,8 @@ func ParseIndividualAddress(addr string) (uint16, error) {
 	}
 
 	// Encode to wire format: area(4) | line(4) | device(8)
-	ia := uint16(area)<<12 | uint16(line)<<8 | uint16(device)
+	// Bounds validated above: area 0-15, line 0-15, device 0-255 all fit in uint16.
+	ia := uint16(area)<<12 | uint16(line)<<8 | uint16(device) //nolint:gosec // G115: bounds validated above
 	return ia, nil
 }
 

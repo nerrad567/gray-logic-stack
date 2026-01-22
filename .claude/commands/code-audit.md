@@ -34,6 +34,24 @@ A comprehensive, iterative audit to ensure Gray Logic Core is production-quality
 
 4. **Update the tracking file** with new count and commit hash.
 
+5. **Create/Update Audit Reports** (IMPORTANT):
+   - Create a detailed markdown report at:
+     ```
+     code/core/docs/technical/audit-reports/audit-YYYY-MM-DD-[scope].md
+     ```
+   - Update the summary file at:
+     ```
+     code/core/docs/technical/audit-reports/audit-summary.md
+     ```
+   - Add a new row to the "Phase 2: Code Audits" table in the summary
+
+### Audit Report Location
+
+All audit reports are stored in `code/core/docs/technical/audit-reports/`:
+- `audit-summary.md` — Master index of all audits
+- `audit-YYYY-MM-DD-[scope].md` — Individual audit reports
+- `audit-iteration-N-log.md` — Legacy documentation-phase audits
+
 ### Tracking File Format
 
 ```json
@@ -371,34 +389,128 @@ Report findings by severity and recommend fixes.
 
 ---
 
-## Audit Report Template
+## Audit Report Requirements
 
-After completing the audit, document findings:
+**Claude MUST create a proper audit report for every audit run.**
+
+### Report File
+
+Create at: `code/core/docs/technical/audit-reports/audit-YYYY-MM-DD-[scope].md`
+
+Example: `audit-2026-01-22-m1.2-knxd.md`
+
+### Required Report Structure
 
 ```markdown
-# Code Audit Report — [DATE]
+---
+title: Code Audit Report — [Component/Milestone]
+version: 1.0.0
+status: complete
+audit_date: YYYY-MM-DD
+auditor: Claude Code (model)
+scope: [What was audited]
+previous_audit: [Link to previous report]
+commit: [Git commit hash]
+---
 
-## Summary
-- **Tests:** ✅/❌ [X tests, Y% coverage]
-- **Lint:** ✅/❌ [N issues]
-- **Vulnerabilities:** ✅/❌ [N findings]
-- **AI Review:** ✅/❌ [N issues]
-- **Architecture:** ✅/❌ [Compliant/Violations]
-- **Dependencies:** ✅/❌ [Stable/Concerns]
-- **Documentation:** ✅/❌ [Synced/Drift]
+# Code Audit Report — [Component]
 
-## Issues Found
-| Severity | File | Issue | Status |
-|----------|------|-------|--------|
-| Critical | ... | ... | Fixed/Open |
+**Audit Date:** YYYY-MM-DD
+**Auditor:** Claude Code
+**Scope:** [Detailed scope description]
+**Packages Reviewed:**
+- [List of packages]
 
-## Commits Made
-- `abc123` fix(security): description
-- `def456` fix(lint): description
+---
 
-## Verdict
-[READY / BLOCKED — reason]
+## Executive Summary
+
+[Brief overview of audit progression and results]
+
+### Audit Progression
+
+| Run | Mode | Issues Found | Issues Fixed | Notes |
+|-----|------|--------------|--------------|-------|
+| 1 | Standard | N | N | [Key finding] |
+
+### Readiness Score
+
+| Category | Score | Notes |
+|----------|-------|-------|
+| Tests | X/10 | ... |
+| Security | X/10 | ... |
+| Reliability | X/10 | ... |
+
+**Overall Readiness: X.X/10**
+
+---
+
+## Phase Results
+
+[Detail each of the 7 phases with pass/fail and evidence]
+
+---
+
+## Issues Fixed
+
+### Critical Severity
+
+#### C1: [Issue Title] — [FIXED]
+
+| Attribute | Value |
+|-----------|-------|
+| **File** | `path/to/file.go:line` |
+| **Confidence** | X% |
+| **Issue** | [Description] |
+| **Impact** | [Why it matters] |
+| **Fix** | [What was done] |
+
+[Repeat for each issue by severity: Critical, High, Medium, Low]
+
+---
+
+## False Positives (Withdrawn)
+
+| Finding | Reason Withdrawn |
+|---------|------------------|
+| ... | ... |
+
+---
+
+## Remaining Warnings (Accepted)
+
+[List accepted warnings with rationale]
+
+---
+
+## Recommendations
+
+### Immediate
+[Before commit]
+
+### Short-Term
+[Next milestone]
+
+### Long-Term
+[Future work]
+
+---
+
+## Conclusion
+
+[Final assessment and verdict]
+
+**Verdict: ✅ SHIP IT / ❌ BLOCKED**
 ```
+
+### Update Summary File
+
+After creating the report, update `code/core/docs/technical/audit-reports/audit-summary.md`:
+
+1. Update the `last_updated` date in frontmatter
+2. Add a new row to the "Phase 2: Code Audits" table
+3. Add any new critical issues to the "Key Findings" section
+4. Update the "Current Readiness Score" if changed
 
 ---
 

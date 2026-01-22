@@ -193,8 +193,8 @@ func run(ctx context.Context) error {
 		// This learns KNX device addresses from bus traffic for health checks
 		busMonitor = knx.NewBusMonitor(db.DB)
 		busMonitor.SetLogger(log)
-		if err := busMonitor.Start(ctx, knxdManager.ConnectionURL()); err != nil {
-			log.Warn("bus monitor failed to start (health checks will use fallback)", "error", err)
+		if startErr := busMonitor.Start(ctx, knxdManager.ConnectionURL()); startErr != nil {
+			log.Warn("bus monitor failed to start (health checks will use fallback)", "error", startErr)
 			busMonitor = nil
 		} else {
 			defer func() {

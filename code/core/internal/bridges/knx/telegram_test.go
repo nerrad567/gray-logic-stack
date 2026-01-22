@@ -360,13 +360,13 @@ func TestEncodeKNXDMessage(t *testing.T) {
 		{
 			name:    "open T_GROUP (with payload)",
 			msgType: EIBOpenTGroup,
-			payload: []byte{0x00, 0x00, 0xFF}, // group_addr=0x0000, flags=0xFF
+			payload: []byte{0x00, 0x00, 0xFF},                         // group_addr=0x0000, flags=0xFF
 			want:    []byte{0x00, 0x05, 0x00, 0x22, 0x00, 0x00, 0xFF}, // size=5 (type+payload)
 		},
 		{
 			name:    "group packet with telegram",
 			msgType: EIBGroupPacket,
-			payload: []byte{0x0A, 0x03, 0x81}, // GA 1/2/3, write true
+			payload: []byte{0x0A, 0x03, 0x81},                         // GA 1/2/3, write true
 			want:    []byte{0x00, 0x05, 0x00, 0x27, 0x0A, 0x03, 0x81}, // size=5 (type+payload)
 		},
 		{

@@ -409,7 +409,7 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 
 					// Kill the hung process
 					if cmd.Process != nil {
-						cmd.Process.Kill()
+						_ = cmd.Process.Kill() //nolint:errcheck // Error ignored - process may already be dead
 					}
 
 					// Wait for exit and return

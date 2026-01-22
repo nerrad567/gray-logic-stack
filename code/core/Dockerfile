@@ -59,10 +59,10 @@ LABEL org.opencontainers.image.version="${VERSION:-dev}"
 # The following packages are REQUIRED for USB KNX interface support:
 #
 # - knxd: KNX daemon for bus communication
-# - usbutils: Provides 'usbreset' for USB device error recovery
+# - usbutils: Provides 'lsusb' (USB health check) and 'usbreset' (error recovery)
 # - libusb-1.0-0: USB library required by knxd
 #
-# DO NOT REMOVE these packages - USB recovery will fail without usbreset!
+# DO NOT REMOVE these packages - health checks and USB recovery will fail!
 # See CONTAINER.md for details.
 # ------------------------------------------------------------------------------
 RUN apt-get update && apt-get install -y --no-install-recommends \
@@ -77,6 +77,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
 
 # Verify critical utilities are installed
 RUN echo "Verifying required utilities..." \
+    && which lsusb && echo "  lsusb: OK" \
     && which usbreset && echo "  usbreset: OK" \
     && which knxd && echo "  knxd: OK" \
     && echo "All required utilities present."

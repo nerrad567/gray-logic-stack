@@ -36,7 +36,24 @@
       "Bash(go build:*)",
       "Bash(/usr/local/go/bin/go build:*)",
       "Bash(/home/graylogic-dev/go/bin/golangci-lint run:*)",
-      "Bash(PATH=\"/usr/local/go/bin:$PATH\" /home/graylogic-dev/go/bin/golangci-lint run:*)"
+      "Bash(PATH=\"/usr/local/go/bin:$PATH\" /home/graylogic-dev/go/bin/golangci-lint run:*)",
+      "Bash(/usr/local/go/bin/go vet:*)",
+      "Bash(/home/graylogic-dev/go/bin/govulncheck:*)",
+      "Bash(__NEW_LINE_87e7c20333dfe480__ echo -e \"\\\\n=== Checking for life safety control ===\")",
+      "Bash(__NEW_LINE_87e7c20333dfe480__ echo -e \"\\\\n=== Checking for proprietary protocols ===\")",
+      "Bash(__NEW_LINE_156f6f8aa2dd7e28__ echo -e \"\\\\n=== Checking if device package has doc.go ===\")",
+      "Bash(__NEW_LINE_156f6f8aa2dd7e28__ echo -e \"\\\\n=== Device types match data model? ===\")",
+      "Bash(pkill:*)",
+      "Bash(pgrep:*)",
+      "Bash(timeout 15 /usr/bin/knxd:*)",
+      "WebFetch(domain:virtual.knx.org)",
+      "WebFetch(domain:www.knx.org)",
+      "WebFetch(domain:support.knx.org)",
+      "Bash(timeout 5 knxtool groupread:*)",
+      "WebFetch(domain:sources.debian.org)",
+      "WebFetch(domain:github.com)",
+      "Bash(lsusb:*)",
+      "Bash(timeout 30 ./bin/graylogic:*)"
     ]
   },
   "outputStyle": "Explanatory"

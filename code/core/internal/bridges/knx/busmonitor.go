@@ -111,6 +111,7 @@ func (m *BusMonitor) Start(ctx context.Context, knxdURL string) error {
 	// Parse connection URL
 	network, address, err := m.parseURL(knxdURL)
 	if err != nil {
+		m.closeStatements()
 		return fmt.Errorf("invalid knxd URL: %w", err)
 	}
 
@@ -121,6 +122,7 @@ func (m *BusMonitor) Start(ctx context.Context, knxdURL string) error {
 	var dialer net.Dialer
 	conn, err := dialer.DialContext(connectCtx, network, address)
 	if err != nil {
+		m.closeStatements()
 		return fmt.Errorf("connecting to knxd: %w", err)
 	}
 	m.conn = conn
@@ -128,6 +130,7 @@ func (m *BusMonitor) Start(ctx context.Context, knxdURL string) error {
 	// Open vbusmonitor mode
 	if err := m.openVBusMonitor(); err != nil {
 		m.conn.Close()
+		m.closeStatements()
 		return fmt.Errorf("opening vbusmonitor mode: %w", err)
 	}
 
@@ -158,14 +161,21 @@ func (m *BusMonitor) Stop() {
 
 	m.wg.Wait()
 
+	m.closeStatements()
+
+	m.log("bus monitor stopped")
+}
+
+// closeStatements closes prepared statements if they exist.
+func (m *BusMonitor) closeStatements() {
 	if m.deviceUpsertStmt != nil {
 		m.deviceUpsertStmt.Close()
+		m.deviceUpsertStmt = nil
 	}
 	if m.groupUpsertStmt != nil {
 		m.groupUpsertStmt.Close()
+		m.groupUpsertStmt = nil
 	}
-
-	m.log("bus monitor stopped")
 }
 
 // parseURL parses a knxd connection URL into network and address.
@@ -271,8 +281,10 @@ func (m *BusMonitor) receiveLoop() {
 
 		msgSize := binary.BigEndian.Uint16(buf[:2])
 		if msgSize < 2 || int(msgSize) > len(buf)-2 {
-			m.logError("invalid message size", fmt.Errorf("size: %d", msgSize))
-			continue
+			m.logError("invalid message size, closing connection", fmt.Errorf("size: %d", msgSize))
+			// Protocol violation - close and return to force reconnect
+			m.conn.Close()
+			return
 		}
 
 		// Read rest of message
@@ -332,7 +344,7 @@ func (m *BusMonitor) processFrame(frame []byte) {
 		// GroupValue_Response has APCI = 0x0040 (bits 6-7 of byte 7 = 01)
 		isResponse := false
 		if len(frame) >= 8 {
-			apciLow := frame[7] & 0xC0 // High 2 bits indicate response type
+			apciLow := frame[7] & 0xC0     // High 2 bits indicate response type
 			isResponse = (apciLow == 0x40) // GroupValue_Response
 		}
 
@@ -343,7 +355,9 @@ func (m *BusMonitor) processFrame(frame []byte) {
 
 // recordDevice updates the database with a seen device.
 func (m *BusMonitor) recordDevice(addr string) {
-	if m.deviceUpsertStmt == nil {
+	// Check if shutdown is in progress before accessing statements.
+	// This prevents a race between receiveLoop and Stop().
+	if m.isClosed() || m.deviceUpsertStmt == nil {
 		return
 	}
 
@@ -355,7 +369,9 @@ func (m *BusMonitor) recordDevice(addr string) {
 
 // recordGroupAddress updates the database with a seen group address.
 func (m *BusMonitor) recordGroupAddress(addr string, isResponse bool) {
-	if m.groupUpsertStmt == nil {
+	// Check if shutdown is in progress before accessing statements.
+	// This prevents a race between receiveLoop and Stop().
+	if m.isClosed() || m.groupUpsertStmt == nil {
 		return
 	}
 
@@ -395,7 +411,7 @@ func (m *BusMonitor) GetHealthCheckDevices(ctx context.Context, limit int) ([]st
 }
 
 // GetHealthCheckGroupAddresses returns group addresses for Layer 3 health checks.
-// Prioritizes addresses that have previously responded to read requests.
+// Prioritises addresses that have previously responded to read requests.
 func (m *BusMonitor) GetHealthCheckGroupAddresses(ctx context.Context, limit int) ([]string, error) {
 	// Prefer addresses with known read responses, then most recently active
 	rows, err := m.db.QueryContext(ctx, `
