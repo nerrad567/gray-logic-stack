@@ -183,12 +183,91 @@ When `/docs-sync` is invoked:
    - Update version numbers
    - Add function doc comments
 
+### 10. Session Log Updates (CHANGELOG, PROJECT-STATUS, IMPLEMENTATION)
+
+After any significant coding work, verify that high-level project logs reflect what was done:
+
+#### CHANGELOG.md
+```bash
+cd /home/graylogic-dev/gray-logic-stack
+
+# What's changed since the last CHANGELOG entry?
+last_changelog_commit=$(git log -1 --format="%H" -- CHANGELOG.md)
+echo "=== Code changes since last CHANGELOG update ==="
+git log --oneline "$last_changelog_commit"..HEAD -- code/ 2>/dev/null | head -20
+
+# Are there uncommitted changes not in CHANGELOG?
+echo -e "\n=== Uncommitted code files ==="
+git diff --name-only -- code/
+git diff --cached --name-only -- code/
+```
+
+**What to check:**
+- New features, bug fixes, or structural changes need a CHANGELOG entry
+- Entry format: `## X.Y.Z – Description (YYYY-MM-DD)`
+- Group changes under: Added, Changed, Fixed, Removed
+
+#### PROJECT-STATUS.md
+```bash
+cd /home/graylogic-dev/gray-logic-stack
+
+# Compare claimed milestone status vs actual code
+echo "=== PROJECT-STATUS.md current phase ==="
+grep -A2 "Current Phase\|Current Milestone\|Active Work" PROJECT-STATUS.md | head -10
+
+echo -e "\n=== Recent code commits ==="
+git log --oneline -10 -- code/
+```
+
+**What to check:**
+- Does the "Current Phase/Milestone" match what we just completed?
+- Are completion percentages accurate?
+- Is the "Next" section pointing at the right work?
+
+#### IMPLEMENTATION.md
+```bash
+cd /home/graylogic-dev/gray-logic-stack/code/core
+
+echo "=== RESUME HERE section ==="
+grep -A5 "RESUME HERE" IMPLEMENTATION.md
+
+echo -e "\n=== Recently created/modified Go files ==="
+git diff --name-only HEAD~5..HEAD -- internal/ cmd/ 2>/dev/null
+find internal cmd -name "*.go" -mtime 0 -type f 2>/dev/null
+```
+
+**What to check:**
+- Does "RESUME HERE" point to the next session/milestone?
+- Are completed tasks marked with ✅?
+- Are new files listed in the appropriate milestone section?
+
+#### Claude's Session Log Checklist
+
+When checking session logs, Claude should answer:
+1. ❓ Were any milestone tasks completed this session? → Update PROJECT-STATUS.md
+2. ❓ Were features added, bugs fixed, or breaking changes made? → Update CHANGELOG.md
+3. ❓ Were new files created or significant code written? → Update IMPLEMENTATION.md
+4. ❓ Is "RESUME HERE" pointing at the correct next step? → Update IMPLEMENTATION.md
+
+If ANY answer is "yes but not yet updated", Claude should offer to update the file.
+
 ## When to Run
 
-- After completing any milestone
+- **After completing any milestone** (mandatory)
+- **After any significant coding session** (strongly recommended)
 - Before creating a PR
 - When resuming work after a break
 - Weekly during active development
+
+## Auto-Trigger Behavior
+
+Claude should **automatically offer to run `/docs-sync`** (specifically the Session Log checks) when:
+- A milestone or sub-milestone is completed
+- Multiple files have been created or significantly modified
+- Tests pass after a feature implementation
+- The user says they're "done" or "wrapping up"
+
+Claude should ask: *"Session work looks complete — shall I run `/docs-sync` to update project logs?"*
 
 ## Related Commands
 

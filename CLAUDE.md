@@ -150,6 +150,7 @@ When working on this project:
 4. **Respect the multi-decade goal**: Avoid bleeding-edge, prefer stable
 5. **Offline-first always**: Never add cloud dependencies for core features
 6. **Document changes**: Update relevant docs when making changes
+7. **Session log sync**: After completing significant coding work (milestone completion, multi-file feature implementation, or when the user indicates they're done), offer to run `/docs-sync` to update CHANGELOG.md, PROJECT-STATUS.md, and IMPLEMENTATION.md. Ask: *"Session work looks complete — shall I run `/docs-sync` to update project logs?"*
 
 ## Common Commands
 
