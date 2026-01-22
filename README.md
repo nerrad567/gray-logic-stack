@@ -142,7 +142,7 @@ Requires Go 1.25+ and knxd for KNX functionality.
 
 I've been maintaining control systems for years — fault-finding through panels, replacing contactors, tracing circuits — without fully understanding how they're designed from the ground up. Building my own system is how I learn best: by thinking through the architecture decisions, understanding why protocols work the way they do, and writing code that actually runs.
 
-This project won't replace commercial BMS platforms, but it's taught me more about building automation than any course could. The domain thinking and architecture decisions are mine; I use AI tools to help with implementation.
+Building my own system has taught me more about building automation than any course could. The domain thinking and architecture decisions are mine; I use AI tools to help with implementation.
 
 ## Links
 
