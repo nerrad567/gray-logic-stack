@@ -133,11 +133,7 @@ func (h *Hub) Broadcast(channel string, payload any) {
 
 	for _, client := range clients {
 		if client.isSubscribed(channel) {
-			select {
-			case client.send <- data:
-			default:
-				// Client buffer full, skip
-			}
+			client.trySend(data)
 		}
 	}
 }
@@ -354,6 +350,21 @@ func (c *WSClient) handleUnsubscribe(msg WSMessage) {
 	c.sendResponse(msg.ID, WSTypeResponse, map[string]any{
 		"unsubscribed": sub.Channels,
 	})
+}
+
+// trySend attempts to send data to the client's send channel.
+// It silently handles closed channels (client disconnected during broadcast)
+// and full buffers (slow client).
+func (c *WSClient) trySend(data []byte) {
+	defer func() {
+		recover() //nolint:errcheck // Absorb send-on-closed-channel panic
+	}()
+
+	select {
+	case c.send <- data:
+	default:
+		// Client buffer full, skip
+	}
 }
 
 // isSubscribed checks if the client is subscribed to a channel.
