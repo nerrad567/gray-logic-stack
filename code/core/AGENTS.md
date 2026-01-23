@@ -138,6 +138,9 @@ if err := s.repo.GetByID(ctx, id); err != nil {
 
 ### 3. Testing Requirements
 
+> For the full testing strategy including tiers, build tags, and coverage targets,
+> see `docs/technical/testing-strategy.md`.
+
 - **80% coverage minimum** for new code
 - **100% coverage** for security-critical and error paths
 - Use **table-driven tests**:

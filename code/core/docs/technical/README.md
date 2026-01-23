@@ -22,6 +22,12 @@ This directory contains comprehensive documentation covering the **what**, **how
 | [device-registry](packages/device-registry.md) | Device catalogue with caching | Active |
 | [process-manager](packages/process-manager.md) | Generic subprocess management | Active |
 
+### Testing
+
+| Topic | Purpose | Status |
+|-------|---------|--------|
+| [Testing Strategy](testing-strategy.md) | Test tiers, coverage targets, patterns | Active |
+
 ### Architecture Docs
 
 | Topic | Purpose |

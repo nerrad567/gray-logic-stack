@@ -190,12 +190,10 @@ These are available in `.claude/commands/`:
 | Command | Purpose |
 |---------|---------|
 | `/pre-commit` | Run lint + tests + principles check before committing |
-| `/check-principles` | Validate changes against Gray Logic hard boundaries |
-| `/audit-deps` | Check Go dependencies for multi-decade viability |
+| `/code-audit` | Comprehensive 7-phase code audit for stability and security |
+| `/milestone-audit` | End-of-milestone quality gate with coverage enforcement |
 | `/health-check` | Verify dev environment (Go, Docker, services) |
-| `/add-domain` | Scaffold a new domain specification |
 | `/new-bridge` | Scaffold a new protocol bridge |
-| `/add-entity` | Add entity to data model with JSON schema |
 
 ## Current Focus
 
