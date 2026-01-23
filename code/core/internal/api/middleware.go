@@ -139,6 +139,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	if w.status == 0 {
 		w.status = http.StatusOK
 	}
+	//nolint:wrapcheck // Passthrough: statusWriter is a transparent wrapper
 	return w.ResponseWriter.Write(b)
 }
 
