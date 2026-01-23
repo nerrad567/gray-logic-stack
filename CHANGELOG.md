@@ -271,9 +271,11 @@ When `knxd.managed: false`, the system behaves exactly as before — expects knx
 
 Added specialized guidance for AI assistants to ensure alignment with project principles and coding standards.
 
-**New Documents**
+**Documents**
 
+- `CLAUDE.md`: Primary project guidance for Claude Code (claude.ai/code) — architecture overview, repository structure, common commands, development approach, and AI assistant guidelines. This is the main AI context file used throughout development.
 - `GEMINI.md`: Project-specific guidance for the Gemini CLI agent, including architecture overview, philosophy, coding standards, and interaction rules.
+- `code/core/AGENTS.md`: Go-specific development guidance for AI assistants working on the Core codebase — package conventions, testing standards, error handling patterns.
 
 ---
 
