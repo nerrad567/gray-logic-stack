@@ -4,6 +4,85 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.6 – M1.4 REST API + WebSocket (2026-01-23)
+
+**Milestone: M1.4 REST API + WebSocket — Complete**
+
+The HTTP API server and WebSocket real-time layer are fully implemented, tested, and integrated into the Gray Logic Core. User interfaces (Flutter wall panels, mobile apps, web admin) can now interact with the device registry via REST endpoints and receive real-time state updates via WebSocket.
+
+**What Was Built**
+
+- `internal/api/` package — 9 files, ~2,000 lines:
+  - **Server lifecycle**: `New()`, `Start()`, `Close()`, `HealthCheck()` following existing infrastructure patterns
+  - **Chi router** (`go-chi/chi/v5`): Stdlib-compatible, minimal HTTP routing
+  - **Device CRUD**: List (with filtering), Get, Create, Update, Delete
+  - **Device state**: GET current state, PUT command (publishes to MQTT → KNX bridge)
+  - **WebSocket hub**: Real-time broadcast of `device.state_changed` events
+  - **Auth placeholder**: JWT login (hardcoded dev user), ticket-based WebSocket auth
+  - **Middleware stack**: Request ID, structured logging, panic recovery, CORS
+  - **TLS support**: Optional `ListenAndServeTLS` when config enables it
+
+**Command Flow (API → Physical Device → WebSocket)**
+
+```
+Client → PUT /api/v1/devices/{id}/state
+    → API validates + publishes to MQTT: graylogic/bridge/{bridgeID}/command/{deviceID}
+    → KNX Bridge receives command, sends KNX telegram
+    → Physical device responds → KNX telegram back
+    → Bridge publishes state update to MQTT
+    → API server receives via MQTT subscription
+    → WebSocket Hub broadcasts device.state_changed to subscribers
+```
+
+**Dependencies Added**
+
+- `github.com/go-chi/chi/v5` v5.2.4 — HTTP router
+- `github.com/gorilla/websocket` v1.5.3 — WebSocket upgrade
+- `github.com/golang-jwt/jwt/v5` v5.3.0 — JWT token handling
+
+**API Endpoints**
+
+| Method | Path | Description |
+|--------|------|-------------|
+| GET | `/api/v1/health` | Health check |
+| POST | `/api/v1/auth/login` | JWT login (dev: admin/admin) |
+| POST | `/api/v1/auth/ws-ticket` | Single-use WebSocket ticket |
+| GET | `/api/v1/devices` | List devices (filterable) |
+| GET | `/api/v1/devices/{id}` | Get device by ID |
+| POST | `/api/v1/devices` | Create device |
+| PATCH | `/api/v1/devices/{id}` | Update device |
+| DELETE | `/api/v1/devices/{id}` | Delete device |
+| GET | `/api/v1/devices/{id}/state` | Get current state |
+| PUT | `/api/v1/devices/{id}/state` | Send command (async) |
+| GET | `/api/v1/ws` | WebSocket connection |
+
+**Design Decisions**
+
+- **MQTT optional**: Server degrades gracefully without MQTT — reads and WebSocket work, only commands fail
+- **Ticket-based WebSocket auth**: Prevents JWT leakage in URL query params/logs
+- **Deep-copy semantics**: Registry returns copies to prevent cache pollution (consistent with M1.3)
+- **Package location**: `internal/api/` (application-level concern, not infrastructure)
+
+**Tests Added**
+
+- `internal/api/server_test.go` — 23 tests:
+  - Health endpoint (status, content-type)
+  - Middleware (request ID, CORS, 404 handling)
+  - Device CRUD (create, get, update, delete, filter by domain)
+  - Device state (get state, missing command, not found)
+  - Auth (login success/failure, ticket single-use, ticket expiry)
+  - WebSocket hub (broadcast to subscribed, no message for unsubscribed, client count)
+
+**Test Coverage**
+
+- All 12 packages pass (0 failures)
+- Build and lint clean
+- 23 new API tests + all existing tests continue to pass
+
+**Next: M1.5 — Flutter Wall Panel (or Auth hardening)**
+
+---
+
 ## 1.0.5 – M1.3 Device Registry Complete (2026-01-22)
 
 **Milestone: M1.3 Device Registry — Complete**

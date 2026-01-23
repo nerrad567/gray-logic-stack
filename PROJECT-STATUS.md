@@ -1,7 +1,7 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-22
-> **Current Phase:** Implementation (M1.4 - REST API)
+> **Last Updated:** 2026-01-23
+> **Current Phase:** Implementation (M1.5 - Next)
 
 ---
 
@@ -23,7 +23,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | 🟢 M1.4 Next |
+| Code | 🟢 M1.4 Complete, M1.5 Next |
 
 ---
 
@@ -152,7 +152,8 @@
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.4 Next | M1.1 + M1.2 + M1.3 complete |
+| Gray Logic Core (Go) | 🟢 M1.5 Next | M1.1 + M1.2 + M1.3 + M1.4 complete |
+| REST API + WebSocket | ✅ Complete | Chi router, device CRUD, state commands, WebSocket hub, JWT auth placeholder |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
 | knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
 | Device Registry | ✅ Complete | Types, repository, validation, wired to main.go + KNX bridge |
@@ -201,6 +202,20 @@
 - [x] Unit tests for knxd package — Config validation, address parsing, BuildArgs
 - [x] Unit tests for process package — Construction, backoff, state transitions
 
+### M1.4 Progress (REST API + WebSocket) — ✅ Complete
+- [x] server.go — HTTP server lifecycle (New, Start, Close, HealthCheck)
+- [x] router.go — Chi router with middleware wiring and route registration
+- [x] errors.go — HTTP error response helpers with typed error codes
+- [x] middleware.go — Request ID, logging, recovery, CORS, auth placeholder
+- [x] devices.go — Device CRUD + state/command handlers (MQTT publish)
+- [x] websocket.go — WebSocket hub, client management, channel subscriptions
+- [x] auth.go — JWT login (dev credentials), ticket-based WebSocket auth
+- [x] MQTT → WebSocket bridge — State updates broadcast to subscribed clients
+- [x] TLS support — Optional ListenAndServeTLS from config
+- [x] Wired into main.go — Initialised after MQTT, before InfluxDB
+- [x] server_test.go — 23 tests (health, middleware, CRUD, state, auth, WebSocket hub)
+- [x] All 12 packages pass, build and lint clean
+
 ---
 
 ## Roadmap
@@ -241,6 +256,36 @@
 ---
 
 ## Change Log
+
+### 2026-01-23 — M1.4 REST API + WebSocket Complete
+
+**Milestone Complete:**
+- M1.4 REST API + WebSocket fully implemented, tested, and integrated
+- `internal/api/` package: 9 files, ~2,000 lines of Go code
+- Chi router, device CRUD, state commands via MQTT, WebSocket real-time hub
+- JWT auth placeholder with ticket-based WebSocket authentication
+- 23 new tests, all 12 packages pass, build and lint clean
+
+**Files Created:**
+- `internal/api/server.go` — Server lifecycle (New, Start, Close, HealthCheck)
+- `internal/api/router.go` — Route registration with Chi router
+- `internal/api/errors.go` — HTTP error response helpers
+- `internal/api/middleware.go` — Request ID, logging, recovery, CORS
+- `internal/api/devices.go` — Device CRUD + state/command handlers
+- `internal/api/websocket.go` — WebSocket hub + client management
+- `internal/api/auth.go` — JWT login + WebSocket ticket auth
+- `internal/api/server_test.go` — 23 comprehensive tests
+
+**Files Modified:**
+- `cmd/graylogic/main.go` — API server initialization after MQTT
+- `go.mod` / `go.sum` — Added chi, gorilla/websocket, golang-jwt
+
+**Dependencies Added:**
+- `github.com/go-chi/chi/v5` v5.2.4
+- `github.com/gorilla/websocket` v1.5.3
+- `github.com/golang-jwt/jwt/v5` v5.3.0
+
+**Next:** M1.5 (Flutter Wall Panel or Auth hardening)
 
 ### 2026-01-22 — M1.3 Device Registry Complete
 
