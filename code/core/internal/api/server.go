@@ -55,6 +55,7 @@ type Server struct {
 	version  string
 	server   *http.Server
 	hub      *Hub
+	cancel   context.CancelFunc // cancels background goroutines on Close()
 }
 
 // New creates a new API server with the given dependencies.
@@ -101,12 +102,17 @@ func New(deps Deps) (*Server, error) {
 // Returns:
 //   - error: If the server fails to start (port in use, etc.)
 func (s *Server) Start(ctx context.Context) error {
+	// Create internal context so Close() can stop background goroutines
+	// independently of the parent context.
+	var srvCtx context.Context
+	srvCtx, s.cancel = context.WithCancel(ctx)
+
 	// Create WebSocket hub
 	s.hub = NewHub(s.wsCfg, s.logger)
-	go s.hub.Run(ctx)
+	go s.hub.Run(srvCtx)
 
 	// Start periodic ticket cleanup to prevent memory leaks
-	go s.cleanTicketsLoop(ctx)
+	go s.cleanTicketsLoop(srvCtx)
 
 	// Subscribe to device state changes from bridges for WebSocket broadcast
 	if err := s.subscribeStateUpdates(); err != nil {
@@ -155,6 +161,11 @@ func (s *Server) Start(ctx context.Context) error {
 func (s *Server) Close() error {
 	if s.server == nil {
 		return nil
+	}
+
+	// Cancel background goroutines (hub, ticket cleanup)
+	if s.cancel != nil {
+		s.cancel()
 	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), gracefulShutdownTimeout)
