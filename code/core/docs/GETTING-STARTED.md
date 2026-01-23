@@ -78,7 +78,7 @@ code/core/
 ├── Makefile                ← Build automation ✓
 ├── .golangci.yml           ← Linter configuration ✓
 ├── .gitignore              ← Git exclusions ✓
-└── IMPLEMENTATION.md       ← Progress tracking ✓
+└── PROJECT-STATUS.md       ← Progress tracking (repo root) ✓
 ```
 
 ### Why This Structure?

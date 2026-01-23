@@ -69,7 +69,7 @@ For significant implementation choices:
 ## Related Documentation
 
 - [GETTING-STARTED.md](../GETTING-STARTED.md) — Conceptual introduction
-- [IMPLEMENTATION.md](../../IMPLEMENTATION.md) — Session-by-session development log
+- [PROJECT-STATUS.md](../../../../PROJECT-STATUS.md) — Session-by-session development log
 - [docs/architecture/decisions/](../../../../docs/architecture/decisions/) — High-level ADRs (Go, MQTT, SQLite)
 - [docs/development/CODING-STANDARDS.md](../../../../docs/development/CODING-STANDARDS.md) — Style guide
 

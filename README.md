@@ -149,7 +149,7 @@ Building my own system has taught me more about building automation than any cou
 - **Technical Docs:** [code/core/docs/technical/](code/core/docs/technical/)
 - **KNX Bridge Design:** [code/core/docs/technical/packages/knx-bridge.md](code/core/docs/technical/packages/knx-bridge.md)
 - **System Architecture:** [docs/architecture/system-overview.md](docs/architecture/system-overview.md)
-- **Development Log:** [code/core/IMPLEMENTATION.md](code/core/IMPLEMENTATION.md)
+- **Development Log:** [PROJECT-STATUS.md](PROJECT-STATUS.md)
 
 ---
 

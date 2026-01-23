@@ -5,6 +5,23 @@
 
 ---
 
+## RESUME HERE — Next Session
+
+**Last session:** 2026-01-23 (Session 14 - M1.4 REST API + WebSocket Complete!)
+**Current milestone:** M1.5 (Flutter Wall Panel or Auth hardening)
+
+**What's done:**
+- M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
+- M1.2 KNX Bridge (telegram parsing, knxd client, MQTT translation, 4 audit cycles) ✅
+- M1.3 Device Registry (50+ types, thread-safe cache, SQLite persistence, KNX integration) ✅
+- M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
+
+**What's next:**
+- M1.5 Flutter Wall Panel (or auth hardening first)
+- M1.6 Basic Scenes
+
+---
+
 ## Quick Summary
 
 | Area | Status |
@@ -29,11 +46,9 @@
 
 ## Documentation Status
 
-### ✅ Complete
+All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 2026-01-18 for details.
 
 #### Overview (`docs/overview/`)
-- [x] `vision.md` — Product vision and goals
-- [x] `principles.md` — Hard rules and design principles
 - [x] `vision.md` — Product vision and goals
 - [x] `principles.md` — Hard rules and design principles
 - [x] `capabilities-and-benefits.md` — Capabilities summary v2.0
@@ -44,12 +59,12 @@
 - [x] `core-internals.md` — Go Core package structure
 - [x] `bridge-interface.md` — MQTT bridge contract
 - [x] `energy-model.md` — Bidirectional energy flows
-- [x] `security-model.md` — Authentication and authorization ✓
+- [x] `security-model.md` — Authentication and authorization
 - [x] `cloud-relay.md` — Cloud services architecture v0.1.0
 
 #### Data Model (`docs/data-model/`)
 - [x] `entities.md` — Core entities (Site, Area, Room, Device, Scene, etc.)
-- [x] `schemas/` — JSON Schema definitions for all entities ✓
+- [x] `schemas/` — JSON Schema definitions for all entities
 
 #### Protocols (`docs/protocols/`)
 - [x] `knx.md` — KNX integration via knxd
@@ -57,15 +72,13 @@
 - [x] `modbus.md` — Modbus RTU/TCP for plant equipment
 - [x] `mqtt.md` — Internal message bus
 - [x] `bacnet.md` — BACnet roadmap (Year 2 placeholder)
-- [x] `ocpp.md` — EV charging protocol ✓
+- [x] `ocpp.md` — EV charging protocol
 
 #### Integrations (`docs/integration/`)
 - [x] `cctv.md` — CCTV and video surveillance
 - [x] `access-control.md` — Door access, intercoms, gates
 - [x] `fire-alarm.md` — Fire alarm monitoring (observation only)
 - [x] `diy-integration.md` — DIY device integration spec (Matter/Zigbee)
-- [x] `access-control.md` — Door access, intercoms, gates
-- [x] `fire-alarm.md` — Fire alarm monitoring (observation only)
 
 #### Interfaces (`docs/interfaces/`)
 - [x] `api.md` — REST and WebSocket API specification
@@ -78,42 +91,6 @@
 - [x] `climate.md` — HVAC + commercial
 - [x] `blinds.md` — Shading and blind control
 - [x] `plant.md` — Plant room equipment
-
-#### Deployment (`docs/deployment/`)
-- [x] `office-commercial.md` — Commercial deployment guide
-- [x] `residential.md` — Residential deployment guide ✓
-- [x] `handover-pack-template.md` — Customer handover template
-
-#### Intelligence (`docs/intelligence/`)
-- [x] `ai-premium-features.md` — AI feature boundaries
-- [x] `phm.md` — Predictive Health Monitoring framework ✓
-- [x] `voice.md` — Voice pipeline specification (Whisper, NLU, Piper) ✓
-- [x] `weather.md` — Weather integration ✓
-
-#### Resilience (`docs/resilience/`)
-- [x] `offline.md` — Offline behavior and graceful degradation ✓
-- [x] `backup.md` — Backup and recovery procedures ✓
-- [x] `satellite-weather.md` — Satellite weather decode ✓
-- [x] `mesh-comms.md` — LoRa/Meshtastic mesh communications ✓
-
-#### Operations (`docs/operations/`)
-- [x] `updates.md` — Update and upgrade strategy ✓
-- [x] `monitoring.md` — Monitoring and alerting ✓
-- [x] `maintenance.md` — System maintenance procedures
-- [x] `monitoring.md` — Monitoring and alerting ✓
-
-#### Commissioning (`docs/commissioning/`)
-- [x] `discovery.md` — Device discovery specification ✓
-
----
-
-### 🟡 Partially Complete / In Progress
-
-#### Domains — Complete ✓
-- [x] `lighting.md` — Lighting control
-- [x] `climate.md` — HVAC and climate
-- [x] `blinds.md` — Blinds and shading
-- [x] `plant.md` — Plant room equipment
 - [x] `audio.md` — Multi-room audio
 - [x] `security.md` — Alarm system integration
 - [x] `energy.md` — Energy management
@@ -124,27 +101,39 @@
 - [x] `presence.md` — Occupancy and presence detection
 - [x] `pool.md` — Pool chemistry, covers, water features
 
-#### Deployment — Complete ✓
+#### Deployment (`docs/deployment/`)
+- [x] `office-commercial.md` — Commercial deployment guide
+- [x] `residential.md` — Residential deployment guide
+- [x] `handover-pack-template.md` — Customer handover template
 
-#### Intelligence — Complete ✓
+#### Intelligence (`docs/intelligence/`)
+- [x] `ai-premium-features.md` — AI feature boundaries
+- [x] `phm.md` — Predictive Health Monitoring framework
+- [x] `voice.md` — Voice pipeline specification (Whisper, NLU, Piper)
+- [x] `weather.md` — Weather integration
 
-#### Resilience — Complete ✓
+#### Resilience (`docs/resilience/`)
+- [x] `offline.md` — Offline behavior and graceful degradation
+- [x] `backup.md` — Backup and recovery procedures
+- [x] `satellite-weather.md` — Satellite weather decode
+- [x] `mesh-comms.md` — LoRa/Meshtastic mesh communications
 
-#### Business (`docs/business/`) — Complete ✓
+#### Operations (`docs/operations/`)
+- [x] `updates.md` — Update and upgrade strategy
+- [x] `monitoring.md` — Monitoring and alerting
+- [x] `maintenance.md` — System maintenance procedures
+
+#### Commissioning (`docs/commissioning/`)
+- [x] `discovery.md` — Device discovery specification
+
+#### Business (`docs/business/`)
 - [x] `business-case.md` — Business case, market analysis, open source strategy
 - [x] `pricing.md` — Installation tiers, hardware strategy, support tiers
 - [x] `sales-spec.md` — Customer journey, proposals, contracts, installation
 - [x] `go-to-market.md` — Phased growth strategy, marketing channels
 - [x] `certification.md` — Training curriculum, partner benefits, quality control
-- [x] `certification.md` — Training curriculum, partner benefits, quality control
 - [x] `institutional-principles.md` — Building for generations, succession, knowledge preservation
 - [x] `subscription-pricing.md` — Cloud subscription tier details
-
----
-
-### ❌ Empty / Not Started
-
-*All documentation complete.*
 
 ---
 
@@ -160,7 +149,7 @@
 | Process Manager | ✅ Complete | Generic subprocess lifecycle (reusable for DALI, Modbus) |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
-| Flutter UI | ❌ Not started | M1.5 (later Year 1) |
+| Flutter UI | ❌ Not started | M1.5 (Year 1) |
 | Voice Pipeline | ❌ Not started | Year 4 |
 
 ### M1.1 Progress (Core Infrastructure) — ✅ Complete
@@ -220,416 +209,274 @@
 
 ## Roadmap
 
-### Year 1 (2026) — Foundation
-- [ ] Complete all documentation
-- [ ] Gray Logic Core MVP (Go)
-- [ ] KNX Bridge
-- [ ] SQLite database
-- [ ] Basic REST API
-- [ ] Lighting control in own home
+### Year 1 — Foundation (2026) ← Current
+| Milestone | Goal | Status |
+|-----------|------|--------|
+| **M1.1** | Core Infrastructure (SQLite, MQTT, InfluxDB) | ✅ Complete |
+| **M1.2** | KNX Bridge | ✅ Complete |
+| **M1.3** | Device Registry | ✅ Complete |
+| **M1.4** | REST API + WebSocket | ✅ Complete |
+| M1.5 | Flutter Wall Panel | ⬜ Not Started |
+| M1.6 | Basic Scenes | ⬜ Not Started |
 
-### Year 2 (2027) — Expansion
-- [ ] Full scenes, modes, schedules
-- [ ] Climate control
-- [ ] Blinds control
-- [ ] Flutter mobile app
-- [ ] DALI Bridge
-- [ ] Modbus Bridge
+### Year 2 — Automation Expansion (2027)
+| Milestone | Goal |
+|-----------|------|
+| M2.1 | Area/Room hierarchy |
+| M2.2 | Scene engine (multi-device, timed) |
+| M2.3 | Mode system (Home/Away/Night/Holiday) |
+| M2.4 | Astronomical clock + scheduler |
+| M2.5 | DALI bridge |
+| M2.6 | Blind control |
+| M2.7 | Climate integration (Modbus → HVAC) |
+| M2.8 | Flutter mobile app |
 
-### Year 3 (2028) — Features
-- [ ] Multi-room audio
-- [ ] Video distribution
-- [ ] Security integration
-- [ ] CCTV integration
-- [ ] BACnet Bridge
+### Year 3 — Integration & Resilience (2028)
+| Milestone | Goal |
+|-----------|------|
+| M3.1 | Audio matrix (HTD/Russound) |
+| M3.2 | Video matrix (Atlona) |
+| M3.3 | Security panel (monitoring only) |
+| M3.4 | CCTV (RTSP/ONVIF) |
+| M3.5 | BACnet bridge |
+| M3.6 | Advanced conditional logic |
+| M3.7 | System Supervisor (Level 1) |
+| M3.8 | Machine-readable error catalog |
 
-### Year 4 (2029) — Intelligence
-- [ ] Voice control (local)
-- [ ] PHM (Predictive Health)
-- [ ] Local AI insights
+### Year 4 — Intelligence (2029)
+| Milestone | Goal |
+|-----------|------|
+| M4.1 | Voice pipeline (Whisper → NLU → Piper) |
+| M4.2 | PHM baseline learning |
+| M4.3 | Local AI engine |
+| M4.4 | Occupancy prediction |
+| M4.5 | Energy insights |
+| M4.6 | System Supervisor with playbook recovery |
+| M4.7 | Simulation/chaos testing |
+| M4.8 | Circuit breaker patterns |
+| M4.9 | Failure Memory system |
+| M4.10 | Workflow Learning |
 
-### Year 5 (2030) — Commercial
-- [ ] Commissioning tools
-- [ ] First customer deployment
-- [ ] Support tier implementation
+### Year 5 — Commercial Readiness (2030)
+| Milestone | Goal |
+|-----------|------|
+| M5.1 | Web-based commissioning tool |
+| M5.2 | Configuration backup/restore |
+| M5.3 | Remote diagnostics (WireGuard) |
+| M5.4 | Installer documentation |
+| M5.5 | Customer handover pack generator |
+| M5.6 | Automated testing framework |
+| M5.7 | First customer deployment |
 
 ---
 
-## Change Log
+## Year 1 Task Breakdowns
 
-### 2026-01-23 — M1.4 REST API + WebSocket Complete
+### M1.5: Flutter Wall Panel
 
-**Milestone Complete:**
-- M1.4 REST API + WebSocket fully implemented, tested, and integrated
-- `internal/api/` package: 9 files, ~2,000 lines of Go code
-- Chi router, device CRUD, state commands via MQTT, WebSocket real-time hub
-- JWT auth placeholder with ticket-based WebSocket authentication
-- 23 new tests, all 12 packages pass, build and lint clean
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | Flutter project setup (ui/wallpanel) | ⬜ Not Started | - |
+| 2 | Device models (matching Go structs) | ⬜ Not Started | M1.3 |
+| 3 | Repository pattern for API calls | ⬜ Not Started | M1.4 |
+| 4 | WebSocket connection for state updates | ⬜ Not Started | M1.4 |
+| 5 | RoomView widget | ⬜ Not Started | Tasks 2-4 |
+| 6 | SwitchTile (on/off) | ⬜ Not Started | Task 5 |
+| 7 | DimmerTile (slider) | ⬜ Not Started | Task 5 |
+| 8 | Response time <200ms validation | ⬜ Not Started | Tasks 5-7 |
 
-**Files Created:**
-- `internal/api/server.go` — Server lifecycle (New, Start, Close, HealthCheck)
-- `internal/api/router.go` — Route registration with Chi router
-- `internal/api/errors.go` — HTTP error response helpers
-- `internal/api/middleware.go` — Request ID, logging, recovery, CORS
-- `internal/api/devices.go` — Device CRUD + state/command handlers
-- `internal/api/websocket.go` — WebSocket hub + client management
-- `internal/api/auth.go` — JWT login + WebSocket ticket auth
-- `internal/api/server_test.go` — 23 comprehensive tests
+### M1.6: Basic Scenes
 
-**Files Modified:**
-- `cmd/graylogic/main.go` — API server initialization after MQTT
-- `go.mod` / `go.sum` — Added chi, gorilla/websocket, golang-jwt
+| # | Task | Status | Depends On |
+|---|------|--------|------------|
+| 1 | Database schema (scenes, scene_actions) | ⬜ Not Started | M1.1 |
+| 2 | Scene struct definition | ⬜ Not Started | Task 1 |
+| 3 | scene_engine.go — Activate, parallel execution | ⬜ Not Started | Task 2 |
+| 4 | GET /api/v1/scenes | ⬜ Not Started | M1.4 |
+| 5 | POST /api/v1/scenes/{id}/activate | ⬜ Not Started | Task 3 |
+| 6 | Scene execution <500ms for 10 devices | ⬜ Not Started | Task 3 |
+| 7 | Persist scene state across restarts | ⬜ Not Started | Task 3 |
 
-**Dependencies Added:**
-- `github.com/go-chi/chi/v5` v5.2.4
-- `github.com/gorilla/websocket` v1.5.3
-- `github.com/golang-jwt/jwt/v5` v5.3.0
+---
 
-**Next:** M1.5 (Flutter Wall Panel or Auth hardening)
+## Technical Decisions
 
-### 2026-01-22 — M1.3 Device Registry Complete
+| Decision | Rationale |
+|----------|-----------|
+| **Go 1.25** | Latest stable, no bleeding-edge features |
+| **gopkg.in/yaml.v3** | Mature, well-maintained, supports comments |
+| **golangci-lint** | Industry standard, catches security issues |
+| **Makefile** | Universal, works for decades, no dependencies |
+| **internal/ directory** | Go-enforced encapsulation |
+| **Chi router** | Stdlib-compatible, minimal, stable since 2015 |
+| **Gorilla WebSocket** | Industry standard, proven in production |
+| **Ticket-based WS auth** | Prevents JWT leakage in URL params/logs |
 
-**Milestone Complete:**
-- M1.3 Device Registry fully implemented, tested, and integrated
-- Device registry wired into main.go with KNX bridge adapter
-- All packages now have test coverage (knxd, process previously had none)
+### Dependencies
 
-**Tests Added:**
-- `internal/device/integration_test.go` — 4 integration tests exercising full lifecycle through real SQLite
-- `internal/knxd/manager_test.go` — 14 test functions covering config, validation, address parsing, BuildArgs
-- `internal/process/manager_test.go` — 13 test functions covering construction, state, backoff, lifecycle
+| Package | Version | Purpose |
+|---------|---------|---------|
+| gopkg.in/yaml.v3 | v3.0.1 | YAML configuration parsing |
+| github.com/mattn/go-sqlite3 | v1.14.33 | SQLite database driver (CGO) |
+| github.com/eclipse/paho.mqtt.golang | v1.4.3 | MQTT client library |
+| github.com/influxdata/influxdb-client-go/v2 | v2.14.0 | InfluxDB v2 client |
+| github.com/go-chi/chi/v5 | v5.2.4 | HTTP router |
+| github.com/gorilla/websocket | v1.5.3 | WebSocket upgrade |
+| github.com/golang-jwt/jwt/v5 | v5.3.0 | JWT token handling |
 
-**Test Results:**
-- All packages pass (0 failures)
-- No lint warnings
-- Previously untested packages (knxd, process) now have comprehensive coverage
+---
 
-**Next:** M1.4 REST API + WebSocket
+## Session Log
 
-### 2026-01-22 — Documentation Sync & Device Registry Progress
+### Session 1: 2026-01-18 — Project Initialisation (M1.1)
 
-**Documentation updates:**
-- Updated README.md to better showcase project for potential employers
-- Created package documentation for new packages:
-  - `docs/technical/packages/knxd-manager.md` — knxd daemon management
-  - `docs/technical/packages/device-registry.md` — Device catalogue
-  - `docs/technical/packages/process-manager.md` — Subprocess management
-- Updated `docs/technical/packages/config.md` with USB reset fields and protocols section
-- Updated IMPLEMENTATION.md with Sessions 11-12
+**Goal:** Set up Go project structure
 
-**Testing completed:**
+- Initialised Go module (`github.com/nerrad567/gray-logic-core`, Go 1.25.6)
+- Created directory structure per CODING-STANDARDS.md
+- Created main.go with signal.NotifyContext for graceful shutdown
+- Created Makefile (15 targets, version injection via ldflags)
+- Installed golangci-lint v1.64.8, configured strict linting
+- Created configuration system (YAML + env var overrides)
+- Fixed UK spelling issues ("Initialize" → "Initialise")
+
+### Session 2: 2026-01-19 — SQLite Database Package (M1.1)
+
+**Goal:** Implement SQLite with embedded migrations
+
+- Created `internal/infrastructure/database/` package
+- embed.FS for compiled-in migrations, WAL mode, STRICT mode
+- Initial schema: sites, areas, rooms, devices, audit_logs
+- Added `github.com/mattn/go-sqlite3` dependency
+
+### Session 3: 2026-01-19 — Database Tests & Docker Compose (M1.1)
+
+**Goal:** Add tests and dev infrastructure
+
+- 21 database test cases (80.4% coverage)
+- Docker Compose: Mosquitto (MQTT) + InfluxDB (time-series)
+- Isolated from existing media-stack (separate network, localhost-only ports)
+- Container names: `graylogic-mosquitto`, `graylogic-influxdb`
+
+### Session 4: 2026-01-19 — MQTT Client Package (M1.1)
+
+**Goal:** MQTT client with auto-reconnect
+
+- Created `internal/infrastructure/mqtt/` (7 files, ~1,200 lines)
+- Auto-reconnect with subscription restoration
+- Topic namespace helpers (type-safe topic construction)
+- Panic recovery in handlers
+- Added `github.com/eclipse/paho.mqtt.golang` v1.4.3
+
+### Session 5: 2026-01-19 — InfluxDB Client Package (M1.1)
+
+**Goal:** Time-series storage for PHM
+
+- Created `internal/infrastructure/influxdb/` (5 files)
+- Non-blocking WriteAPI with batching
+- Domain helpers: WriteDeviceMetric, WriteEnergyMetric
+- Added `github.com/influxdata/influxdb-client-go/v2` v2.14.0
+
+### Session 6: 2026-01-20 — Infrastructure Wiring & Logging (M1.1 Complete)
+
+**Goal:** Wire everything into main.go
+
+- Created structured logging package (slog-based, JSON/text output)
+- Updated main.go: config → DB → MQTT → InfluxDB → health checks
+- Graceful shutdown with LIFO defer chain
+- **M1.1 Core Infrastructure complete**
+
+### Session 7: 2026-01-20 — M1.1 Final Code Audit
+
+**Goal:** Harden before moving to M1.2
+
+- 4 audit iterations, all static checks pass
+- Fixed: JWT validation, InfluxDB shutdown order, context timeouts
+- Added bounds validation, MQTT payload size limits
+- Modified `/code-audit` command with auto-tracking
+
+### Session 8: 2026-01-20 — M1.2 KNX Bridge Phase 1
+
+**Goal:** Low-level KNX communication
+
+- Created telegram.go (~180 lines): KNX telegram parsing/encoding
+- Created knxd.go (~350 lines): TCP/Unix socket client with handshake
+- MockKNXDServer for testing, 33 tests passing
+- Fixed bug: single-byte values > 0x3F encoding
+
+### Session 9: 2026-01-20 — M1.2 KNX Bridge Phase 2 (Complete)
+
+**Goal:** Complete bridge package
+
+- Created: config.go, messages.go, health.go, bridge.go, errors.go, doc.go
+- 4 code audit cycles (15 issues fixed across audits #5-#8)
+- Key patterns: closeOnce, bridge-level context, state cache pruning, password redaction
+- Coverage: 69.4%, all tests passing
+- **Total: ~3,500 lines of Go code + tests**
+
+### Session 10: 2026-01-20 — M1.2 Wiring (M1.2 Complete)
+
+**Goal:** Wire KNX bridge into main.go
+
+- Created MQTT adapter (bridges interface differences)
+- Added `config_file` field to KNXConfig
+- Created `configs/knx-bridge.yaml` sample (180 lines)
+- **M1.2 KNX Bridge complete**
+
+### Session 11: 2026-01-21 — knxd Subprocess Management
+
+**Goal:** Managed knxd lifecycle
+
+- Created `internal/process/` (~590 lines): Generic subprocess management
+- Created `internal/knxd/` (~720 lines): knxd-specific wrapper
+- Multi-layer health checks (Layers 0-4: USB → process → TCP → EIB → bus)
+- USB device reset, PID file management, exponential backoff
+- Tested with physical Weinzierl KNX-USB interface
+
+### Session 12: 2026-01-22 — Documentation Sync & Testing
+
+**Goal:** Package docs and hardware testing
+
+- Created package documentation (knxd-manager, device-registry, process-manager)
 - Multi-layer health checks tested with KNX Virtual (IPT backend)
 - USB backend tested with Weinzierl interface + Theben PSU
-- Identified expected limitations with empty bus (no responding devices)
 
-### 2026-01-21 — knxd Subprocess Management & Multi-Layer Health Checks
+### Session 13: 2026-01-22 — M1.3 Device Registry (Complete)
 
-**Enhancement to M1.2:**
+**Goal:** Device catalogue with persistence
 
-Added knxd subprocess management so Gray Logic Core can spawn and manage knxd as a child process. This eliminates the need for engineers to manually configure `/etc/knxd.conf` or use sudo on site.
+- Created `internal/device/` (9 files, ~1,200 lines)
+- 50+ device types, 12+ domains, 14 protocols, 45+ capabilities
+- Thread-safe registry (RWMutex, deep-copy semantics)
+- SQLite persistence via Repository interface
+- Integration tests: full lifecycle through real SQLite
+- Added tests for knxd (14 functions) and process (13 functions) packages
+- Wired into main.go with KNX bridge adapter
+- **M1.3 Device Registry complete**
 
-**Rationale:**
-- Container-friendly deployment (single container with Gray Logic + knxd)
-- No sudo required on site — YAML-only configuration
-- Self-healing with automatic restart on failure
-- Critical for multi-decade deployments where unattended operation is required
+### Session 14: 2026-01-23 — M1.4 REST API + WebSocket (Complete)
 
-**New Packages:**
-- `internal/process/` — Generic subprocess lifecycle management (~590 lines, reusable for DALI, Modbus)
-- `internal/knxd/` — knxd-specific wrapper (~720 lines) with multi-layer health checks
+**Goal:** HTTP API and real-time layer
 
-**Files Created:**
-- `internal/process/doc.go`, `internal/process/manager.go`
-- `internal/knxd/doc.go`, `internal/knxd/config.go`, `internal/knxd/manager.go`
-
-**Files Modified:**
-- `internal/infrastructure/config/config.go` — Added `KNXDConfig` types with health check fields
-- `configs/config.yaml` — Added `knxd:` section with health check config
-- `cmd/graylogic/main.go` — Added knxd startup before KNX bridge
-
-**Multi-Layer Health Check System:**
-| Layer | Check | Purpose |
-|-------|-------|---------|
-| 0 | USB device presence | Verify physical interface (USB backends only) |
-| 1 | /proc/PID/stat | Verify process exists and is runnable |
-| 2 | TCP connection | Verify knxd is accepting connections |
-| 3 | EIB protocol handshake | Verify knxd speaks EIB protocol |
-| 4 | Bus-level device read | Verify end-to-end communication (knxd → interface → bus → device) |
-
-**Watchdog Behaviour:**
-- Health check interval: configurable (default 30s, 10s for testing)
-- Failure threshold: 3 consecutive failures triggers restart
-- Max restart attempts: configurable (default 10)
-- On USB backends: optional USB reset before restart attempts
-
-**Testing Progress (in progress):**
-- ✅ USB backend: Tested with physical Weinzierl KNX-USB interface (0e77:0104)
-- ✅ IP Tunnel backend: Local knxd connects to VM's KNXnet/IP port 3671
-- ✅ Watchdog: Verified kill-and-restart after 3 health check failures
-- 🔄 Bus-level health check: READ requests reach VM, working on response routing
-
-**Virtual KNX Test Environment:**
-- Debian VM (192.168.4.60) running knxd with dummy backend
-- Python simulator emulating "Oakwood House" (15 lights, 8 sockets, sensors, PSU)
-- PSU diagnostics at 1/7/0-1/7/3 for health check responses
-- Architecture: Gray Logic → local knxd (ipt backend) → VM KNXnet/IP (3671) → VM knxd → dummy bus
-
-**Current Issue Being Resolved:**
-Simulator uses KNXnet/IP Routing (`ip:127.0.0.1`) which doesn't bridge to tunnel clients.
-Fix: Change simulator to use EIB via Unix socket (`local:/run/knx`).
-
-**Startup Flow:**
-1. Gray Logic loads config
-2. If `knxd.managed: true`, spawn knxd with args from YAML
-3. Wait for TCP port to accept connections
-4. Start KNX bridge using managed connection URL
-5. On shutdown: stop bridge first, then stop knxd
-
-### 2026-01-20 — M1.2 KNX Bridge Complete
-
-**Milestone Complete:**
-- M1.2 KNX Bridge fully implemented and wired into main.go
-- 10 files, ~3,500 lines of Go code + tests
-- 4 code audit cycles with 15 issues fixed
-- Sample configuration created (`configs/knx-bridge.yaml`)
-
-**Files Created/Modified:**
-- `cmd/graylogic/main.go` — Added KNX bridge initialization with MQTT adapter
-- `internal/infrastructure/config/config.go` — Added `config_file` field to KNXConfig
-- `configs/config.yaml` — Added `config_file` under `protocols.knx`
-- `configs/knx-bridge.yaml` — NEW: 180-line sample KNX bridge config
-
-**Technical Highlights:**
-- MQTT adapter pattern to bridge interface differences
-- Graceful shutdown via defer chain
-- Bridge health verified at startup via knxd connection
-
-**Next:** M1.3 Device Registry
-
-### 2026-01-12 — Documentation Sprint
-
-**Created:**
-- `docs/interfaces/api.md` — Full REST/WebSocket API specification (~1,100 lines)
-- `docs/automation/automation.md` — Comprehensive automation spec (~750 lines)
-- `docs/domains/audio.md` — Multi-room audio domain specification (~600 lines)
-- `docs/intelligence/phm.md` — Predictive Health Monitoring specification (~750 lines)
-- `docs/domains/security.md` — Security/alarm domain specification (~700 lines)
-- `docs/domains/energy.md` — Energy management domain specification (~800 lines)
-- `docs/domains/video.md` — Video/AV distribution (~650 lines)
-- `docs/domains/irrigation.md` — Garden and outdoor (~650 lines)
-- `docs/domains/leak-protection.md` — Leak detection and shutoff (~600 lines)
-- `docs/domains/water-management.md` — Water infrastructure (~550 lines)
-- `docs/domains/presence.md` — Occupancy and presence (~650 lines)
-- `docs/domains/pool.md` — Pool chemistry and automation (~750 lines)
-- `docs/intelligence/voice.md` — Voice pipeline specification (Whisper, NLU, Piper) (~1,000 lines)
-- `docs/deployment/residential.md` — Residential deployment guide (~1,200 lines)
-
-### 2026-01-13 — Resilience & Infrastructure Sprint
-
-**Created:**
-- `docs/architecture/security-model.md` — Authentication, authorization, encryption (~750 lines)
-- `docs/resilience/offline.md` — Offline behavior and graceful degradation (~650 lines)
-- `docs/resilience/backup.md` — Backup and recovery procedures (~700 lines)
-- `docs/intelligence/weather.md` — Weather integration specification (~700 lines)
-- `docs/resilience/satellite-weather.md` — Satellite weather decode (~550 lines)
-- `docs/resilience/mesh-comms.md` — LoRa/Meshtastic mesh communications (~650 lines)
-- `docs/protocols/ocpp.md` — EV charging protocol specification (~750 lines)
-
-**Fixed:**
-- Broken cross-references to security-model.md, weather.md, ocpp.md
-- Added Resilience category (was empty)
-- Completed all referenced but missing documents
-
-**Architecture additions:**
-- `DeviceAssociation` entity — External monitoring and control proxy relationships
-- `Association Resolver` component — Handles data attribution and command routing
-- I/O device types — Relay modules, analog/digital I/O, external sensors
-
-**Reorganized:**
-- `ai-premium-features.md` → `docs/intelligence/`
-- `handover-pack-template.md` → `docs/deployment/`
-
-**Fixed:**
-- Updated all openHAB/Node-RED references to Go Core architecture
-- Fixed broken links to non-existent files
-- Added cross-references between related documents
-- Standardized PHM Integration sections across all domain specs (lighting, climate, blinds, plant, audio)
-- Added DeviceAssociation entity for external monitoring and control proxying
-- Documented Association Resolver in Core architecture
-- Added device-level energy attribution via associations
-
-**Infrastructure:**
-- Set GitHub repository to private
-- Configured sparse-checkout to exclude archive folders locally
-
-### 2026-01-14 — Business Documentation Sprint
-
-**Created:**
-- `docs/business/business-case.md` — Market analysis, competitor landscape, open source strategy, positioning (~650 lines)
-- `docs/business/pricing.md` — Installation tiers (Essential/Standard/Premium/Estate), hardware pricing, support tiers, margin guidance (~600 lines)
-- `docs/business/sales-spec.md` — Full customer journey from enquiry to post-installation support (~700 lines)
-- `docs/business/go-to-market.md` — Phased growth strategy (Foundation → Growth → Scale), marketing channels, portfolio development (~550 lines)
-- `docs/business/certification.md` — Training curriculum, certification levels, partner benefits, quality control framework (~600 lines)
-
-**Business model defined:**
-- Phase 1: Boutique installer (Years 1-3) — direct installation, prove the product
-- Phase 2: Growth (Years 3-5) — training courses, certification pilot, referral network
-- Phase 3: Scale (Year 5+) — certification programme, hardware wholesale, exit viability
-
-**Pricing tiers established:**
-- Essential: £8k-15k (lighting + scenes)
-- Standard: £15k-25k (+ climate + blinds)
-- Premium: £25k-40k (+ audio + security)
-- Estate: £40k+ (multiple buildings)
-
-**Open source strategy documented:**
-- Software open source (GPL v3) for transparency and longevity
-- Revenue from: installation services, custom hardware, support contracts, training, certification
-
-**Licensing and trademark:**
-- Changed from MIT to GPL v3 (copyleft ensures derivatives stay open)
-- Created LICENSE file with GPL v3 text
-- Documented trademark strategy (brand protection + GPL work together)
-- Updated all license references across documentation
-
-**Institutional framing added:**
-- Created `docs/business/institutional-principles.md` — building for generations
-- Focus on enduring value: knowledge, reputation, network, brand, physical assets
-- Decision framework prioritising 30-year impact over short-term gains
-- Succession principles (choice, not obligation)
-- Acknowledgement that economic systems may change, but human needs remain
-
-**JSON Schemas created:**
-- Created `docs/data-model/schemas/` with 13 schema files + README
-- `common.schema.json` — Shared enums, embedded types (~400 lines)
-- `device.schema.json` — All device types, protocols, capabilities (~200 lines)
-- Core entities: site, area, room, scene, schedule, mode, condition, user
-- Supporting: device-association, audio-zone, climate-zone
-- README with validation and code generation examples
-- Total: ~1,800 lines of JSON Schema definitions
-
-### 2026-01-15 — Pre-Development Review & Refinements
-
-**Comprehensive documentation review completed.** Identified and addressed gaps, inconsistencies, and missing specifications.
-
-**New Documents Created:**
-- `docs/operations/updates.md` — Update and upgrade strategy, rollback procedures, offline updates (~450 lines)
-- `docs/operations/monitoring.md` — Customer-facing and installer monitoring, dead man's switch, Prometheus metrics (~400 lines)
-- `docs/commissioning/discovery.md` — Device discovery per protocol (KNX, DALI, Modbus, IP), staging workflow (~350 lines)
-
-**Major Updates:**
-- `docs/architecture/bridge-interface.md` — Added MQTT command acknowledgment (`graylogic/ack/`) for tracking command delivery
-- `docs/architecture/core-internals.md` — Clarified `monitors_and_controls` association behavior and resolution priority
-- `docs/automation/automation.md` — Added `SceneExecution` entity for tracking scene activation progress
-- `docs/resilience/offline.md` — Added timestamp-based conflict resolution, race condition prevention, time synchronization spec
-- `docs/intelligence/voice.md` — Added fallback path (CPU Whisper, pre-recorded responses), error tones, i18n roadmap
-- `docs/intelligence/phm.md` — Added device-type-specific baseline requirements (immediate vs gradual feedback)
-- `docs/architecture/security-model.md` — Added JWT rotation procedure, API key regeneration, MQTT mTLS option
-- `docs/development/CODING-STANDARDS.md` — Added database migration strategy, structured logging standard, testing with hardware strategy
-- `docs/architecture/system-overview.md` — Added multi-site architecture section, capacity planning guide, confirmed Svelte for Web Admin
-
-**Technology Decisions Finalized:**
-- Web Admin framework: **Svelte** (not React)
-- DALI gateway: Protocol-agnostic (any gateway works, not vendor-specific)
-
-**Review Findings Addressed:**
-- MQTT command acknowledgment gap → Added `graylogic/ack/{protocol}/{address}` topic
-- Scene execution tracking → Added `SceneExecution` entity with status tracking
-- State reconciliation races → Added timestamp-based conflict resolution
-- Voice fallback missing → Added degradation hierarchy with audible/visual feedback
-- PHM baseline data requirements → Added device-type categories (immediate/gradual/event/inferred)
-- No upgrade strategy → Created `operations/updates.md`
-- No monitoring strategy → Created `operations/monitoring.md` with front-end dead man's switch
-- Device discovery under-specified → Created `commissioning/discovery.md`
-
-### 2026-01-17 — AI Assistant Context
-
-**Created:**
-- `GEMINI.md` — Project-specific guidance for the Gemini CLI agent, including architecture overview, philosophy, coding standards, and interaction rules.
-
-**Updated:**
-- [x] `CHANGELOG.md` — Recorded creation of `GEMINI.md`.
-- [x] `PROJECT-STATUS.md` — Updated status and change log.
-
-### 2026-01-18 — Audit Completion & Readiness
-**Verified & Audited:**
-- Completed Audit Iterations 5-8 (Consistency, Pre-Implementation, Surgical Strikes, Final Verification)
-- Applied all surgical strikes (H1-H2, M1-M4, L1-L8) to documentation
-- Achieved **9.8/10 Readiness Score** (Ready for Code)
-
-**New Documents:**
-- `docs/overview/capabilities-and-benefits.md` (v2.0) — Major rewrite for clarity and feature definition
-- `docs/integration/diy-integration.md` — Full spec for Matter, Zigbee, and DIY device handling
-- `docs/architecture/cloud-relay.md` — Architecture for optional cloud services
-- `docs/business/subscription-pricing.md` — Detailed pricing for cloud tiers
-- `docs/operations/maintenance.md` — Certificate rotation, backup limits, device replacement
-
-**Status:**
-- Documentation phase explicitly marked COMPLETE
-- Ready to begin Go Core implementation (Year 1 Roadmap)
-
-### 2026-01-15 — Development Documentation Sprint
-
-**Created:**
-- `docs/development/DEVELOPMENT-STRATEGY.md` — 5-year roadmap with milestones, Three Pillars framework, security SDL (~550 lines)
-- `docs/development/CODING-STANDARDS.md` — Go code standards, project structure, testing, git commits (~1,000 lines)
-- `docs/development/SECURITY-CHECKLIST.md` — Mandatory security gates for components, PRs, releases (~800 lines)
-
-**Three Pillars framework established:**
-- Security → Resilience → Speed (implementation priorities within Hard Rules)
-- Integrated into principles.md as "Implementation Priorities" section
-- Decision framework: Hard Rules gate what we build, Pillars guide how
-
-**Milestones defined:**
-- Year 1: M1.1-M1.6 (Infrastructure → KNX → Device Registry → API → Flutter → Scenes)
-- Year 2: M2.1-M2.8 (Rooms → Scenes → Modes → Scheduler → DALI → Blinds → Climate → Mobile)
-- Year 3: M3.1-M3.6 (Audio → Video → Security → CCTV → BACnet → Logic Engine)
-- Year 4: M4.1-M4.5 (Voice → PHM → AI → Learning → Energy Insights)
-- Year 5: M5.1-M5.7 (Commissioning → Backup → Remote → Docs → Handover → Testing → Customer)
-
-**Updated:**
-- principles.md — Added Three Pillars section
-- README.md — Added development docs to Quick Links
-- system-overview.md — Fixed broken api-rest.md link
-
-**Reviewed and rejected:**
-- Copilot-generated `copilot/add-development-guidance-docs` branch
-- Issues: Wrong roadmap years, incorrect package structure, missing InfluxDB
-- Created corrected versions aligned with existing documentation
-
----
-
-## Next Actions
-
-### High Priority (Documentation)
-1. [x] Audio domain spec (`docs/domains/audio.md`) ✓
-2. [x] Residential deployment guide (`docs/deployment/residential.md`) ✓
-3. [x] Voice pipeline spec (`docs/intelligence/voice.md`) ✓
-
-### Medium Priority (Documentation)
-4. [x] Security domain spec (`docs/domains/security.md`) ✓
-5. [x] Energy domain spec (`docs/domains/energy.md`) ✓
-6. [x] PHM specification (`docs/intelligence/phm.md`) ✓
-7. [x] Backup & recovery (`docs/resilience/backup.md`) ✓
-8. [x] Security model (`docs/architecture/security-model.md`) ✓
-9. [x] Weather integration (`docs/intelligence/weather.md`) ✓
-10. [x] Resilience specs (offline, satellite-weather, mesh-comms) ✓
-11. [x] OCPP protocol (`docs/protocols/ocpp.md`) ✓
-
-### Lower Priority (Can Wait)
-- [x] JSON Schemas for entities ✓
-- [x] Business documentation ✓
-
-### Code (When Ready)
-- [ ] Set up Go project structure
-- [ ] Implement Core skeleton
-- [ ] SQLite schema from entities.md
+- Created `internal/api/` (9 files, ~2,000 lines)
+- Chi router with middleware stack (request ID, logging, recovery, CORS)
+- Device CRUD + state/command endpoints (MQTT publish for commands)
+- WebSocket hub with channel subscriptions and MQTT → WS bridge
+- JWT auth placeholder + ticket-based WebSocket auth
+- TLS support (optional ListenAndServeTLS)
+- 23 tests (health, middleware, CRUD, state, auth, hub)
+- All 12 packages pass, build and lint clean
+- Added: chi v5.2.4, gorilla/websocket v1.5.3, golang-jwt v5.3.0
+- **M1.4 REST API + WebSocket complete**
 
 ---
 
 ## Notes
 
+- Project started: 2026-01-18
 - Architecture pivoted from openHAB/Node-RED to custom Go Core (v1.0.0)
 - Old documentation archived in `docs/archive/v0.4-openhab-era.zip`
 - This is a 5-year part-time project
 - First real deployment target: own home (Year 1)
+- Using UK English throughout (per project standards)
+- All timestamps in UTC (per CODING-STANDARDS.md)

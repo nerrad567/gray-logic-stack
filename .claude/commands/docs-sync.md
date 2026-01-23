@@ -21,7 +21,6 @@ find code/core/internal -type d -exec sh -c '
 ### 2. Version Consistency
 Check these files have matching Go version:
 - `code/core/go.mod`
-- `code/core/IMPLEMENTATION.md`
 - `code/core/docs/GETTING-STARTED.md`
 - `.claude/commands/health-check.md`
 
@@ -48,11 +47,11 @@ grep -rn "^func [A-Z]" --include="*.go" | while read line; do
 done
 ```
 
-### 4. IMPLEMENTATION.md Task Accuracy
+### 4. PROJECT-STATUS.md Task Accuracy
 Claude should verify:
-- M1.1 tasks marked complete actually exist in code
-- M1.2 progress percentage matches completed tasks
-- "Resume Here" section is current
+- Milestone tasks marked complete actually exist in code
+- Progress checklists match completed tasks
+- "RESUME HERE" section is current
 
 ### 5. Stale Code Examples
 Check markdown files for code blocks that may be outdated:
@@ -111,10 +110,10 @@ done
 Check what code changed since docs were last updated:
 
 ```bash
-# Find code files changed since IMPLEMENTATION.md was last updated
-impl_commit=$(git log -1 --format="%H" -- code/core/IMPLEMENTATION.md)
-echo "Changes since IMPLEMENTATION.md update:"
-git diff --name-only $impl_commit..HEAD -- code/core/internal/
+# Find code files changed since PROJECT-STATUS.md was last updated
+status_commit=$(git log -1 --format="%H" -- PROJECT-STATUS.md)
+echo "Changes since PROJECT-STATUS.md update:"
+git diff --name-only $status_commit..HEAD -- code/core/internal/
 ```
 
 ```bash
@@ -183,7 +182,7 @@ When `/docs-sync` is invoked:
    - Update version numbers
    - Add function doc comments
 
-### 10. Session Log Updates (CHANGELOG, PROJECT-STATUS, IMPLEMENTATION)
+### 10. Session Log Updates (CHANGELOG, PROJECT-STATUS)
 
 After any significant coding work, verify that high-level project logs reflect what was done:
 
@@ -224,30 +223,13 @@ git log --oneline -10 -- code/
 - Are completion percentages accurate?
 - Is the "Next" section pointing at the right work?
 
-#### IMPLEMENTATION.md
-```bash
-cd /home/graylogic-dev/gray-logic-stack/code/core
-
-echo "=== RESUME HERE section ==="
-grep -A5 "RESUME HERE" IMPLEMENTATION.md
-
-echo -e "\n=== Recently created/modified Go files ==="
-git diff --name-only HEAD~5..HEAD -- internal/ cmd/ 2>/dev/null
-find internal cmd -name "*.go" -mtime 0 -type f 2>/dev/null
-```
-
-**What to check:**
-- Does "RESUME HERE" point to the next session/milestone?
-- Are completed tasks marked with ✅?
-- Are new files listed in the appropriate milestone section?
-
 #### Claude's Session Log Checklist
 
 When checking session logs, Claude should answer:
 1. ❓ Were any milestone tasks completed this session? → Update PROJECT-STATUS.md
 2. ❓ Were features added, bugs fixed, or breaking changes made? → Update CHANGELOG.md
-3. ❓ Were new files created or significant code written? → Update IMPLEMENTATION.md
-4. ❓ Is "RESUME HERE" pointing at the correct next step? → Update IMPLEMENTATION.md
+3. ❓ Were new files created or significant code written? → Update PROJECT-STATUS.md (Session Log)
+4. ❓ Is "RESUME HERE" pointing at the correct next step? → Update PROJECT-STATUS.md
 
 If ANY answer is "yes but not yet updated", Claude should offer to update the file.
 

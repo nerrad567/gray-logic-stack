@@ -51,7 +51,7 @@ Complete the remaining M1.1 milestone items to establish Gray Logic Core infrast
 ### Story 5: Documentation Update
 **Priority**: P3
 **Acceptance Criteria**:
-- [ ] IMPLEMENTATION.md updated with completed items
+- [ ] PROJECT-STATUS.md updated with completed items
 - [ ] GETTING-STARTED.md has accurate build/run instructions
 - [ ] All package doc.go files are complete
 

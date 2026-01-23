@@ -322,7 +322,7 @@ Verify documentation matches implementation.
 
 | Document | Verify |
 |----------|--------|
-| `code/core/IMPLEMENTATION.md` | Task statuses match reality |
+| `PROJECT-STATUS.md` | Task statuses match reality |
 | `code/core/AGENTS.md` | Code examples compile/work |
 | `docs/CONSTRAINTS.md` | Rules match implementation |
 | `docs/protocols/mqtt.md` | Topics match `topics.go` |
@@ -341,7 +341,7 @@ grep -E "^\s+\w+:" code/core/configs/config.yaml | wc -l
 
 ### What Fails This Phase
 
-- Implementation status mismatches in IMPLEMENTATION.md
+- Implementation status mismatches in PROJECT-STATUS.md
 - Code examples in docs that don't compile
 - Undocumented config fields
 
@@ -382,7 +382,7 @@ Run a comprehensive code audit on Gray Logic Core:
 4. Use the code-reviewer plugin on all infrastructure packages
 5. Check architecture against docs/overview/principles.md Hard Rules
 6. Assess go.mod dependencies for 20-year stability
-7. Check IMPLEMENTATION.md is up to date
+7. Check PROJECT-STATUS.md is up to date
 
 Report findings by severity and recommend fixes.
 ```
