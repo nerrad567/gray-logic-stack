@@ -61,8 +61,14 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 gray-logic-stack/
 ├── docs/
 │   ├── overview/              # Vision, principles, glossary
+│   │   ├── vision.md          # What Gray Logic is and why
+│   │   ├── principles.md      # Hard rules that cannot be broken
+│   │   └── glossary.md        # Standard terminology
 │   ├── architecture/          # System design
-│   ├── data-model/            # Entity definitions + JSON schemas
+│   │   └── system-overview.md # Component architecture, data flow
+│   ├── data-model/            # Entity definitions
+│   │   ├── entities.md        # Site, Area, Room, Device, Scene, etc.
+│   │   └── schemas/           # JSON Schema definitions
 │   ├── domains/               # Per-domain specifications (lighting, climate, etc.)
 │   ├── automation/            # Scenes, schedules, modes, events
 │   ├── intelligence/          # Voice, PHM, AI features
