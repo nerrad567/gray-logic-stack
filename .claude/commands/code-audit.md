@@ -29,10 +29,10 @@ A comprehensive, iterative audit to ensure Gray Logic Core is production-quality
 
 3. **Determine audit mode**:
    - If `last_commit` differs from current HEAD → **Reset count to 1, run Standard mode**
-   - If the previous audit fixed any issues → **Reset count to 1, run Standard mode** (code changed!)
-   - If count is 1 or 2 AND previous audit found 0 issues → **Increment count, run Standard mode**
-   - If count is 3+ AND previous audit found 0 issues → **Run Final Advisory mode automatically**
-   - **Key rule:** Final Advisory mode is ONLY allowed after a clean standard audit (0 must-fix findings). If a standard audit finds issues, fix them and restart the count.
+   - If the previous audit fixed any Critical or High issues → **Reset count to 1, run Standard mode** (code changed!)
+   - If count is 1 or 2 AND previous audit found 0 Critical/High issues → **Increment count, run Standard mode**
+   - If count is 3+ AND previous audit found 0 Critical/High issues → **Run Final Advisory mode automatically**
+   - **Key rule:** Final Advisory mode is ONLY allowed after a clean standard audit (zero Critical/High findings). Low/Medium observations that don't require code changes do NOT reset the count.
 
 4. **Update the tracking file** with new count and commit hash.
 
@@ -100,10 +100,10 @@ Starting fresh audit cycle...
 
 | Mode | Triggered | Behaviour |
 |------|-----------|-----------|
-| **Standard** | Any run where previous audit found issues, OR runs 1-2 on clean code | Find and fix issues |
-| **Final Advisory** | Run 3+ on same code AND previous run found 0 must-fix issues | Honest ship/fix recommendation |
+| **Standard** | Any run where previous audit found Critical/High issues, OR runs 1-2 on clean code | Find and fix issues |
+| **Final Advisory** | Run 3+ on same code AND previous run found 0 Critical/High issues | Honest ship/fix recommendation |
 
-**Key principle:** Final Advisory is earned, not automatic. The code must pass a clean standard audit (zero Critical/High findings) before advisory mode is unlocked. If a finding at any severity requires a code change, the count resets.
+**Key principle:** Final Advisory is earned, not automatic. The code must pass a clean standard audit (zero Critical/High findings) before advisory mode is unlocked. Low/Medium observations that don't require code changes are acceptable and don't reset the count.
 
 **Important Reality Check**: AI code reviewers will *always* find something if you keep asking. There is no such thing as perfect code. The goal is not zero findings — the goal is **code that is safe, reliable, and maintainable**.
 
