@@ -92,11 +92,17 @@ func (h *Hub) Register(client *WSClient) {
 }
 
 // Unregister removes a client from the hub.
+// Only the goroutine that successfully removes the client from the map
+// closes the send channel, preventing double-close panics during shutdown.
 func (h *Hub) Unregister(client *WSClient) {
 	h.mu.Lock()
+	_, existed := h.clients[client]
 	delete(h.clients, client)
 	h.mu.Unlock()
-	close(client.send)
+
+	if existed {
+		close(client.send)
+	}
 	h.logger.Debug("websocket client disconnected", "clients", h.ClientCount())
 }
 
