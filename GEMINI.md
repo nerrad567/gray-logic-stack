@@ -108,6 +108,6 @@ docker compose -f docker-compose.dev.yml up -d
 ## Current Focus
 
 **Phase**: Year 1 — Foundation  
-**Milestone**: M1.1 Core Infrastructure  
+**Completed**: M1.1 (Infrastructure), M1.2 (KNX Bridge), M1.3 (Device Registry), M1.4 (REST API + WebSocket)  
 **Active Work**: See `PROJECT-STATUS.md` for current progress  
-**Next**: Docker Compose for dev services, main.go wiring
+**Next**: M1.5

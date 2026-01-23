@@ -61,14 +61,8 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 gray-logic-stack/
 ├── docs/
 │   ├── overview/              # Vision, principles, glossary
-│   │   ├── vision.md          # What Gray Logic is and why
-│   │   ├── principles.md      # Hard rules that cannot be broken
-│   │   └── glossary.md        # Standard terminology
 │   ├── architecture/          # System design
-│   │   └── system-overview.md # Component architecture, data flow
-│   ├── data-model/            # Entity definitions
-│   │   ├── entities.md        # Site, Area, Room, Device, Scene, etc.
-│   │   └── schemas/           # JSON Schema definitions
+│   ├── data-model/            # Entity definitions + JSON schemas
 │   ├── domains/               # Per-domain specifications (lighting, climate, etc.)
 │   ├── automation/            # Scenes, schedules, modes, events
 │   ├── intelligence/          # Voice, PHM, AI features
@@ -77,13 +71,25 @@ gray-logic-stack/
 │   ├── interfaces/            # API specs, UI specifications
 │   ├── deployment/            # Installation, commissioning, hardware
 │   ├── business/              # Business case, pricing
+│   ├── operations/            # Updates, monitoring, maintenance
+│   ├── commissioning/         # Device discovery
+│   ├── development/           # Coding standards, strategy, security
 │   └── archive/               # Previous documentation versions
-│       └── v0.4-openhab-era.zip  # Archived openHAB-based approach (compressed)
-├── code/                      # (To be created as development proceeds)
-│   └── archive/
-│       └── v0.4-openhab-era.zip  # Archived Docker Compose stack (compressed)
+├── code/
+│   └── core/                  # Gray Logic Core (Go)
+│       ├── cmd/graylogic/     # Application entry point (main.go)
+│       ├── internal/
+│       │   ├── api/           # REST API + WebSocket server (M1.4)
+│       │   ├── bridges/knx/   # KNX protocol bridge (M1.2)
+│       │   ├── device/        # Device registry (M1.3)
+│       │   ├── infrastructure/# Config, database, MQTT, InfluxDB (M1.1)
+│       │   ├── knxd/          # knxd subprocess manager
+│       │   └── process/       # Generic subprocess lifecycle
+│       ├── configs/           # Configuration templates
+│       └── migrations/        # SQL migration files
 ├── notes/                     # Brainstorming, meeting notes
-└── CHANGELOG.md               # Project evolution
+├── CHANGELOG.md               # Project evolution
+└── PROJECT-STATUS.md          # Current progress tracker
 ```
 
 ## Key Documents
@@ -188,6 +194,6 @@ These are available in `.claude/commands/`:
 ## Current Focus
 
 **Phase**: Year 1 — Foundation  
-**Milestone**: M1.1 Core Infrastructure  
+**Completed**: M1.1 (Infrastructure), M1.2 (KNX Bridge), M1.3 (Device Registry), M1.4 (REST API + WebSocket)  
 **Active Work**: See `PROJECT-STATUS.md` for current progress  
-**Next**: Docker Compose for dev services, main.go wiring
+**Next**: M1.5
