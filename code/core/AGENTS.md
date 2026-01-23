@@ -552,4 +552,4 @@ make precommit
 - **[docs/CONSTRAINTS.md](../../docs/CONSTRAINTS.md)** — All constraints (MUST READ)
 - **[docs/development/CODING-STANDARDS.md](../../docs/development/CODING-STANDARDS.md)** — Full standards
 - **[docs/architecture/core-internals.md](../../docs/architecture/core-internals.md)** — Core architecture
-- **[PROJECT-STATUS.md](../../PROJECT-STATUS.md)** — Current implementation status
+- **[IMPLEMENTATION.md](IMPLEMENTATION.md)** — Current implementation status
