@@ -45,6 +45,20 @@ func (s *Server) buildRouter() http.Handler {
 				})
 			})
 
+			// Scene endpoints
+			r.Route("/scenes", func(r chi.Router) {
+				r.Get("/", s.handleListScenes)
+				r.Post("/", s.handleCreateScene)
+
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetScene)
+					r.Patch("/", s.handleUpdateScene)
+					r.Delete("/", s.handleDeleteScene)
+					r.Post("/activate", s.handleActivateScene)
+					r.Get("/executions", s.handleListSceneExecutions)
+				})
+			})
+
 			// WebSocket (auth via ticket, validated in handler)
 			r.Get("/ws", s.handleWebSocket)
 		})

@@ -4,6 +4,115 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.7 – M1.6 Basic Scenes (2026-01-23)
+
+**Milestone: M1.6 Basic Scenes — Complete**
+
+A scene engine for the Gray Logic Core: named collections of device commands that execute together (parallel or sequential) with delay/fade support, execution logging, and WebSocket event broadcasting.
+
+**What Was Built**
+
+- `internal/automation/` package — 7 files, ~1,800 lines:
+  - **types.go** — `Scene`, `SceneAction`, `SceneExecution` structs with `DeepCopy()` methods
+  - **errors.go** — Domain error sentinels (`ErrSceneNotFound`, `ErrSceneDisabled`, `ErrMQTTUnavailable`)
+  - **validation.go** — `ValidateScene`, `ValidateAction`, `GenerateSlug` with category/priority bounds
+  - **repository.go** — `SQLiteRepository` with full CRUD, execution logging, JSON-encoded actions
+  - **registry.go** — Thread-safe in-memory cache wrapping Repository (RWMutex, deep-copy semantics)
+  - **engine.go** — Scene execution engine: parallel/sequential action groups, delay_ms, fade_ms, MQTT publish, execution tracking
+  - **doc.go** — Package documentation
+
+- `internal/api/scenes.go` — 7 HTTP handlers for scene endpoints
+- `migrations/20260123_150000_scenes.up.sql` / `.down.sql` — Schema for `scenes` and `scene_executions` tables
+
+**Scene Engine Architecture**
+
+```
+POST /scenes/{id}/activate
+        │
+        ▼
+  Engine.ActivateScene(ctx, sceneID, triggerType, triggerSource)
+        │
+        ├─ Load scene from Registry (cached)
+        ├─ Check enabled → ErrSceneDisabled if false
+        ├─ Create SceneExecution record (status: pending)
+        ├─ Group actions by parallel flag
+        ├─ Execute groups sequentially:
+        │      Each group → goroutines + WaitGroup
+        │        Per action: delay_ms → resolve device → MQTT publish (with fade_ms)
+        ├─ Update execution (status, counts, duration_ms)
+        └─ Broadcast "scene.activated" via WebSocket hub
+```
+
+**Action grouping:** First action starts group 1. Subsequent actions with `parallel=true` join the current group; `parallel=false` starts a new group.
+
+**Narrow Interface Pattern (Engine Dependencies)**
+
+```go
+type DeviceRegistry interface {
+    GetDevice(ctx context.Context, id string) (DeviceInfo, error)
+}
+type MQTTClient interface {
+    Publish(topic string, payload []byte, qos byte, retained bool) error
+}
+type WSHub interface {
+    Broadcast(channel string, payload any)
+}
+```
+
+Adapters in `main.go` bridge concrete types (`*device.Registry`, `*mqtt.Client`, `*api.Hub`) to these interfaces.
+
+**API Endpoints**
+
+| Method | Path | Description | Response |
+|--------|------|-------------|----------|
+| GET | `/api/v1/scenes` | List scenes (filter: category, room_id, area_id, enabled) | 200 `{scenes, count}` |
+| POST | `/api/v1/scenes` | Create scene | 201 Scene |
+| GET | `/api/v1/scenes/{id}` | Get scene by ID | 200 Scene |
+| PATCH | `/api/v1/scenes/{id}` | Update scene | 200 Scene |
+| DELETE | `/api/v1/scenes/{id}` | Delete scene | 204 |
+| POST | `/api/v1/scenes/{id}/activate` | Activate scene (async) | 202 `{execution_id, status}` |
+| GET | `/api/v1/scenes/{id}/executions` | List execution history | 200 `{executions, count}` |
+
+**main.go Wiring**
+
+- WebSocket hub created before both Engine and API Server (shared via `Deps.ExternalHub`)
+- `sceneDeviceRegistryAdapter` wraps `*device.Registry` → `automation.DeviceInfo`
+- `sceneMQTTClientAdapter` wraps `*mqtt.Client` → `automation.MQTTClient`
+
+**Files Modified**
+
+- `internal/api/server.go` — Added `SceneEngine`, `SceneRegistry`, `SceneRepo`, `ExternalHub` to `Deps`
+- `internal/api/router.go` — Added scene route group under protected routes
+- `cmd/graylogic/main.go` — Wired automation package with adapters
+
+**Tests Added**
+
+- `internal/automation/validation_test.go` — Validation unit tests
+- `internal/automation/repository_test.go` — SQLite repository tests
+- `internal/automation/registry_test.go` — Registry tests with mock repo
+- `internal/automation/engine_test.go` — Engine tests (parallel, delays, performance benchmark)
+- `internal/automation/integration_test.go` — Full lifecycle + persistence tests
+- `internal/api/scenes_test.go` — 18 HTTP handler tests (CRUD, filtering, activation, executions)
+
+**Test Coverage**
+
+- 91.6% coverage on `internal/automation/` package (target: 80%)
+- 60+ new tests across 6 test files
+- 10-device parallel scene activation verified <500ms
+- All packages build, test, and lint clean
+
+**Design Decisions**
+
+- **External hub injection**: Hub created in `main.go` rather than inside `Server.Start()`, enabling engine to broadcast without circular dependencies
+- **Adapter pattern**: Engine uses narrow interfaces; main.go provides adapters — keeps automation package decoupled from device/mqtt/api packages
+- **JSON-encoded actions**: Scene actions stored as JSON array in SQLite `actions` column — avoids join table complexity for M1.6 scope
+- **202 Accepted**: Scene activation is asynchronous — MQTT commands are published, device state updates arrive via WebSocket
+- **UK English**: All field names use British spelling (`colour`, not `color`) — project controls both server and clients
+
+**Next: M1.5 — Flutter Wall Panel (or Auth hardening)**
+
+---
+
 ## 1.0.6 – M1.4 REST API + WebSocket (2026-01-23)
 
 **Milestone: M1.4 REST API + WebSocket — Complete**

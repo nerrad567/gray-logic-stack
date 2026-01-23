@@ -2,7 +2,7 @@
 title: Audit Summary & History
 version: 2.0.0
 status: active
-last_updated: 2026-01-22
+last_updated: 2026-01-23
 auditor: Multiple (Gemini, Claude Code)
 ---
 
@@ -36,6 +36,8 @@ This document summarizes the comprehensive audit process conducted across two ph
 |-----------|------|-------|-------|------------|
 | **9** | Jan 20 | M1.1 Infrastructure | **9.2** | Fixed double-close panic, unbounded goroutines |
 | **10** | Jan 22 | M1.2 knxd Manager | **9.6** | Fixed 8 issues: race conditions, PID handling, D-state |
+| **11** | Jan 23 | M1.4 REST API + WebSocket | **9.4** | Fixed 12 issues across 7 iterations: DoS, panics, races |
+| **12** | Jan 23-24 | M1.6 Basic Scenes | **9.4** | Fixed 10 issues (5 iterations): race, DoS, timeout, validation, abort logic, DeepCopy. Final Advisory: SHIP IT. |
 
 > **Note:** Code audits follow 7-phase verification (tests, lint, vulncheck, AI review, architecture, deps, docs).
 
@@ -124,6 +126,8 @@ This document summarizes the comprehensive audit process conducted across two ph
 
 | File | Date | Scope | Issues Fixed |
 |------|------|-------|--------------|
+| `audit-2026-01-23-m1.6-scenes.md` | Jan 23-24 | automation package, scene API handlers | 10 (5 iterations, Final Advisory) |
+| `audit-2026-01-23-m1.4-api.md` | Jan 23 | REST API, WebSocket hub, middleware | 12 |
 | `audit-2026-01-22-m1.2-knxd.md` | Jan 22 | knxd manager, process manager, bus monitor | 8 |
 
 ### Documentation Audits (Phase 1)

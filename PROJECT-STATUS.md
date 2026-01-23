@@ -1,13 +1,13 @@
 # Gray Logic — Project Status
 
 > **Last Updated:** 2026-01-23
-> **Current Phase:** Implementation (M1.5 - Next)
+> **Current Phase:** Implementation (M1.6 Complete, M1.5 Next)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-23 (Session 14 - M1.4 REST API + WebSocket Complete!)
+**Last session:** 2026-01-23 (Session 15 - M1.6 Basic Scenes Complete!)
 **Current milestone:** M1.5 (Flutter Wall Panel or Auth hardening)
 
 **What's done:**
@@ -15,10 +15,10 @@
 - M1.2 KNX Bridge (telegram parsing, knxd client, MQTT translation, 4 audit cycles) ✅
 - M1.3 Device Registry (50+ types, thread-safe cache, SQLite persistence, KNX integration) ✅
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
+- M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
 
 **What's next:**
 - M1.5 Flutter Wall Panel (or auth hardening first)
-- M1.6 Basic Scenes
 
 ---
 
@@ -40,7 +40,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | 🟢 M1.4 Complete, M1.5 Next |
+| Code | 🟢 M1.6 Complete, M1.5 Next |
 
 ---
 
@@ -141,10 +141,11 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.5 Next | M1.1 + M1.2 + M1.3 + M1.4 complete |
+| Gray Logic Core (Go) | 🟢 M1.5 Next | M1.1 + M1.2 + M1.3 + M1.4 + M1.6 complete |
 | REST API + WebSocket | ✅ Complete | Chi router, device CRUD, state commands, WebSocket hub, JWT auth placeholder |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
 | knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
+| Basic Scenes | ✅ Complete | Automation package, scene engine, parallel execution, REST API, 91.6% coverage |
 | Device Registry | ✅ Complete | Types, repository, validation, wired to main.go + KNX bridge |
 | Process Manager | ✅ Complete | Generic subprocess lifecycle (reusable for DALI, Modbus) |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
@@ -217,7 +218,7 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | **M1.3** | Device Registry | ✅ Complete |
 | **M1.4** | REST API + WebSocket | ✅ Complete |
 | M1.5 | Flutter Wall Panel | ⬜ Not Started |
-| M1.6 | Basic Scenes | ⬜ Not Started |
+| **M1.6** | Basic Scenes | ✅ Complete |
 
 ### Year 2 — Automation Expansion (2027)
 | Milestone | Goal |
@@ -285,17 +286,17 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | 7 | DimmerTile (slider) | ⬜ Not Started | Task 5 |
 | 8 | Response time <200ms validation | ⬜ Not Started | Tasks 5-7 |
 
-### M1.6: Basic Scenes
+### M1.6: Basic Scenes — ✅ Complete
 
 | # | Task | Status | Depends On |
 |---|------|--------|------------|
-| 1 | Database schema (scenes, scene_actions) | ⬜ Not Started | M1.1 |
-| 2 | Scene struct definition | ⬜ Not Started | Task 1 |
-| 3 | scene_engine.go — Activate, parallel execution | ⬜ Not Started | Task 2 |
-| 4 | GET /api/v1/scenes | ⬜ Not Started | M1.4 |
-| 5 | POST /api/v1/scenes/{id}/activate | ⬜ Not Started | Task 3 |
-| 6 | Scene execution <500ms for 10 devices | ⬜ Not Started | Task 3 |
-| 7 | Persist scene state across restarts | ⬜ Not Started | Task 3 |
+| 1 | Database schema (scenes, scene_executions) | ✅ Complete | M1.1 |
+| 2 | Scene struct definition + validation | ✅ Complete | Task 1 |
+| 3 | scene engine — Activate, parallel/sequential execution | ✅ Complete | Task 2 |
+| 4 | Full scene CRUD API (GET/POST/PATCH/DELETE) | ✅ Complete | M1.4 |
+| 5 | POST /api/v1/scenes/{id}/activate | ✅ Complete | Task 3 |
+| 6 | Scene execution <500ms for 10 devices | ✅ Complete | Task 3 |
+| 7 | Persist scene state across restarts (registry cache) | ✅ Complete | Task 3 |
 
 ---
 
@@ -468,6 +469,31 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 - All 12 packages pass, build and lint clean
 - Added: chi v5.2.4, gorilla/websocket v1.5.3, golang-jwt v5.3.0
 - **M1.4 REST API + WebSocket complete**
+
+### Session 15: 2026-01-23 — M1.6 Basic Scenes (Complete)
+
+**Goal:** Scene engine with parallel execution and REST API
+
+- Created `internal/automation/` package (7 files, ~1,800 lines):
+  - **types.go** — Scene, SceneAction, SceneExecution structs with DeepCopy
+  - **errors.go** — Domain error sentinels (ErrSceneNotFound, ErrSceneDisabled, etc.)
+  - **validation.go** — ValidateScene, ValidateAction, GenerateSlug
+  - **repository.go** — SQLiteRepository with full CRUD + execution logging
+  - **registry.go** — Thread-safe cache wrapping Repository (RWMutex, deep-copy)
+  - **engine.go** — Scene execution engine (parallel/sequential groups, delays, fade, MQTT publish)
+  - **doc.go** — Package documentation
+- Created `internal/api/scenes.go` — 7 HTTP handlers (List, Get, Create, Update, Delete, Activate, ListExecutions)
+- Created SQLite migrations (`20260123_150000_scenes.up.sql` / `.down.sql`)
+- Modified `internal/api/server.go` — Added SceneEngine, SceneRegistry, SceneRepo, ExternalHub to Deps
+- Modified `internal/api/router.go` — Added scene route group under protected routes
+- Modified `cmd/graylogic/main.go` — Wired automation package with adapter pattern for DeviceRegistry and MQTTClient interfaces
+- External hub injection: WebSocket hub created before both engine and API server, shared via Deps
+- **Tests**: 60+ new tests across 6 test files (unit, integration, API handler, performance)
+- **Coverage**: 91.6% on automation package (target was 80%)
+- **Performance**: 10-device parallel scene activation <500ms verified
+- UK English throughout (colour, not color) — enforced after lint review
+- All packages build, test, and lint clean
+- **M1.6 Basic Scenes complete**
 
 ---
 

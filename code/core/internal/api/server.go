@@ -20,6 +20,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
@@ -32,13 +33,17 @@ const gracefulShutdownTimeout = 10 * time.Second
 
 // Deps holds the dependencies required by the API server.
 type Deps struct {
-	Config   config.APIConfig
-	WS       config.WebSocketConfig
-	Security config.SecurityConfig
-	Logger   *logging.Logger
-	Registry *device.Registry
-	MQTT     *mqtt.Client
-	Version  string
+	Config        config.APIConfig
+	WS            config.WebSocketConfig
+	Security      config.SecurityConfig
+	Logger        *logging.Logger
+	Registry      *device.Registry
+	MQTT          *mqtt.Client
+	SceneEngine   *automation.Engine
+	SceneRegistry *automation.Registry
+	SceneRepo     automation.Repository
+	ExternalHub   *Hub // If set, the server uses this hub instead of creating its own
+	Version       string
 }
 
 // Server is the HTTP API server for Gray Logic Core.
@@ -46,16 +51,20 @@ type Deps struct {
 // It manages the HTTP listener, routes, middleware, and WebSocket hub.
 // The server is created with New() and started with Start().
 type Server struct {
-	cfg      config.APIConfig
-	wsCfg    config.WebSocketConfig
-	secCfg   config.SecurityConfig
-	logger   *logging.Logger
-	registry *device.Registry
-	mqtt     *mqtt.Client
-	version  string
-	server   *http.Server
-	hub      *Hub
-	cancel   context.CancelFunc // cancels background goroutines on Close()
+	cfg           config.APIConfig
+	wsCfg         config.WebSocketConfig
+	secCfg        config.SecurityConfig
+	logger        *logging.Logger
+	registry      *device.Registry
+	mqtt          *mqtt.Client
+	sceneEngine   *automation.Engine
+	sceneRegistry *automation.Registry
+	sceneRepo     automation.Repository
+	version       string
+	server        *http.Server
+	hub           *Hub
+	externalHub   bool               // true if hub was injected externally
+	cancel        context.CancelFunc // cancels background goroutines on Close()
 }
 
 // New creates a new API server with the given dependencies.
@@ -78,13 +87,23 @@ func New(deps Deps) (*Server, error) {
 	// MQTT is optional — commands won't work without it but reads/WebSocket still function
 
 	s := &Server{
-		cfg:      deps.Config,
-		wsCfg:    deps.WS,
-		secCfg:   deps.Security,
-		logger:   deps.Logger,
-		registry: deps.Registry,
-		mqtt:     deps.MQTT,
-		version:  deps.Version,
+		cfg:           deps.Config,
+		wsCfg:         deps.WS,
+		secCfg:        deps.Security,
+		logger:        deps.Logger,
+		registry:      deps.Registry,
+		mqtt:          deps.MQTT,
+		sceneEngine:   deps.SceneEngine,
+		sceneRegistry: deps.SceneRegistry,
+		sceneRepo:     deps.SceneRepo,
+		version:       deps.Version,
+	}
+
+	// Use externally-provided hub if available (needed when Engine also
+	// requires the hub for WebSocket broadcasting).
+	if deps.ExternalHub != nil {
+		s.hub = deps.ExternalHub
+		s.externalHub = true
 	}
 
 	return s, nil
@@ -107,9 +126,11 @@ func (s *Server) Start(ctx context.Context) error {
 	var srvCtx context.Context
 	srvCtx, s.cancel = context.WithCancel(ctx)
 
-	// Create WebSocket hub
-	s.hub = NewHub(s.wsCfg, s.logger)
-	go s.hub.Run(srvCtx)
+	// Create WebSocket hub (unless one was injected externally)
+	if s.hub == nil {
+		s.hub = NewHub(s.wsCfg, s.logger)
+		go s.hub.Run(srvCtx)
+	}
 
 	// Start periodic ticket cleanup to prevent memory leaks
 	go s.cleanTicketsLoop(srvCtx)

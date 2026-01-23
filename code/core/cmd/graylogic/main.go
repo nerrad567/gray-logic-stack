@@ -22,6 +22,7 @@ import (
 	_ "github.com/nerrad567/gray-logic-core/migrations"
 
 	"github.com/nerrad567/gray-logic-core/internal/api"
+	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
@@ -145,15 +146,38 @@ func run(ctx context.Context) error {
 		log.Warn("MQTT disconnected", "error", err)
 	})
 
+	// Initialise scene automation
+	sceneRepo := automation.NewSQLiteRepository(db.DB)
+	sceneRegistry := automation.NewRegistry(sceneRepo)
+	sceneRegistry.SetLogger(log)
+
+	if refreshErr := sceneRegistry.RefreshCache(ctx); refreshErr != nil {
+		return fmt.Errorf("loading scene registry: %w", refreshErr)
+	}
+	log.Info("scene registry initialised", "scenes", sceneRegistry.GetSceneCount())
+
+	// Create WebSocket hub (shared between engine and API server)
+	wsHub := api.NewHub(cfg.WebSocket, log)
+	go wsHub.Run(ctx)
+
+	// Create scene engine with adapters
+	sceneDeviceAdapter := &sceneDeviceRegistryAdapter{registry: deviceRegistry}
+	sceneMQTTAdapter := &sceneMQTTClientAdapter{client: mqttClient}
+	sceneEngine := automation.NewEngine(sceneRegistry, sceneDeviceAdapter, sceneMQTTAdapter, wsHub, sceneRepo, log)
+
 	// Start API server
 	apiServer, err := api.New(api.Deps{
-		Config:   cfg.API,
-		WS:       cfg.WebSocket,
-		Security: cfg.Security,
-		Logger:   log,
-		Registry: deviceRegistry,
-		MQTT:     mqttClient,
-		Version:  version,
+		Config:        cfg.API,
+		WS:            cfg.WebSocket,
+		Security:      cfg.Security,
+		Logger:        log,
+		Registry:      deviceRegistry,
+		MQTT:          mqttClient,
+		SceneEngine:   sceneEngine,
+		SceneRegistry: sceneRegistry,
+		SceneRepo:     sceneRepo,
+		ExternalHub:   wsHub,
+		Version:       version,
 	})
 	if err != nil {
 		return fmt.Errorf("creating API server: %w", err)
@@ -496,4 +520,40 @@ func (a *deviceRegistryAdapter) SetDeviceState(ctx context.Context, id string, s
 // SetDeviceHealth implements knx.DeviceRegistry.
 func (a *deviceRegistryAdapter) SetDeviceHealth(ctx context.Context, id string, status string) error {
 	return a.registry.SetDeviceHealth(ctx, id, device.HealthStatus(status))
+}
+
+// sceneDeviceRegistryAdapter adapts the device.Registry to the
+// automation.DeviceRegistry interface. It extracts only the minimal
+// DeviceInfo (ID, Protocol, GatewayID) needed for MQTT command routing.
+type sceneDeviceRegistryAdapter struct {
+	registry *device.Registry
+}
+
+// GetDevice implements automation.DeviceRegistry.
+func (a *sceneDeviceRegistryAdapter) GetDevice(ctx context.Context, id string) (automation.DeviceInfo, error) {
+	dev, err := a.registry.GetDevice(ctx, id)
+	if err != nil {
+		return automation.DeviceInfo{}, err
+	}
+	var gatewayID *string
+	if dev.GatewayID != nil {
+		gid := *dev.GatewayID
+		gatewayID = &gid
+	}
+	return automation.DeviceInfo{
+		ID:        dev.ID,
+		Protocol:  string(dev.Protocol),
+		GatewayID: gatewayID,
+	}, nil
+}
+
+// sceneMQTTClientAdapter adapts the infrastructure mqtt.Client to the
+// automation.MQTTClient interface (which only requires Publish).
+type sceneMQTTClientAdapter struct {
+	client *mqtt.Client
+}
+
+// Publish implements automation.MQTTClient.
+func (a *sceneMQTTClientAdapter) Publish(topic string, payload []byte, qos byte, retained bool) error {
+	return a.client.Publish(topic, payload, qos, retained)
 }
