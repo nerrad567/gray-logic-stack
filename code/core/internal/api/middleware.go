@@ -127,17 +127,22 @@ func (s *Server) isAllowedOrigin(origin string) bool {
 // statusWriter wraps http.ResponseWriter to capture the status code.
 type statusWriter struct {
 	http.ResponseWriter
-	status int
+	status  int
+	written bool
 }
 
 func (w *statusWriter) WriteHeader(status int) {
+	if w.written {
+		return // Already sent to client; subsequent calls are no-ops
+	}
+	w.written = true
 	w.status = status
 	w.ResponseWriter.WriteHeader(status)
 }
 
 func (w *statusWriter) Write(b []byte) (int, error) {
-	if w.status == 0 {
-		w.status = http.StatusOK
+	if !w.written {
+		w.WriteHeader(http.StatusOK)
 	}
 	//nolint:wrapcheck // Passthrough: statusWriter is a transparent wrapper
 	return w.ResponseWriter.Write(b)

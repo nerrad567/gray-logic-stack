@@ -124,11 +124,12 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Create HTTP server
 	s.server = &http.Server{
-		Addr:         fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port),
-		Handler:      router,
-		ReadTimeout:  time.Duration(s.cfg.Timeouts.Read) * time.Second,
-		WriteTimeout: time.Duration(s.cfg.Timeouts.Write) * time.Second,
-		IdleTimeout:  time.Duration(s.cfg.Timeouts.Idle) * time.Second,
+		Addr:              fmt.Sprintf("%s:%d", s.cfg.Host, s.cfg.Port),
+		Handler:           router,
+		ReadTimeout:       time.Duration(s.cfg.Timeouts.Read) * time.Second,
+		ReadHeaderTimeout: time.Duration(s.cfg.Timeouts.Read) * time.Second,
+		WriteTimeout:      time.Duration(s.cfg.Timeouts.Write) * time.Second,
+		IdleTimeout:       time.Duration(s.cfg.Timeouts.Idle) * time.Second,
 	}
 
 	// Start listening in background
