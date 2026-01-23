@@ -85,6 +85,20 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 	})
 }
 
+// maxRequestBodySize is the maximum allowed request body size (1 MB).
+const maxRequestBodySize = 1 << 20
+
+// bodySizeLimitMiddleware limits the size of incoming request bodies to prevent
+// denial-of-service attacks via oversized payloads.
+func (s *Server) bodySizeLimitMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if r.Body != nil {
+			r.Body = http.MaxBytesReader(w, r.Body, maxRequestBodySize)
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
 // authMiddleware validates JWT tokens on protected routes.
 // Placeholder: accepts any valid JWT signed with the configured secret.
 func (s *Server) authMiddleware(next http.Handler) http.Handler {

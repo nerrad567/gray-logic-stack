@@ -105,6 +105,9 @@ func (s *Server) Start(ctx context.Context) error {
 	s.hub = NewHub(s.wsCfg, s.logger)
 	go s.hub.Run(ctx)
 
+	// Start periodic ticket cleanup to prevent memory leaks
+	go s.cleanTicketsLoop(ctx)
+
 	// Subscribe to device state changes from bridges for WebSocket broadcast
 	if err := s.subscribeStateUpdates(); err != nil {
 		s.logger.Warn("failed to subscribe to state updates for WebSocket", "error", err)

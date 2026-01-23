@@ -15,6 +15,7 @@ func (s *Server) buildRouter() http.Handler {
 	r.Use(s.loggingMiddleware)
 	r.Use(s.recoveryMiddleware)
 	r.Use(s.corsMiddleware)
+	r.Use(s.bodySizeLimitMiddleware)
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {

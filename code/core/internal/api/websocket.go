@@ -101,6 +101,8 @@ func (h *Hub) Unregister(client *WSClient) {
 }
 
 // Broadcast sends an event to all clients subscribed to the given channel.
+// Lock ordering: hub lock is acquired first, then released before per-client
+// subscription checks. This avoids holding both hub and client locks simultaneously.
 func (h *Hub) Broadcast(channel string, payload any) {
 	msg := WSMessage{
 		Type:      WSTypeEvent,
@@ -115,10 +117,15 @@ func (h *Hub) Broadcast(channel string, payload any) {
 		return
 	}
 
+	// Snapshot client list under hub lock, then release before sending
 	h.mu.RLock()
-	defer h.mu.RUnlock()
-
+	clients := make([]*WSClient, 0, len(h.clients))
 	for client := range h.clients {
+		clients = append(clients, client)
+	}
+	h.mu.RUnlock()
+
+	for _, client := range clients {
 		if client.isSubscribed(channel) {
 			select {
 			case client.send <- data:
@@ -136,12 +143,14 @@ func (h *Hub) ClientCount() int {
 	return len(h.clients)
 }
 
-// closeAll disconnects all clients.
+// closeAll disconnects all clients and closes their send channels
+// so writePump goroutines can exit cleanly.
 func (h *Hub) closeAll() {
 	h.mu.Lock()
 	defer h.mu.Unlock()
 
 	for client := range h.clients {
+		close(client.send)
 		if client.conn != nil {
 			client.conn.Close()
 		}
@@ -158,6 +167,10 @@ func (s *Server) subscribeStateUpdates() error {
 	// Subscribe to all bridge state publications: graylogic/bridge/+/state/+
 	topic := "graylogic/bridge/+/state/+"
 	return s.mqtt.Subscribe(topic, 1, func(t string, payload []byte) error {
+		if s.hub == nil {
+			return nil // Hub not yet initialised
+		}
+
 		// Parse the state message and broadcast to WebSocket clients
 		var stateMsg map[string]any
 		if err := json.Unmarshal(payload, &stateMsg); err != nil {
@@ -173,9 +186,13 @@ func (s *Server) subscribeStateUpdates() error {
 // handleWebSocket upgrades the HTTP connection to a WebSocket connection.
 // Authentication is via ticket query parameter (obtained from POST /auth/ws-ticket).
 func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
-	// Validate ticket-based auth
+	// Validate ticket-based auth — ticket is required
 	ticket := r.URL.Query().Get("ticket")
-	if ticket != "" && !validateTicket(ticket) {
+	if ticket == "" {
+		writeUnauthorized(w, "ticket query parameter is required")
+		return
+	}
+	if !validateTicket(ticket) {
 		writeUnauthorized(w, "invalid or expired ticket")
 		return
 	}

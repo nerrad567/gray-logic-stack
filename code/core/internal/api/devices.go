@@ -220,8 +220,8 @@ type DeviceCommand struct {
 func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
 
-	// Verify device exists
-	_, err := s.registry.GetDevice(r.Context(), id)
+	// Verify device exists and get protocol info for routing
+	dev, err := s.registry.GetDevice(r.Context(), id)
 	if err != nil {
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
@@ -258,12 +258,15 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Publish to MQTT — the KNX bridge subscribes to this topic
+	// Publish to MQTT — the protocol bridge subscribes to this topic
 	if s.mqtt == nil {
 		writeInternalError(w, "MQTT not available")
 		return
 	}
-	topic := "graylogic/bridge/knx-main/command/" + id
+
+	// Derive bridge ID from the device's protocol and gateway
+	bridgeID := deriveBridgeID(dev)
+	topic := "graylogic/bridge/" + bridgeID + "/command/" + id
 	if pubErr := s.mqtt.Publish(topic, payload, 1, false); pubErr != nil {
 		writeInternalError(w, "failed to send command")
 		return
@@ -280,4 +283,14 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 		"status":     "accepted",
 		"message":    "command published, state update will follow via WebSocket",
 	})
+}
+
+// deriveBridgeID determines the MQTT bridge ID for routing commands to a device.
+// It uses the device's gateway_id if set, otherwise falls back to the protocol name
+// with a "-main" suffix (e.g., "knx-main", "dali-main").
+func deriveBridgeID(dev *device.Device) string {
+	if dev.GatewayID != nil && *dev.GatewayID != "" {
+		return *dev.GatewayID
+	}
+	return string(dev.Protocol) + "-main"
 }

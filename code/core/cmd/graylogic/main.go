@@ -158,7 +158,7 @@ func run(ctx context.Context) error {
 	if err != nil {
 		return fmt.Errorf("creating API server: %w", err)
 	}
-	if err := apiServer.Start(ctx); err != nil {
+	if err = apiServer.Start(ctx); err != nil {
 		return fmt.Errorf("starting API server: %w", err)
 	}
 	defer func() {

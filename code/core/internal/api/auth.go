@@ -1,6 +1,7 @@
 package api
 
 import (
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/json"
@@ -137,9 +138,8 @@ func generateTicket() string {
 	return hex.EncodeToString(b)
 }
 
-// CleanExpiredTickets removes expired tickets from the store.
-// Call this periodically to prevent memory leaks.
-func CleanExpiredTickets() {
+// cleanExpiredTickets removes expired tickets from the store.
+func cleanExpiredTickets() {
 	wsTickets.mu.Lock()
 	defer wsTickets.mu.Unlock()
 
@@ -147,6 +147,21 @@ func CleanExpiredTickets() {
 	for ticket, entry := range wsTickets.tickets {
 		if now.After(entry.expiresAt) {
 			delete(wsTickets.tickets, ticket)
+		}
+	}
+}
+
+// cleanTicketsLoop runs cleanExpiredTickets periodically until the context is cancelled.
+func (s *Server) cleanTicketsLoop(ctx context.Context) {
+	ticker := time.NewTicker(ticketTTL)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			cleanExpiredTickets()
 		}
 	}
 }
