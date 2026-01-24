@@ -8,66 +8,82 @@ A building automation platform I'm developing to teach myself BMS architecture a
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **KNX Bridge** | ✅ Complete | Tested protocol bridge connecting KNX bus to internal MQTT |
-| **knxd Manager** | ✅ Complete | Manages knxd daemon with health monitoring and auto-restart |
-| **Device Registry** | 🔄 In Progress | Central device catalogue with SQLite persistence |
 | **Core Infrastructure** | ✅ Complete | Config, logging, MQTT client, InfluxDB client, SQLite |
+| **KNX Bridge** | ✅ Complete | Protocol bridge connecting KNX bus to internal MQTT |
+| **knxd Manager** | ✅ Complete | Manages knxd daemon with health monitoring and auto-restart |
+| **Device Registry** | ✅ Complete | Central device catalogue with SQLite persistence and caching |
+| **REST API + WebSocket** | ✅ Complete | Full CRUD API with real-time state push via WebSocket |
+| **Flutter Wall Panel** | ✅ Complete | Touch UI embedded in Go binary, SPA with device/scene control |
+| **Scenes Engine** | ✅ Complete | Scene definitions, activation, execution tracking, transitions |
+| **Location Model** | ✅ Complete | Site → Area → Room spatial hierarchy |
 
-### KNX Bridge Details
+### Year 1 Foundation — Complete
 
-The KNX bridge is the most complete component — a working Go implementation that:
+All 6 milestones delivered:
 
-- Connects to knxd daemon (USB or IP tunnelling)
-- Parses and encodes KNX telegrams (group communication)
-- Translates between KNX and MQTT messages
-- Supports multiple datapoint types (DPT1, DPT5, DPT9, etc.)
-- Includes comprehensive unit tests (69% coverage)
-
-```
-KNX Bus ←→ knxd daemon ←→ Gray Logic KNX Bridge ←→ MQTT ←→ Core
-```
-
-I've tested this against both real hardware (Weinzierl USB interface) and KNX Virtual.
+| Milestone | What It Does |
+|-----------|-------------|
+| M1.1 Infrastructure | Config loading, SQLite, MQTT client, InfluxDB, structured logging |
+| M1.2 KNX Bridge | Bidirectional KNX↔MQTT with DPT encoding, reconnection, health checks |
+| M1.3 Device Registry | Device CRUD, state management, capability model, caching |
+| M1.4 REST API | Chi router, JWT auth, WebSocket hub, CORS, middleware |
+| M1.5 Wall Panel | Flutter web app embedded via go:embed, SPA fallback, optimistic UI |
+| M1.6 Scenes Engine | Scene CRUD, multi-action activation, execution history, transitions |
 
 ## Architecture
 
 ```
-                        ┌─────────────────────────────────────────┐
-                        │           Gray Logic Core (Go)           │
-                        │                                          │
-                        │  • Device Registry    • Scene Engine     │
-                        │  • State Management   • Scheduler        │
-                        │  • REST API           • WebSocket        │
-                        └─────────────────┬─────────────────────────┘
-                                          │
-                                    Internal MQTT
-                                          │
-              ┌───────────────────────────┼───────────────────────────┐
-              │                           │                           │
-     ┌────────▼────────┐        ┌────────▼────────┐        ┌────────▼────────┐
-     │   KNX Bridge    │        │   DALI Bridge   │        │  Modbus Bridge  │
-     │   (Complete)    │        │   (Planned)     │        │   (Planned)     │
-     └────────┬────────┘        └─────────────────┘        └─────────────────┘
-              │
-        ┌─────▼─────┐
-        │   knxd    │
-        └─────┬─────┘
-              │
-     ═══════════════════  KNX Bus (30V DC twisted pair)
-         │         │
-     ┌───┴───┐ ┌───┴───┐
-     │Dimmer │ │Switch │  ... actual KNX devices
-     └───────┘ └───────┘
+┌──────────────────────────────────────────────────────────────────────┐
+│                     User Interfaces                                   │
+│   Flutter Wall Panel (/panel/)  •  Mobile App (future)  •  Web Admin │
+└──────────────────────────┬───────────────────────────────────────────┘
+                           │ REST API + WebSocket
+                           ▼
+┌──────────────────────────────────────────────────────────────────────┐
+│                      GRAY LOGIC CORE (Go)                            │
+│                                                                       │
+│  ┌────────────┐  ┌────────────┐  ┌────────────┐  ┌──────────────┐  │
+│  │ API Server │  │  Scenes    │  │  Device    │  │   Location   │  │
+│  │ + WebSocket│  │  Engine    │  │  Registry  │  │   Model      │  │
+│  └─────┬──────┘  └─────┬──────┘  └─────┬──────┘  └──────────────┘  │
+│        │                │                │                            │
+│  ┌─────▼────────────────▼────────────────▼──────────────────────┐    │
+│  │              Infrastructure Layer                             │    │
+│  │   Config  •  SQLite  •  MQTT Client  •  InfluxDB  •  Logging │    │
+│  └──────────────────────────┬────────────────────────────────────┘    │
+└─────────────────────────────┼────────────────────────────────────────┘
+                              │ Internal MQTT Bus
+                              ▼
+┌─────────────────────────────────────────────────────────────────────┐
+│                       PROTOCOL BRIDGES                               │
+│                                                                      │
+│  ┌─────────────┐     ┌─────────────┐     ┌─────────────────────┐   │
+│  │ KNX Bridge  │     │ DALI Bridge │     │  Modbus Bridge      │   │
+│  │ (Complete)  │     │ (Planned)   │     │  (Planned)          │   │
+│  └──────┬──────┘     └─────────────┘     └─────────────────────┘   │
+│         │                                                            │
+│    ┌────▼────┐                                                       │
+│    │  knxd   │                                                       │
+│    └────┬────┘                                                       │
+└─────────┼────────────────────────────────────────────────────────────┘
+          │
+  ════════╧═══════════  Physical Bus (KNX 30V DC twisted pair)
+      │         │
+  ┌───┴───┐ ┌───┴───┐
+  │Dimmer │ │Switch │  ... actual devices
+  └───────┘ └───────┘
 ```
 
 ## Technology Choices
 
 | Choice | Why |
 |--------|-----|
-| **Go** | Single binary, no runtime dependencies, compiles for any platform |
-| **MQTT** | Simple pub/sub, easy to debug with standard tools, proven in IoT |
+| **Go** | Single binary, no runtime dependencies, multi-decade stability |
 | **SQLite** | Embedded database, zero maintenance, works for decades |
+| **MQTT** | Simple pub/sub, easy to debug, proven in IoT |
+| **Flutter** | Cross-platform UI (wall panels, mobile, web) from one codebase |
 | **knxd** | Mature open-source KNX daemon, handles USB/IP interfaces |
+| **go:embed** | Flutter web build baked into Go binary — zero external file deps |
 
 ## Design Principles
 
@@ -76,44 +92,42 @@ These aren't just nice-to-haves — they're hard rules I've documented and desig
 1. **Physical controls always work** — Wall switches must function even if all software is down
 2. **Life safety is independent** — Fire alarms use certified hardware; software observes, never controls
 3. **No cloud dependencies** — Core functionality works without internet
-4. **Open standards** — KNX, DALI, Modbus, BACnet — no proprietary lock-in
+4. **Open standards** — KNX, DALI, Modbus — no proprietary lock-in
+5. **Multi-decade deployment** — Version-pin everything, no forced upgrades
+6. **Customer owns their system** — Full documentation, no dealer locks
 
 ## Protocols Covered
 
 | Protocol | Status | Notes |
 |----------|--------|-------|
 | KNX | Working | Bridge complete, tested with real hardware |
-| DALI | Documented | Understand addressable lighting concepts |
+| DALI | Documented | Addressable lighting, Year 2 target |
 | Modbus | Documented | TCP and RTU for plant equipment |
 | BACnet | Documented | For commercial BMS integration |
-
-## Documentation
-
-The `/docs` folder contains detailed specifications I've written covering:
-
-- **Architecture:** System design, component interactions, data flow
-- **Protocols:** KNX, DALI, Modbus, BACnet specifications
-- **Domains:** Lighting, climate, blinds, audio, security, energy, pool/plant
-- **Data Model:** Device entities, state management, automation rules
-
-This documentation represents how I think through complex systems before writing code.
 
 ## Project Structure
 
 ```
 gray-logic-stack/
-├── code/core/                    # Go implementation
-│   ├── cmd/graylogic/           # Main application entry point
-│   ├── internal/
-│   │   ├── bridges/knx/         # KNX protocol bridge (complete)
-│   │   ├── knxd/                # knxd daemon manager (complete)
-│   │   ├── device/              # Device registry (in progress)
-│   │   ├── infrastructure/      # Config, MQTT, database, logging
-│   │   └── process/             # Subprocess management
-│   ├── configs/                 # YAML configuration files
-│   └── docs/technical/          # Package design documentation
-├── docs/                        # Architecture and domain specs
-└── CHANGELOG.md                 # Project history
+├── code/
+│   ├── core/                        # Gray Logic Core (Go)
+│   │   ├── cmd/graylogic/          # Application entry point
+│   │   ├── internal/
+│   │   │   ├── api/                # REST API + WebSocket server
+│   │   │   ├── automation/         # Scenes engine
+│   │   │   ├── bridges/knx/        # KNX protocol bridge
+│   │   │   ├── device/             # Device registry
+│   │   │   ├── infrastructure/     # Config, MQTT, database, logging
+│   │   │   ├── knxd/              # knxd daemon manager
+│   │   │   ├── location/          # Area/Room spatial model
+│   │   │   ├── panel/             # Flutter web UI embedding
+│   │   │   └── process/           # Subprocess management
+│   │   ├── configs/                # YAML configuration templates
+│   │   └── migrations/            # SQL schema migrations
+│   └── ui/wallpanel/              # Flutter wall panel app (Dart)
+├── docs/                           # Architecture and domain specs
+├── CHANGELOG.md                    # Project history
+└── PROJECT-STATUS.md              # Current progress tracker
 ```
 
 ## Running the Code
@@ -123,20 +137,23 @@ gray-logic-stack/
 cd code/core
 go build -o bin/graylogic ./cmd/graylogic
 
-# Run tests
-go test -v ./...
+# Run tests (14 packages, all passing)
+go test -race ./...
 
 # Lint
 golangci-lint run
+
+# Start dev services (MQTT + InfluxDB)
+docker compose -f docker-compose.dev.yml up -d
 ```
 
 Requires Go 1.25+ and knxd for KNX functionality.
 
 ## Current Focus
 
-**Milestone M1.3:** Device Registry — CRUD operations, caching, SQLite persistence
+**Year 1 Foundation: Complete.** All 6 milestones delivered and audited.
 
-**Next:** REST API and WebSocket for real-time state updates
+**Next:** Refinement and simulation environment — building a Docker-based KNX simulator for full end-to-end testing without physical hardware.
 
 ## Why I Built This
 

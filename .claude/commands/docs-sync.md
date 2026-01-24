@@ -6,6 +6,8 @@ description: Check documentation is up to date with code
 
 Verifies documentation matches the current codebase state.
 
+> **IMPORTANT — Shell Execution:** All bash code blocks in this file use bash-specific syntax (`[[`, `=~`, `echo -e`, `$(())`). When executing these snippets, **always wrap them with `bash -c '...'`** because the tool's default shell is `/bin/sh` (dash on Debian), which does not support these features.
+
 ## What It Checks
 
 ### 1. Package Documentation
@@ -190,7 +192,39 @@ When `/docs-sync` is invoked:
    - Update version numbers
    - Add function doc comments
 
-### 10. Session Log Updates (CHANGELOG, PROJECT-STATUS)
+### 10. README.md Freshness
+
+The root README.md is the project's public face. It must reflect current capabilities.
+
+```bash
+cd /home/graylogic-dev/gray-logic-stack
+
+echo "=== README.md Freshness ==="
+readme_commit=$(git log -1 --format="%H %ai" -- README.md)
+echo "Last README update: $readme_commit"
+
+echo -e "\nCode changes since README update:"
+readme_hash=$(echo "$readme_commit" | cut -d' ' -f1)
+git log --oneline "$readme_hash"..HEAD -- code/ 2>/dev/null | head -20
+
+echo -e "\nMilestones mentioned in README:"
+grep -i "complete\|in progress\|planned" README.md | head -20
+```
+
+**What to check:**
+- Does the "What's Working" table list all completed milestones?
+- Are component statuses accurate (✅ Complete vs 🔄 In Progress)?
+- Do architecture diagrams match the current system?
+- Are example commands/configs still valid?
+- Is the tech stack table current?
+
+**When stale, Claude should offer to update:**
+- Component status table
+- Architecture description
+- Code examples and paths
+- Any "next steps" or roadmap sections
+
+### 11. Session Log Updates (CHANGELOG, PROJECT-STATUS)
 
 After any significant coding work, verify that high-level project logs reflect what was done:
 

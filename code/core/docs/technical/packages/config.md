@@ -33,7 +33,7 @@ Provides configuration loading for Gray Logic Core with:
 
 | Type | Purpose |
 |------|---------|
-| `Config` | Root configuration structure |
+| `Config` | Root configuration structure (includes `DevMode` flag) |
 | `SiteConfig` | Site identity and location |
 | `DatabaseConfig` | SQLite settings |
 | `MQTTConfig` | MQTT broker connection |
@@ -110,6 +110,8 @@ if cfg.API.Port < 1 || cfg.API.Port > 65535 {
 ## Configuration Hierarchy
 
 ```yaml
+dev_mode: false           # Enable dev-mode (simulates bridge confirmations without hardware)
+
 site:                    # SiteConfig
   id: "site-001"
   name: "My Home"
