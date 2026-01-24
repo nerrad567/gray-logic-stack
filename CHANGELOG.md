@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.8 – M1.5 Flutter Wall Panel (2026-01-24)
+
+**Milestone: M1.5 Flutter Wall Panel — Complete (Year 1 Foundation Done!)**
+
+A Flutter-based wall panel UI served as an embedded web app from the Go binary, with real-time device control, scene activation, and optimistic UI updates.
+
+### Added
+
+- **Flutter wall panel app** (`code/ui/wallpanel/`):
+  - Riverpod state management with Dio HTTP client
+  - JWT auth flow with WebSocket ticket exchange
+  - Room device grid layout (responsive)
+  - SwitchTile (on/off toggle) and DimmerTile (slider) widgets
+  - Scene activation bar (triggers scene engine)
+  - Real-time state updates via WebSocket subscription
+  - Optimistic UI with subtle opacity pulse animation (0.2–1.0) for pending states
+  - Exponential backoff WebSocket reconnection
+  - Location data caching for offline resilience
+  - 12 test files (models, providers, services, widgets)
+
+- **`internal/location/` package** — Area/room location hierarchy:
+  - `Repository` interface with SQLite implementation
+  - `ListAreas`, `ListAreasBySite`, `GetArea`, `ListRooms`, `ListRoomsByArea`, `GetRoom`
+  - 270-line integration test suite
+
+- **`internal/panel/` package** — Embedded web serving:
+  - `go:embed` for Flutter web build assets
+  - SPA fallback handler (client-side routing support)
+  - Cache-control headers (no-cache for mutable assets)
+
+- **API additions**:
+  - `GET /api/v1/areas` — List areas (optionally by site)
+  - `GET /api/v1/rooms` — List rooms (optionally by area)
+  - `GET /panel/*` — Serve Flutter web UI
+  - Dev-mode device command simulation (800ms delay + WS broadcast)
+
+### Changed
+
+- `internal/api/devices.go` — Enhanced command handler with dev-mode simulation
+- `internal/api/middleware.go` — CORS configuration updates for dev origins
+- `internal/api/websocket.go` — Improved broadcast for device state changes
+- `configs/config.yaml` — Added dev mode flag, CORS origins
+- `cmd/graylogic/main.go` — Wired location repository and panel handler
+
+---
+
 ## 1.0.7 – M1.6 Basic Scenes (2026-01-23)
 
 **Milestone: M1.6 Basic Scenes — Complete**

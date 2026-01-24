@@ -276,21 +276,29 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 	var newState device.State
 	if s.devMode {
 		newState = commandToState(cmd.Command, cmd.Parameters, dev.State)
-		go func() {
+		go func(deviceID string, state device.State) {
 			// Simulate bridge processing + bus round-trip (KNX typical: 100-300ms,
 			// exaggerated here so the pending UI is clearly visible during dev)
-			time.Sleep(800 * time.Millisecond)
+			ctx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			defer cancel()
 
-			if updateErr := s.registry.SetDeviceState(context.Background(), id, newState); updateErr != nil {
+			select {
+			case <-time.After(800 * time.Millisecond):
+			case <-ctx.Done():
+				s.logger.Debug("dev mode simulation cancelled", "device_id", deviceID)
+				return
+			}
+
+			if updateErr := s.registry.SetDeviceState(ctx, deviceID, state); updateErr != nil {
 				s.logger.Warn("failed to apply local state", "error", updateErr)
 				return
 			}
 			s.hub.Broadcast("device.state_changed", map[string]any{
-				"device_id": id,
-				"state":     newState,
+				"device_id": deviceID,
+				"state":     state,
 			})
-			s.logger.Debug("dev mode: simulated bridge confirmation", "device_id", id)
-		}()
+			s.logger.Debug("dev mode: simulated bridge confirmation", "device_id", deviceID)
+		}(id, newState)
 	}
 
 	logFields := []any{

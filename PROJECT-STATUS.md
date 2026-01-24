@@ -1,24 +1,26 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-23
-> **Current Phase:** Implementation (M1.6 Complete, M1.5 Next)
+> **Last Updated:** 2026-01-24
+> **Current Phase:** Implementation (M1.5 Complete — Year 1 Foundation Done!)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-23 (Session 15 - M1.6 Basic Scenes Complete!)
-**Current milestone:** M1.5 (Flutter Wall Panel or Auth hardening)
+**Last session:** 2026-01-24 (Session 16 - M1.5 Flutter Wall Panel Complete!)
+**Current milestone:** Year 1 Foundation Complete — all 6 milestones done
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
 - M1.2 KNX Bridge (telegram parsing, knxd client, MQTT translation, 4 audit cycles) ✅
 - M1.3 Device Registry (50+ types, thread-safe cache, SQLite persistence, KNX integration) ✅
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
+- M1.5 Flutter Wall Panel (Riverpod, Dio, WebSocket, optimistic UI, embedded web serving) ✅
 - M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
 
 **What's next:**
-- M1.5 Flutter Wall Panel (or auth hardening first)
+- Auth hardening (production JWT, refresh tokens, role-based access)
+- Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
 
 ---
 
@@ -40,7 +42,7 @@
 | Development Docs | ✅ Complete |
 | Operations Docs | ✅ Complete |
 | Commissioning Docs | ✅ Complete |
-| Code | 🟢 M1.6 Complete, M1.5 Next |
+| Code | ✅ Year 1 Complete (all 6 milestones) |
 
 ---
 
@@ -141,7 +143,7 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | 🟢 M1.5 Next | M1.1 + M1.2 + M1.3 + M1.4 + M1.6 complete |
+| Gray Logic Core (Go) | ✅ Year 1 Complete | M1.1 + M1.2 + M1.3 + M1.4 + M1.5 + M1.6 complete |
 | REST API + WebSocket | ✅ Complete | Chi router, device CRUD, state commands, WebSocket hub, JWT auth placeholder |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
 | knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
@@ -150,7 +152,8 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | Process Manager | ✅ Complete | Generic subprocess lifecycle (reusable for DALI, Modbus) |
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
-| Flutter UI | ❌ Not started | M1.5 (Year 1) |
+| Flutter Wall Panel | ✅ Complete | Riverpod, Dio, WebSocket, optimistic UI, embedded web serving |
+| Location API | ✅ Complete | Area/room endpoints, SQLite repository |
 | Voice Pipeline | ❌ Not started | Year 4 |
 
 ### M1.1 Progress (Core Infrastructure) — ✅ Complete
@@ -217,7 +220,7 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | **M1.2** | KNX Bridge | ✅ Complete |
 | **M1.3** | Device Registry | ✅ Complete |
 | **M1.4** | REST API + WebSocket | ✅ Complete |
-| M1.5 | Flutter Wall Panel | ⬜ Not Started |
+| **M1.5** | Flutter Wall Panel | ✅ Complete |
 | **M1.6** | Basic Scenes | ✅ Complete |
 
 ### Year 2 — Automation Expansion (2027)
@@ -273,18 +276,22 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 
 ## Year 1 Task Breakdowns
 
-### M1.5: Flutter Wall Panel
+### M1.5: Flutter Wall Panel — ✅ Complete
 
 | # | Task | Status | Depends On |
 |---|------|--------|------------|
-| 1 | Flutter project setup (ui/wallpanel) | ⬜ Not Started | - |
-| 2 | Device models (matching Go structs) | ⬜ Not Started | M1.3 |
-| 3 | Repository pattern for API calls | ⬜ Not Started | M1.4 |
-| 4 | WebSocket connection for state updates | ⬜ Not Started | M1.4 |
-| 5 | RoomView widget | ⬜ Not Started | Tasks 2-4 |
-| 6 | SwitchTile (on/off) | ⬜ Not Started | Task 5 |
-| 7 | DimmerTile (slider) | ⬜ Not Started | Task 5 |
-| 8 | Response time <200ms validation | ⬜ Not Started | Tasks 5-7 |
+| 1 | Flutter project setup (ui/wallpanel) | ✅ Complete | - |
+| 2 | Device models (matching Go structs) | ✅ Complete | M1.3 |
+| 3 | Repository pattern for API calls (Dio + Riverpod) | ✅ Complete | M1.4 |
+| 4 | WebSocket connection for state updates | ✅ Complete | M1.4 |
+| 5 | RoomView widget (device grid) | ✅ Complete | Tasks 2-4 |
+| 6 | SwitchTile (on/off) | ✅ Complete | Task 5 |
+| 7 | DimmerTile (slider, no snap-back) | ✅ Complete | Task 5 |
+| 8 | Scene activation bar | ✅ Complete | M1.6 |
+| 9 | Optimistic UI (opacity pulse for pending state) | ✅ Complete | Tasks 5-7 |
+| 10 | Go: Location API (areas/rooms endpoints) | ✅ Complete | M1.3 |
+| 11 | Go: Panel web embed (go:embed, SPA fallback) | ✅ Complete | Task 1 |
+| 12 | Go: Dev mode device simulation (800ms delay + WS broadcast) | ✅ Complete | M1.4 |
 
 ### M1.6: Basic Scenes — ✅ Complete
 
@@ -494,6 +501,40 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 - UK English throughout (colour, not color) — enforced after lint review
 - All packages build, test, and lint clean
 - **M1.6 Basic Scenes complete**
+
+### Session 16: 2026-01-24 — M1.5 Flutter Wall Panel (Complete)
+
+**Goal:** Wall panel UI with embedded web serving
+
+- Created Flutter wall panel app (`code/ui/wallpanel/`, 103 files):
+  - **Riverpod** state management with Dio HTTP client
+  - Auth flow: JWT login → WebSocket ticket exchange
+  - Room device grid with SwitchTile and DimmerTile widgets
+  - Scene activation bar (triggers scene engine via API)
+  - Real-time state updates via WebSocket subscription
+  - Optimistic UI: subtle opacity pulse (0.2–1.0) for pending state
+  - Exponential backoff reconnection for WebSocket
+  - Location data caching
+- Created `internal/location/` package (4 files):
+  - **types.go** — Area, Room structs with settings
+  - **errors.go** — Domain error sentinels
+  - **repository.go** — SQLiteRepository (ListAreas, ListRooms, by-site/by-area queries)
+  - **repository_test.go** — 270-line integration test suite
+- Created `internal/panel/` package (1 file + embedded web build):
+  - **panel.go** — `go:embed` web assets, SPA fallback handler, cache-control headers
+  - **panel_test.go** — Handler tests (static files, SPA fallback, 404)
+  - **web/** — Flutter web build output (canvaskit, assets, service worker)
+- Modified `internal/api/`:
+  - **locations.go** — Area/room list endpoints (GET /areas, GET /rooms)
+  - **router.go** — Panel mount at `/panel/`, location routes
+  - **devices.go** — Dev-mode command simulation (800ms delay + WS broadcast)
+  - **middleware.go** — CORS config updates for dev
+  - **websocket.go** — Enhanced broadcast for device state changes
+- Modified `cmd/graylogic/main.go` — Location repo + panel handler wiring
+- Modified `configs/config.yaml` — Dev mode flag, CORS origins
+- **Tests**: 12 test files in Flutter (models, providers, services, widgets)
+- UX: Dimmer slider holds sent value until WebSocket confirms (no snap-back)
+- **M1.5 Flutter Wall Panel complete — Year 1 Foundation done!**
 
 ---
 

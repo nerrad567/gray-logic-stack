@@ -121,11 +121,6 @@ func (r *SQLiteRepository) queryRooms(ctx context.Context, query string, args ..
 	return rooms, rows.Err()
 }
 
-// scanner is satisfied by both *sql.Row and *sql.Rows.
-type scanner interface {
-	Scan(dest ...any) error
-}
-
 // scanArea scans a single row into an Area (for QueryRow).
 func scanArea(row *sql.Row) (*Area, error) {
 	var a Area
@@ -214,8 +209,13 @@ func scanRoomRow(rows *sql.Rows) (*Room, error) {
 func parseTime(s string) time.Time {
 	t, err := time.Parse(time.RFC3339, s)
 	if err != nil {
-		// Try the SQLite default format without timezone
-		t, _ = time.Parse("2006-01-02T15:04:05Z", s)
+		// Try the SQLite default format without timezone.
+		// Zero time is returned if both formats fail (should not
+		// happen with schema-enforced DEFAULT strftime).
+		t, err = time.Parse("2006-01-02T15:04:05Z", s)
+		if err != nil {
+			return time.Time{}
+		}
 	}
 	return t
 }

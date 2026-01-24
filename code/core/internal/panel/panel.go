@@ -2,6 +2,7 @@ package panel
 
 import (
 	"embed"
+	"fmt"
 	"io/fs"
 	"net/http"
 	"path"
@@ -13,8 +14,12 @@ var content embed.FS
 // Handler returns an http.Handler that serves the Flutter web UI.
 // It implements SPA fallback: if a requested file doesn't exist,
 // it serves index.html so client-side routing works correctly.
+// Panics if the embedded web assets cannot be loaded (build error).
 func Handler() http.Handler {
-	webFS, _ := fs.Sub(content, "web")
+	webFS, err := fs.Sub(content, "web")
+	if err != nil {
+		panic(fmt.Sprintf("panel: failed to load embedded web assets: %v", err))
+	}
 	fileServer := http.FileServer(http.FS(webFS))
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {

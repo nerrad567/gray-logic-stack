@@ -36,7 +36,7 @@ grep "^go " code/core/go.mod
 ```bash
 cd code/core
 # Find exported functions missing doc comments
-grep -rn "^func [A-Z]" --include="*.go" | while read line; do
+grep -rn "^func [A-Z]" --include="*.go" internal/ | grep -v "_test.go" | while IFS= read -r line; do
   file=$(echo "$line" | cut -d: -f1)
   linenum=$(echo "$line" | cut -d: -f2)
   prevline=$((linenum - 1))
@@ -90,12 +90,12 @@ for pkg in config database mqtt influxdb logging; do
     doc_date=$(git log -1 --format="%ai" -- "$doc_file" 2>/dev/null | cut -d' ' -f1)
     
     if [[ "$code_date" > "$doc_date" ]]; then
-      echo "🔴 STALE: $pkg docs ($doc_date) older than code ($code_date)"
+      echo "STALE: $pkg docs ($doc_date) older than code ($code_date)"
     else
-      echo "✅ $pkg docs up to date"
+      echo "OK: $pkg docs up to date"
     fi
   elif [ -d "$code_dir" ]; then
-    echo "🔴 MISSING: $doc_file"
+    echo "MISSING: $doc_file"
   fi
 done
 ```
@@ -163,9 +163,17 @@ echo -e "\n=== Go Version Check ==="
 echo "Installed: $(go version | awk '{print $3}')"
 echo "go.mod:    go $(grep '^go ' go.mod | awk '{print $2}')"
 
-# 3. Undocumented exports (sample)
-echo -e "\n=== Undocumented Exports (first 10) ==="
-grep -rn "^func [A-Z]" --include="*.go" internal/ | head -10
+# 3. Undocumented exports
+echo -e "\n=== Undocumented Exports ==="
+grep -rn "^func [A-Z]" --include="*.go" internal/ | grep -v "_test.go" | while IFS= read -r line; do
+  file=$(echo "$line" | cut -d: -f1)
+  linenum=$(echo "$line" | cut -d: -f2)
+  prevline=$((linenum - 1))
+  prev=$(sed -n "${prevline}p" "$file")
+  if [[ ! "$prev" =~ ^// ]]; then
+    echo "  $line"
+  fi
+done
 ```
 
 ## What Claude Should Do

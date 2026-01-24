@@ -2,7 +2,7 @@
 title: Audit Summary & History
 version: 2.0.0
 status: active
-last_updated: 2026-01-23
+last_updated: 2026-01-24
 auditor: Multiple (Gemini, Claude Code)
 ---
 
@@ -38,6 +38,7 @@ This document summarizes the comprehensive audit process conducted across two ph
 | **10** | Jan 22 | M1.2 knxd Manager | **9.6** | Fixed 8 issues: race conditions, PID handling, D-state |
 | **11** | Jan 23 | M1.4 REST API + WebSocket | **9.4** | Fixed 12 issues across 7 iterations: DoS, panics, races |
 | **12** | Jan 23-24 | M1.6 Basic Scenes | **9.4** | Fixed 10 issues (5 iterations): race, DoS, timeout, validation, abort logic, DeepCopy. Final Advisory: SHIP IT. |
+| **13** | Jan 24 | M1.5 Wall Panel (Go) | **9.5** | Fixed 7 issues (1 iteration): goroutine leak, unchecked errors, unused type, errorlint, staticcheck. SHIP IT. |
 
 > **Note:** Code audits follow 7-phase verification (tests, lint, vulncheck, AI review, architecture, deps, docs).
 

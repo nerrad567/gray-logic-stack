@@ -3,6 +3,7 @@ package location
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"testing"
 
 	_ "github.com/mattn/go-sqlite3"
@@ -153,7 +154,7 @@ func TestGetAreaNotFound(t *testing.T) {
 	repo := NewSQLiteRepository(db)
 
 	_, err := repo.GetArea(context.Background(), "area-nope")
-	if err != ErrAreaNotFound {
+	if !errors.Is(err, ErrAreaNotFound) {
 		t.Errorf("expected ErrAreaNotFound, got %v", err)
 	}
 }
@@ -237,7 +238,7 @@ func TestGetRoomNotFound(t *testing.T) {
 	repo := NewSQLiteRepository(db)
 
 	_, err := repo.GetRoom(context.Background(), "room-nope")
-	if err != ErrRoomNotFound {
+	if !errors.Is(err, ErrRoomNotFound) {
 		t.Errorf("expected ErrRoomNotFound, got %v", err)
 	}
 }
