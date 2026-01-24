@@ -44,6 +44,16 @@ devices:
     initial:
       temperature: 21.5
 
+  - id: "living-room-presence"
+    type: "presence"
+    individual_address: "1.1.5"
+    group_addresses:
+      presence: "4/1/10"
+      lux: "4/1/11"
+    initial:
+      presence: false
+      lux: 150.0
+
 scenarios:
   - device_id: "living-room-temperature"
     field: "temperature"
@@ -53,3 +63,16 @@ scenarios:
       amplitude: 2.0
       period_minutes: 30
       interval_seconds: 10
+
+  - device_id: "living-room-presence"
+    field: "presence"
+    type: "presence_pattern"
+    params:
+      occupied_min_seconds: 15
+      occupied_max_seconds: 90
+      empty_min_seconds: 5
+      empty_max_seconds: 20
+      long_absence_chance: 0.1
+      long_absence_max_seconds: 60
+      lux_occupied: 350.0
+      lux_empty: 80.0

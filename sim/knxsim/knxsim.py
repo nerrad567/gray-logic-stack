@@ -27,6 +27,7 @@ from devices.base import BaseDevice
 from devices.blind import Blind
 from devices.light_dimmer import LightDimmer
 from devices.light_switch import LightSwitch
+from devices.presence import PresenceSensor
 from devices.sensor import Sensor
 from knxip import constants as C
 from knxip import frames
@@ -144,6 +145,7 @@ DEVICE_TYPES = {
     "light_dimmer": LightDimmer,
     "blind": Blind,
     "sensor": Sensor,
+    "presence": PresenceSensor,
 }
 
 
@@ -287,7 +289,7 @@ def main():
         if not device:
             logger.warning("Scenario references unknown device: %s", device_id)
             continue
-        if not isinstance(device, Sensor):
+        if not isinstance(device, (Sensor, PresenceSensor)):
             logger.warning("Scenario device %s is not a sensor", device_id)
             continue
         scenario_runner.add_scenario(

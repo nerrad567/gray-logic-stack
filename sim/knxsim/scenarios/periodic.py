@@ -6,6 +6,7 @@ push unsolicited L_DATA.ind telegrams to connected clients.
 Supported patterns:
   - sine_wave: Oscillates around a center value
   - random_walk: Drifts randomly within bounds
+  - presence_pattern: Simulates realistic occupancy transitions
 """
 
 import logging
@@ -15,6 +16,8 @@ import threading
 import time
 from typing import Callable
 
+from devices.base import BaseDevice
+from devices.presence import PresenceSensor
 from devices.sensor import Sensor
 
 logger = logging.getLogger("knxsim.scenarios")
@@ -33,13 +36,15 @@ class ScenarioRunner:
         self._running = False
 
     def add_scenario(
-        self, device: Sensor, field: str, scenario_type: str, params: dict
+        self, device: BaseDevice, field: str, scenario_type: str, params: dict
     ):
         """Register a scenario for a sensor field."""
         if scenario_type == "sine_wave":
             target = self._run_sine_wave
         elif scenario_type == "random_walk":
             target = self._run_random_walk
+        elif scenario_type == "presence_pattern":
+            target = self._run_presence_pattern
         else:
             logger.warning("Unknown scenario type: %s", scenario_type)
             return
@@ -134,3 +139,77 @@ class ScenarioRunner:
             deadline = time.time() + interval
             while self._running and time.time() < deadline:
                 time.sleep(0.5)
+
+    def _run_presence_pattern(self, device: PresenceSensor, field: str, params: dict):
+        """Presence pattern: simulates realistic occupancy with movement.
+
+        Models a person moving through a room — occupied for a while (sitting,
+        working, watching TV), then brief empty periods (leaving to kitchen,
+        bathroom), then occupied again. Occasionally longer absences.
+
+        Params:
+            occupied_min_seconds: Minimum time occupied (default: 30)
+            occupied_max_seconds: Maximum time occupied (default: 180)
+            empty_min_seconds: Minimum time empty (default: 5)
+            empty_max_seconds: Maximum time empty (default: 45)
+            long_absence_chance: Probability of a longer absence (default: 0.15)
+            long_absence_max_seconds: Max duration of long absence (default: 120)
+            lux_occupied: Lux level when room is occupied (optional, for lux GA)
+            lux_empty: Lux level when room is empty (optional)
+        """
+        occ_min = params.get("occupied_min_seconds", 30)
+        occ_max = params.get("occupied_max_seconds", 180)
+        empty_min = params.get("empty_min_seconds", 5)
+        empty_max = params.get("empty_max_seconds", 45)
+        long_absence_chance = params.get("long_absence_chance", 0.15)
+        long_absence_max = params.get("long_absence_max_seconds", 120)
+        lux_occupied = params.get("lux_occupied")
+        lux_empty = params.get("lux_empty")
+
+        # Start as occupied
+        occupied = True
+        device.state[field] = True
+
+        while self._running:
+            # Set presence state
+            device.state[field] = occupied
+
+            # Send presence telegram
+            cemi = device.get_indication_bool(field)
+            if cemi:
+                self._send_telegram(cemi)
+                logger.info(
+                    "%s → %s = %s",
+                    device.device_id,
+                    field,
+                    "OCCUPIED" if occupied else "EMPTY",
+                )
+
+            # Optionally update lux to correlate with presence
+            if lux_occupied is not None and lux_empty is not None:
+                lux_val = lux_occupied if occupied else lux_empty
+                # Add slight randomness to lux (±10%)
+                lux_val *= random.uniform(0.9, 1.1)
+                device.state["lux"] = round(lux_val, 1)
+                lux_cemi = device.get_indication_float("lux")
+                if lux_cemi:
+                    self._send_telegram(lux_cemi)
+                    logger.debug("%s → lux = %.1f", device.device_id, lux_val)
+
+            # Determine how long to hold this state
+            if occupied:
+                hold_time = random.uniform(occ_min, occ_max)
+            else:
+                # Chance of a longer absence (person left the room properly)
+                if random.random() < long_absence_chance:
+                    hold_time = random.uniform(empty_max, long_absence_max)
+                else:
+                    hold_time = random.uniform(empty_min, empty_max)
+
+            # Sleep in small increments so we can check _running
+            deadline = time.time() + hold_time
+            while self._running and time.time() < deadline:
+                time.sleep(0.5)
+
+            # Toggle state
+            occupied = not occupied
