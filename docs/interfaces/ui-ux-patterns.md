@@ -145,3 +145,83 @@ When triggering actions via Voice:
 ### Complexity Hiding
 - **Default:** Show simple controls (On/Off, Dimmer Slider).
 - **Expanded:** Tap icon or long-press to reveal advanced controls (Color Temp, RGB, Configuration).
+
+---
+
+## 6. Role-Based Interface Modes
+
+The Flutter app (wall panel, mobile, web) is a **single codebase** that adapts its UI based on the authenticated user's role. This eliminates the need for separate installer/dealer software.
+
+### Interface Modes
+
+| Mode | Entry Method | Roles | Purpose |
+|------|-------------|-------|---------|
+| **Normal** | Default on launch | `user`, `guest` | Day-to-day control: activate scenes, control devices |
+| **Admin** | Settings → Admin Login (PIN/password) | `admin`, `facility_manager`, `installer` | Configuration: create scenes, manage devices, assign rooms |
+
+### Normal Mode (Default)
+
+Available to all authenticated users:
+- Room navigation with device tiles
+- Scene activation (tap to trigger)
+- Basic device control (on/off, dim, position)
+- View sensor readings
+- Personal preferences (favourites, display settings)
+
+### Admin Mode (Authenticated)
+
+Available to `admin`, `facility_manager`, and `installer` roles. Accessed via long-press on settings icon or dedicated menu entry. Requires elevated authentication (PIN re-entry or password).
+
+| Feature | admin | facility_manager | installer |
+|---------|-------|-------------------|-----------|
+| **Scene Management** (create/edit/delete) | Yes | Yes | Yes |
+| **Device Configuration** (rename, assign room) | Yes | Yes | Yes |
+| **Room/Area Setup** (create, reorder, assign) | Yes | Yes | Yes |
+| **Schedule Editor** (time-based automations) | Yes | Yes | No |
+| **User Management** (create accounts, assign roles) | Yes | No | No |
+| **System Diagnostics** (bridge status, logs) | Yes | Yes | Yes |
+| **Mode Configuration** (Away, Night, Holiday) | Yes | Yes | No |
+| **Network/Integration Settings** | Yes | No | Yes |
+
+### Admin Mode UI Patterns
+
+- **Visual Indicator:** Persistent banner or accent colour change indicating admin mode is active (prevents accidental configuration changes).
+- **Auto-Timeout:** Admin mode automatically exits after 15 minutes of inactivity, reverting to normal mode.
+- **Confirmation Dialogs:** Destructive actions (delete scene, remove device) require explicit confirmation.
+- **Audit Trail:** All admin actions are logged with timestamp, user, and change details.
+
+### Scene Management (Admin Mode)
+
+When in admin mode, the scenes view extends from activation-only to full CRUD:
+
+| Action | UI Element | API |
+|--------|-----------|-----|
+| **Create Scene** | FAB (+) button → scene builder form | `POST /api/v1/scenes` |
+| **Edit Scene** | Long-press scene tile → edit form | `PUT /api/v1/scenes/{id}` |
+| **Delete Scene** | Swipe-to-delete or edit → delete button | `DELETE /api/v1/scenes/{id}` |
+| **Reorder Actions** | Drag-and-drop action list | `PUT /api/v1/scenes/{id}` |
+| **Test Scene** | "Test" button in editor (activates without saving) | `POST /api/v1/scenes/{id}/activate` |
+
+**Scene Builder Form Fields:**
+- Name, category, icon
+- Room/area assignment
+- Actions list: device picker → command → parameters (level, position, etc.)
+- Per-action: parallel flag, delay, fade duration
+- Triggers: manual, schedule, voice phrase
+
+### Panel-Specific Considerations
+
+Wall panels may have admin mode restricted based on deployment context:
+
+```yaml
+# Panel configuration (per-device)
+panel:
+  id: "panel-living-room"
+  admin_mode: enabled        # enabled | disabled | pin_required
+  admin_timeout_minutes: 15
+  allowed_roles: ["admin", "installer"]  # Subset of admin-capable roles
+```
+
+- **Public areas** (hotel lobby, office reception): `admin_mode: disabled`
+- **Private residence**: `admin_mode: pin_required`
+- **During commissioning**: `admin_mode: enabled` (installer convenience)

@@ -1,2 +1,5 @@
 # Claude Code audit tracking (local state)
 .claude/audit-history.json
+
+# Python bytecode
+__pycache__/
