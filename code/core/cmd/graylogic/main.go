@@ -367,6 +367,7 @@ func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*k
 		HealthCheckInterval:      cfg.Protocols.KNX.KNXD.HealthCheckInterval,
 		HealthCheckDeviceAddress: cfg.Protocols.KNX.KNXD.HealthCheckDeviceAddress,
 		HealthCheckDeviceTimeout: cfg.Protocols.KNX.KNXD.HealthCheckDeviceTimeout,
+		GroupCache:               cfg.Protocols.KNX.KNXD.GroupCache,
 		LogLevel:                 cfg.Protocols.KNX.KNXD.LogLevel,
 		Backend: knxd.BackendConfig{
 			Type:                 knxd.BackendType(cfg.Protocols.KNX.KNXD.Backend.Type),

@@ -1,0 +1,3 @@
+# No external dependencies — pure Python stdlib
+# PyYAML is optional but recommended for robust config parsing
+pyyaml>=6.0

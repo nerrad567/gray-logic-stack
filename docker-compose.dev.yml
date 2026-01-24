@@ -2,19 +2,23 @@ services:
   # MQTT Broker
   mosquitto:
     image: eclipse-mosquitto:2.0.18
-    ports:
-      - "1883:1883"
-      - "9001:9001"
+    container_name: graylogic-mosquitto
     volumes:
       - ./code/core/docker/mosquitto/config:/mosquitto/config
       - mosquitto_data:/mosquitto/data
       - mosquitto_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - graylogic
 
   # Time Series Database
   influxdb:
     image: influxdb:2.7-alpine
-    ports:
-      - "8086:8086"
+    container_name: graylogic-influxdb
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=graylogic
@@ -23,8 +27,43 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=graylogic
     volumes:
       - influxdb_data:/var/lib/influxdb2
+    networks:
+      - graylogic
+
+  # KNX/IP Gateway Simulator (standalone Python, UDP:3671)
+  knxsim:
+    build:
+      context: ./sim/knxsim
+    container_name: graylogic-knxsim
+    networks:
+      - graylogic
+
+  # Gray Logic Core (API + WebSocket + Panel UI + managed knxd)
+  graylogic:
+    build:
+      context: ./code/core
+      dockerfile: docker/graylogic/Dockerfile
+    container_name: graylogic-core
+    ports:
+      - "192.168.4.100:8081:8090"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      knxsim:
+        condition: service_started
+    volumes:
+      - ./code/core/configs:/app/configs:ro
+    environment:
+      - GRAYLOGIC_MQTT_HOST=mosquitto
+      - GRAYLOGIC_KNXD_BACKEND_HOST=knxsim
+    networks:
+      - graylogic
 
 volumes:
   mosquitto_data:
   mosquitto_log:
   influxdb_data:
+
+networks:
+  graylogic:
+    driver: bridge

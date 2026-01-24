@@ -8,13 +8,16 @@ import (
 
 // knxd protocol message types.
 const (
-	// EIBOpenTGroup opens group communication mode with knxd.
-	// Format: type(2) + group_addr(2) + flags(1)
-	// After sending this, the client can send/receive group telegrams.
-	// Note: This is EIB_OPEN_T_GROUP (0x0022), not EIB_OPEN_GROUPCON (0x0026).
-	EIBOpenTGroup uint16 = 0x0022
+	// EIBOpenGroupCon opens a group socket for sending/receiving group telegrams.
+	// Format: type(2) + reserved(1) + write_only(1) + reserved(1)
+	// This is the correct mode for bidirectional group communication via knxd.
+	// Telegrams sent via this socket are forwarded to the KNX bus/backend.
+	EIBOpenGroupCon uint16 = 0x0026
 
 	// EIBGroupPacket is used to send and receive group telegrams.
+	// Payload format: GA(2) + APDU (2+ bytes)
+	//   Short APDU (value ≤ 0x3F): [0x00, APCI|value] (2 bytes)
+	//   Long APDU: [0x00, APCI] + data (3+ bytes)
 	EIBGroupPacket uint16 = 0x0027
 
 	// EIBClose closes the knxd connection gracefully.
@@ -38,9 +41,6 @@ const (
 const (
 	// knxdHeaderSize is the size of the knxd message header (size + type).
 	knxdHeaderSize = 4
-
-	// telegramMinPayloadBytes is the minimum bytes for a telegram with multi-byte data.
-	telegramMinPayloadBytes = 3
 )
 
 // Telegram represents a KNX group telegram.
@@ -64,11 +64,16 @@ type Telegram struct {
 
 // ParseTelegram parses a raw knxd group packet into a Telegram.
 //
-// The expected format is:
+// The received format (EIB_OPEN_GROUPCON / EIB_GROUP_PACKET) is:
 //
-//	Byte 0-1: Destination group address (big-endian)
-//	Byte 2:   APCI (high nibble) + data length indicator
-//	Byte 3+:  Payload data (if any)
+//	Byte 0-1: Source individual address (big-endian) — sender's address
+//	Byte 2-3: Destination group address (big-endian)
+//	Byte 4:   TPCI (transport control, usually 0x00)
+//	Byte 5:   APCI (upper 2 bits) | data (lower 6 bits) for short frames
+//	Byte 6+:  Additional data bytes for long frames
+//
+// Note: The receive format includes a source address prefix that the send
+// format does not. This is an asymmetry in knxd's GROUPCON protocol.
 //
 // Parameters:
 //   - data: Raw bytes from knxd EIB_GROUP_PACKET message (after header)
@@ -77,38 +82,30 @@ type Telegram struct {
 //   - Telegram: Parsed telegram with timestamp set to now
 //   - error: ErrInvalidTelegram if parsing fails
 func ParseTelegram(data []byte) (Telegram, error) {
-	if len(data) < 2 {
-		return Telegram{}, fmt.Errorf("%w: too short (%d bytes)", ErrInvalidTelegram, len(data))
+	if len(data) < 6 {
+		return Telegram{}, fmt.Errorf("%w: too short (%d bytes, need at least 6)", ErrInvalidTelegram, len(data))
 	}
 
-	// Parse destination group address (big-endian uint16)
-	destRaw := binary.BigEndian.Uint16(data[0:2])
+	// Bytes 0-1: Source individual address (ignored for now, could be used for diagnostics)
+	// Bytes 2-3: Destination group address (big-endian uint16)
+	destRaw := binary.BigEndian.Uint16(data[2:4])
 	dest := GroupAddressFromUint16(destRaw)
 
-	// For short telegrams (1-bit values), APCI and data are in byte 2
-	if len(data) == 2 {
-		// Read request with no data
-		return Telegram{
-			Destination: dest,
-			APCI:        APCIRead,
-			Data:        nil,
-			Timestamp:   time.Now(),
-		}, nil
-	}
-
-	// Parse APCI from byte 2 (high 2 bits indicate type)
-	apci := data[2] & 0xC0
+	// Byte 4 = TPCI (usually 0x00 for group communication)
+	// Byte 5 = APCI (upper 2 bits) | small data (lower 6 bits)
+	apci := data[5] & 0xC0
 
 	// Extract data
 	var payload []byte
-	if len(data) > telegramMinPayloadBytes {
-		// Multi-byte payload
-		payload = make([]byte, len(data)-telegramMinPayloadBytes)
-		copy(payload, data[telegramMinPayloadBytes:])
+	if len(data) > 6 {
+		// Long frame: data bytes follow after the 6-byte header
+		payload = make([]byte, len(data)-6)
+		copy(payload, data[6:])
 	} else if apci == APCIWrite || apci == APCIResponse {
-		// Single-bit value encoded in low 6 bits of APCI byte
-		payload = []byte{data[2] & 0x3F}
+		// Short frame: value in lower 6 bits of APCI byte
+		payload = []byte{data[5] & 0x3F}
 	}
+	// For APCIRead, payload stays nil
 
 	return Telegram{
 		Destination: dest,
@@ -118,13 +115,16 @@ func ParseTelegram(data []byte) (Telegram, error) {
 	}, nil
 }
 
-// Encode encodes a Telegram to knxd wire format.
+// Encode encodes a Telegram to knxd wire format for EIB_OPEN_GROUPCON.
 //
-// The output format is suitable for sending via EIB_GROUP_PACKET:
+// The output format is suitable for sending via EIB_GROUP_PACKET on a GROUPCON socket:
 //
 //	Byte 0-1: Destination group address (big-endian)
-//	Byte 2:   APCI + small data (for 1-bit values)
-//	Byte 3+:  Additional data bytes (if needed)
+//	Byte 2+:  APDU (2+ bytes): [TPCI|APCI_high, APCI_low|data, extra_data...]
+//
+// Short APDU (value ≤ 0x3F): GA(2) + [0x00, APCI|value] = 4 bytes total
+// Long APDU (multi-byte data): GA(2) + [0x00, APCI] + data = 4+ bytes total
+// Read request (no data): GA(2) + [0x00, 0x00] = 4 bytes total
 //
 // Returns:
 //   - []byte: Encoded telegram ready for knxd
@@ -132,30 +132,25 @@ func (t Telegram) Encode() []byte {
 	// Determine if data fits in APCI byte (small values ≤ 0x3F)
 	smallData := len(t.Data) == 1 && t.Data[0] <= 0x3F
 
-	// Calculate size: 2 (GA) + 1 (APCI) + extra data bytes
-	size := 3
-	if len(t.Data) > 0 && !smallData {
-		size = 3 + len(t.Data)
+	if len(t.Data) == 0 || smallData {
+		// Short APDU: GA(2) + [TPCI=0x00, APCI|value] = 4 bytes
+		buf := make([]byte, 4)
+		binary.BigEndian.PutUint16(buf[0:2], t.Destination.ToUint16())
+		buf[2] = 0x00 // TPCI
+		if smallData {
+			buf[3] = t.APCI | (t.Data[0] & 0x3F)
+		} else {
+			buf[3] = t.APCI // Read or empty write
+		}
+		return buf
 	}
 
-	buf := make([]byte, size)
-
-	// Destination group address (big-endian)
+	// Long APDU: GA(2) + [TPCI=0x00, APCI] + data
+	buf := make([]byte, 4+len(t.Data))
 	binary.BigEndian.PutUint16(buf[0:2], t.Destination.ToUint16())
-
-	// APCI byte with optional small data
-	if len(t.Data) == 0 {
-		// Read request or empty write
-		buf[2] = t.APCI
-	} else if smallData {
-		// Small value (6 bits) fits in APCI byte
-		buf[2] = t.APCI | (t.Data[0] & 0x3F)
-	} else {
-		// Data goes in separate bytes
-		buf[2] = t.APCI
-		copy(buf[3:], t.Data)
-	}
-
+	buf[2] = 0x00   // TPCI
+	buf[3] = t.APCI // APCI
+	copy(buf[4:], t.Data)
 	return buf
 }
 
@@ -231,7 +226,7 @@ func NewReadTelegram(dest GroupAddress) Telegram {
 //	Byte 4+:  Payload
 //
 // Parameters:
-//   - msgType: knxd message type (e.g., EIBOpenTGroup, EIBGroupPacket)
+//   - msgType: knxd message type (e.g., EIBOpenGroupCon, EIBGroupPacket)
 //   - payload: Message payload (may be nil)
 //
 // Returns:

@@ -14,8 +14,8 @@ func TestParseTelegram(t *testing.T) {
 	}{
 		{
 			name: "write 1-bit true to 1/2/3",
-			// GA 1/2/3 = 0x0A03, APCI write (0x80) + value 1
-			data: []byte{0x0A, 0x03, 0x81},
+			// src=1.1.1(0x1101), GA 1/2/3=0x0A03, TPCI=0x00, APCI write|1=0x81
+			data: []byte{0x11, 0x01, 0x0A, 0x03, 0x00, 0x81},
 			want: Telegram{
 				Destination: GroupAddress{Main: 1, Middle: 2, Sub: 3},
 				APCI:        APCIWrite,
@@ -24,7 +24,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "write 1-bit false to 1/2/3",
-			data: []byte{0x0A, 0x03, 0x80},
+			// src=1.1.1, GA 1/2/3, TPCI=0x00, APCI write|0=0x80
+			data: []byte{0x11, 0x01, 0x0A, 0x03, 0x00, 0x80},
 			want: Telegram{
 				Destination: GroupAddress{Main: 1, Middle: 2, Sub: 3},
 				APCI:        APCIWrite,
@@ -33,8 +34,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "write percentage (75%) to 2/0/1",
-			// GA 2/0/1 = 0x1001, APCI write (0x80), value 191 (75% of 255)
-			data: []byte{0x10, 0x01, 0x80, 0xBF},
+			// src=1.1.2, GA 2/0/1=0x1001, TPCI=0x00, APCI write=0x80, value=0xBF
+			data: []byte{0x11, 0x02, 0x10, 0x01, 0x00, 0x80, 0xBF},
 			want: Telegram{
 				Destination: GroupAddress{Main: 2, Middle: 0, Sub: 1},
 				APCI:        APCIWrite,
@@ -43,8 +44,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "read request to 6/0/1",
-			// GA 6/0/1 = 0x3001, APCI read (0x00)
-			data: []byte{0x30, 0x01, 0x00},
+			// src=0.0.1, GA 6/0/1=0x3001, TPCI=0x00, APCI read=0x00
+			data: []byte{0x00, 0x01, 0x30, 0x01, 0x00, 0x00},
 			want: Telegram{
 				Destination: GroupAddress{Main: 6, Middle: 0, Sub: 1},
 				APCI:        APCIRead,
@@ -53,8 +54,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "response 1-bit true from 6/0/1",
-			// GA 6/0/1 = 0x3001, APCI response (0x40) + value 1
-			data: []byte{0x30, 0x01, 0x41},
+			// src=1.1.4, GA 6/0/1=0x3001, TPCI=0x00, APCI response|1=0x41
+			data: []byte{0x11, 0x04, 0x30, 0x01, 0x00, 0x41},
 			want: Telegram{
 				Destination: GroupAddress{Main: 6, Middle: 0, Sub: 1},
 				APCI:        APCIResponse,
@@ -63,8 +64,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "write 2-byte temperature (21.5°C)",
-			// GA 5/0/1 = 0x2801, APCI write, DPT9 encoded 21.5°C = 0x0C 0x66
-			data: []byte{0x28, 0x01, 0x80, 0x0C, 0x66},
+			// src=1.1.4, GA 5/0/1=0x2801, TPCI=0x00, APCI write=0x80, DPT9 data
+			data: []byte{0x11, 0x04, 0x28, 0x01, 0x00, 0x80, 0x0C, 0x66},
 			want: Telegram{
 				Destination: GroupAddress{Main: 5, Middle: 0, Sub: 1},
 				APCI:        APCIWrite,
@@ -73,8 +74,8 @@ func TestParseTelegram(t *testing.T) {
 		},
 		{
 			name: "write RGB colour",
-			// GA 3/0/5, APCI write, RGB (255, 128, 0)
-			data: []byte{0x18, 0x05, 0x80, 0xFF, 0x80, 0x00},
+			// src=1.1.5, GA 3/0/5=0x1805, TPCI=0x00, APCI write=0x80, RGB
+			data: []byte{0x11, 0x05, 0x18, 0x05, 0x00, 0x80, 0xFF, 0x80, 0x00},
 			want: Telegram{
 				Destination: GroupAddress{Main: 3, Middle: 0, Sub: 5},
 				APCI:        APCIWrite,
@@ -87,19 +88,14 @@ func TestParseTelegram(t *testing.T) {
 			wantErr: true,
 		},
 		{
-			name:    "empty data",
-			data:    []byte{},
+			name:    "too short - only 5 bytes",
+			data:    []byte{0x11, 0x01, 0x0A, 0x03, 0x00},
 			wantErr: true,
 		},
 		{
-			name: "minimal read request (2 bytes only)",
-			// GA 0/0/1 with just address (edge case)
-			data: []byte{0x00, 0x01},
-			want: Telegram{
-				Destination: GroupAddress{Main: 0, Middle: 0, Sub: 1},
-				APCI:        APCIRead,
-				Data:        nil,
-			},
+			name:    "empty data",
+			data:    []byte{},
+			wantErr: true,
 		},
 	}
 
@@ -145,7 +141,8 @@ func TestTelegramEncode(t *testing.T) {
 				APCI:        APCIWrite,
 				Data:        []byte{0x01},
 			},
-			want: []byte{0x0A, 0x03, 0x81},
+			// GA(2) + TPCI(0x00) + APCI|value(0x81) = 4 bytes
+			want: []byte{0x0A, 0x03, 0x00, 0x81},
 		},
 		{
 			name: "write 1-bit false",
@@ -154,7 +151,7 @@ func TestTelegramEncode(t *testing.T) {
 				APCI:        APCIWrite,
 				Data:        []byte{0x00},
 			},
-			want: []byte{0x0A, 0x03, 0x80},
+			want: []byte{0x0A, 0x03, 0x00, 0x80},
 		},
 		{
 			name: "read request",
@@ -163,7 +160,7 @@ func TestTelegramEncode(t *testing.T) {
 				APCI:        APCIRead,
 				Data:        nil,
 			},
-			want: []byte{0x30, 0x01, 0x00},
+			want: []byte{0x30, 0x01, 0x00, 0x00},
 		},
 		{
 			name: "write percentage",
@@ -172,8 +169,8 @@ func TestTelegramEncode(t *testing.T) {
 				APCI:        APCIWrite,
 				Data:        []byte{0xBF},
 			},
-			// Value > 0x3F so goes in separate byte
-			want: []byte{0x10, 0x01, 0x80, 0xBF},
+			// Value > 0x3F so goes in long format: GA(2) + TPCI(0x00) + APCI(0x80) + data(0xBF)
+			want: []byte{0x10, 0x01, 0x00, 0x80, 0xBF},
 		},
 		{
 			name: "write 2-byte temperature",
@@ -182,7 +179,8 @@ func TestTelegramEncode(t *testing.T) {
 				APCI:        APCIWrite,
 				Data:        []byte{0x0C, 0x66},
 			},
-			want: []byte{0x28, 0x01, 0x80, 0x0C, 0x66},
+			// Long format: GA(2) + TPCI(0x00) + APCI(0x80) + data(0x0C, 0x66)
+			want: []byte{0x28, 0x01, 0x00, 0x80, 0x0C, 0x66},
 		},
 	}
 
@@ -197,7 +195,10 @@ func TestTelegramEncode(t *testing.T) {
 }
 
 func TestTelegramRoundTrip(t *testing.T) {
-	// Test that encode → parse gives back the same telegram
+	// GROUPCON format is asymmetric:
+	//   Encode() produces send format: GA(2) + TPCI + APCI|data
+	//   ParseTelegram() expects receive format: src(2) + GA(2) + TPCI + APCI|data
+	// To test round-trip, prepend a dummy source address to the encoded output.
 	tests := []struct {
 		name     string
 		telegram Telegram
@@ -239,7 +240,10 @@ func TestTelegramRoundTrip(t *testing.T) {
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			encoded := tt.telegram.Encode()
-			parsed, err := ParseTelegram(encoded)
+			// Prepend a dummy source address (1.1.1 = 0x1101) to simulate
+			// what knxd sends back in GROUPCON receive format.
+			withSrc := append([]byte{0x11, 0x01}, encoded...)
+			parsed, err := ParseTelegram(withSrc)
 			if err != nil {
 				t.Fatalf("ParseTelegram() error: %v", err)
 			}
@@ -358,10 +362,10 @@ func TestEncodeKNXDMessage(t *testing.T) {
 		want    []byte
 	}{
 		{
-			name:    "open T_GROUP (with payload)",
-			msgType: EIBOpenTGroup,
-			payload: []byte{0x00, 0x00, 0xFF},                         // group_addr=0x0000, flags=0xFF
-			want:    []byte{0x00, 0x05, 0x00, 0x22, 0x00, 0x00, 0xFF}, // size=5 (type+payload)
+			name:    "open GROUPCON (with payload)",
+			msgType: EIBOpenGroupCon,
+			payload: []byte{0x00, 0x00, 0x00},                         // reserved, write_only=0, reserved
+			want:    []byte{0x00, 0x05, 0x00, 0x26, 0x00, 0x00, 0x00}, // size=5 (type+payload)
 		},
 		{
 			name:    "group packet with telegram",
@@ -396,9 +400,9 @@ func TestParseKNXDMessage(t *testing.T) {
 		wantErr     bool
 	}{
 		{
-			name:        "open T_GROUP response",
-			data:        []byte{0x00, 0x02, 0x00, 0x22}, // size=2 (type only)
-			wantType:    EIBOpenTGroup,
+			name:        "open GROUPCON response",
+			data:        []byte{0x00, 0x02, 0x00, 0x26}, // size=2 (type only)
+			wantType:    EIBOpenGroupCon,
 			wantPayload: nil,
 		},
 		{
@@ -453,9 +457,9 @@ func TestKNXDMessageRoundTrip(t *testing.T) {
 		payload []byte
 	}{
 		{
-			name:    "open T_GROUP",
-			msgType: EIBOpenTGroup,
-			payload: []byte{0x00, 0x00, 0xFF},
+			name:    "open GROUPCON",
+			msgType: EIBOpenGroupCon,
+			payload: []byte{0x00, 0x00, 0x00},
 		},
 		{
 			name:    "group packet",

@@ -1,0 +1,55 @@
+gateway:
+  individual_address: "1.0.0"
+  client_address: "1.0.255"
+
+devices:
+  - id: "living-room-ceiling-light"
+    type: "light_dimmer"
+    individual_address: "1.1.1"
+    group_addresses:
+      switch_cmd: "1/1/0"
+      switch_status: "1/1/1"
+      brightness_cmd: "1/1/2"
+      brightness_status: "1/1/3"
+    initial:
+      on: false
+      brightness: 0
+
+  - id: "kitchen-pendant-light"
+    type: "light_switch"
+    individual_address: "1.1.2"
+    group_addresses:
+      switch_cmd: "1/2/0"
+      switch_status: "1/2/1"
+    initial:
+      on: false
+
+  - id: "living-room-blinds"
+    type: "blind"
+    individual_address: "1.1.3"
+    group_addresses:
+      position_cmd: "2/1/0"
+      position_status: "2/1/1"
+      slat_cmd: "2/1/2"
+      slat_status: "2/1/3"
+    initial:
+      position: 0
+      tilt: 0
+
+  - id: "living-room-temperature"
+    type: "sensor"
+    individual_address: "1.1.4"
+    group_addresses:
+      temperature: "4/1/0"
+    initial:
+      temperature: 21.5
+
+scenarios:
+  - device_id: "living-room-temperature"
+    field: "temperature"
+    type: "sine_wave"
+    params:
+      center: 21.5
+      amplitude: 2.0
+      period_minutes: 30
+      interval_seconds: 10

@@ -251,18 +251,22 @@ func parseConnectionURL(connURL string) (network, address string, err error) {
 	}
 }
 
-// openGroupCon sends the EIB_OPEN_T_GROUP message to knxd.
+// openGroupCon sends the EIB_OPEN_GROUPCON message to knxd.
 // It respects the context deadline to ensure the overall connect timeout is honoured.
 //
-// The EIB_OPEN_T_GROUP (0x0022) message format:
-//   - type: 0x0022
-//   - group_addr: 2 bytes (0x0000 for all groups)
-//   - flags: 1 byte (0xFF for read/write mode)
+// The EIB_OPEN_GROUPCON (0x0026) message format:
+//   - type: 0x0026
+//   - reserved: 1 byte (0x00)
+//   - write_only: 1 byte (0x00 = read+write, 0xFF = write-only)
+//   - reserved: 1 byte (0x00)
+//
+// This opens a group socket that can communicate with any group address
+// and forwards writes to the KNX bus backend (unlike EIB_OPEN_T_GROUP).
 func (c *KNXDClient) openGroupCon(ctx context.Context) error {
-	// EIB_OPEN_T_GROUP payload: group_addr(2) + flags(1)
-	// Use 0x0000 for all groups, 0xFF for read/write mode
-	payload := []byte{0x00, 0x00, 0xFF}
-	msg := EncodeKNXDMessage(EIBOpenTGroup, payload)
+	// EIB_OPEN_GROUPCON payload: reserved(1) + write_only(1) + reserved(1)
+	// write_only=0x00 enables bidirectional communication (send + receive)
+	payload := []byte{0x00, 0x00, 0x00}
+	msg := EncodeKNXDMessage(EIBOpenGroupCon, payload)
 
 	// Calculate deadline: use context deadline if set and sooner than default
 	writeDeadline := time.Now().Add(defaultWriteTimeout)
@@ -327,7 +331,7 @@ func (c *KNXDClient) openGroupCon(ctx context.Context) error {
 		return fmt.Errorf("parse response: %w", err)
 	}
 
-	if msgType != EIBOpenTGroup {
+	if msgType != EIBOpenGroupCon {
 		return fmt.Errorf("unexpected response type: 0x%04X", msgType)
 	}
 
@@ -355,8 +359,8 @@ func (c *KNXDClient) receiveLoop() {
 			continue // Recoverable error, retry
 		}
 
-		// Handle group packet
-		if msgType == EIBGroupPacket && len(payload) >= 2 {
+		// Handle group packet (GROUPCON receive format: src(2) + GA(2) + APDU(2+) = min 6 bytes)
+		if msgType == EIBGroupPacket && len(payload) >= 6 {
 			c.handleGroupPacket(payload)
 		}
 	}

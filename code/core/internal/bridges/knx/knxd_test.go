@@ -298,12 +298,12 @@ func (s *MockKNXDServer) acceptLoop(t *testing.T) {
 		s.received = append(s.received, append([]byte{}, buf[:n]...))
 		s.mu.Unlock()
 
-		// Respond to EIB_OPEN_T_GROUP
+		// Respond to EIB_OPEN_GROUPCON
 		if n >= 4 {
 			msgType, _, _ := ParseKNXDMessage(buf[:n])
-			if msgType == EIBOpenTGroup {
+			if msgType == EIBOpenGroupCon {
 				// Echo back the same message type to indicate success
-				resp := EncodeKNXDMessage(EIBOpenTGroup, nil)
+				resp := EncodeKNXDMessage(EIBOpenGroupCon, nil)
 				conn.Write(resp)
 			}
 		}
@@ -337,7 +337,13 @@ func (s *MockKNXDServer) SendTelegram(t *testing.T, telegram Telegram) {
 		t.Fatal("No connection to send telegram")
 	}
 
-	payload := telegram.Encode()
+	// GROUPCON receive format: src(2) + GA(2) + TPCI + APCI|data
+	// Prepend a dummy source address (1.1.1 = 0x1101) to simulate knxd behaviour.
+	encoded := telegram.Encode()
+	payload := make([]byte, 2+len(encoded))
+	payload[0] = 0x11 // source address high byte (1.1.x)
+	payload[1] = 0x01 // source address low byte (x.x.1)
+	copy(payload[2:], encoded)
 	msg := EncodeKNXDMessage(EIBGroupPacket, payload)
 	conn.Write(msg)
 }

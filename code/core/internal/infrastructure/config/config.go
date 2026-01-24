@@ -206,6 +206,11 @@ type KNXDConfig struct {
 	// Default: 3s
 	HealthCheckDeviceTimeout time.Duration `yaml:"health_check_device_timeout,omitempty"`
 
+	// GroupCache enables knxd's group communication cache (-c flag).
+	// Required for routing group telegrams between local clients and the backend.
+	// Default: false
+	GroupCache bool `yaml:"group_cache"`
+
 	// LogLevel sets knxd's verbosity (0-9).
 	// Default: 0
 	LogLevel int `yaml:"log_level"`
@@ -412,6 +417,11 @@ func applyEnvOverrides(cfg *Config) {
 	// InfluxDB
 	if v := os.Getenv("GRAYLOGIC_INFLUXDB_TOKEN"); v != "" {
 		cfg.InfluxDB.Token = v
+	}
+
+	// KNXD backend
+	if v := os.Getenv("GRAYLOGIC_KNXD_BACKEND_HOST"); v != "" {
+		cfg.Protocols.KNX.KNXD.Backend.Host = v
 	}
 
 	// Security - JWT secret (IMPORTANT: always override in production)

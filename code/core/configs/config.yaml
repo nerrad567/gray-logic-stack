@@ -199,6 +199,9 @@ protocols:
       # If false, expects knxd to be running externally (e.g., systemd service)
       managed: true
 
+      # Enable group communication cache (routes telegrams between clients and backend)
+      group_cache: true
+
       # Path to knxd executable
       binary: "/usr/bin/knxd"
 
@@ -244,7 +247,8 @@ protocols:
 
       # Watchdog health check interval
       # knxd is killed and restarted after 3 consecutive health check failures
-      health_check_interval: 10s # Shortened for testing (normally 30s)
+      health_check_interval: 30s
+      trace_flags: 0
 
       # Bus-level health check (optional but recommended)
       # ------------------------------------------------

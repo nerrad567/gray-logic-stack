@@ -96,6 +96,12 @@ type Config struct {
 	// Default: 3s
 	HealthCheckDeviceTimeout time.Duration `yaml:"health_check_device_timeout,omitempty"`
 
+	// GroupCache enables knxd's group communication cache (-c flag).
+	// This is required for routing group telegrams between local clients
+	// and the backend (e.g., IPT tunnelling to a gateway).
+	// Default: false
+	GroupCache bool `yaml:"group_cache"`
+
 	// LogLevel sets knxd's verbosity.
 	// Range: 0 (minimal) to 9 (maximum debug)
 	// Default: 0
@@ -252,12 +258,9 @@ func (b *BackendConfig) Validate() error {
 		if b.Host == "" {
 			return fmt.Errorf("host is required for ipt backend")
 		}
-		if net.ParseIP(b.Host) == nil {
-			// Try to resolve as hostname
-			if _, err := net.LookupHost(b.Host); err != nil {
-				return fmt.Errorf("invalid host %q: %w", b.Host, err)
-			}
-		}
+		// Skip DNS resolution check — the host may not be resolvable yet
+		// (e.g., Docker service names resolve only after container startup).
+		// knxd itself will handle resolution at connect time.
 		return nil
 
 	case BackendIPRouting:
@@ -303,6 +306,11 @@ func (c *Config) BuildArgs() []string {
 	// Note: knxd uses --listen-tcp[=PORT] format, so we use -i=PORT or -iPORT
 	if c.ListenTCP {
 		args = append(args, fmt.Sprintf("-i%d", c.TCPPort))
+	}
+
+	// Group cache (-c) — routes group telegrams between clients and backend
+	if c.GroupCache {
+		args = append(args, "-c")
 	}
 
 	// Log level and trace flags
