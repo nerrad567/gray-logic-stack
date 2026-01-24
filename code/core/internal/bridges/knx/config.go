@@ -121,9 +121,9 @@ type LoggingConfig struct {
 }
 
 // DeviceConfig defines a device and its KNX group address mappings.
+// The bridge auto-seeds the device registry from these definitions on startup.
 type DeviceConfig struct {
 	// DeviceID is the Gray Logic device identifier.
-	// Must match the device_id in Core's device registry.
 	DeviceID string `yaml:"device_id"`
 
 	// Type is the device type: light_switch, light_dimmer, blind, sensor, etc.

@@ -13,6 +13,7 @@ package main
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/signal"
@@ -528,6 +529,39 @@ func (a *deviceRegistryAdapter) SetDeviceState(ctx context.Context, id string, s
 // SetDeviceHealth implements knx.DeviceRegistry.
 func (a *deviceRegistryAdapter) SetDeviceHealth(ctx context.Context, id string, status string) error {
 	return a.registry.SetDeviceHealth(ctx, id, device.HealthStatus(status))
+}
+
+// CreateDeviceIfNotExists implements knx.DeviceRegistry.
+// Seeds a device record from bridge config if it doesn't already exist.
+func (a *deviceRegistryAdapter) CreateDeviceIfNotExists(ctx context.Context, seed knx.DeviceSeed) error {
+	_, err := a.registry.GetDevice(ctx, seed.ID)
+	if err == nil {
+		return nil // Already exists
+	}
+	if !errors.Is(err, device.ErrDeviceNotFound) {
+		return err
+	}
+
+	caps := make([]device.Capability, len(seed.Capabilities))
+	for i, c := range seed.Capabilities {
+		caps[i] = device.Capability(c)
+	}
+	addr := make(device.Address, len(seed.Address))
+	for k, v := range seed.Address {
+		addr[k] = v
+	}
+
+	dev := &device.Device{
+		ID:           seed.ID,
+		Name:         seed.Name,
+		Type:         device.DeviceType(seed.Type),
+		Domain:       device.Domain(seed.Domain),
+		Protocol:     device.Protocol(seed.Protocol),
+		Capabilities: caps,
+		Address:      addr,
+		HealthStatus: device.HealthStatusUnknown,
+	}
+	return a.registry.CreateDevice(ctx, dev)
 }
 
 // sceneDeviceRegistryAdapter adapts the device.Registry to the
