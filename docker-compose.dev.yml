@@ -45,7 +45,7 @@ services:
       dockerfile: docker/graylogic/Dockerfile
     container_name: graylogic-core
     ports:
-      - "192.168.4.100:8081:8090"
+      - "8081:8090"
     depends_on:
       mosquitto:
         condition: service_healthy
@@ -53,6 +53,7 @@ services:
         condition: service_started
     volumes:
       - ./code/core/configs:/app/configs:ro
+      - graylogic_data:/app/data
     environment:
       - GRAYLOGIC_MQTT_HOST=mosquitto
       - GRAYLOGIC_KNXD_BACKEND_HOST=knxsim
@@ -63,6 +64,7 @@ volumes:
   mosquitto_data:
   mosquitto_log:
   influxdb_data:
+  graylogic_data:
 
 networks:
   graylogic:

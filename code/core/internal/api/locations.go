@@ -1,6 +1,7 @@
 package api
 
 import (
+	"encoding/json"
 	"errors"
 	"net/http"
 
@@ -8,6 +9,56 @@ import (
 
 	"github.com/nerrad567/gray-logic-core/internal/location"
 )
+
+// handleCreateArea creates a new area.
+func (s *Server) handleCreateArea(w http.ResponseWriter, r *http.Request) {
+	var area location.Area
+	if err := json.NewDecoder(r.Body).Decode(&area); err != nil {
+		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+	if area.ID == "" || area.Name == "" || area.SiteID == "" {
+		writeBadRequest(w, "id, name, and site_id are required")
+		return
+	}
+	if area.Slug == "" {
+		area.Slug = area.ID
+	}
+	if area.Type == "" {
+		area.Type = "floor"
+	}
+
+	if err := s.locationRepo.CreateArea(r.Context(), &area); err != nil {
+		writeInternalError(w, "failed to create area")
+		return
+	}
+	writeJSON(w, http.StatusCreated, area)
+}
+
+// handleCreateRoom creates a new room.
+func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
+	var room location.Room
+	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
+		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+	if room.ID == "" || room.Name == "" || room.AreaID == "" {
+		writeBadRequest(w, "id, name, and area_id are required")
+		return
+	}
+	if room.Slug == "" {
+		room.Slug = room.ID
+	}
+	if room.Type == "" {
+		room.Type = "other"
+	}
+
+	if err := s.locationRepo.CreateRoom(r.Context(), &room); err != nil {
+		writeInternalError(w, "failed to create room")
+		return
+	}
+	writeJSON(w, http.StatusCreated, room)
+}
 
 // handleListAreas returns all areas, with optional site_id filter.
 func (s *Server) handleListAreas(w http.ResponseWriter, r *http.Request) {

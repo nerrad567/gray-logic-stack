@@ -114,6 +114,14 @@ func run(ctx context.Context) error {
 	}
 	log.Info("database migrations complete")
 
+	// Ensure site record exists (required for areas FK constraint)
+	if _, siteErr := db.DB.ExecContext(ctx,
+		`INSERT OR IGNORE INTO sites (id, name, slug, timezone) VALUES (?, ?, ?, ?)`,
+		cfg.Site.ID, cfg.Site.Name, cfg.Site.ID, cfg.Site.Timezone,
+	); siteErr != nil {
+		return fmt.Errorf("seeding site: %w", siteErr)
+	}
+
 	// Initialise device registry
 	deviceRepo := device.NewSQLiteRepository(db.DB)
 	deviceRegistry := device.NewRegistry(deviceRepo)

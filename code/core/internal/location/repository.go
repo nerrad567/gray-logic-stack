@@ -9,10 +9,12 @@ import (
 
 // Repository defines the interface for location persistence operations.
 type Repository interface {
+	CreateArea(ctx context.Context, area *Area) error
 	ListAreas(ctx context.Context) ([]Area, error)
 	ListAreasBySite(ctx context.Context, siteID string) ([]Area, error)
 	GetArea(ctx context.Context, id string) (*Area, error)
 
+	CreateRoom(ctx context.Context, room *Room) error
 	ListRooms(ctx context.Context) ([]Room, error)
 	ListRoomsByArea(ctx context.Context, areaID string) ([]Room, error)
 	GetRoom(ctx context.Context, id string) (*Room, error)
@@ -26,6 +28,41 @@ type SQLiteRepository struct {
 // NewSQLiteRepository creates a new SQLite-backed location repository.
 func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 	return &SQLiteRepository{db: db}
+}
+
+// CreateArea inserts a new area into the database.
+func (r *SQLiteRepository) CreateArea(ctx context.Context, area *Area) error {
+	const query = `INSERT INTO areas (id, site_id, name, slug, type, sort_order)
+		VALUES (?, ?, ?, ?, ?, ?)`
+	_, err := r.db.ExecContext(ctx, query,
+		area.ID, area.SiteID, area.Name, area.Slug, area.Type, area.SortOrder)
+	return err
+}
+
+// CreateRoom inserts a new room into the database.
+func (r *SQLiteRepository) CreateRoom(ctx context.Context, room *Room) error {
+	settings := "{}"
+	if room.Settings != nil {
+		b, err := json.Marshal(room.Settings)
+		if err == nil {
+			settings = string(b)
+		}
+	}
+	const query = `INSERT INTO rooms (id, area_id, name, slug, type, sort_order,
+		climate_zone_id, audio_zone_id, settings)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err := r.db.ExecContext(ctx, query,
+		room.ID, room.AreaID, room.Name, room.Slug, room.Type, room.SortOrder,
+		nullStr(room.ClimateZoneID), nullStr(room.AudioZoneID), settings)
+	return err
+}
+
+// nullStr converts a *string to a sql.NullString for nullable columns.
+func nullStr(s *string) sql.NullString {
+	if s == nil {
+		return sql.NullString{}
+	}
+	return sql.NullString{String: *s, Valid: true}
 }
 
 // ListAreas returns all areas ordered by sort_order then name.

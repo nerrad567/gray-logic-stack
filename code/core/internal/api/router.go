@@ -53,12 +53,14 @@ func (s *Server) buildRouter() http.Handler {
 			// Area endpoints
 			r.Route("/areas", func(r chi.Router) {
 				r.Get("/", s.handleListAreas)
+				r.Post("/", s.handleCreateArea)
 				r.Get("/{id}", s.handleGetArea)
 			})
 
 			// Room endpoints
 			r.Route("/rooms", func(r chi.Router) {
 				r.Get("/", s.handleListRooms)
+				r.Post("/", s.handleCreateRoom)
 				r.Get("/{id}", s.handleGetRoom)
 			})
 

@@ -3,6 +3,7 @@ package device
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 	"time"
 )
@@ -116,6 +117,7 @@ func (r *Registry) ListDevices(ctx context.Context) ([]Device, error) {
 			// Deep copy to prevent external mutation of cache
 			devices = append(devices, *d.DeepCopy())
 		}
+		sortDevicesByName(devices)
 		return devices, nil
 	}
 
@@ -138,6 +140,7 @@ func (r *Registry) GetDevicesByRoom(ctx context.Context, roomID string) ([]Devic
 				devices = append(devices, *d.DeepCopy())
 			}
 		}
+		sortDevicesByName(devices)
 		return devices, nil
 	}
 
@@ -205,6 +208,13 @@ func (r *Registry) GetDevicesByProtocol(ctx context.Context, protocol Protocol) 
 	}
 
 	return r.repo.ListByProtocol(ctx, protocol)
+}
+
+// sortDevicesByName sorts a device slice by name for deterministic ordering.
+func sortDevicesByName(devices []Device) {
+	sort.Slice(devices, func(i, j int) bool {
+		return devices[i].Name < devices[j].Name
+	})
 }
 
 // CreateDevice creates a new device.

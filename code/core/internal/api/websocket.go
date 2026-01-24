@@ -166,8 +166,9 @@ func (s *Server) subscribeStateUpdates() error {
 	if s.mqtt == nil {
 		return nil // MQTT not configured; WebSocket broadcast disabled
 	}
-	// Subscribe to all bridge state publications: graylogic/bridge/+/state/+
-	topic := "graylogic/bridge/+/state/+"
+	// Subscribe to all bridge state publications: graylogic/state/{protocol}/{ga}
+	topic := "graylogic/state/+/+"
+	s.logger.Info("subscribing to state updates for WebSocket relay", "topic", topic)
 	return s.mqtt.Subscribe(topic, 1, func(t string, payload []byte) error {
 		if s.hub == nil {
 			return nil // Hub not yet initialised
@@ -180,6 +181,7 @@ func (s *Server) subscribeStateUpdates() error {
 			return nil
 		}
 
+		s.logger.Debug("broadcasting state to WebSocket", "topic", t, "device_id", stateMsg["device_id"])
 		s.hub.Broadcast("device.state_changed", stateMsg)
 		return nil
 	})
