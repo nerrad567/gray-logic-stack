@@ -15,7 +15,7 @@ class ConfigScreen extends ConsumerStatefulWidget {
 
 class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _coreUrlController = TextEditingController(text: 'http://192.168.4.100:8090');
+  final _coreUrlController = TextEditingController(text: 'http://192.168.4.100:8081');
   final _roomIdController = TextEditingController();
   final _usernameController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: 'admin');

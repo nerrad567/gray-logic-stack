@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 
 import '../models/device.dart';
+import 'blind_tile.dart';
 import 'dimmer_tile.dart';
+import 'sensor_tile.dart';
 import 'switch_tile.dart';
 
 /// Responsive grid that routes each device to the correct tile widget
@@ -53,14 +55,21 @@ class DeviceGrid extends StatelessWidget {
   }
 
   Widget _buildTile(Device device) {
-    // Route to the correct tile based on device capabilities
+    // Route to the correct tile based on domain and type first, then capabilities.
+    // ValueKey ensures stable positions during state-driven rebuilds.
+    if (device.domain == 'sensor') {
+      return SensorTile(key: ValueKey(device.id), device: device);
+    }
+    if (device.domain == 'blinds') {
+      return BlindTile(key: ValueKey(device.id), device: device);
+    }
     if (device.hasDim) {
-      return DimmerTile(device: device);
+      return DimmerTile(key: ValueKey(device.id), device: device);
     }
     if (device.hasOnOff) {
-      return SwitchTile(device: device);
+      return SwitchTile(key: ValueKey(device.id), device: device);
     }
     // Fallback: show as a switch tile for any controllable device
-    return SwitchTile(device: device);
+    return SwitchTile(key: ValueKey(device.id), device: device);
   }
 }

@@ -178,8 +178,10 @@ class Device {
   /// Whether this device supports dimming.
   bool get hasDim => capabilities.contains('dim');
 
-  /// Whether the device is reachable.
-  bool get isOnline => healthStatus == 'online';
+  /// Whether the device is considered reachable for UI interaction.
+  /// Devices with 'unknown' health are treated as available (no health data yet).
+  /// Only explicitly 'offline' devices are disabled.
+  bool get isOnline => healthStatus != 'offline';
 
   // --- Helpers ---
 

@@ -55,9 +55,9 @@ class SwitchTile extends ConsumerWidget {
               Text(
                 isPending
                     ? '...'
-                    : isOnline
-                        ? (isOn ? 'ON' : 'OFF')
-                        : 'Offline',
+                    : !isOnline
+                        ? 'Offline'
+                        : (isOn ? 'ON' : 'OFF'),
                 style: TextStyle(
                   fontSize: 12,
                   fontWeight: FontWeight.w600,

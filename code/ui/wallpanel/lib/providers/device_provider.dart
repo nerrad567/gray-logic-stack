@@ -94,6 +94,25 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     }
   }
 
+  /// Set blind position with pending confirmation pattern.
+  Future<void> setPosition(String deviceId, int position) async {
+    final devices = state.valueOrNull;
+    if (devices == null) return;
+
+    final index = devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) return;
+
+    _pending.markPending(deviceId);
+    _startTimeoutTimer(deviceId);
+
+    try {
+      await _deviceRepo.setPosition(deviceId, position);
+    } catch (_) {
+      _cancelTimeoutTimer(deviceId);
+      _pending.clearPending(deviceId);
+    }
+  }
+
   /// Set brightness level with pending confirmation pattern.
   Future<void> setLevel(String deviceId, int level) async {
     final devices = state.valueOrNull;

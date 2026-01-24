@@ -42,6 +42,15 @@ class DeviceRepository {
     );
   }
 
+  /// Set blind position (0-100) for a blind/shutter device.
+  Future<CommandResponse> setPosition(String deviceId, int position) async {
+    return _apiClient.setDeviceState(
+      deviceId,
+      command: 'set_position',
+      parameters: {'position': position},
+    );
+  }
+
   /// Send a generic command with parameters.
   Future<CommandResponse> sendCommand(
     String deviceId, {
