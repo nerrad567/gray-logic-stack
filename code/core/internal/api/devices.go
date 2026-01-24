@@ -1,9 +1,11 @@
 package api
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"net/http"
+	"time"
 
 	"github.com/go-chi/chi/v5"
 
@@ -119,7 +121,7 @@ func (s *Server) handleCreateDevice(w http.ResponseWriter, r *http.Request) {
 
 	if err := s.registry.CreateDevice(r.Context(), &dev); err != nil {
 		// Check for validation errors
-		if errors.Is(err, device.ErrInvalidDevice) {
+		if isValidationError(err) {
 			writeBadRequest(w, err.Error())
 			return
 		}
@@ -153,7 +155,7 @@ func (s *Server) handleUpdateDevice(w http.ResponseWriter, r *http.Request) {
 	existing.ID = id // Ensure ID cannot be changed
 
 	if err := s.registry.UpdateDevice(r.Context(), existing); err != nil {
-		if errors.Is(err, device.ErrInvalidDevice) {
+		if isValidationError(err) {
 			writeBadRequest(w, err.Error())
 			return
 		}
@@ -258,31 +260,105 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Publish to MQTT — the protocol bridge subscribes to this topic
-	if s.mqtt == nil {
-		writeInternalError(w, "MQTT not available")
-		return
+	// Publish to MQTT if available — the protocol bridge subscribes to this topic.
+	if s.mqtt != nil {
+		bridgeID := deriveBridgeID(dev)
+		topic := "graylogic/bridge/" + bridgeID + "/command/" + id
+		if pubErr := s.mqtt.Publish(topic, payload, 1, false); pubErr != nil {
+			s.logger.Debug("MQTT publish failed", "error", pubErr)
+		}
 	}
 
-	// Derive bridge ID from the device's protocol and gateway
-	bridgeID := deriveBridgeID(dev)
-	topic := "graylogic/bridge/" + bridgeID + "/command/" + id
-	if pubErr := s.mqtt.Publish(topic, payload, 1, false); pubErr != nil {
-		writeInternalError(w, "failed to send command")
-		return
+	// In dev mode, simulate the bridge confirmation loop: delay the state
+	// write + WebSocket broadcast to mimic the real KNX bus round-trip time.
+	// In production, only the bridge's confirmed state update (via MQTT)
+	// should modify the database.
+	var newState device.State
+	if s.devMode {
+		newState = commandToState(cmd.Command, cmd.Parameters, dev.State)
+		go func() {
+			// Simulate bridge processing + bus round-trip (KNX typical: 100-300ms,
+			// exaggerated here so the pending UI is clearly visible during dev)
+			time.Sleep(800 * time.Millisecond)
+
+			if updateErr := s.registry.SetDeviceState(context.Background(), id, newState); updateErr != nil {
+				s.logger.Warn("failed to apply local state", "error", updateErr)
+				return
+			}
+			s.hub.Broadcast("device.state_changed", map[string]any{
+				"device_id": id,
+				"state":     newState,
+			})
+			s.logger.Debug("dev mode: simulated bridge confirmation", "device_id", id)
+		}()
 	}
 
-	s.logger.Info("device command sent",
+	logFields := []any{
 		"device_id", id,
 		"command", cmd.Command,
+		"parameters", cmd.Parameters,
 		"command_id", commandID,
-	)
+	}
+	if s.devMode {
+		logFields = append(logFields, "new_state", newState)
+	}
+	s.logger.Info("device command sent", logFields...)
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"command_id": commandID,
 		"status":     "accepted",
 		"message":    "command published, state update will follow via WebSocket",
 	})
+}
+
+// commandToState translates a device command into the resulting state.
+// Used in dev/demo mode when no protocol bridge is available to confirm the change.
+func commandToState(command string, params map[string]any, current device.State) device.State {
+	newState := make(device.State, len(current))
+	for k, v := range current {
+		newState[k] = v
+	}
+
+	switch command {
+	case "on", "turn_on":
+		newState["on"] = true
+	case "off", "turn_off":
+		newState["on"] = false
+	case "toggle":
+		if on, ok := newState["on"].(bool); ok {
+			newState["on"] = !on
+		} else {
+			newState["on"] = true
+		}
+	case "dim", "set_level":
+		if level, ok := params["level"]; ok {
+			newState["level"] = level
+			newState["on"] = true
+		}
+	case "set_position":
+		if pos, ok := params["position"]; ok {
+			newState["position"] = pos
+		}
+	case "set_tilt":
+		if tilt, ok := params["tilt"]; ok {
+			newState["tilt"] = tilt
+		}
+	case "set_temperature", "set_setpoint":
+		if temp, ok := params["setpoint"]; ok {
+			newState["setpoint"] = temp
+		}
+	case "set_mode":
+		if mode, ok := params["mode"]; ok {
+			newState["mode"] = mode
+		}
+	default:
+		// For unknown commands, merge all parameters into state
+		for k, v := range params {
+			newState[k] = v
+		}
+	}
+
+	return newState
 }
 
 // deriveBridgeID determines the MQTT bridge ID for routing commands to a device.
@@ -293,4 +369,19 @@ func deriveBridgeID(dev *device.Device) string {
 		return *dev.GatewayID
 	}
 	return string(dev.Protocol) + "-main"
+}
+
+// isValidationError checks whether an error is a device validation error.
+// ValidateDevice wraps various sentinel errors (ErrInvalidName, ErrInvalidAddress, etc.)
+// so we check all of them rather than just ErrInvalidDevice.
+func isValidationError(err error) bool {
+	return errors.Is(err, device.ErrInvalidDevice) ||
+		errors.Is(err, device.ErrInvalidName) ||
+		errors.Is(err, device.ErrInvalidSlug) ||
+		errors.Is(err, device.ErrInvalidDeviceType) ||
+		errors.Is(err, device.ErrInvalidDomain) ||
+		errors.Is(err, device.ErrInvalidProtocol) ||
+		errors.Is(err, device.ErrInvalidAddress) ||
+		errors.Is(err, device.ErrInvalidCapability) ||
+		errors.Is(err, device.ErrInvalidState)
 }

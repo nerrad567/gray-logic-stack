@@ -227,11 +227,12 @@ func (c *WSClient) readPump(cfg config.WebSocketConfig) {
 	}()
 
 	c.conn.SetReadLimit(int64(cfg.MaxMessageSize))
+	pingInterval := time.Duration(cfg.PingInterval) * time.Second
 	pongWait := time.Duration(cfg.PongTimeout) * time.Second
 	//nolint:errcheck // Best-effort deadline on connection setup
-	c.conn.SetReadDeadline(time.Now().Add(pongWait))
+	c.conn.SetReadDeadline(time.Now().Add(pingInterval + pongWait))
 	c.conn.SetPongHandler(func(string) error {
-		return c.conn.SetReadDeadline(time.Now().Add(pongWait))
+		return c.conn.SetReadDeadline(time.Now().Add(pingInterval + pongWait))
 	})
 
 	for {
@@ -239,9 +240,15 @@ func (c *WSClient) readPump(cfg config.WebSocketConfig) {
 		if err != nil {
 			if websocket.IsUnexpectedCloseError(err, websocket.CloseGoingAway, websocket.CloseNormalClosure) {
 				c.hub.logger.Warn("websocket read error", "error", err)
+			} else {
+				c.hub.logger.Debug("websocket closed", "error", err)
 			}
 			return
 		}
+		// Any client message resets the read deadline (keeps connection alive
+		// even if browser doesn't respond to protocol-level pings).
+		//nolint:errcheck // Best-effort deadline reset
+		c.conn.SetReadDeadline(time.Now().Add(pingInterval + pongWait))
 		c.handleMessage(message)
 	}
 }

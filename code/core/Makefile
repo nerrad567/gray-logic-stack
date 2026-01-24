@@ -67,6 +67,19 @@ help:
 # BUILD TARGETS
 # ============================================================================
 
+## build-panel: Build Flutter web UI and copy to embed directory
+build-panel:
+	@echo "Building Flutter wall panel..."
+	cd ../ui/wallpanel && flutter build web --release --base-href="/panel/"
+	@echo "Copying web build to embed directory..."
+	rm -rf internal/panel/web
+	cp -r ../ui/wallpanel/build/web internal/panel/web
+	@echo "Panel build complete (ready for go:embed)"
+
+## build-all: Build panel + Go binary (single production binary)
+build-all: build-panel build
+	@echo "Built Go binary with embedded Flutter panel"
+
 ## build: Build the application binary
 build:
 	@echo "Building $(APP_NAME)..."

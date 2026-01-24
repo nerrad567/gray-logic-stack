@@ -25,6 +25,7 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt"
+	"github.com/nerrad567/gray-logic-core/internal/location"
 )
 
 // gracefulShutdownTimeout is the maximum time to wait for in-flight requests
@@ -42,7 +43,9 @@ type Deps struct {
 	SceneEngine   *automation.Engine
 	SceneRegistry *automation.Registry
 	SceneRepo     automation.Repository
+	LocationRepo  location.Repository
 	ExternalHub   *Hub // If set, the server uses this hub instead of creating its own
+	DevMode       bool // When true, commands apply state locally without bridge confirmation
 	Version       string
 }
 
@@ -60,6 +63,8 @@ type Server struct {
 	sceneEngine   *automation.Engine
 	sceneRegistry *automation.Registry
 	sceneRepo     automation.Repository
+	locationRepo  location.Repository
+	devMode       bool
 	version       string
 	server        *http.Server
 	hub           *Hub
@@ -96,6 +101,8 @@ func New(deps Deps) (*Server, error) {
 		sceneEngine:   deps.SceneEngine,
 		sceneRegistry: deps.SceneRegistry,
 		sceneRepo:     deps.SceneRepo,
+		locationRepo:  deps.LocationRepo,
+		devMode:       deps.DevMode,
 		version:       deps.Version,
 	}
 

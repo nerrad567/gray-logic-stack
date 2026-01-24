@@ -1,9 +1,12 @@
 package api
 
 import (
+	"bufio"
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"fmt"
+	"net"
 	"net/http"
 	"time"
 )
@@ -146,6 +149,14 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 	}
 	//nolint:wrapcheck // Passthrough: statusWriter is a transparent wrapper
 	return w.ResponseWriter.Write(b)
+}
+
+// Hijack implements http.Hijacker, required for WebSocket upgrades.
+func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
+	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
+		return hj.Hijack()
+	}
+	return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
 }
 
 // requestIDBytes is the number of random bytes used for request IDs.

@@ -4,6 +4,7 @@ import (
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
+	"github.com/nerrad567/gray-logic-core/internal/panel"
 )
 
 // buildRouter creates the HTTP router with all routes and middleware.
@@ -16,6 +17,10 @@ func (s *Server) buildRouter() http.Handler {
 	r.Use(s.recoveryMiddleware)
 	r.Use(s.corsMiddleware)
 	r.Use(s.bodySizeLimitMiddleware)
+
+	// Wall panel UI (Flutter web build, embedded via go:embed)
+	r.Handle("/panel/*", http.StripPrefix("/panel", panel.Handler()))
+	r.Handle("/panel", http.RedirectHandler("/panel/", http.StatusMovedPermanently))
 
 	// API v1 routes
 	r.Route("/api/v1", func(r chi.Router) {
@@ -43,6 +48,18 @@ func (s *Server) buildRouter() http.Handler {
 					r.Get("/state", s.handleGetDeviceState)
 					r.Put("/state", s.handleSetDeviceState)
 				})
+			})
+
+			// Area endpoints
+			r.Route("/areas", func(r chi.Router) {
+				r.Get("/", s.handleListAreas)
+				r.Get("/{id}", s.handleGetArea)
+			})
+
+			// Room endpoints
+			r.Route("/rooms", func(r chi.Router) {
+				r.Get("/", s.handleListRooms)
+				r.Get("/{id}", s.handleGetRoom)
 			})
 
 			// Scene endpoints

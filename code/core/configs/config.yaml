@@ -3,6 +3,14 @@
 #
 # This is the default configuration file for Gray Logic Core.
 # Copy this file to /etc/graylogic/config.yaml and modify as needed.
+
+# ============================================================================
+# DEVELOPER MODE
+# ============================================================================
+# When enabled, device commands apply state changes locally without waiting
+# for bridge confirmation. Disable in production to ensure only confirmed
+# hardware state is persisted.
+dev_mode: true
 #
 # Configuration can also be set via environment variables:
 #   GRAYLOGIC_DATABASE_PATH=/data/graylogic.db
@@ -69,9 +77,9 @@ mqtt:
 
   # Reconnect settings
   reconnect:
-    initial_delay: 1   # seconds
-    max_delay: 60      # seconds
-    max_attempts: 0    # 0 = unlimited
+    initial_delay: 1 # seconds
+    max_delay: 60 # seconds
+    max_attempts: 0 # 0 = unlimited
 
 # ============================================================================
 # API SERVER
@@ -80,7 +88,7 @@ mqtt:
 api:
   # HTTP server settings
   host: "0.0.0.0"
-  port: 8080
+  port: 8090
 
   # TLS configuration (recommended for production)
   tls:
@@ -90,14 +98,17 @@ api:
 
   # Request timeouts
   timeouts:
-    read: 30    # seconds
-    write: 30   # seconds
-    idle: 60    # seconds
+    read: 30 # seconds
+    write: 30 # seconds
+    idle: 60 # seconds
 
   # CORS settings (for web admin)
   cors:
     allowed_origins:
       - "http://localhost:3000"
+      - "http://localhost:8888"
+      - "http://192.168.4.100:8888"
+      - "http://192.168.4.100:8090"
       - "https://admin.local"
     allowed_methods:
       - "GET"
@@ -120,10 +131,10 @@ websocket:
   max_message_size: 8192
 
   # Ping interval to keep connections alive
-  ping_interval: 30  # seconds
+  ping_interval: 30 # seconds
 
   # Pong timeout (how long to wait for pong response)
-  pong_timeout: 10   # seconds
+  pong_timeout: 10 # seconds
 
 # ============================================================================
 # INFLUXDB (Time-Series Data)
@@ -135,13 +146,13 @@ influxdb:
 
   # Connection settings
   url: "http://localhost:8086"
-  token: ""  # Set via GRAYLOGIC_INFLUXDB_TOKEN environment variable
+  token: "" # Set via GRAYLOGIC_INFLUXDB_TOKEN environment variable
   org: "graylogic"
   bucket: "metrics"
 
   # Write batch settings
   batch_size: 100
-  flush_interval: 10  # seconds
+  flush_interval: 10 # seconds
 
 # ============================================================================
 # LOGGING
@@ -160,9 +171,9 @@ logging:
   # If output is "file":
   file:
     path: "./logs/graylogic.log"
-    max_size: 100      # megabytes
-    max_backups: 5     # number of old files to keep
-    max_age: 30        # days
+    max_size: 100 # megabytes
+    max_backups: 5 # number of old files to keep
+    max_age: 30 # days
     compress: true
 
 # ============================================================================
@@ -233,7 +244,7 @@ protocols:
 
       # Watchdog health check interval
       # knxd is killed and restarted after 3 consecutive health check failures
-      health_check_interval: 10s  # Shortened for testing (normally 30s)
+      health_check_interval: 10s # Shortened for testing (normally 30s)
 
       # Bus-level health check (optional but recommended)
       # ------------------------------------------------
@@ -248,7 +259,7 @@ protocols:
       # TESTING: Disabled - no physical KNX bus attached to USB interface
       # health_check_device_address: "0/0/3"
       health_check_device_address: ""
-      health_check_device_timeout: 2s  # Shorter timeout for USB
+      health_check_device_timeout: 2s # Shorter timeout for USB
 
       # knxd log verbosity (0-9, 0 = minimal)
       log_level: 3
@@ -257,7 +268,7 @@ protocols:
   dali:
     enabled: false
     # Gateway connection details
-    gateway_type: "tridonic"  # or "helvar", "eldoled", etc.
+    gateway_type: "tridonic" # or "helvar", "eldoled", etc.
     gateway_host: "192.168.1.100"
     gateway_port: 502
 
@@ -265,7 +276,7 @@ protocols:
   modbus:
     enabled: false
     # For Modbus TCP
-    mode: "tcp"  # or "rtu"
+    mode: "tcp" # or "rtu"
     tcp_host: "192.168.1.101"
     tcp_port: 502
     # For Modbus RTU (serial)
@@ -284,8 +295,8 @@ security:
     # Minimum 32 characters required for adequate security.
     secret: "dev-only-secret-CHANGE-IN-PRODUCTION!"
     # Token expiry time
-    access_token_ttl: 15     # minutes
-    refresh_token_ttl: 1440  # minutes (24 hours)
+    access_token_ttl: 15 # minutes
+    refresh_token_ttl: 1440 # minutes (24 hours)
 
   # API key settings (for integrations)
   api_keys:

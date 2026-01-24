@@ -31,6 +31,7 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt"
 	"github.com/nerrad567/gray-logic-core/internal/knxd"
+	"github.com/nerrad567/gray-logic-core/internal/location"
 )
 
 // Version information - set at build time via ldflags
@@ -156,6 +157,10 @@ func run(ctx context.Context) error {
 	}
 	log.Info("scene registry initialised", "scenes", sceneRegistry.GetSceneCount())
 
+	// Initialise location repository
+	locationRepo := location.NewSQLiteRepository(db.DB)
+	log.Info("location repository initialised")
+
 	// Create WebSocket hub (shared between engine and API server)
 	wsHub := api.NewHub(cfg.WebSocket, log)
 	go wsHub.Run(ctx)
@@ -176,6 +181,8 @@ func run(ctx context.Context) error {
 		SceneEngine:   sceneEngine,
 		SceneRegistry: sceneRegistry,
 		SceneRepo:     sceneRepo,
+		LocationRepo:  locationRepo,
+		DevMode:       cfg.DevMode,
 		ExternalHub:   wsHub,
 		Version:       version,
 	})
