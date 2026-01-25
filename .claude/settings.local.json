@@ -58,7 +58,11 @@
       "mcp__acp__Write",
       "mcp__acp__Edit",
       "Skill(commit-commands:commit-push-pr)",
-      "Skill(commit-commands:commit-push-pr:*)"
+      "Skill(commit-commands:commit-push-pr:*)",
+      "Skill(docs-sync)",
+      "Skill(docs-sync:*)",
+      "Skill(commit-commands:commit)",
+      "Skill(commit-commands:commit:*)"
     ]
   },
   "outputStyle": "Explanatory"

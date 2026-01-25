@@ -349,10 +349,28 @@ graylogic/
 
 ### 8.1 KNX
 
+> **Specification Reference:** [docs/protocols/knx-reference.md](protocols/knx-reference.md)
+> 
+> AI agents MUST read the KNX reference before implementing or modifying any KNX-related code.
+
+**Operational Rules:**
 - Physical switches MUST work without Core (bus-level pairing)
 - Use knxd as gateway
 - Group addresses URL-encoded in MQTT topics (e.g., `1%2F2%2F3`)
 - Status telegrams expected from actuators
+
+**Protocol Compliance (from KNX Standard v3.0.0):**
+- DPT encoding/decoding MUST match specification exactly
+- Telegram structure MUST follow cEMI format for KNXnet/IP
+- APCI commands MUST use correct binary codes (see reference Table 1)
+- Address formats: Individual `A.L.D`, Group `M/S/G` (3-level)
+- Invalid value `0x7FFF` for DPT 9.xxx MUST be handled
+
+**Validation Requirements:**
+- Individual address: Area 0-15, Line 0-15, Device 0-255
+- Group address (3-level): Main 0-31, Sub 0-7, Group 0-255
+- DPT ranges enforced (e.g., DPT 1.xxx = 0 or 1 only)
+- Scene numbers: 0-63 (displayed as 1-64)
 
 ### 8.2 DALI
 

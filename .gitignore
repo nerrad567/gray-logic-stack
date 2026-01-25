@@ -3,3 +3,6 @@
 
 # Python bytecode
 __pycache__/
+
+# Specification PDFs (copyrighted, not for distribution)
+docs/specs/

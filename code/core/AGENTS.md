@@ -550,9 +550,26 @@ make precommit
 
 ---
 
+## Protocol References
+
+When working on protocol bridges, you MUST consult the relevant specification:
+
+| Protocol | Reference Document | Required For |
+|----------|-------------------|--------------|
+| **KNX** | [docs/protocols/knx-reference.md](../../docs/protocols/knx-reference.md) | Any `internal/bridges/knx/` or `internal/knxd/` work |
+| **MQTT** | [docs/protocols/mqtt.md](../../docs/protocols/mqtt.md) | Topic structure, QoS, message formats |
+
+**Rule:** Never implement protocol behaviour from memory or guesswork. Always verify against the specification document.
+
+Each bridge package has its own `AGENTS.md` with package-specific guidance:
+- `internal/bridges/knx/AGENTS.md` — KNX-specific rules and spec compliance checklist
+
+---
+
 ## Related Documentation
 
 - **[docs/CONSTRAINTS.md](../../docs/CONSTRAINTS.md)** — All constraints (MUST READ)
+- **[docs/protocols/knx-reference.md](../../docs/protocols/knx-reference.md)** — KNX protocol specification
 - **[docs/development/CODING-STANDARDS.md](../../docs/development/CODING-STANDARDS.md)** — Full standards
 - **[docs/architecture/core-internals.md](../../docs/architecture/core-internals.md)** — Core architecture
 - **[PROJECT-STATUS.md](../../PROJECT-STATUS.md)** — Current implementation status and session log
