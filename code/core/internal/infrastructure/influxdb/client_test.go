@@ -14,30 +14,40 @@ import (
 )
 
 // testConfig returns a configuration for the local dev InfluxDB.
-// These values match docker-compose.yml.
+// These values match docker-compose.dev.yml.
+// Token can be overridden via INFLUXDB_TOKEN env var for CI/CD.
 func testConfig() config.InfluxDBConfig {
+	token := os.Getenv("INFLUXDB_TOKEN")
+	if token == "" {
+		// Default token from docker-compose.dev.yml setup
+		token = "QHxh_EMhIkYQYRk6ysuTjVeJ44S3Y39R5wg_hRRIBTUG7frpp5Eb-0xUNWFHv5cWgGqhQFbgd8nAoX9KXtfbqA=="
+	}
 	return config.InfluxDBConfig{
 		Enabled:       true,
 		URL:           "http://127.0.0.1:8086",
-		Token:         "graylogic-dev-token",
+		Token:         token,
 		Org:           "graylogic",
-		Bucket:        "metrics",
+		Bucket:        "graylogic",
 		BatchSize:     100,
 		FlushInterval: 1, // 1 second for faster test feedback
 	}
 }
 
-// skipIfNoInfluxDB skips the test if InfluxDB is not running.
+// skipIfNoInfluxDB skips the test if InfluxDB is not running or not properly configured.
 func skipIfNoInfluxDB(t *testing.T) {
 	t.Helper()
 	if os.Getenv("RUN_INTEGRATION") == "" {
-		// Quick check: try to connect
+		// Quick check: try to connect and verify health
 		cfg := testConfig()
 		client, err := influxdb.Connect(context.Background(), cfg)
 		if err != nil {
 			t.Skip("InfluxDB not available, skipping integration test")
 		}
-		client.Close()
+		defer client.Close()
+		// Also check health to verify auth is working
+		if err := client.HealthCheck(context.Background()); err != nil {
+			t.Skip("InfluxDB auth not configured, skipping integration test")
+		}
 	}
 }
 

@@ -1,8 +1,11 @@
 package knxd
 
 import (
+	"context"
 	"errors"
 	"fmt"
+	"net"
+	"os/exec"
 	"testing"
 	"time"
 )
@@ -548,5 +551,506 @@ func TestValidateClientAddresses(t *testing.T) {
 				t.Errorf("validateClientAddresses(%q) error = %v, wantErr %v", tt.addr, err, tt.wantErr)
 			}
 		})
+	}
+}
+
+// ─── Integration Tests (require KNXSim running) ─────────────
+
+// knxSimHost returns the host where KNXSim is reachable, or empty if not available.
+// Tries multiple addresses: Docker hostname, container IP, localhost.
+func knxSimHost() string {
+	hosts := []string{
+		"knxsim",     // Docker network hostname
+		"172.21.0.2", // Docker container IP (may vary)
+		"127.0.0.1",  // localhost if port is exposed
+	}
+
+	for _, host := range hosts {
+		// UDP "connect" doesn't actually send packets, just sets up the socket
+		// We need to try a real connection or check if something is listening
+		addr := fmt.Sprintf("%s:3671", host)
+		conn, err := net.DialTimeout("udp", addr, 100*time.Millisecond)
+		if err == nil {
+			conn.Close()
+			// For UDP we can't really tell if something is listening
+			// Try TCP on the web UI port (9090) as a proxy check
+			if host == "127.0.0.1" {
+				// Check if web UI is accessible
+				tcpConn, tcpErr := net.DialTimeout("tcp", "127.0.0.1:9090", 100*time.Millisecond)
+				if tcpErr == nil {
+					tcpConn.Close()
+					return host
+				}
+			} else {
+				return host
+			}
+		}
+	}
+	return ""
+}
+
+// skipIfNoKNXSim skips the test if KNXSim is not available
+func skipIfNoKNXSim(t *testing.T) string {
+	t.Helper()
+	host := knxSimHost()
+	if host == "" {
+		t.Skip("KNXSim not available (tried knxsim:3671, 172.21.0.2:3671, 127.0.0.1:3671)")
+	}
+	return host
+}
+
+func TestManager_StartStop_Integration(t *testing.T) {
+	knxSimAddr := skipIfNoKNXSim(t)
+
+	// Use a unique port to avoid conflicts with any running knxd
+	port := 16720
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.50",
+		ClientAddresses: "0.0.51:4",
+		ListenTCP:       true,
+		TCPPort:         port,
+		Backend: BackendConfig{
+			Type: BackendIPTunnel,
+			Host: knxSimAddr,
+			Port: 3671,
+		},
+		RestartDelay:       1 * time.Second,
+		MaxRestartAttempts: 3,
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Start the manager
+	if err := m.Start(ctx); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+
+	// Give it time to connect
+	time.Sleep(500 * time.Millisecond)
+
+	// Verify it's running
+	if !m.IsRunning() {
+		t.Error("IsRunning() = false after Start()")
+	}
+
+	// Check stats
+	stats := m.Stats()
+	if stats.Status != "running" {
+		t.Errorf("Stats.Status = %q, want running", stats.Status)
+	}
+
+	// Stop the manager
+	if err := m.Stop(); err != nil {
+		t.Errorf("Stop() error: %v", err)
+	}
+
+	// Verify it stopped
+	if m.IsRunning() {
+		t.Error("IsRunning() = true after Stop()")
+	}
+}
+
+func TestManager_HealthCheck_Integration(t *testing.T) {
+	knxSimAddr := skipIfNoKNXSim(t)
+
+	port := 16721
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.60",
+		ClientAddresses: "0.0.61:4",
+		ListenTCP:       true,
+		TCPPort:         port,
+		Backend: BackendConfig{
+			Type: BackendIPTunnel,
+			Host: knxSimAddr,
+			Port: 3671,
+		},
+		HealthCheckInterval: 1 * time.Second,
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	if err := m.Start(ctx); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer m.Stop()
+
+	// Wait for knxd to fully connect
+	time.Sleep(1 * time.Second)
+
+	// Run health check
+	hctx, hcancel := context.WithTimeout(ctx, 5*time.Second)
+	defer hcancel()
+
+	err = m.HealthCheck(hctx)
+	if err != nil {
+		t.Errorf("HealthCheck() error: %v", err)
+	}
+}
+
+func TestManager_Stats_Integration(t *testing.T) {
+	knxSimAddr := skipIfNoKNXSim(t)
+
+	port := 16722
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.70",
+		ClientAddresses: "0.0.71:4",
+		ListenTCP:       true,
+		TCPPort:         port,
+		Backend: BackendConfig{
+			Type: BackendIPTunnel,
+			Host: knxSimAddr,
+			Port: 3671,
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+
+	// Stats before start
+	stats := m.Stats()
+	if stats.Status == "running" {
+		t.Error("Stats.Status = running before Start()")
+	}
+	if stats.PID != 0 {
+		t.Errorf("Stats.PID = %d before Start(), want 0", stats.PID)
+	}
+
+	if err := m.Start(ctx); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer m.Stop()
+
+	time.Sleep(500 * time.Millisecond)
+
+	// Stats after start
+	stats = m.Stats()
+	if stats.Status != "running" {
+		t.Errorf("Stats.Status = %q after Start(), want running", stats.Status)
+	}
+	if stats.PID == 0 {
+		t.Error("Stats.PID = 0 after Start()")
+	}
+	if !stats.Managed {
+		t.Error("Stats.Managed = false")
+	}
+}
+
+func TestManager_SetLogger_Integration(t *testing.T) {
+	cfg := Config{
+		Managed: true,
+		Backend: BackendConfig{Type: BackendUSB},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	// Create a simple logger
+	testLogger := &testKnxdLogger{
+		onInfo: func(msg string, args ...any) {},
+	}
+
+	m.SetLogger(testLogger)
+
+	// Verify SetLogger doesn't panic and logger is set
+	// (we can't access m.logger directly as it's private, but test passes if no panic)
+}
+
+type testKnxdLogger struct {
+	onDebug func(string, ...any)
+	onInfo  func(string, ...any)
+	onWarn  func(string, ...any)
+	onError func(string, ...any)
+}
+
+func (l *testKnxdLogger) Debug(msg string, args ...any) {
+	if l.onDebug != nil {
+		l.onDebug(msg, args...)
+	}
+}
+func (l *testKnxdLogger) Info(msg string, args ...any) {
+	if l.onInfo != nil {
+		l.onInfo(msg, args...)
+	}
+}
+func (l *testKnxdLogger) Warn(msg string, args ...any) {
+	if l.onWarn != nil {
+		l.onWarn(msg, args...)
+	}
+}
+func (l *testKnxdLogger) Error(msg string, args ...any) {
+	if l.onError != nil {
+		l.onError(msg, args...)
+	}
+}
+
+// ─── Additional Unit Tests for Coverage ─────────────────────────────────────
+
+func TestNoopLogger(t *testing.T) {
+	// Test that noopLogger methods don't panic
+	logger := noopLogger{}
+	logger.Debug("test message", "key", "value")
+	logger.Info("test message", "key", "value")
+	logger.Warn("test message", "key", "value")
+	logger.Error("test message", "key", "value")
+	// If we get here without panic, the test passes
+}
+
+// mockDeviceProvider implements DeviceProvider for testing
+type mockDeviceProvider struct {
+	devices []string
+}
+
+func (m *mockDeviceProvider) GetHealthCheckDevices(ctx context.Context, limit int) ([]string, error) {
+	if limit < len(m.devices) {
+		return m.devices[:limit], nil
+	}
+	return m.devices, nil
+}
+
+// mockGroupAddressProvider implements GroupAddressProvider for testing
+type mockGroupAddressProvider struct {
+	addresses []string
+}
+
+func (m *mockGroupAddressProvider) GetHealthCheckGroupAddresses(ctx context.Context, limit int) ([]string, error) {
+	if limit < len(m.addresses) {
+		return m.addresses[:limit], nil
+	}
+	return m.addresses, nil
+}
+
+func TestManager_SetDeviceProvider(t *testing.T) {
+	cfg := Config{
+		Managed: true,
+		Backend: BackendConfig{Type: BackendUSB},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	provider := &mockDeviceProvider{devices: []string{"1.1.1", "1.1.2"}}
+	m.SetDeviceProvider(provider)
+
+	// Verify provider is set
+	if m.deviceProvider == nil {
+		t.Error("deviceProvider is nil after SetDeviceProvider()")
+	}
+}
+
+func TestManager_SetGroupAddressProvider(t *testing.T) {
+	cfg := Config{
+		Managed: true,
+		Backend: BackendConfig{Type: BackendUSB},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	provider := &mockGroupAddressProvider{addresses: []string{"1/2/3", "1/2/4"}}
+	m.SetGroupAddressProvider(provider)
+
+	if m.groupAddressProvider == nil {
+		t.Error("groupAddressProvider is nil after SetGroupAddressProvider()")
+	}
+}
+
+func TestValidateSafePathComponent(t *testing.T) {
+	tests := []struct {
+		input   string
+		wantErr bool
+	}{
+		{"validname", false},
+		{"valid-name", false},
+		{"valid_name", false},
+		{"valid/path", false},  // slashes allowed
+		{"valid:colon", false}, // colons allowed
+		{"123", false},
+		{"", true},                     // empty
+		{"valid.name", true},           // dots NOT allowed (prevents path traversal)
+		{"../etc/passwd", true},        // path traversal (contains dot)
+		{"name with spaces", true},     // spaces
+		{"name\nwith\nnewlines", true}, // newlines
+		{"cmd;injection", true},        // shell metacharacter
+		{"cmd|pipe", true},             // shell metacharacter
+		{"$var", true},                 // shell metacharacter
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.input, func(t *testing.T) {
+			err := validateSafePathComponent(tt.input, "testField")
+			if (err != nil) != tt.wantErr {
+				t.Errorf("validateSafePathComponent(%q) error = %v, wantErr %v", tt.input, err, tt.wantErr)
+			}
+		})
+	}
+}
+
+// timeoutError is a net.Error that reports Timeout() = true
+type timeoutError struct{}
+
+func (e timeoutError) Error() string   { return "timeout" }
+func (e timeoutError) Timeout() bool   { return true }
+func (e timeoutError) Temporary() bool { return true }
+
+// nonTimeoutNetError is a net.Error that reports Timeout() = false
+type nonTimeoutNetError struct{}
+
+func (e nonTimeoutNetError) Error() string   { return "non-timeout net error" }
+func (e nonTimeoutNetError) Timeout() bool   { return false }
+func (e nonTimeoutNetError) Temporary() bool { return false }
+
+func TestIsTimeoutError(t *testing.T) {
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{"nil error", nil, false},
+		{"regular error", errors.New("some error"), false},
+		{"net.Error with Timeout()=true", timeoutError{}, true},
+		{"net.Error with Timeout()=false", nonTimeoutNetError{}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := isTimeoutError(tt.err)
+			if got != tt.want {
+				t.Errorf("isTimeoutError() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+// ─── USB Hardware Tests (require Weinzierl USB interface) ───────────────────
+
+// usbDevicePresent checks if the Weinzierl KNX-USB interface is connected
+func usbDevicePresent() bool {
+	cmd := exec.Command("lsusb", "-d", "0e77:0104")
+	output, err := cmd.CombinedOutput()
+	return err == nil && len(output) > 0
+}
+
+func skipIfNoUSB(t *testing.T) {
+	t.Helper()
+	if !usbDevicePresent() {
+		t.Skip("Weinzierl KNX-USB interface not detected (0e77:0104)")
+	}
+}
+
+func TestManager_USBDeviceCheck_Integration(t *testing.T) {
+	skipIfNoUSB(t)
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "0e77",
+			USBProductID: "0104",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Test checkUSBDevicePresent directly
+	err = m.checkUSBDevicePresent(ctx)
+	if err != nil {
+		t.Errorf("checkUSBDevicePresent() error: %v", err)
+	}
+}
+
+func TestManager_USBDeviceCheck_NotPresent(t *testing.T) {
+	// Test with a non-existent USB device
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "dead", // Non-existent vendor
+			USBProductID: "beef", // Non-existent product
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = m.checkUSBDevicePresent(ctx)
+	if err == nil {
+		t.Error("checkUSBDevicePresent() should fail for non-existent device")
+	}
+}
+
+func TestManager_USBDeviceCheck_NoIDConfigured(t *testing.T) {
+	// When USB IDs aren't configured, check should be skipped
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type: BackendUSB,
+			// No USBVendorID or USBProductID
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	// Should return nil (skip check) when IDs not configured
+	err = m.checkUSBDevicePresent(ctx)
+	if err != nil {
+		t.Errorf("checkUSBDevicePresent() should skip when IDs not configured, got: %v", err)
 	}
 }

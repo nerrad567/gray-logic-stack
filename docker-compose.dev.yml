@@ -3,6 +3,8 @@ services:
   mosquitto:
     image: eclipse-mosquitto:2.0.18
     container_name: graylogic-mosquitto
+    ports:
+      - "127.0.0.1:1883:1883" # localhost only for dev/testing
     volumes:
       - ./code/core/docker/mosquitto/config:/mosquitto/config
       - mosquitto_data:/mosquitto/data
@@ -19,6 +21,8 @@ services:
   influxdb:
     image: influxdb:2.7-alpine
     container_name: graylogic-influxdb
+    ports:
+      - "127.0.0.1:8086:8086" # localhost only for dev/testing
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=graylogic

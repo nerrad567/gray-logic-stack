@@ -490,3 +490,76 @@ func TestKNXDMessageRoundTrip(t *testing.T) {
 		})
 	}
 }
+
+// ─── Group Address Tests ───────────────────────────────────────────
+
+func TestGroupAddress_URLEncode(t *testing.T) {
+	tests := []struct {
+		ga   GroupAddress
+		want string
+	}{
+		{GroupAddress{1, 2, 3}, "1%2F2%2F3"},
+		{GroupAddress{0, 0, 1}, "0%2F0%2F1"},
+		{GroupAddress{31, 7, 255}, "31%2F7%2F255"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.ga.String(), func(t *testing.T) {
+			got := tt.ga.URLEncode()
+			if got != tt.want {
+				t.Errorf("URLEncode() = %q, want %q", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestParseGroupAddressFromURL(t *testing.T) {
+	tests := []struct {
+		name    string
+		encoded string
+		want    GroupAddress
+		wantErr bool
+	}{
+		{"valid address", "1%2F2%2F3", GroupAddress{1, 2, 3}, false},
+		{"zero address", "0%2F0%2F1", GroupAddress{0, 0, 1}, false},
+		{"max address", "31%2F7%2F255", GroupAddress{31, 7, 255}, false},
+		{"invalid encoding", "1%ZZ2%2F3", GroupAddress{}, true},
+		{"invalid format after decode", "invalid", GroupAddress{}, true},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got, err := ParseGroupAddressFromURL(tt.encoded)
+			if (err != nil) != tt.wantErr {
+				t.Errorf("ParseGroupAddressFromURL() error = %v, wantErr %v", err, tt.wantErr)
+				return
+			}
+			if !tt.wantErr && got != tt.want {
+				t.Errorf("ParseGroupAddressFromURL() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestGroupAddress_IsValid(t *testing.T) {
+	tests := []struct {
+		name string
+		ga   GroupAddress
+		want bool
+	}{
+		{"valid minimum", GroupAddress{0, 0, 0}, true},
+		{"valid typical", GroupAddress{1, 2, 3}, true},
+		{"valid maximum", GroupAddress{31, 7, 255}, true},
+		{"invalid main too high", GroupAddress{32, 0, 0}, false},
+		{"invalid middle too high", GroupAddress{0, 8, 0}, false},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			got := tt.ga.IsValid()
+			if got != tt.want {
+				t.Errorf("IsValid() = %v, want %v", got, tt.want)
+			}
+		})
+	}
+}

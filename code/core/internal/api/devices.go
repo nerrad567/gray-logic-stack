@@ -369,16 +369,6 @@ func commandToState(command string, params map[string]any, current device.State)
 	return newState
 }
 
-// deriveBridgeID determines the MQTT bridge ID for routing commands to a device.
-// It uses the device's gateway_id if set, otherwise falls back to the protocol name
-// with a "-main" suffix (e.g., "knx-main", "dali-main").
-func deriveBridgeID(dev *device.Device) string {
-	if dev.GatewayID != nil && *dev.GatewayID != "" {
-		return *dev.GatewayID
-	}
-	return string(dev.Protocol) + "-main"
-}
-
 // isValidationError checks whether an error is a device validation error.
 // ValidateDevice wraps various sentinel errors (ErrInvalidName, ErrInvalidAddress, etc.)
 // so we check all of them rather than just ErrInvalidDevice.
