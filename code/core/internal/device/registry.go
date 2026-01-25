@@ -295,19 +295,25 @@ func (r *Registry) DeleteDevice(ctx context.Context, id string) error {
 	return nil
 }
 
-// SetDeviceState updates the state of a device.
+// SetDeviceState merges the given state fields into the device's existing state.
 // This is optimised for frequent updates from protocol bridges.
 func (r *Registry) SetDeviceState(ctx context.Context, id string, state State) error {
 	if err := r.repo.UpdateState(ctx, id, state); err != nil {
 		return err
 	}
 
-	// Update cache using deep copy to prevent race conditions
+	// Update cache by merging new state into existing state
 	r.cacheMu.Lock()
 	if cached, ok := r.cache[id]; ok {
-		// Create a deep copy with updated state (atomic replacement)
+		// Create a deep copy and merge new state into existing
 		updated := cached.DeepCopy()
-		updated.State = deepCopyMap(state) // Deep copy the new state too
+		if updated.State == nil {
+			updated.State = make(State)
+		}
+		// Merge: copy new keys into existing state
+		for k, v := range state {
+			updated.State[k] = v
+		}
 		now := time.Now().UTC()
 		updated.StateUpdatedAt = &now
 		r.cache[id] = updated

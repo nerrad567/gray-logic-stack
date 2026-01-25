@@ -340,7 +340,8 @@ func (r *SQLiteRepository) Delete(ctx context.Context, id string) error {
 	return nil
 }
 
-// UpdateState updates only the state fields of a device.
+// UpdateState merges the given state fields into the device's existing state.
+// This allows partial updates (e.g., updating "on" without losing "level").
 func (r *SQLiteRepository) UpdateState(ctx context.Context, id string, state State) error {
 	stateJSON, err := json.Marshal(state)
 	if err != nil {
@@ -348,9 +349,14 @@ func (r *SQLiteRepository) UpdateState(ctx context.Context, id string, state Sta
 	}
 
 	now := time.Now().UTC()
+	// Use json_patch to merge new state into existing state.
+	// json_patch(target, patch) applies patch keys to target, preserving
+	// existing keys not present in patch.
 	query := `
 		UPDATE devices
-		SET state = ?, state_updated_at = ?, updated_at = ?
+		SET state = json_patch(COALESCE(state, '{}'), ?),
+		    state_updated_at = ?,
+		    updated_at = ?
 		WHERE id = ?`
 
 	result, err := r.db.ExecContext(ctx, query,

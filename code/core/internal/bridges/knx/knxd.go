@@ -45,6 +45,9 @@ const (
 	// defaultReconnectInterval is the initial delay between reconnection attempts.
 	defaultReconnectInterval = 5 * time.Second
 
+	// maxReconnectInterval is the maximum delay between reconnection attempts.
+	maxReconnectInterval = 2 * time.Minute
+
 	// readBufferSize is the size of the read buffer for incoming messages.
 	readBufferSize = 256
 
@@ -86,8 +89,10 @@ type KNXDStats struct {
 	TelegramsRx      uint64
 	TelegramsDropped uint64 // Telegrams dropped due to full callback queue
 	ErrorsTotal      uint64
+	ReconnectsTotal  uint64 // Successful reconnections
 	LastActivity     time.Time
 	Connected        bool
+	Reconnecting     bool // True if currently attempting to reconnect
 }
 
 // Logger interface for optional logging.
@@ -118,6 +123,11 @@ var _ Connector = (*KNXDClient)(nil)
 //   - All methods are safe for concurrent use.
 //   - Telegram callbacks are invoked in a dedicated goroutine.
 //
+// Auto-Reconnection:
+//   - When the connection is lost, the client automatically attempts to reconnect.
+//   - Uses exponential backoff starting at ReconnectInterval (default 5s) up to maxReconnectInterval (2min).
+//   - Reconnection stops only when Close() is called.
+//
 //nolint:revive // KNXDClient is clearer than DClient for external use
 type KNXDClient struct {
 	cfg  KNXDConfig
@@ -126,6 +136,10 @@ type KNXDClient struct {
 	// Connection state
 	connMu    sync.RWMutex
 	connected bool
+
+	// Reconnection state
+	reconnecting   atomic.Bool  // True while reconnection is in progress
+	reconnectCount atomic.Int32 // Number of consecutive reconnection attempts
 
 	// Telegram handler callback
 	onTelegram func(Telegram)
@@ -147,7 +161,8 @@ type KNXDClient struct {
 	telegramsRx      atomic.Uint64
 	telegramsDropped atomic.Uint64 // Telegrams dropped due to full queue
 	errorsTotal      atomic.Uint64
-	lastActivity     atomic.Int64 // Unix timestamp
+	reconnectsTotal  atomic.Uint64 // Successful reconnections
+	lastActivity     atomic.Int64  // Unix timestamp
 }
 
 // Connect establishes connection to knxd daemon.
@@ -339,6 +354,7 @@ func (c *KNXDClient) openGroupCon(ctx context.Context) error {
 }
 
 // receiveLoop continuously reads telegrams from knxd.
+// On connection loss, it automatically attempts reconnection with exponential backoff.
 func (c *KNXDClient) receiveLoop() {
 	defer c.wg.Done()
 
@@ -354,7 +370,18 @@ func (c *KNXDClient) receiveLoop() {
 		msgType, payload, err := c.readMessage(buf)
 		if err != nil {
 			if c.handleReadError(err) {
-				return // Fatal error, stop loop
+				// Fatal error - attempt reconnection
+				if c.isClosed() {
+					return // Shutdown requested, exit cleanly
+				}
+
+				// Try to reconnect
+				if !c.reconnect() {
+					return // Shutdown during reconnection, exit cleanly
+				}
+
+				// Reconnection successful, continue receive loop
+				continue
 			}
 			continue // Recoverable error, retry
 		}
@@ -512,13 +539,152 @@ func (c *KNXDClient) callbackWorker() {
 	}
 }
 
-// handleDisconnect handles connection loss.
+// handleDisconnect handles connection loss and triggers reconnection.
 func (c *KNXDClient) handleDisconnect() {
 	c.connMu.Lock()
+	wasConnected := c.connected
 	c.connected = false
 	c.connMu.Unlock()
 
-	c.logInfo("connection lost")
+	if wasConnected {
+		c.logInfo("connection lost, will attempt reconnection")
+	}
+}
+
+// reconnect attempts to re-establish the connection to knxd with exponential backoff.
+// Returns true if reconnection succeeded, false if shutdown was signalled.
+func (c *KNXDClient) reconnect() bool {
+	// Prevent multiple concurrent reconnection attempts
+	if !c.reconnecting.CompareAndSwap(false, true) {
+		return c.waitForReconnection()
+	}
+	defer c.reconnecting.Store(false)
+
+	// Parse connection URL once
+	network, address, err := parseConnectionURL(c.cfg.Connection)
+	if err != nil {
+		c.logError("reconnect: invalid connection URL", err)
+		return false
+	}
+
+	backoff := c.cfg.ReconnectInterval
+	if backoff == 0 {
+		backoff = defaultReconnectInterval
+	}
+
+	for {
+		if c.isClosed() {
+			return false
+		}
+
+		attempt := c.reconnectCount.Add(1)
+		c.logInfo("attempting reconnection", "attempt", attempt, "backoff", backoff.String())
+
+		c.closeOldConnection()
+
+		conn, err := c.dialWithTimeout(network, address)
+		if err != nil {
+			backoff = c.handleReconnectFailure("dial failed", err, backoff)
+			if backoff == 0 {
+				return false // Shutdown signalled
+			}
+			continue
+		}
+
+		if err := c.establishConnection(conn); err != nil {
+			backoff = c.handleReconnectFailure("handshake failed", err, backoff)
+			if backoff == 0 {
+				return false // Shutdown signalled
+			}
+			continue
+		}
+
+		c.finalizeReconnection()
+		return true
+	}
+}
+
+// waitForReconnection waits for another goroutine to complete reconnection.
+func (c *KNXDClient) waitForReconnection() bool {
+	for c.reconnecting.Load() && !c.isClosed() {
+		time.Sleep(100 * time.Millisecond)
+	}
+	return !c.isClosed() && c.IsConnected()
+}
+
+// closeOldConnection closes the existing connection if any.
+func (c *KNXDClient) closeOldConnection() {
+	c.connMu.Lock()
+	if c.conn != nil {
+		c.conn.Close()
+		c.conn = nil
+	}
+	c.connMu.Unlock()
+}
+
+// dialWithTimeout attempts to dial the network address with timeout.
+func (c *KNXDClient) dialWithTimeout(network, address string) (net.Conn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), c.cfg.ConnectTimeout)
+	defer cancel()
+
+	var dialer net.Dialer
+	conn, err := dialer.DialContext(ctx, network, address)
+	if err != nil {
+		return nil, fmt.Errorf("dial %s://%s: %w", network, address, err)
+	}
+	return conn, nil
+}
+
+// establishConnection sets up the connection and performs handshake.
+func (c *KNXDClient) establishConnection(conn net.Conn) error {
+	c.connMu.Lock()
+	c.conn = conn
+	c.connMu.Unlock()
+
+	ctx, cancel := context.WithTimeout(context.Background(), c.cfg.ConnectTimeout)
+	defer cancel()
+
+	if err := c.openGroupCon(ctx); err != nil {
+		conn.Close()
+		c.connMu.Lock()
+		c.conn = nil
+		c.connMu.Unlock()
+		return err
+	}
+	return nil
+}
+
+// handleReconnectFailure handles a failed reconnection attempt.
+// Returns the new backoff duration, or 0 if shutdown was signalled.
+func (c *KNXDClient) handleReconnectFailure(reason string, err error, backoff time.Duration) time.Duration {
+	c.logError("reconnect: "+reason, err)
+	c.errorsTotal.Add(1)
+
+	select {
+	case <-c.done.Done():
+		return 0 // Signal shutdown
+	case <-time.After(backoff):
+	}
+
+	// Exponential backoff with cap
+	newBackoff := time.Duration(float64(backoff) * 1.5)
+	if newBackoff > maxReconnectInterval {
+		newBackoff = maxReconnectInterval
+	}
+	return newBackoff
+}
+
+// finalizeReconnection marks the connection as established and updates stats.
+func (c *KNXDClient) finalizeReconnection() {
+	c.connMu.Lock()
+	c.connected = true
+	c.connMu.Unlock()
+
+	c.reconnectCount.Store(0)
+	c.reconnectsTotal.Add(1)
+	c.lastActivity.Store(time.Now().Unix())
+
+	c.logInfo("reconnection successful", "total_reconnects", c.reconnectsTotal.Load())
 }
 
 // drainCallbackQueue removes and discards any remaining items from the callback queue.
@@ -690,8 +856,10 @@ func (c *KNXDClient) Stats() KNXDStats {
 		TelegramsRx:      c.telegramsRx.Load(),
 		TelegramsDropped: c.telegramsDropped.Load(),
 		ErrorsTotal:      c.errorsTotal.Load(),
+		ReconnectsTotal:  c.reconnectsTotal.Load(),
 		LastActivity:     time.Unix(c.lastActivity.Load(), 0),
 		Connected:        c.IsConnected(),
+		Reconnecting:     c.reconnecting.Load(),
 	}
 }
 

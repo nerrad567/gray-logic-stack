@@ -131,10 +131,15 @@ func (h *Hub) Broadcast(channel string, payload any) {
 	}
 	h.mu.RUnlock()
 
+	sentCount := 0
 	for _, client := range clients {
 		if client.isSubscribed(channel) {
 			client.trySend(data)
+			sentCount++
 		}
+	}
+	if sentCount > 0 {
+		h.logger.Debug("broadcast sent", "channel", channel, "recipients", sentCount)
 	}
 }
 
@@ -330,6 +335,8 @@ func (c *WSClient) handleSubscribe(msg WSMessage) {
 		c.subscriptions[ch] = struct{}{}
 	}
 	c.mu.Unlock()
+
+	c.hub.logger.Info("websocket client subscribed", "channels", sub.Channels)
 
 	c.sendResponse(msg.ID, WSTypeResponse, map[string]any{
 		"subscribed": sub.Channels,

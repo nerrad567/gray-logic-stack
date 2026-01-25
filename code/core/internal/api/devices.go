@@ -261,9 +261,9 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// Publish to MQTT if available — the protocol bridge subscribes to this topic.
+	// Topic format: graylogic/command/{protocol}/{device_id}
 	if s.mqtt != nil {
-		bridgeID := deriveBridgeID(dev)
-		topic := "graylogic/bridge/" + bridgeID + "/command/" + id
+		topic := "graylogic/command/" + string(dev.Protocol) + "/" + id
 		if pubErr := s.mqtt.Publish(topic, payload, 1, false); pubErr != nil {
 			s.logger.Debug("MQTT publish failed", "error", pubErr)
 		}

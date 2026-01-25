@@ -59,7 +59,8 @@ database:
 mqtt:
   # Broker connection details
   broker:
-    host: "localhost"
+    # Use "mosquitto" for Docker networking, "localhost" for local development
+    host: "mosquitto"
     port: 1883
     # Use TLS for encrypted connection
     tls: false

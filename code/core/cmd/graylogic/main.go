@@ -454,6 +454,7 @@ func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.M
 	if err != nil {
 		return nil, fmt.Errorf("connecting to knxd: %w", err)
 	}
+	knxdClient.SetLogger(log)
 	log.Info("connected to knxd", "url", connURL)
 
 	// Create MQTT adapter to satisfy KNX bridge interface
