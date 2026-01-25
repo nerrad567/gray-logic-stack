@@ -59,6 +59,17 @@ func main() {
 	}
 }
 
+// Startup banner - The Penguin Rises
+const banner = `
+    .--.
+   |o_o |    Gray Logic Core %s
+   |:_/ |    Building Intelligence Platform
+  //   \ \
+ (|     | )  The Penguin Rises
+/'\_   _/` + "`" + `\
+\___)=(___/
+`
+
 // run is the actual application logic, separated from main for testability.
 // Returning an error allows main to handle exit codes consistently.
 //
@@ -68,6 +79,9 @@ func main() {
 // Returns:
 //   - error: nil on clean shutdown, or error describing failure
 func run(ctx context.Context) error {
+	// Print startup banner
+	fmt.Printf(banner, version)
+
 	// Use default logger until config is loaded
 	log := logging.Default()
 	log.Info("starting Gray Logic Core",
