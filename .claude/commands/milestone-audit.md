@@ -28,7 +28,16 @@ A comprehensive, staged audit that verifies code correctness, security, architec
 - Long-term reliability (requires production runtime)
 - Business logic correctness (requires domain expertise)
 
-**Be honest in the report about what was and wasn't proven.**
+### Honesty Requirements
+
+The report MUST include:
+1. **Stages Summary Table** — Show PASS/FAIL/SKIPPED for each of the 10 stages
+2. **"What Was Proven" section** — List specific validations with evidence
+3. **"What Was NOT Proven" section** — List gaps and why (e.g., "no KNX devices on bus")
+4. **Skipped stages clearly marked** — If a stage wasn't run, say so explicitly
+5. **Coverage reality check** — State that "coverage % ≠ correctness %" 
+
+Never claim "all tests pass" implies the code is correct. Tests verify code does what code does, not what it should do.
 
 ---
 
