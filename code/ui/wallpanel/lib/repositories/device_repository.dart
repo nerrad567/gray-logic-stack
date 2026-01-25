@@ -18,14 +18,14 @@ class DeviceRepository {
     return _apiClient.getDevice(id);
   }
 
-  /// Send a turn_on command to a device.
+  /// Send an on command to a device.
   Future<CommandResponse> turnOn(String deviceId) async {
-    return _apiClient.setDeviceState(deviceId, command: 'turn_on');
+    return _apiClient.setDeviceState(deviceId, command: 'on');
   }
 
-  /// Send a turn_off command to a device.
+  /// Send an off command to a device.
   Future<CommandResponse> turnOff(String deviceId) async {
-    return _apiClient.setDeviceState(deviceId, command: 'turn_off');
+    return _apiClient.setDeviceState(deviceId, command: 'off');
   }
 
   /// Toggle a device's on/off state.

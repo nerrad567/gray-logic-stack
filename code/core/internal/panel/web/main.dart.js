@@ -86284,7 +86284,7 @@ return A.I($async$w2,r)},
 JX(a){return this.ash(a)},
 ash(a){var s=0,r=A.J(t.wF),q,p=this
 var $async$JX=A.F(function(b,c){if(b===1)return A.G(c,r)
-for(;;)switch(s){case 0:q=p.a.L0(a,"turn_on")
+for(;;)switch(s){case 0:q=p.a.L0(a,"on")
 s=1
 break
 case 1:return A.H(q,r)}})
@@ -86292,7 +86292,7 @@ return A.I($async$JX,r)},
 JW(a){return this.asg(a)},
 asg(a){var s=0,r=A.J(t.wF),q,p=this
 var $async$JW=A.F(function(b,c){if(b===1)return A.G(c,r)
-for(;;)switch(s){case 0:q=p.a.L0(a,"turn_off")
+for(;;)switch(s){case 0:q=p.a.L0(a,"off")
 s=1
 break
 case 1:return A.H(q,r)}})

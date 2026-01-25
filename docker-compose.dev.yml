@@ -30,11 +30,15 @@ services:
     networks:
       - graylogic
 
-  # KNX/IP Gateway Simulator (standalone Python, UDP:3671)
+  # KNX/IP Gateway Simulator (standalone Python, UDP:3671, API:9090)
   knxsim:
     build:
       context: ./sim/knxsim
     container_name: graylogic-knxsim
+    ports:
+      - "9090:9090"
+    volumes:
+      - knxsim_data:/app/data
     networks:
       - graylogic
 
@@ -65,6 +69,7 @@ volumes:
   mosquitto_log:
   influxdb_data:
   graylogic_data:
+  knxsim_data:
 
 networks:
   graylogic:
