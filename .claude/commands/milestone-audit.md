@@ -59,6 +59,7 @@ Never claim "all tests pass" implies the code is correct. Tests verify code does
 | 1 | Static Analysis | Lint + security scan | No obvious code quality issues |
 | 2 | Vulnerability Scan | CVE check on deps | No known security holes in dependencies |
 | 3 | AI Code Review | Deep semantic analysis | No logic errors, security issues, or bugs |
+| 3.5 | Protocol Compliance | Verify against specs | KNX/DALI/Modbus follow official standards |
 | 4 | Architecture Review | Hard Rules compliance | System follows Gray Logic principles |
 | 5 | Dependency Audit | 20-year stability check | Deps will exist long-term |
 | 6 | Coverage Sweep | Test coverage enforcement | Code paths are exercised |
@@ -238,6 +239,142 @@ Use the `code-reviewer` agent (or Task tool with code-reviewer subagent) to revi
   "medium": 2, 
   "low": 5,
   "issues_fixed": 3
+}
+```
+
+---
+
+## Stage 3.5: Protocol Compliance
+
+### What Claude Must Say
+
+```
+STAGE 3.5: PROTOCOL COMPLIANCE
+══════════════════════════════════════════════════════════════════
+
+Purpose: Verify protocol implementations match official specifications.
+
+What this proves:
+  ✓ DPT encoding/decoding matches KNX Standard v3.0.0
+  ✓ Address formats are spec-compliant
+  ✓ APCI commands use correct binary codes
+  ✓ Invalid value handling is implemented
+  ✓ Test vectors from spec are included
+
+What this does NOT prove:
+  ✗ Interoperability with all KNX devices (needs real hardware)
+  ✗ Edge cases in obscure DPTs are handled
+  ✗ Performance under bus load
+
+Reference: docs/protocols/knx-reference.md
+
+Checking protocol compliance...
+```
+
+### Specification References
+
+| Protocol | Reference Document | Key Sections |
+|----------|-------------------|--------------|
+| KNX | `docs/protocols/knx-reference.md` | DPT encoding, APCI commands, addressing |
+| MQTT | `docs/protocols/mqtt.md` | Topic structure, QoS levels |
+
+### KNX Compliance Checks
+
+**1. DPT Encoding Verification**
+
+Read the DPT implementation and verify against spec:
+
+```bash
+# Find DPT encoding functions
+grep -rn "func.*[Ee]ncode.*DPT\|func.*[Dd]ecode.*DPT" code/core/internal/bridges/knx/
+```
+
+For each DPT implemented, verify:
+
+| DPT | Spec Requirement | Verification |
+|-----|------------------|--------------|
+| 1.xxx | 1 bit, value 0 or 1 | Check no other values accepted |
+| 3.xxx | 4 bits: B1U3 (direction + step) | Check step codes 0-7 |
+| 5.001 | 8-bit scaled 0-100% (0x00-0xFF) | Check scaling formula |
+| 5.004 | 8-bit linear 0-255% | Check NOT scaled |
+| 9.xxx | KNX float: `(0.01 × M) × 2^E` | Check NOT IEEE 754 |
+| 9.xxx | `0x7FFF` = invalid data | Check error returned |
+
+**2. Address Validation**
+
+```bash
+# Find address parsing/validation
+grep -rn "ParseGroupAddress\|ParseIndividualAddress\|ValidateAddress" code/core/internal/bridges/knx/
+```
+
+Verify ranges match spec:
+- Individual: Area 0-15, Line 0-15, Device 0-255
+- Group (3-level): Main 0-31, Sub 0-7, Group 0-255
+
+**3. APCI Command Codes**
+
+```bash
+# Find APCI constants
+grep -rn "APCI\|GroupValue_Read\|GroupValue_Write\|GroupValue_Response" code/core/internal/bridges/knx/
+```
+
+Verify codes match spec Table 1:
+- `A_GroupValue_Read` = 0x0000
+- `A_GroupValue_Response` = 0x0040
+- `A_GroupValue_Write` = 0x0080
+
+**4. Test Vector Verification**
+
+Check that tests include spec-derived vectors:
+
+```bash
+# Find DPT test files
+find code/core -name "*dpt*test*.go" -exec grep -l "TestVector\|testCase\|0x7FFF" {} \;
+```
+
+Required test vectors (from KNX Standard):
+- DPT 9.001: Temperature encoding at 0°C, 20.48°C, -273°C
+- DPT 9.xxx: Invalid marker `0x7FFF` handling
+- DPT 5.001 vs 5.004: Different scaling verification
+
+### Pass Criteria
+
+| Check | Required |
+|-------|----------|
+| DPT encoding matches spec | Yes |
+| Address validation enforces ranges | Yes |
+| APCI codes are correct | Yes |
+| Invalid data (0x7FFF) handled | Yes |
+| At least 3 spec test vectors per DPT | Recommended |
+
+### Issue Categories
+
+| Issue | Severity | Example |
+|-------|----------|---------|
+| Wrong encoding formula | 🛑 Critical | DPT 9 using IEEE 754 instead of KNX float |
+| Missing range validation | 🔴 High | Accepting group address 32/0/0 |
+| Wrong APCI code | 🔴 High | Using 0x02 instead of 0x0080 for write |
+| Missing invalid handling | 🟡 Medium | Not checking 0x7FFF |
+| No spec test vectors | 🟡 Medium | Tests exist but not from spec |
+
+### If Violations Found
+
+1. Read the relevant section in `docs/protocols/knx-reference.md`
+2. Fix the implementation to match spec
+3. Add test vectors from the specification
+4. Commit: `fix(knx): correct DPT X encoding per KNX Standard v3.0.0`
+
+### Tracker Update
+
+```json
+"stage_3_5_protocol": { 
+  "status": "complete", 
+  "passed": true, 
+  "protocols_checked": ["knx"],
+  "dpts_verified": 6,
+  "violations_found": 0,
+  "violations_fixed": 0,
+  "test_vectors_added": 12
 }
 ```
 
