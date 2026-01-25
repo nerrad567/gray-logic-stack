@@ -167,11 +167,52 @@ No race conditions detected.
 
 ---
 
+## What This Audit Proved
+
+| Category | What Was Validated |
+|----------|-------------------|
+| USB Hardware | Weinzierl KNX-USB (0e77:0104) works: reset, knxd start, EIB handshake, graceful shutdown |
+| KNXSim Integration | knxd connects to IP tunnel backend, start/stop/health check lifecycle works |
+| WebSocket | Real HTTP server accepts connections, subscribe/unsubscribe/broadcast work |
+| DPT Encoding | KNX datapoint encoding/decoding correct (DPT1, DPT3, DPT5, DPT9, DPT17, DPT18, DPT232) |
+| InfluxDB | Client connects and authenticates with token |
+| Device Registry | CRUD operations, queries by area/health/gateway work |
+| REST API | HTTP handlers respond correctly, validation works |
+
+## What This Audit Did NOT Prove
+
+| Gap | Reason |
+|-----|--------|
+| KNX bus communication | No devices on bus - cannot send/receive actual telegrams |
+| Bus health checks | `checkBusHealth`, `checkDeviceDescriptor`, `checkGroupAddressRead` need responding KNX devices |
+| End-to-end automation | Button press → telegram → state change → UI update not tested |
+| Real device control | No actuators/sensors connected to verify actual KNX control |
+| Panel API with live data | Tested with mocks, not real device state |
+| System under load | No stress/performance testing performed |
+| Multi-decade stability | Cannot test in a single audit |
+
+## Honest Assessment
+
+The **67.3% coverage** means we exercised 67.3% of code paths. "Exercised" ≠ "proved works in production".
+
+**Validated (high confidence):**
+- Infrastructure layer connects and authenticates correctly
+- KNX USB hardware + knxd integration works end-to-end
+- Protocol encoding/decoding is mathematically correct
+- API server handles HTTP/WebSocket correctly
+
+**Faith-based (not yet proven):**
+- Controlling real KNX devices on a live bus
+- System behavior under failure conditions
+- Long-term reliability
+
+---
+
 ## Conclusion
 
-**Year 1 Foundation milestone is APPROVED for completion.**
+**Year 1 Foundation milestone is APPROVED for completion** with the understanding that full end-to-end validation requires KNX devices connected to the bus.
 
-The Gray Logic Core demonstrates production-ready quality for its intended scope. All critical paths are tested, no security vulnerabilities exist, and the architecture adheres to project principles.
+The Gray Logic Core demonstrates production-ready quality for its intended scope. The architecture is sound, no security vulnerabilities exist, and the codebase adheres to project principles. The foundation is ready for Year 2 integration work.
 
 ---
 
