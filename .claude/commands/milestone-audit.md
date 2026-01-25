@@ -26,7 +26,17 @@ A comprehensive, staged audit that verifies code correctness, security, architec
 - End-to-end system behavior (requires real hardware)
 - Performance under load (requires load testing)
 - Long-term reliability (requires production runtime)
-- Business logic correctness (requires domain expertise)
+- KNX protocol compliance (verify against `docs/protocols/knx-reference.md`)
+
+### About Protocol Compliance
+
+KNX is an open standard. Gray Logic MUST comply with:
+- Datapoint Type encoding/decoding (DPT 1.xxx, 5.xxx, 9.xxx, etc.)
+- Telegram structure and addressing formats
+- EIB/cEMI protocol handshakes
+
+Reference: `docs/protocols/knx-reference.md` contains the specification extracts.
+The audit SHOULD verify implementations against this reference.
 
 ### Honesty Requirements
 
