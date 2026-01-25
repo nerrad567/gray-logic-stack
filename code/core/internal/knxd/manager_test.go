@@ -1054,3 +1054,154 @@ func TestManager_USBDeviceCheck_NoIDConfigured(t *testing.T) {
 		t.Errorf("checkUSBDevicePresent() should skip when IDs not configured, got: %v", err)
 	}
 }
+
+// ─── USB Reset Tests ────────────────────────────────────────────────────────
+
+func TestManager_ResetUSBDevice_Integration(t *testing.T) {
+	skipIfNoUSB(t)
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "0e77",
+			USBProductID: "0104",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	// Test the public ResetUSBDevice method
+	err = m.ResetUSBDevice()
+	if err != nil {
+		t.Errorf("ResetUSBDevice() error: %v", err)
+	}
+
+	// Give the device time to reinitialise
+	time.Sleep(1 * time.Second)
+
+	// Verify device is still present after reset
+	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
+	defer cancel()
+
+	err = m.checkUSBDevicePresent(ctx)
+	if err != nil {
+		t.Errorf("USB device not present after reset: %v", err)
+	}
+}
+
+func TestManager_ResetUSBDeviceWithContext_Integration(t *testing.T) {
+	skipIfNoUSB(t)
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "0e77",
+			USBProductID: "0104",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
+	defer cancel()
+
+	// Test resetUSBDeviceWithContext directly
+	err = m.resetUSBDeviceWithContext(ctx)
+	if err != nil {
+		t.Errorf("resetUSBDeviceWithContext() error: %v", err)
+	}
+}
+
+func TestManager_ResetUSBDevice_NonUSBBackend(t *testing.T) {
+	// Reset should be no-op for non-USB backends
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type: BackendIPTunnel,
+			Host: "192.168.1.100",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	// Should return nil (no-op) for non-USB backend
+	err = m.ResetUSBDevice()
+	if err != nil {
+		t.Errorf("ResetUSBDevice() should be no-op for IPT backend, got: %v", err)
+	}
+}
+
+func TestManager_ResetUSBDevice_NoIDConfigured(t *testing.T) {
+	// Reset should be skipped when USB IDs aren't configured
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type: BackendUSB,
+			// No USBVendorID or USBProductID
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	// Should return nil (skip) when IDs not configured
+	err = m.ResetUSBDevice()
+	if err != nil {
+		t.Errorf("ResetUSBDevice() should skip when IDs not configured, got: %v", err)
+	}
+}
+
+func TestManager_ResetUSBDevice_ContextCancelled(t *testing.T) {
+	skipIfNoUSB(t)
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.80",
+		ClientAddresses: "0.0.81:4",
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "0e77",
+			USBProductID: "0104",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+
+	// Create an already-cancelled context
+	ctx, cancel := context.WithCancel(context.Background())
+	cancel() // Cancel immediately
+
+	err = m.resetUSBDeviceWithContext(ctx)
+	if err == nil {
+		t.Error("resetUSBDeviceWithContext() should fail with cancelled context")
+	}
+}

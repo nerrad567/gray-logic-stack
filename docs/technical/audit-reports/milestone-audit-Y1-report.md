@@ -40,7 +40,7 @@ All dependencies are current and secure.
 
 **Result**: PASS - All critical packages meet or exceed targets
 
-**Overall Coverage: 66.8%**
+**Overall Coverage: 67.3%**
 
 ### Final Coverage by Package
 
@@ -58,7 +58,7 @@ All dependencies are current and secure.
 | internal/api | 68.0% | 50% | ✅ PASS |
 | internal/process | 61.6% | 60% | ✅ PASS |
 | internal/bridges/knx | 60.5% | 55% | ✅ PASS |
-| internal/knxd | 44.1% | 25% | ✅ PASS |
+| internal/knxd | 47.8% | 25% | ✅ PASS |
 | cmd/graylogic | 5.2% | 5% | ✅ PASS |
 
 ### Coverage Improvements Made During Audit
@@ -67,7 +67,7 @@ All dependencies are current and secure.
 |---------|--------|-------|-------|
 | internal/infrastructure/influxdb | 19.2% | 79.8% | +60.6% |
 | internal/api | 42.3% | 68.0% | +25.7% |
-| internal/knxd | 25.2% | 44.1% | +18.9% |
+| internal/knxd | 25.2% | 47.8% | +22.6% |
 | internal/bridges/knx | 51.4% | 60.5% | +9.1% |
 | internal/device | 80.2% | 85.8% | +5.6% |
 
@@ -78,7 +78,7 @@ All dependencies are current and secure.
 - `internal/bridges/knx/telegram_test.go`: GroupAddress URL encoding/parsing, IsValid
 - `internal/bridges/knx/dpt_test.go`: Comprehensive DPT encoding/decoding tests (DPT1, DPT3, DPT5, DPT5Angle, DPT9, DPT17, DPT18, DPT232)
 - `internal/infrastructure/influxdb/client_test.go`: Fixed token configuration
-- `internal/knxd/manager_test.go`: KNXSim integration tests (start/stop, health check, stats), USB device presence checks with real hardware, noopLogger, provider setters, validateSafePathComponent, isTimeoutError
+- `internal/knxd/manager_test.go`: KNXSim integration tests (start/stop, health check, stats), USB device presence checks with real hardware, USB reset tests with real Weinzierl interface, noopLogger, provider setters, validateSafePathComponent, isTimeoutError
 
 ---
 
@@ -163,8 +163,7 @@ No race conditions detected.
 
 1. **Coverage targets**: Maintain 80%+ for core packages, 65%+ overall
 2. **KNXSim VBUSMONITOR**: When implemented, add busmonitor.go integration tests
-3. **knxd bus health checks**: Add integration tests for checkBusHealth, checkDeviceDescriptor, checkGroupAddressRead when full KNX bus with devices is available
-4. **USB reset testing**: Add tests for resetUSBDevice once safe reset procedures are established
+3. **knxd bus health checks**: Add integration tests for checkBusHealth, checkDeviceDescriptor, checkGroupAddressRead when KNX devices are connected to the bus
 
 ---
 
