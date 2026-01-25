@@ -4,6 +4,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"io"
 	"net"
 	"os/exec"
 	"testing"
@@ -1203,5 +1204,104 @@ func TestManager_ResetUSBDevice_ContextCancelled(t *testing.T) {
 	err = m.resetUSBDeviceWithContext(ctx)
 	if err == nil {
 		t.Error("resetUSBDeviceWithContext() should fail with cancelled context")
+	}
+}
+
+// TestManager_USBBackend_FullIntegration tests the complete USB workflow:
+// reset device -> start knxd -> verify EIB handshake -> clean shutdown
+func TestManager_USBBackend_FullIntegration(t *testing.T) {
+	skipIfNoUSB(t)
+
+	// Use a unique port to avoid conflicts
+	port := 16721
+
+	cfg := Config{
+		Managed:         true,
+		Binary:          "/usr/bin/knxd",
+		PhysicalAddress: "0.0.90",
+		ClientAddresses: "0.0.91:4",
+		ListenTCP:       true,
+		TCPPort:         port,
+		Backend: BackendConfig{
+			Type:         BackendUSB,
+			USBVendorID:  "0e77",
+			USBProductID: "0104",
+		},
+	}
+
+	m, err := NewManager(cfg)
+	if err != nil {
+		t.Fatalf("NewManager() error: %v", err)
+	}
+	m.SetLogger(&testKnxdLogger{
+		onInfo: func(msg string, args ...any) {
+			t.Logf("[INFO] %s %v", msg, args)
+		},
+		onWarn: func(msg string, args ...any) {
+			t.Logf("[WARN] %s %v", msg, args)
+		},
+	})
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	// Step 1: Reset USB device before starting knxd
+	t.Log("Resetting USB device...")
+	if err := m.ResetUSBDevice(); err != nil {
+		t.Fatalf("ResetUSBDevice() error: %v", err)
+	}
+	time.Sleep(1 * time.Second)
+
+	// Step 2: Start knxd with USB backend
+	t.Log("Starting knxd with USB backend...")
+	if err := m.Start(ctx); err != nil {
+		t.Fatalf("Start() error: %v", err)
+	}
+	defer m.Stop()
+
+	// Step 3: Verify knxd is running
+	if !m.IsRunning() {
+		t.Fatal("knxd should be running")
+	}
+	t.Logf("knxd running with PID %d", m.Stats().PID)
+
+	// Step 4: Connect and verify EIB protocol works
+	t.Log("Testing EIB protocol handshake...")
+	addr := fmt.Sprintf("localhost:%d", port)
+	conn, err := net.DialTimeout("tcp", addr, 2*time.Second)
+	if err != nil {
+		t.Fatalf("Failed to connect to knxd: %v", err)
+	}
+	defer conn.Close()
+
+	// Send EIB_OPEN_GROUPCON handshake
+	handshake := []byte{0x00, 0x05, 0x00, 0x26, 0x00, 0x00, 0x00}
+	conn.SetWriteDeadline(time.Now().Add(time.Second))
+	if _, err := conn.Write(handshake); err != nil {
+		t.Fatalf("Failed to send handshake: %v", err)
+	}
+
+	// Read response
+	conn.SetReadDeadline(time.Now().Add(time.Second))
+	resp := make([]byte, 4)
+	if _, err := io.ReadFull(conn, resp); err != nil {
+		t.Fatalf("Failed to read response: %v", err)
+	}
+
+	// Verify response is EIB_OPEN_GROUPCON (0x0026)
+	respType := uint16(resp[2])<<8 | uint16(resp[3])
+	if respType != 0x0026 {
+		t.Errorf("Expected EIB_OPEN_GROUPCON (0x0026), got 0x%04X", respType)
+	}
+	t.Logf("EIB handshake OK: response 0x%04X", respType)
+
+	// Step 5: Clean shutdown
+	t.Log("Stopping knxd...")
+	if err := m.Stop(); err != nil {
+		t.Errorf("Stop() error: %v", err)
+	}
+
+	if m.IsRunning() {
+		t.Error("knxd should not be running after Stop()")
 	}
 }
