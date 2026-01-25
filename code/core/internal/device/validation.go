@@ -10,9 +10,11 @@ import (
 
 // Validation constants.
 const (
-	maxNameLength = 100
-	maxSlugLength = 50
-	slugPattern   = `^[a-z0-9]+(?:-[a-z0-9]+)*$`
+	maxNameLength     = 100
+	maxSlugLength     = 50
+	maxGatewayIDLen   = 64
+	slugPattern       = `^[a-z0-9]+(?:-[a-z0-9]+)*$`
+	mqttSafeIDPattern = `^[a-zA-Z0-9_-]+$` // No MQTT wildcards (+, #) or level separator (/)
 
 	// Size limits for JSON fields to prevent DoS via memory exhaustion.
 	// These are generous limits for building automation use cases.
@@ -25,6 +27,7 @@ const (
 )
 
 var slugRegex = regexp.MustCompile(slugPattern)
+var mqttSafeIDRegex = regexp.MustCompile(mqttSafeIDPattern)
 
 // Pre-computed validation sets for O(1) lookups instead of O(n) linear search.
 var (
@@ -112,6 +115,13 @@ func ValidateDevice(d *Device) error {
 	// Validate protocol-specific address
 	if err := ValidateAddress(d.Protocol, d.Address); err != nil {
 		return err
+	}
+
+	// Validate GatewayID if provided (must be MQTT-safe for topic routing)
+	if d.GatewayID != nil {
+		if err := ValidateGatewayID(*d.GatewayID); err != nil {
+			return err
+		}
 	}
 
 	// Validate config size if provided
@@ -289,6 +299,23 @@ func ValidateHealthStatus(status HealthStatus) error {
 		return nil
 	}
 	return fmt.Errorf("%w: %q", ErrInvalidState, status)
+}
+
+// ValidateGatewayID checks if a gateway ID is safe for use in MQTT topics.
+// GatewayID is used in MQTT topic construction (e.g., graylogic/bridge/{gatewayID}/command/...),
+// so it must not contain MQTT wildcards (+, #) or level separators (/).
+// Allowed characters: a-z, A-Z, 0-9, underscore, hyphen.
+func ValidateGatewayID(gatewayID string) error {
+	if gatewayID == "" {
+		return nil // Empty is allowed (will use protocol-main fallback)
+	}
+	if len(gatewayID) > maxGatewayIDLen {
+		return fmt.Errorf("%w: gateway_id exceeds %d characters", ErrInvalidDevice, maxGatewayIDLen)
+	}
+	if !mqttSafeIDRegex.MatchString(gatewayID) {
+		return fmt.Errorf("%w: gateway_id contains invalid characters (allowed: a-z, A-Z, 0-9, _, -)", ErrInvalidDevice)
+	}
+	return nil
 }
 
 // ValidateAddress validates protocol-specific address configuration.

@@ -397,14 +397,24 @@ func (c *KNXDClient) receiveLoop() {
 // Returns the message type, payload, and any error.
 // If the message is oversized, returns ErrProtocolDesync which is fatal.
 func (c *KNXDClient) readMessage(buf []byte) (uint16, []byte, error) {
+	// Capture connection under lock to prevent race with reconnect().
+	// This follows the same pattern as sendTelegram().
+	c.connMu.RLock()
+	conn := c.conn
+	c.connMu.RUnlock()
+
+	if conn == nil {
+		return 0, nil, ErrNotConnected
+	}
+
 	// Set read deadline
-	if err := c.conn.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout)); err != nil {
+	if err := conn.SetReadDeadline(time.Now().Add(c.cfg.ReadTimeout)); err != nil {
 		c.logError("set read deadline failed", err)
 		return 0, nil, fmt.Errorf("set deadline: %w", err)
 	}
 
 	// Read message size (2 bytes)
-	if _, err := io.ReadFull(c.conn, buf[:2]); err != nil {
+	if _, err := io.ReadFull(conn, buf[:2]); err != nil {
 		return 0, nil, fmt.Errorf("read size: %w", err)
 	}
 
@@ -431,7 +441,7 @@ func (c *KNXDClient) readMessage(buf []byte) (uint16, []byte, error) {
 	}
 
 	// Read rest of message (type + payload = msgSize bytes)
-	if _, err := io.ReadFull(c.conn, buf[2:totalLen]); err != nil {
+	if _, err := io.ReadFull(conn, buf[2:totalLen]); err != nil {
 		return 0, nil, fmt.Errorf("read message: %w", err)
 	}
 

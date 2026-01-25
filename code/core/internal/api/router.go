@@ -29,11 +29,13 @@ func (s *Server) buildRouter() http.Handler {
 
 		// Auth endpoints (no auth required)
 		r.Post("/auth/login", s.handleLogin)
-		r.Post("/auth/ws-ticket", s.handleWSTicket)
 
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(s.authMiddleware)
+
+			// WS ticket requires authentication - user must be logged in to request a ticket
+			r.Post("/auth/ws-ticket", s.handleWSTicket)
 
 			// Device endpoints
 			r.Route("/devices", func(r chi.Router) {

@@ -10,6 +10,7 @@ import (
 	"os/exec"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -113,7 +114,8 @@ type Manager struct {
 
 	// dStateCount tracks consecutive health checks where knxd is in D (uninterruptible sleep) state.
 	// Reset to 0 when knxd returns to a healthy state.
-	dStateCount int
+	// Uses atomic.Int32 for thread-safe access from health check goroutine.
+	dStateCount atomic.Int32
 
 	// activePIDFilePath stores the path used when acquiring the PID file.
 	// This ensures removePIDFile() removes the same file that was acquired,
@@ -1083,15 +1085,15 @@ func (m *Manager) checkProcessState(pid int) error {
 		// D (uninterruptible sleep) is usually temporary (disk/USB I/O).
 		// However, if knxd is stuck in D-state for multiple health checks,
 		// the USB interface is likely hung and needs recovery.
-		m.dStateCount++
-		if m.dStateCount >= 3 {
-			return fmt.Errorf("knxd process stuck in uninterruptible sleep (state=D, count=%d)", m.dStateCount)
+		count := m.dStateCount.Add(1)
+		if count >= 3 {
+			return fmt.Errorf("knxd process stuck in uninterruptible sleep (state=D, count=%d)", count)
 		}
-		m.logger.Debug("knxd process in uninterruptible sleep (state=D)", "count", m.dStateCount)
+		m.logger.Debug("knxd process in uninterruptible sleep (state=D)", "count", count)
 		return nil
 	default:
 		// R, S, I are all healthy states - reset D-state counter
-		m.dStateCount = 0
+		m.dStateCount.Store(0)
 		return nil
 	}
 }

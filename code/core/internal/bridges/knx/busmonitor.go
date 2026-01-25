@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/binary"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -125,7 +126,9 @@ func (m *BusMonitor) Start(ctx context.Context, knxdURL string) error {
 		m.closeStatements()
 		return fmt.Errorf("connecting to knxd: %w", err)
 	}
+	m.mu.Lock()
 	m.conn = conn
+	m.mu.Unlock()
 
 	// Open vbusmonitor mode
 	if err := m.openVBusMonitor(); err != nil {
@@ -151,12 +154,13 @@ func (m *BusMonitor) Stop() {
 		return
 	}
 	m.running = false
+	conn := m.conn
 	m.mu.Unlock()
 
 	close(m.done)
 
-	if m.conn != nil {
-		m.conn.Close()
+	if conn != nil {
+		conn.Close()
 	}
 
 	m.wg.Wait()
@@ -249,6 +253,16 @@ func (m *BusMonitor) receiveLoop() {
 
 	buf := make([]byte, busMonitorReadBuffer)
 
+	// Capture connection once at start - it won't change during the loop's lifetime.
+	// Stop() will close this connection, causing reads to fail and the loop to exit.
+	m.mu.RLock()
+	conn := m.conn
+	m.mu.RUnlock()
+
+	if conn == nil {
+		return
+	}
+
 	for {
 		select {
 		case <-m.done:
@@ -257,18 +271,19 @@ func (m *BusMonitor) receiveLoop() {
 		}
 
 		// Set read deadline
-		if err := m.conn.SetReadDeadline(time.Now().Add(busMonitorReadTimeout)); err != nil {
+		if err := conn.SetReadDeadline(time.Now().Add(busMonitorReadTimeout)); err != nil {
 			m.logError("set read deadline", err)
 			return
 		}
 
 		// Read message size (2 bytes)
-		if _, err := io.ReadFull(m.conn, buf[:2]); err != nil {
+		if _, err := io.ReadFull(conn, buf[:2]); err != nil {
 			if m.isClosed() {
 				return
 			}
 			// Timeout is normal, continue
-			if netErr, ok := err.(net.Error); ok && netErr.Timeout() {
+			var netErr net.Error
+			if errors.As(err, &netErr) && netErr.Timeout() {
 				continue
 			}
 			// EOF during shutdown is normal (connection closed)
@@ -283,13 +298,13 @@ func (m *BusMonitor) receiveLoop() {
 		if msgSize < 2 || int(msgSize) > len(buf)-2 {
 			m.logError("invalid message size, closing connection", fmt.Errorf("size: %d", msgSize))
 			// Protocol violation - close and return to force reconnect
-			m.conn.Close()
+			conn.Close()
 			return
 		}
 
 		// Read rest of message
 		totalLen := 2 + int(msgSize)
-		if _, err := io.ReadFull(m.conn, buf[2:totalLen]); err != nil {
+		if _, err := io.ReadFull(conn, buf[2:totalLen]); err != nil {
 			if m.isClosed() {
 				return
 			}
