@@ -1,14 +1,14 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-24
+> **Last Updated:** 2026-01-25
 > **Current Phase:** Implementation (M1.5 Complete — Year 1 Foundation Done!)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-24 (Session 16 - M1.5 Flutter Wall Panel Complete!)
-**Current milestone:** Year 1 Foundation Complete — all 6 milestones done
+**Last session:** 2026-01-25 (Session 17 - KNXSim Engineer UI & Sync Fixes)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 in progress
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -17,8 +17,11 @@
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
 - M1.5 Flutter Wall Panel (Riverpod, Dio, WebSocket, optimistic UI, embedded web serving) ✅
 - M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
+- KNXSim Phase 2.3 Device Controls ✅ (lights, blinds, presence, sensors)
+- KNXSim Phase 2.4 Engineer Mode ✅ (telegram inspector, device panel, GA inspection)
 
 **What's next:**
+- KNXSim Phase 2.1/2.2: Building overview, floor navigation, room grid
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
 
@@ -535,6 +538,43 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 - **Tests**: 12 test files in Flutter (models, providers, services, widgets)
 - UX: Dimmer slider holds sent value until WebSocket confirms (no snap-back)
 - **M1.5 Flutter Wall Panel complete — Year 1 Foundation done!**
+
+### Session 17: 2026-01-25 — KNXSim Engineer UI & Sync Fixes
+
+**Goal:** Complete KNXSim Engineer UI and fix bidirectional state synchronisation
+
+**KNXSim Enhancements** (`sim/knxsim/`):
+- **Engineer UI** with interactive device controls:
+  - Light switches: ON/OFF toggle button
+  - Dimmers: brightness slider (0-100%)
+  - Blinds: position + slat angle sliders
+  - Presence sensors: motion trigger button + lux slider (0-2000 lx)
+  - Sensors: temperature display
+- **Telegram Inspector**: Live bus traffic via WebSocket
+- **Device Panel**: GA table with auto-detected DPT types, raw state JSON
+- **Command API**: `POST /devices/{id}/command` now sends KNX telegrams on bus
+
+**Critical Sync Fixes**:
+- **KNXSim command → KNX telegram**: Commands now call `_send_telegram_with_hook()` to broadcast on bus (was only updating internal state)
+- **Core state merge**: Changed SQLite `SET state = ?` to `json_patch()` — fields now accumulate instead of overwriting
+- **Registry cache merge**: Cache update merges state fields instead of replacing entire state
+- **Multi-response telegrams**: Dimmers return both `switch_status` AND `brightness_status` (like real KNX devices)
+- **UI toggle refresh**: `updateState()` now calls `_renderControls()` to update button state
+
+**Files Modified**:
+- `sim/knxsim/static/js/components/device-panel.js` — Presence controls, slider suffix fix
+- `sim/knxsim/api/routes_devices.py` — presence/lux commands, DPT9 encoding
+- `sim/knxsim/devices/light_dimmer.py` — Return list of response telegrams
+- `sim/knxsim/core/premise.py` — Handle list of cEMI responses
+- `sim/knxsim/knxip/server.py` — Send multiple response telegrams
+- `code/core/internal/device/repository.go` — json_patch for state merge
+- `code/core/internal/device/registry.go` — Merge state in cache
+
+**Documentation**:
+- Updated `sim/knxsim/VISION.md` — Phase 2.3, 2.4 marked complete
+- Updated `CHANGELOG.md` — Version 1.0.9 entry
+
+**Result**: Full bidirectional sync working: Flutter ↔ Core ↔ KNXSim
 
 ---
 

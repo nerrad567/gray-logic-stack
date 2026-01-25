@@ -4,6 +4,49 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.9 – KNXSim Engineer UI & Core Sync Fixes (2026-01-25)
+
+**Focus: KNX Simulator enhancement and bidirectional state synchronisation**
+
+Major improvements to the KNX/IP simulator with a fully functional Engineer UI, plus critical fixes to ensure Flutter ↔ KNXSim ↔ Core state synchronisation works correctly.
+
+### Added
+
+- **KNXSim Engineer UI** (`sim/knxsim/static/`):
+  - Device panel with interactive controls (lights, blinds, presence, sensors)
+  - Telegram Inspector with live WebSocket streaming
+  - GA inspection with auto-detected DPT types
+  - Presence sensor controls: motion trigger button + lux slider (0-2000 lx)
+  - Real-time state updates via WebSocket
+
+- **KNXSim API enhancements**:
+  - `POST /devices/{id}/command` — Send commands with KNX telegram broadcast
+  - Support for `presence` (DPT1) and `lux` (DPT9) commands
+  - Commands now send status telegrams onto KNX bus (not just internal state)
+
+- **DPT Codec expansion** (`sim/knxsim/dpt/`):
+  - DPT9 (2-byte float) encode/decode for temperature, lux, humidity
+  - Proper scaling and sign handling per KNX specification
+
+### Fixed
+
+- **KNXSim command API not sending telegrams** — The `/command` endpoint only updated internal state; now sends actual KNX telegrams via `_send_telegram_with_hook()` so Core sees changes
+- **Core state merge overwrites** — `UpdateState` was replacing entire state JSON; now uses SQLite `json_patch()` for proper field merging (e.g., `on` + `level` accumulate)
+- **Registry cache merge** — Cache update now merges state fields instead of replacing
+- **Light dimmer multi-response** — `on_group_write()` now returns both `switch_status` AND `brightness_status` telegrams (like real KNX dimmers)
+- **Engineer UI toggle not updating** — `updateState()` now calls `_renderControls()` to refresh button state
+
+### Changed
+
+- `sim/knxsim/devices/light_dimmer.py` — Return list of response telegrams
+- `sim/knxsim/core/premise.py` — Handle list of cEMI responses
+- `sim/knxsim/knxip/server.py` — Send multiple response telegrams
+- `code/core/internal/device/repository.go` — Use `json_patch()` for state merge
+- `code/core/internal/device/registry.go` — Merge state in cache, not replace
+- `sim/knxsim/VISION.md` — Updated with Phase 2.3, 2.4 completion status
+
+---
+
 ## 1.0.8 – M1.5 Flutter Wall Panel (2026-01-24)
 
 **Milestone: M1.5 Flutter Wall Panel — Complete (Year 1 Foundation Done!)**
