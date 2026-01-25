@@ -246,6 +246,17 @@ Use the `code-reviewer` agent (or Task tool with code-reviewer subagent) to revi
 
 ## Stage 3.5: Protocol Compliance
 
+### Mandatory First Step
+
+**Before ANY verification, Claude MUST read the specification:**
+
+```bash
+# REQUIRED: Read the KNX protocol reference first
+cat docs/protocols/knx-reference.md
+```
+
+This file contains the encoding formulas, valid ranges, and test vectors extracted from KNX Standard v3.0.0. Without reading it, you cannot verify compliance.
+
 ### What Claude Must Say
 
 ```
@@ -253,6 +264,9 @@ STAGE 3.5: PROTOCOL COMPLIANCE
 ══════════════════════════════════════════════════════════════════
 
 Purpose: Verify protocol implementations match official specifications.
+
+MANDATORY: Reading docs/protocols/knx-reference.md first...
+[Claude must actually read the file before proceeding]
 
 What this proves:
   ✓ DPT encoding/decoding matches KNX Standard v3.0.0
@@ -266,8 +280,6 @@ What this does NOT prove:
   ✗ Edge cases in obscure DPTs are handled
   ✗ Performance under bus load
 
-Reference: docs/protocols/knx-reference.md
-
 Checking protocol compliance...
 ```
 
@@ -277,6 +289,19 @@ Checking protocol compliance...
 |----------|-------------------|--------------|
 | KNX | `docs/protocols/knx-reference.md` | DPT encoding, APCI commands, addressing |
 | MQTT | `docs/protocols/mqtt.md` | Topic structure, QoS levels |
+
+### Verify Spec Was Read (Claude Must Cite These)
+
+After reading the spec, Claude must confirm by citing these specific values:
+
+| Item | Expected Value (from spec) | Claude Must State |
+|------|---------------------------|-------------------|
+| DPT 9 encoding formula | `Value = (0.01 × M) × 2^E` | ✓ Confirmed |
+| DPT 9 invalid marker | `0x7FFF` | ✓ Confirmed |
+| Group address Main range | 0-31 (5 bits) | ✓ Confirmed |
+| APCI GroupValue_Write | `0x0080` | ✓ Confirmed |
+
+If Claude cannot cite these values, the spec was not read. **Stop and read it.**
 
 ### KNX Compliance Checks
 
