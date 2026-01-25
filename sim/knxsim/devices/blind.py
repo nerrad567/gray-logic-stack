@@ -8,7 +8,6 @@ Group addresses:
 """
 
 import logging
-from typing import Optional
 
 from .base import BaseDevice, decode_dpt5, encode_dpt5
 
@@ -23,7 +22,7 @@ class Blind(BaseDevice):
         "slat_status": "5.001",
     }
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         name = self.get_ga_name(ga)
 
         if name == "position_cmd":
@@ -46,7 +45,7 @@ class Blind(BaseDevice):
 
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         name = self.get_ga_name(ga)
         if name in ("position_cmd", "position_status"):
             return self._make_response(ga, encode_dpt5(self.state.get("position", 0)))

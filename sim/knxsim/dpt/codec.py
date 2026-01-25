@@ -13,7 +13,8 @@ Usage:
 """
 
 import struct
-from typing import Any, Callable, Optional
+from collections.abc import Callable
+from typing import Any
 
 
 class DPTInfo:
@@ -778,7 +779,7 @@ class DPTCodec:
         return entry[1](data)
 
     @staticmethod
-    def get_info(dpt_id: str) -> Optional[DPTInfo]:
+    def get_info(dpt_id: str) -> DPTInfo | None:
         """Get metadata for a DPT."""
         entry = _REGISTRY.get(dpt_id)
         if not entry:
@@ -814,6 +815,6 @@ def decode(dpt_id: str, data: bytes) -> Any:
     return DPTCodec.decode(dpt_id, data)
 
 
-def get_dpt_info(dpt_id: str) -> Optional[dict]:
+def get_dpt_info(dpt_id: str) -> dict | None:
     info = DPTCodec.get_info(dpt_id)
     return info.to_dict() if info else None

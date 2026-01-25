@@ -72,7 +72,7 @@
 
 **Target Use Cases:** Any building type — the UI adapts to the context:
 - 🏠 **Residential** — Single home, simple floor/room layout
-- 🏢 **Commercial** — Office, retail, zones and open-plan areas  
+- 🏢 **Commercial** — Office, retail, zones and open-plan areas
 - 🏬 **Multi-Occupancy** — Apartments, HMOs, units + communal facilities
 - 🏗️ **Mixed Use** — Commercial ground floor, residential above
 

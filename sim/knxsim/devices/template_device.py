@@ -10,13 +10,11 @@ no Python code required.
 """
 
 import logging
-from typing import Optional
 
+from devices.base import BaseDevice
 from dpt.codec import DPTCodec
 from knxip import constants as C
 from knxip import frames
-
-from devices.base import BaseDevice
 
 logger = logging.getLogger("knxsim.template_device")
 
@@ -30,7 +28,7 @@ class TemplateDevice(BaseDevice):
         individual_address: int,
         group_addresses: dict[str, int],
         initial_state: dict,
-        template_def: Optional[dict] = None,
+        template_def: dict | None = None,
     ):
         """Initialize a template-driven device.
 
@@ -81,7 +79,7 @@ class TemplateDevice(BaseDevice):
         }
         return field_map.get(field, field)
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         """Handle a GroupWrite telegram — decode value and update state."""
         info = self._ga_info.get(ga)
         if not info:
@@ -107,7 +105,7 @@ class TemplateDevice(BaseDevice):
 
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         """Handle a GroupRead — respond with current state value."""
         info = self._ga_info.get(ga)
         if not info:
@@ -122,10 +120,10 @@ class TemplateDevice(BaseDevice):
         payload = DPTCodec.encode(dpt, value)
         return self._build_cemi_response(ga, payload)
 
-    def _build_status_response(self, field: str, dpt: str) -> Optional[bytes]:
+    def _build_status_response(self, field: str, dpt: str) -> bytes | None:
         """Build a GroupResponse for a status GA matching the given field."""
         # Find status GA for this field
-        for slot_name, ga_int in self.group_addresses.items():
+        for _slot_name, ga_int in self.group_addresses.items():
             info = self._ga_info.get(ga_int)
             if not info:
                 continue
@@ -147,13 +145,13 @@ class TemplateDevice(BaseDevice):
             payload=payload,
         )
 
-    def get_indication(self, field: str) -> Optional[bytes]:
+    def get_indication(self, field: str) -> bytes | None:
         """Build a cEMI GroupWrite indication for scenario updates.
 
         Called by scenarios to send state changes to the bus.
         Finds the appropriate status GA and encodes the current value.
         """
-        for slot_name, ga_int in self.group_addresses.items():
+        for _slot_name, ga_int in self.group_addresses.items():
             info = self._ga_info.get(ga_int)
             if not info:
                 continue

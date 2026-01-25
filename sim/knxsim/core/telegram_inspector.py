@@ -12,7 +12,7 @@ import logging
 import threading
 import time
 from collections import deque
-from typing import Any, Optional
+from typing import Any
 
 from knxip import constants as C
 from knxip import frames
@@ -60,11 +60,11 @@ class TelegramEntry:
         destination: int,
         apci: int,
         payload: bytes,
-        device_id: Optional[str] = None,
-        dpt: Optional[str] = None,
+        device_id: str | None = None,
+        dpt: str | None = None,
         decoded_value: Any = None,
-        unit: Optional[str] = None,
-        ga_function: Optional[str] = None,
+        unit: str | None = None,
+        ga_function: str | None = None,
     ):
         self.timestamp = time.time()
         self.premise_id = premise_id
@@ -115,11 +115,11 @@ class TelegramInspector:
         premise_id: str,
         cemi_dict: dict,
         direction: str = "rx",
-        device_id: Optional[str] = None,
-        dpt: Optional[str] = None,
+        device_id: str | None = None,
+        dpt: str | None = None,
         decoded_value: Any = None,
-        unit: Optional[str] = None,
-        ga_function: Optional[str] = None,
+        unit: str | None = None,
+        ga_function: str | None = None,
     ):
         """Record a telegram into the ring buffer.
 
@@ -174,7 +174,7 @@ class TelegramInspector:
             entries = list(reversed(buf))
             return [e.to_dict() for e in entries[offset : offset + limit]]
 
-    def get_stats(self, premise_id: Optional[str] = None) -> dict:
+    def get_stats(self, premise_id: str | None = None) -> dict:
         """Get telegram statistics."""
         with self._lock:
             if premise_id:
@@ -190,7 +190,7 @@ class TelegramInspector:
                 "buffer_max": self._max_size,
             }
 
-    def clear(self, premise_id: Optional[str] = None):
+    def clear(self, premise_id: str | None = None):
         """Clear telegram history."""
         with self._lock:
             if premise_id:

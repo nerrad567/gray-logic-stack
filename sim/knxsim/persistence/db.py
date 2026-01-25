@@ -8,8 +8,7 @@ import json
 import logging
 import os
 import sqlite3
-from datetime import datetime, timezone
-from typing import Optional
+from datetime import UTC, datetime
 
 logger = logging.getLogger("knxsim.persistence")
 
@@ -35,6 +34,7 @@ CREATE TABLE IF NOT EXISTS rooms (
     id TEXT PRIMARY KEY,
     floor_id TEXT NOT NULL REFERENCES floors(id) ON DELETE CASCADE,
     name TEXT NOT NULL,
+    room_type TEXT NOT NULL DEFAULT 'other',
     grid_col INTEGER NOT NULL DEFAULT 0,
     grid_row INTEGER NOT NULL DEFAULT 0,
     grid_width INTEGER NOT NULL DEFAULT 1,
@@ -68,9 +68,15 @@ CREATE TABLE IF NOT EXISTS scenarios (
 );
 """
 
+# Migrations for existing databases
+MIGRATIONS_SQL = """
+-- Add room_type column if it doesn't exist (v2026.01.25)
+ALTER TABLE rooms ADD COLUMN room_type TEXT NOT NULL DEFAULT 'other';
+"""
+
 
 def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
+    return datetime.now(UTC).isoformat()
 
 
 class Database:
@@ -79,7 +85,7 @@ class Database:
     def __init__(self, db_path: str = "/app/data/knxsim.db"):
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.db_path = db_path
-        self._conn: Optional[sqlite3.Connection] = None
+        self._conn: sqlite3.Connection | None = None
 
     def connect(self):
         """Open the database and apply schema."""
@@ -89,7 +95,21 @@ class Database:
         self._conn.execute("PRAGMA foreign_keys=ON")
         self._conn.executescript(SCHEMA_SQL)
         self._conn.commit()
+        self._apply_migrations()
         logger.info("Database opened: %s", self.db_path)
+
+    def _apply_migrations(self):
+        """Apply schema migrations for existing databases."""
+        # Check if room_type column exists
+        cursor = self.conn.execute("PRAGMA table_info(rooms)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        if "room_type" not in columns:
+            logger.info("Applying migration: adding room_type column to rooms")
+            self.conn.execute(
+                "ALTER TABLE rooms ADD COLUMN room_type TEXT NOT NULL DEFAULT 'other'"
+            )
+            self.conn.commit()
 
     def close(self):
         if self._conn:
@@ -110,7 +130,7 @@ class Database:
         rows = self.conn.execute("SELECT * FROM premises ORDER BY name").fetchall()
         return [dict(r) for r in rows]
 
-    def get_premise(self, premise_id: str) -> Optional[dict]:
+    def get_premise(self, premise_id: str) -> dict | None:
         row = self.conn.execute(
             "SELECT * FROM premises WHERE id = ?", (premise_id,)
         ).fetchone()
@@ -150,7 +170,7 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_floor(self, floor_id: str) -> Optional[dict]:
+    def get_floor(self, floor_id: str) -> dict | None:
         row = self.conn.execute(
             "SELECT * FROM floors WHERE id = ?", (floor_id,)
         ).fetchone()
@@ -165,7 +185,7 @@ class Database:
         self.conn.commit()
         return self.get_floor(data["id"])
 
-    def update_floor(self, floor_id: str, data: dict) -> Optional[dict]:
+    def update_floor(self, floor_id: str, data: dict) -> dict | None:
         sets = []
         vals = []
         for key in ("name", "sort_order"):
@@ -205,7 +225,7 @@ class Database:
         ).fetchall()
         return [dict(r) for r in rows]
 
-    def get_room(self, room_id: str) -> Optional[dict]:
+    def get_room(self, room_id: str) -> dict | None:
         row = self.conn.execute(
             "SELECT * FROM rooms WHERE id = ?", (room_id,)
         ).fetchone()
@@ -213,12 +233,13 @@ class Database:
 
     def create_room(self, floor_id: str, data: dict) -> dict:
         self.conn.execute(
-            """INSERT INTO rooms (id, floor_id, name, grid_col, grid_row, grid_width, grid_height)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO rooms (id, floor_id, name, room_type, grid_col, grid_row, grid_width, grid_height)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data["id"],
                 floor_id,
                 data["name"],
+                data.get("room_type", "other"),
                 data.get("grid_col", 0),
                 data.get("grid_row", 0),
                 data.get("grid_width", 1),
@@ -228,10 +249,17 @@ class Database:
         self.conn.commit()
         return self.get_room(data["id"])
 
-    def update_room(self, room_id: str, data: dict) -> Optional[dict]:
+    def update_room(self, room_id: str, data: dict) -> dict | None:
         sets = []
         vals = []
-        for key in ("name", "grid_col", "grid_row", "grid_width", "grid_height"):
+        for key in (
+            "name",
+            "room_type",
+            "grid_col",
+            "grid_row",
+            "grid_width",
+            "grid_height",
+        ):
             if key in data:
                 sets.append(f"{key} = ?")
                 vals.append(data[key])
@@ -258,7 +286,7 @@ class Database:
         ).fetchall()
         return [_parse_device_row(r) for r in rows]
 
-    def get_device(self, device_id: str) -> Optional[dict]:
+    def get_device(self, device_id: str) -> dict | None:
         row = self.conn.execute(
             "SELECT * FROM devices WHERE id = ?", (device_id,)
         ).fetchone()
@@ -287,7 +315,7 @@ class Database:
         self.conn.commit()
         return self.get_device(data["id"])
 
-    def update_device(self, device_id: str, data: dict) -> Optional[dict]:
+    def update_device(self, device_id: str, data: dict) -> dict | None:
         sets = []
         vals = []
         now = _now()

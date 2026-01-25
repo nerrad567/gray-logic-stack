@@ -1,135 +1,1254 @@
-<!DOCTYPE html>
+<!doctype html>
 <html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css">
-</head>
-<body>
+    <link rel="stylesheet" href="css/style.css" />
+    <!-- Load app.js first to register stores, then Alpine -->
+    <script type="module">
+      import { initStores, startApp } from "./js/app.js";
+
+      // Register stores before Alpine starts
+      document.addEventListener("alpine:init", () => {
+        initStores();
+      });
+
+      // Start app after Alpine is ready
+      document.addEventListener("alpine:initialized", () => {
+        startApp();
+      });
+    </script>
+    <script defer src="js/vendor/alpine-intersect.min.js"></script>
+    <script defer src="js/vendor/alpine.min.js"></script>
+  </head>
+  <body x-data x-cloak>
     <div id="app">
-        <!-- Header -->
-        <header class="header">
-            <div class="header-left">
-                <h1 class="logo">KNXSim</h1>
-                <select id="premise-selector" class="premise-select">
-                    <option value="">Loading...</option>
-                </select>
+      <!-- Header -->
+      <header class="header">
+        <div class="header-left">
+          <h1 class="logo">
+            <img
+              src="img/knxsim.svg"
+              alt="Gray Logic KNXSim"
+              class="logo-img"
+            />
+          </h1>
+          <label for="premise-select" class="visually-hidden"
+            >Select Premise</label
+          >
+          <select
+            id="premise-select"
+            name="premise-select"
+            class="premise-select"
+            x-model="$store.app.currentPremiseId"
+            @change="$store.app.selectPremise($event.target.value)"
+          >
+            <template x-if="$store.app.premises.length === 0">
+              <option value="">Loading...</option>
+            </template>
+            <template x-for="premise in $store.app.premises" :key="premise.id">
+              <option :value="premise.id" x-text="premise.name"></option>
+            </template>
+          </select>
+        </div>
+        <div class="header-right">
+          <span
+            class="status"
+            :class="{
+                          'connected': $store.app.connected,
+                          'connecting': $store.app.connecting,
+                          'disconnected': !$store.app.connected && !$store.app.connecting
+                      }"
+          >
+            <span class="status-dot"></span>
+            <span
+              class="status-text"
+              x-text="$store.app.connected ? 'Connected' : ($store.app.connecting ? 'Connecting...' : 'Disconnected')"
+            ></span>
+          </span>
+          <button
+            class="btn btn-engineer"
+            :class="{ 'active': $store.app.engineerMode }"
+            @click="$store.app.toggleEngineerMode()"
+          >
+            Edit Mode
+          </button>
+          <!-- Export dropdown (Engineer Mode only) -->
+          <div
+            class="export-dropdown"
+            x-show="$store.app.engineerMode"
+            x-data="{ open: false }"
+          >
+            <button
+              class="btn btn-export"
+              @click="open = !open"
+              @click.outside="open = false"
+            >
+              📥 Export
+            </button>
+            <div class="export-menu" x-show="open" x-transition>
+              <a
+                :href="`/api/v1/premises/${$store.app.currentPremiseId}/export/knxproj`"
+                class="export-item"
+                download
+                @click="open = false"
+              >
+                <span class="export-icon">📦</span>
+                <span class="export-label">ETS Project (.knxproj)</span>
+              </a>
+              <a
+                :href="`/api/v1/premises/${$store.app.currentPremiseId}/export/esf`"
+                class="export-item"
+                download
+                @click="open = false"
+              >
+                <span class="export-icon">📄</span>
+                <span class="export-label">Symbol File (.esf)</span>
+              </a>
             </div>
-            <div class="header-right">
-                <span id="connection-status" class="status disconnected">
-                    <span class="status-dot"></span>
-                    <span class="status-text">Disconnected</span>
-                </span>
-                <button id="engineer-mode-btn" class="btn btn-engineer">
-                    Engineer Mode
+          </div>
+        </div>
+      </header>
+
+      <!-- Floor Navigation -->
+      <nav class="floor-nav">
+        <div class="floor-tabs">
+          <!-- Floor tabs -->
+          <template x-for="floor in $store.app.floors" :key="floor.id">
+            <div
+              class="floor-tab-wrapper"
+              :class="{ 'active': floor.id === $store.app.currentFloorId }"
+            >
+              <button
+                class="floor-tab"
+                :class="{ 'active': floor.id === $store.app.currentFloorId }"
+                @click="$store.app.selectFloor(floor.id)"
+                x-text="floor.name"
+              ></button>
+              <!-- Edit/Delete buttons (Engineer Mode) -->
+              <div class="floor-tab-actions" x-show="$store.app.engineerMode">
+                <button
+                  class="btn-icon"
+                  @click.stop="$store.modal.show('floor', 'edit', floor)"
+                  title="Edit floor"
+                >
+                  ✏️
                 </button>
+                <button
+                  class="btn-icon btn-danger"
+                  @click.stop="$store.modal.confirm('Delete Floor', `Delete '${floor.name}' and all its rooms?`, () => $store.app.deleteFloor(floor.id))"
+                  title="Delete floor"
+                >
+                  🗑️
+                </button>
+              </div>
             </div>
-        </header>
+          </template>
 
-        <!-- Floor Navigation -->
-        <nav id="floor-tabs" class="floor-nav">
-            <div class="floor-tabs">
-                <!-- Populated by JS -->
+          <!-- Add floor button (Engineer Mode) -->
+          <button
+            class="floor-tab floor-tab-add"
+            x-show="$store.app.engineerMode"
+            @click="$store.modal.show('floor', 'create')"
+            title="Add floor"
+          >
+            +
+          </button>
+
+          <!-- No floors message -->
+          <span
+            class="floor-tab-empty"
+            x-show="$store.app.floors.length === 0 && !$store.app.engineerMode"
+          >
+            No floors configured
+          </span>
+        </div>
+      </nav>
+
+      <!-- Main Content -->
+      <main class="main-content">
+        <!-- Floor Plan Layer (future) -->
+        <div
+          id="floor-plan-layer"
+          class="floor-plan-layer"
+          x-show="$store.app.floorPlanMode && $store.app.currentFloor?.plan_image"
+        >
+          <img
+            :src="$store.app.currentFloor?.plan_image"
+            class="floor-plan-image"
+            alt="Floor plan"
+          />
+          <!-- Device markers will be positioned here -->
+        </div>
+
+        <!-- Room Grid -->
+        <section class="room-grid" x-show="!$store.app.floorPlanMode">
+          <!-- No devices placeholder -->
+          <div
+            class="loading-placeholder"
+            x-show="$store.app.roomsWithDevices.length === 0 && !$store.app.engineerMode"
+          >
+            <p>No devices found</p>
+          </div>
+
+          <!-- Room cards -->
+          <template x-for="room in $store.app.roomsWithDevices" :key="room.id">
+            <div
+              class="room-card"
+              :data-room-id="room.id"
+              :class="{ 'drag-over': $store.app.dragOverRoomId === room.id }"
+              @dragover.prevent="$store.app.engineerMode && ($store.app.dragOverRoomId = room.id)"
+              @dragleave="$store.app.dragOverRoomId = null"
+              @drop="$store.app.engineerMode && $store.app.dropDeviceOnRoom($event, room.id === '_unassigned' ? null : room.id)"
+            >
+              <div class="room-header">
+                <span class="room-name" x-text="room.name"></span>
+                <div class="room-header-right">
+                  <span
+                    class="room-status"
+                    x-text="$store.app.getRoomStatusSummary(room.devices)"
+                  ></span>
+                  <!-- Room edit/delete (Engineer Mode, not for unassigned) -->
+                  <template
+                    x-if="$store.app.engineerMode && room.id !== '_unassigned'"
+                  >
+                    <div class="room-actions">
+                      <button
+                        class="btn-icon"
+                        @click="$store.modal.show('room', 'edit', { ...room, floor_id: $store.app.currentFloorId })"
+                        title="Edit room"
+                      >
+                        ✏️
+                      </button>
+                      <button
+                        class="btn-icon btn-danger"
+                        @click="$store.modal.confirm('Delete Room', `Delete '${room.name}'? Devices will become unassigned.`, () => $store.app.deleteRoom($store.app.currentFloorId, room.id))"
+                        title="Delete room"
+                      >
+                        🗑️
+                      </button>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              <div class="room-devices">
+                <!-- Device tiles -->
+                <template x-for="device in room.devices" :key="device.id">
+                  <div
+                    class="device-tile"
+                    :class="{ 'selected': device.id === $store.app.selectedDeviceId, 'dragging': $store.app.draggingDeviceId === device.id }"
+                    :draggable="$store.app.engineerMode"
+                    @click="$store.app.selectDevice(device.id)"
+                    @dragstart="$store.app.engineerMode && $store.app.startDragDevice($event, device.id)"
+                    @dragend="$store.app.endDragDevice()"
+                  >
+                    <div class="device-info">
+                      <span
+                        class="device-icon"
+                        x-text="$store.app.getDeviceIcon(device.type)"
+                      ></span>
+                      <span
+                        class="device-name"
+                        x-text="$store.app.formatDeviceName(device.id)"
+                      ></span>
+                    </div>
+                    <div class="device-state">
+                      <template
+                        x-if="$store.app.getStateDisplay(device).indicator !== null"
+                      >
+                        <span
+                          class="state-indicator"
+                          :class="{ 'on': $store.app.getStateDisplay(device).indicator }"
+                        ></span>
+                      </template>
+                      <span
+                        class="state-value"
+                        x-text="$store.app.getStateDisplay(device).value"
+                      ></span>
+                    </div>
+                  </div>
+                </template>
+              </div>
             </div>
-        </nav>
+          </template>
 
-        <!-- Main Content -->
-        <main class="main-content">
-            <!-- Room Grid -->
-            <section id="room-grid" class="room-grid">
-                <!-- Populated by JS -->
-                <div class="loading-placeholder">
-                    <p>Select a premise to view devices</p>
-                </div>
-            </section>
-
-            <!-- Device Detail Panel (Engineer Mode) -->
-            <aside id="device-panel" class="device-panel hidden">
-                <div class="panel-header">
-                    <h3 id="panel-device-name">Device Details</h3>
-                    <button id="panel-close" class="btn-close">&times;</button>
-                </div>
-                <div class="panel-content">
-                    <div class="detail-section">
-                        <h4>Address</h4>
-                        <div class="detail-row">
-                            <span class="label">Type:</span>
-                            <span id="panel-device-type" class="value">-</span>
-                        </div>
-                        <div class="detail-row">
-                            <span class="label">Individual:</span>
-                            <span id="panel-individual-addr" class="value mono">-</span>
-                        </div>
-                    </div>
-                    <div class="detail-section">
-                        <h4>Group Addresses</h4>
-                        <table id="panel-ga-table" class="ga-table">
-                            <thead>
-                                <tr>
-                                    <th>Name</th>
-                                    <th>GA</th>
-                                    <th>DPT</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-                                <!-- Populated by JS -->
-                            </tbody>
-                        </table>
-                    </div>
-                    <div class="detail-section">
-                        <h4>Current State</h4>
-                        <pre id="panel-state" class="state-display">{}</pre>
-                    </div>
-                    <div class="detail-section">
-                        <h4>Controls</h4>
-                        <div id="panel-controls" class="controls">
-                            <!-- Populated by JS based on device type -->
-                        </div>
-                    </div>
-                </div>
-            </aside>
-        </main>
-
-        <!-- Telegram Inspector -->
-        <section id="telegram-inspector" class="telegram-inspector">
-            <div class="inspector-header">
-                <h3>Telegram Inspector</h3>
-                <div class="inspector-controls">
-                    <select id="telegram-filter" class="filter-select">
-                        <option value="all">All</option>
-                        <option value="rx">RX Only</option>
-                        <option value="tx">TX Only</option>
-                    </select>
-                    <button id="telegram-clear" class="btn btn-small">Clear</button>
-                    <button id="telegram-pause" class="btn btn-small">Pause</button>
-                </div>
+          <!-- Add Room card (Engineer Mode) -->
+          <div
+            class="room-card room-card-add"
+            x-show="$store.app.engineerMode && $store.app.currentFloorId"
+            @click="$store.modal.show('room', 'create', { floor_id: $store.app.currentFloorId })"
+          >
+            <div class="add-card-content">
+              <span class="add-icon">+</span>
+              <span class="add-label">Add Room</span>
             </div>
-            <div id="telegram-feed" class="telegram-feed">
-                <!-- Populated by JS -->
-                <div class="telegram-placeholder">
-                    <p>Waiting for telegrams...</p>
-                </div>
-            </div>
+          </div>
         </section>
 
-        <!-- Stats Bar -->
-        <footer class="stats-bar">
-            <div class="stat">
-                <span class="stat-label">Devices:</span>
-                <span id="stat-devices" class="stat-value">0</span>
+        <!-- Device Detail Panel (Engineer Mode) -->
+        <aside
+          class="device-panel"
+          :class="{ 'hidden': !$store.app.engineerMode || !$store.app.selectedDevice }"
+        >
+          <template x-if="$store.app.selectedDevice">
+            <div>
+              <div class="panel-header">
+                <h3
+                  x-text="$store.app.formatDeviceName($store.app.selectedDevice.id)"
+                ></h3>
+                <button class="btn-close" @click="$store.app.clearSelection()">
+                  &times;
+                </button>
+              </div>
+              <div class="panel-content">
+                <!-- Device Info -->
+                <div class="detail-section">
+                  <h4>Address</h4>
+                  <div class="detail-row">
+                    <span class="label">Type:</span>
+                    <span
+                      class="value"
+                      x-text="$store.app.selectedDevice.type"
+                    ></span>
+                  </div>
+                  <div class="detail-row">
+                    <span class="label">Individual:</span>
+                    <span
+                      class="value mono"
+                      x-text="$store.app.selectedDevice.individual_address || '-'"
+                    ></span>
+                  </div>
+                </div>
+
+                <!-- Group Addresses -->
+                <div class="detail-section">
+                  <h4>Group Addresses</h4>
+                  <table class="ga-table">
+                    <thead>
+                      <tr>
+                        <th>Name</th>
+                        <th>GA</th>
+                        <th>DPT</th>
+                      </tr>
+                    </thead>
+                    <tbody>
+                      <template
+                        x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
+                      >
+                        <tr>
+                          <td colspan="3" style="color: var(--text-muted)">
+                            No group addresses
+                          </td>
+                        </tr>
+                      </template>
+                      <template
+                        x-for="[name, ga] in Object.entries($store.app.selectedDevice.group_addresses || {})"
+                        :key="name"
+                      >
+                        <tr>
+                          <td x-text="name"></td>
+                          <td x-text="ga"></td>
+                          <td
+                            x-text="$store.app.guessDPT(name, $store.app.selectedDevice.type)"
+                          ></td>
+                        </tr>
+                      </template>
+                    </tbody>
+                  </table>
+                </div>
+
+                <!-- Current State -->
+                <div class="detail-section">
+                  <h4>Current State</h4>
+                  <pre
+                    class="state-display"
+                    x-text="JSON.stringify($store.app.selectedDevice.state || {}, null, 2)"
+                  ></pre>
+                </div>
+
+                <!-- Controls -->
+                <div class="detail-section">
+                  <h4>Controls</h4>
+                  <div class="controls" x-data="deviceControls()">
+                    <!-- Light controls -->
+                    <template
+                      x-if="$store.app.selectedDevice.type.startsWith('light_')"
+                    >
+                      <div>
+                        <div class="control-row">
+                          <span class="control-label">Power</span>
+                          <button
+                            class="toggle-btn"
+                            :class="{ 'on': $store.app.selectedDevice.state?.on }"
+                            @click="$store.app.sendCommand($store.app.selectedDeviceId, 'switch', !$store.app.selectedDevice.state?.on)"
+                          >
+                            <span
+                              x-text="$store.app.selectedDevice.state?.on ? 'ON' : 'OFF'"
+                            ></span>
+                          </button>
+                        </div>
+                        <template
+                          x-if="['light_dimmer', 'light_rgb', 'light_colour_temp'].includes($store.app.selectedDevice.type)"
+                        >
+                          <div class="control-row">
+                            <span class="control-label">Brightness</span>
+                            <div class="slider-control">
+                              <input
+                                type="range"
+                                class="slider"
+                                min="0"
+                                max="100"
+                                :value="$store.app.selectedDevice.state?.brightness ?? 0"
+                                @change="$store.app.sendCommand($store.app.selectedDeviceId, 'brightness', parseInt($event.target.value))"
+                              />
+                              <span
+                                class="slider-value"
+                                x-text="($store.app.selectedDevice.state?.brightness ?? 0) + '%'"
+                              ></span>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- Blind controls -->
+                    <template
+                      x-if="$store.app.selectedDevice.type.startsWith('blind')"
+                    >
+                      <div>
+                        <div class="control-row">
+                          <span class="control-label">Position</span>
+                          <div class="slider-control">
+                            <input
+                              type="range"
+                              class="slider"
+                              min="0"
+                              max="100"
+                              :value="$store.app.selectedDevice.state?.position ?? 0"
+                              @change="$store.app.sendCommand($store.app.selectedDeviceId, 'position', parseInt($event.target.value))"
+                            />
+                            <span
+                              class="slider-value"
+                              x-text="($store.app.selectedDevice.state?.position ?? 0) + '%'"
+                            ></span>
+                          </div>
+                        </div>
+                        <template
+                          x-if="$store.app.selectedDevice.state?.tilt !== undefined || $store.app.selectedDevice.type === 'blind_position_slat'"
+                        >
+                          <div class="control-row">
+                            <span class="control-label">Slat Angle</span>
+                            <div class="slider-control">
+                              <input
+                                type="range"
+                                class="slider"
+                                min="0"
+                                max="100"
+                                :value="$store.app.selectedDevice.state?.tilt ?? 0"
+                                @change="$store.app.sendCommand($store.app.selectedDeviceId, 'slat', parseInt($event.target.value))"
+                              />
+                              <span
+                                class="slider-value"
+                                x-text="($store.app.selectedDevice.state?.tilt ?? 0) + '%'"
+                              ></span>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- Thermostat controls -->
+                    <template
+                      x-if="$store.app.selectedDevice.type === 'thermostat'"
+                    >
+                      <div class="control-row">
+                        <span class="control-label">Setpoint</span>
+                        <div class="slider-control">
+                          <input
+                            type="range"
+                            class="slider"
+                            min="15"
+                            max="30"
+                            step="0.5"
+                            :value="$store.app.selectedDevice.state?.setpoint ?? 21"
+                            @change="$store.app.sendCommand($store.app.selectedDeviceId, 'setpoint', parseFloat($event.target.value))"
+                          />
+                          <span
+                            class="slider-value"
+                            x-text="($store.app.selectedDevice.state?.setpoint ?? 21) + '°C'"
+                          ></span>
+                        </div>
+                      </div>
+                    </template>
+
+                    <!-- Presence controls -->
+                    <template
+                      x-if="['presence', 'presence_detector', 'presence_sensor'].includes($store.app.selectedDevice.type)"
+                    >
+                      <div>
+                        <div class="control-row">
+                          <span class="control-label">Motion</span>
+                          <button
+                            class="toggle-btn"
+                            :class="{ 'on': $store.app.selectedDevice.state?.presence }"
+                            @click="$store.app.sendCommand($store.app.selectedDeviceId, 'presence', !$store.app.selectedDevice.state?.presence)"
+                          >
+                            <span
+                              x-text="$store.app.selectedDevice.state?.presence ? 'DETECTED' : 'CLEAR'"
+                            ></span>
+                          </button>
+                        </div>
+                        <div class="control-row">
+                          <span class="control-label">Lux Level</span>
+                          <div class="slider-control">
+                            <input
+                              type="range"
+                              class="slider"
+                              min="0"
+                              max="2000"
+                              step="10"
+                              :value="$store.app.selectedDevice.state?.lux ?? 300"
+                              @change="$store.app.sendCommand($store.app.selectedDeviceId, 'lux', parseInt($event.target.value))"
+                            />
+                            <span
+                              class="slider-value"
+                              x-text="($store.app.selectedDevice.state?.lux ?? 300) + ' lx'"
+                            ></span>
+                          </div>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- Device Actions -->
+                <div class="detail-section">
+                  <h4>Actions</h4>
+                  <div class="device-actions">
+                    <button
+                      class="btn btn-small"
+                      @click="$store.modal.show('device', 'edit', $store.app.selectedDevice)"
+                    >
+                      ✏️ Edit Device
+                    </button>
+                    <button
+                      class="btn btn-small btn-danger"
+                      @click="$store.modal.confirm('Delete Device', `Delete '${$store.app.formatDeviceName($store.app.selectedDevice.id)}'?`, () => $store.app.deleteDevice($store.app.selectedDeviceId))"
+                    >
+                      🗑️ Delete
+                    </button>
+                  </div>
+                </div>
+              </div>
             </div>
-            <div class="stat">
-                <span class="stat-label">Telegrams/s:</span>
-                <span id="stat-tps" class="stat-value">0</span>
+          </template>
+        </aside>
+      </main>
+
+      <!-- Telegram Inspector -->
+      <section class="telegram-inspector">
+        <div class="inspector-header">
+          <h3>Telegram Inspector</h3>
+          <div class="inspector-controls">
+            <label for="telegram-filter" class="visually-hidden"
+              >Filter telegrams</label
+            >
+            <select
+              id="telegram-filter"
+              name="telegram-filter"
+              class="filter-select"
+              x-model="$store.telegrams.filter"
+              @change="$store.telegrams.setFilter($event.target.value)"
+            >
+              <option value="all">All</option>
+              <option value="rx">RX Only</option>
+              <option value="tx">TX Only</option>
+            </select>
+            <button
+              class="btn btn-small"
+              @click="$store.telegrams.copyToClipboard()"
+              title="Copy visible telegrams to clipboard"
+            >
+              📋 Copy
+            </button>
+            <button class="btn btn-small" @click="$store.telegrams.clear()">
+              Clear
+            </button>
+            <button
+              class="btn btn-small"
+              :class="{ 'btn-warning': $store.telegrams.paused }"
+              @click="$store.telegrams.togglePause()"
+              x-text="$store.telegrams.paused ? 'Resume (' + $store.telegrams.bufferedCount + ')' : 'Pause'"
+            ></button>
+          </div>
+        </div>
+        <div class="telegram-feed">
+          <!-- Column headers -->
+          <div class="telegram-header">
+            <span>Time</span>
+            <span>Dir</span>
+            <span>APCI</span>
+            <span>Group Address</span>
+            <span>Device</span>
+            <span>Payload</span>
+            <span>Value</span>
+            <span>DPT</span>
+          </div>
+          <div class="telegram-body">
+            <div
+              class="telegram-placeholder"
+              x-show="$store.telegrams.filtered.length === 0"
+            >
+              <p>Waiting for telegrams...</p>
             </div>
-            <div class="stat">
-                <span class="stat-label">Uptime:</span>
-                <span id="stat-uptime" class="stat-value">-</span>
+            <template
+              x-for="telegram in $store.telegrams.filtered"
+              :key="telegram.id"
+            >
+              <div
+                class="telegram-row"
+                :class="{ 'apci-read': telegram.apci === 'GroupValue_Read' }"
+              >
+                <span
+                  class="telegram-time"
+                  x-text="telegram.time_formatted || '-'"
+                ></span>
+                <span
+                  class="telegram-dir"
+                  :class="telegram.direction"
+                  x-text="telegram.direction === 'rx' ? '← RX' : '→ TX'"
+                ></span>
+                <span
+                  class="telegram-apci"
+                  x-text="telegram.apci || '-'"
+                ></span>
+                <span
+                  class="telegram-ga"
+                  x-text="telegram.destination + (telegram.ga_function ? ' (' + telegram.ga_function + ')' : '')"
+                ></span>
+                <span
+                  class="telegram-device"
+                  x-text="telegram.device_id || '-'"
+                ></span>
+                <span
+                  class="telegram-payload"
+                  x-text="telegram.payload || '-'"
+                ></span>
+                <span
+                  class="telegram-decoded"
+                  x-text="telegram.decoded_value !== undefined && telegram.decoded_value !== null ? telegram.decoded_value + (telegram.unit ? ' ' + telegram.unit : '') : '-'"
+                ></span>
+                <span class="telegram-dpt" x-text="telegram.dpt || '-'"></span>
+              </div>
+            </template>
+            <!-- Load More / Scroll Sentinel -->
+            <div
+              class="telegram-load-more"
+              x-show="$store.telegrams.hasMore"
+              x-intersect:enter.margin.100px="$store.telegrams.loadMore($store.app.currentPremiseId)"
+            >
+              <button
+                class="btn btn-small"
+                :disabled="$store.telegrams.loading"
+                @click="$store.telegrams.loadMore($store.app.currentPremiseId)"
+                x-text="$store.telegrams.loading ? 'Loading...' : 'Load More (' + ($store.telegrams.totalBuffered - $store.telegrams.items.length) + ' older)'"
+              ></button>
             </div>
-        </footer>
+            <div
+              class="telegram-end"
+              x-show="!$store.telegrams.hasMore && $store.telegrams.items.length > 0"
+            >
+              <span class="end-text">— End of history —</span>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      <!-- Stats Bar -->
+      <footer class="stats-bar">
+        <div class="stat">
+          <span class="stat-label">Devices:</span>
+          <span class="stat-value" x-text="$store.app.devices.length"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Telegrams/s:</span>
+          <span class="stat-value" x-text="$store.app.tps"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Rooms:</span>
+          <span
+            class="stat-value"
+            x-text="$store.app.roomsWithDevices.filter(r => r.id !== '_unassigned').length"
+          ></span>
+        </div>
+      </footer>
+
+      <!-- Floating Action Button (Engineer Mode) -->
+      <button
+        class="fab"
+        x-show="$store.app.engineerMode"
+        @click="$store.modal.show('template-browser', 'create')"
+        title="Add Device"
+      >
+        +
+      </button>
+
+      <!-- Modal Overlay -->
+      <div
+        class="modal-overlay"
+        x-show="$store.modal.open"
+        x-transition:enter="modal-enter"
+        x-transition:leave="modal-leave"
+        @click.self="$store.modal.close()"
+      >
+        <!-- Floor Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'floor'"
+          @click.stop
+          x-data="floorForm()"
+        >
+          <div class="modal-header">
+            <h3
+              x-text="$store.modal.mode === 'create' ? 'Add Floor' : 'Edit Floor'"
+            ></h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="floor-id">Floor ID</label>
+              <input
+                type="text"
+                id="floor-id"
+                x-model="form.id"
+                :disabled="$store.modal.mode === 'edit'"
+                placeholder="e.g., ground, first, basement"
+              />
+            </div>
+            <div class="form-group">
+              <label for="floor-name">Floor Name</label>
+              <input
+                type="text"
+                id="floor-name"
+                x-model="form.name"
+                placeholder="e.g., Ground Floor"
+              />
+            </div>
+            <div class="form-group">
+              <label for="floor-sort">Sort Order</label>
+              <input
+                type="number"
+                id="floor-sort"
+                x-model.number="form.sort_order"
+                placeholder="0"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.id || !form.name"
+            >
+              <span
+                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
+              ></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Room Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'room'"
+          @click.stop
+          x-data="roomForm()"
+        >
+          <div class="modal-header">
+            <h3
+              x-text="$store.modal.mode === 'create' ? 'Add Room' : 'Edit Room'"
+            ></h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="room-id">Room ID</label>
+              <input
+                type="text"
+                id="room-id"
+                x-model="form.id"
+                :disabled="$store.modal.mode === 'edit'"
+                placeholder="e.g., living-room, bedroom-1"
+              />
+            </div>
+            <div class="form-group">
+              <label for="room-name">Room Name</label>
+              <input
+                type="text"
+                id="room-name"
+                x-model="form.name"
+                placeholder="e.g., Living Room"
+              />
+            </div>
+            <div class="form-group">
+              <label for="room-type">Room Type</label>
+              <select id="room-type" x-model="form.room_type">
+                <template
+                  x-for="type in $store.app.ROOM_TYPES"
+                  :key="type.value"
+                >
+                  <option :value="type.value" x-text="type.label"></option>
+                </template>
+              </select>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="room-col">Grid Column</label>
+                <input
+                  type="number"
+                  id="room-col"
+                  x-model.number="form.grid_col"
+                  min="0"
+                  max="11"
+                />
+              </div>
+              <div class="form-group">
+                <label for="room-row">Grid Row</label>
+                <input
+                  type="number"
+                  id="room-row"
+                  x-model.number="form.grid_row"
+                  min="0"
+                  max="11"
+                />
+              </div>
+            </div>
+            <div class="form-row">
+              <div class="form-group">
+                <label for="room-width">Width</label>
+                <input
+                  type="number"
+                  id="room-width"
+                  x-model.number="form.grid_width"
+                  min="1"
+                  max="12"
+                />
+              </div>
+              <div class="form-group">
+                <label for="room-height">Height</label>
+                <input
+                  type="number"
+                  id="room-height"
+                  x-model.number="form.grid_height"
+                  min="1"
+                  max="12"
+                />
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.id || !form.name"
+            >
+              <span
+                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
+              ></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Device Modal -->
+        <div
+          class="modal modal-wide"
+          x-show="$store.modal.type === 'device'"
+          @click.stop
+          x-data="deviceForm()"
+        >
+          <div class="modal-header">
+            <h3
+              x-text="$store.modal.mode === 'create' ? 'Add Device' : 'Edit Device'"
+            ></h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="device-id">Device ID</label>
+              <input
+                type="text"
+                id="device-id"
+                x-model="form.id"
+                :disabled="$store.modal.mode === 'edit'"
+                placeholder="e.g., living-room-light-1"
+              />
+            </div>
+            <div class="form-group">
+              <label for="device-type">Device Type</label>
+              <select
+                id="device-type"
+                x-model="form.type"
+                :disabled="$store.modal.mode === 'edit'"
+              >
+                <option value="light_switch">Light Switch</option>
+                <option value="light_dimmer">Light Dimmer</option>
+                <option value="blind">Blind</option>
+                <option value="blind_position_slat">Blind with Slat</option>
+                <option value="sensor">Temperature Sensor</option>
+                <option value="presence">Presence Detector</option>
+                <option value="thermostat">Thermostat</option>
+              </select>
+            </div>
+            <div class="form-group">
+              <label for="device-addr">Individual Address</label>
+              <input
+                type="text"
+                id="device-addr"
+                x-model="form.individual_address"
+                placeholder="e.g., 1.1.1"
+                pattern="\d+\.\d+\.\d+"
+              />
+            </div>
+            <div class="form-group">
+              <label for="device-room">Room</label>
+              <select id="device-room" x-model="form.room_id">
+                <option value="">Unassigned</option>
+                <template x-for="floor in $store.app.floors" :key="floor.id">
+                  <optgroup :label="floor.name">
+                    <template x-for="room in floor.rooms || []" :key="room.id">
+                      <option :value="room.id" x-text="room.name"></option>
+                    </template>
+                  </optgroup>
+                </template>
+              </select>
+            </div>
+            <div class="form-group">
+              <label>Group Addresses</label>
+              <div class="ga-editor">
+                <template
+                  x-for="(ga, name) in form.group_addresses"
+                  :key="name"
+                >
+                  <div class="ga-row">
+                    <input type="text" :value="name" disabled class="ga-name" />
+                    <input
+                      type="text"
+                      x-model="form.group_addresses[name]"
+                      placeholder="e.g., 1/0/1"
+                      class="ga-value"
+                    />
+                  </div>
+                </template>
+                <button class="btn btn-small" @click="addGA()" type="button">
+                  + Add GA
+                </button>
+              </div>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.id || !form.individual_address"
+            >
+              <span
+                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
+              ></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Template Browser Modal -->
+        <div
+          class="modal modal-large"
+          x-show="$store.modal.type === 'template-browser'"
+          @click.stop
+          x-data="templateBrowser()"
+        >
+          <div class="modal-header">
+            <h3>Select Device Template</h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body template-browser">
+            <!-- Domain tabs -->
+            <div class="domain-tabs">
+              <button
+                class="domain-tab"
+                :class="{ 'active': selectedDomain === null }"
+                @click="selectedDomain = null"
+              >
+                All
+              </button>
+              <template
+                x-for="domain in $store.app.templateDomains"
+                :key="domain"
+              >
+                <button
+                  class="domain-tab"
+                  :class="{ 'active': selectedDomain === domain }"
+                  @click="selectedDomain = domain"
+                  x-text="domain.charAt(0).toUpperCase() + domain.slice(1)"
+                ></button>
+              </template>
+            </div>
+            <!-- Template grid -->
+            <div class="template-grid">
+              <template
+                x-for="template in filteredTemplates"
+                :key="template.id"
+              >
+                <div class="template-card" @click="selectTemplate(template)">
+                  <div
+                    class="template-icon"
+                    x-text="$store.app.getDeviceIcon(template.type)"
+                  ></div>
+                  <div class="template-info">
+                    <div class="template-name" x-text="template.name"></div>
+                    <div
+                      class="template-desc"
+                      x-text="template.description || template.type"
+                    ></div>
+                  </div>
+                </div>
+              </template>
+            </div>
+          </div>
+        </div>
+
+        <!-- Confirm Modal -->
+        <div
+          class="modal modal-small"
+          x-show="$store.modal.type === 'confirm'"
+          @click.stop
+        >
+          <div class="modal-header">
+            <h3 x-text="$store.modal.data.title || 'Confirm'"></h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <p x-text="$store.modal.data.message"></p>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button class="btn btn-danger" @click="$store.modal.doConfirm()">
+              Delete
+            </button>
+          </div>
+        </div>
+      </div>
     </div>
 
-    <script type="module" src="js/app.js"></script>
-</body>
+    <!-- Alpine component definitions -->
+    <script>
+      // Floor form component
+      function floorForm() {
+        return {
+          form: {
+            id: "",
+            name: "",
+            sort_order: 0,
+          },
+          init() {
+            this.$watch("$store.modal.open", (open) => {
+              if (open && this.$store.modal.type === "floor") {
+                if (
+                  this.$store.modal.mode === "edit" &&
+                  this.$store.modal.data
+                ) {
+                  this.form = { ...this.$store.modal.data };
+                } else {
+                  this.form = {
+                    id: "",
+                    name: "",
+                    sort_order: this.$store.app.floors.length,
+                  };
+                }
+              }
+            });
+          },
+          async submit() {
+            try {
+              if (this.$store.modal.mode === "create") {
+                await this.$store.app.createFloor(this.form);
+              } else {
+                await this.$store.app.updateFloor(this.form.id, {
+                  name: this.form.name,
+                  sort_order: this.form.sort_order,
+                });
+              }
+              this.$store.modal.close();
+            } catch (err) {
+              alert("Failed: " + err.message);
+            }
+          },
+        };
+      }
+
+      // Room form component
+      function roomForm() {
+        return {
+          form: {
+            id: "",
+            name: "",
+            room_type: "other",
+            grid_col: 0,
+            grid_row: 0,
+            grid_width: 1,
+            grid_height: 1,
+            floor_id: null,
+          },
+          init() {
+            this.$watch("$store.modal.open", (open) => {
+              if (open && this.$store.modal.type === "room") {
+                if (
+                  this.$store.modal.mode === "edit" &&
+                  this.$store.modal.data
+                ) {
+                  this.form = { ...this.$store.modal.data };
+                } else {
+                  this.form = {
+                    id: "",
+                    name: "",
+                    room_type: "other",
+                    grid_col: 0,
+                    grid_row: 0,
+                    grid_width: 1,
+                    grid_height: 1,
+                    floor_id:
+                      this.$store.modal.data?.floor_id ||
+                      this.$store.app.currentFloorId,
+                  };
+                }
+              }
+            });
+          },
+          async submit() {
+            console.log("Room form submit:", this.form);
+            try {
+              if (this.$store.modal.mode === "create") {
+                console.log("Creating room on floor:", this.form.floor_id);
+                await this.$store.app.createRoom(this.form.floor_id, this.form);
+              } else {
+                await this.$store.app.updateRoom(
+                  this.form.floor_id,
+                  this.form.id,
+                  {
+                    name: this.form.name,
+                    room_type: this.form.room_type,
+                    grid_col: this.form.grid_col,
+                    grid_row: this.form.grid_row,
+                    grid_width: this.form.grid_width,
+                    grid_height: this.form.grid_height,
+                  },
+                );
+              }
+              this.$store.modal.close();
+            } catch (err) {
+              alert("Failed: " + err.message);
+            }
+          },
+        };
+      }
+
+      // Device form component
+      function deviceForm() {
+        return {
+          form: {
+            id: "",
+            type: "light_switch",
+            individual_address: "",
+            room_id: "",
+            group_addresses: {},
+          },
+          init() {
+            this.$watch("$store.modal.open", (open) => {
+              if (open && this.$store.modal.type === "device") {
+                if (
+                  this.$store.modal.mode === "edit" &&
+                  this.$store.modal.data
+                ) {
+                  this.form = {
+                    ...this.$store.modal.data,
+                    group_addresses: {
+                      ...this.$store.modal.data.group_addresses,
+                    },
+                  };
+                } else {
+                  const template = this.$store.modal.data?.template;
+                  this.form = {
+                    id: template
+                      ? `${template.type}-${Date.now().toString(36)}`
+                      : "",
+                    type: template?.type || "light_switch",
+                    individual_address: "",
+                    room_id: "",
+                    group_addresses: template?.group_addresses
+                      ? { ...template.group_addresses }
+                      : {},
+                  };
+                }
+              }
+            });
+          },
+          addGA() {
+            const name = prompt("Group address name:");
+            if (name) {
+              this.form.group_addresses[name] = "";
+            }
+          },
+          async submit() {
+            try {
+              if (this.$store.modal.mode === "create") {
+                await this.$store.app.createDevice(this.form);
+              } else {
+                await this.$store.app.updateDevice(this.form.id, {
+                  room_id: this.form.room_id || null,
+                  individual_address: this.form.individual_address,
+                  group_addresses: this.form.group_addresses,
+                });
+              }
+              this.$store.modal.close();
+            } catch (err) {
+              alert("Failed: " + err.message);
+            }
+          },
+        };
+      }
+
+      // Template browser component
+      function templateBrowser() {
+        return {
+          selectedDomain: null,
+          get filteredTemplates() {
+            if (!this.selectedDomain) return this.$store.app.templates;
+            return this.$store.app.templates.filter(
+              (t) => t.domain === this.selectedDomain,
+            );
+          },
+          selectTemplate(template) {
+            this.$store.modal.show("device", "create", { template });
+          },
+        };
+      }
+
+      // Device controls component (placeholder for future enhancements)
+      function deviceControls() {
+        return {};
+      }
+    </script>
+  </body>
 </html>

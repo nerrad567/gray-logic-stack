@@ -14,7 +14,6 @@ This script is the single process that handles everything:
 import logging
 import os
 import signal
-import sys
 import threading
 
 # Use PyYAML if available, otherwise fall back to a simple parser
@@ -30,7 +29,7 @@ except ImportError:
 
 def load_config(path: str) -> dict:
     """Load config.yaml using PyYAML or a basic fallback parser."""
-    with open(path, "r") as f:
+    with open(path) as f:
         if yaml:
             return yaml.safe_load(f)
         else:
@@ -255,7 +254,7 @@ def main():
 
     # Start uvicorn in a background thread
     api_port = int(os.environ.get("KNXSIM_API_PORT", "9090"))
-    api_thread = _start_api_server(app, api_port, logger)
+    _start_api_server(app, api_port, logger)
 
     logger.info("KNX Simulator fully started")
     logger.info("  KNX server(s): %d premise(s) running", premise_count)

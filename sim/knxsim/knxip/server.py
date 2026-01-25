@@ -9,9 +9,8 @@ Listens on UDP 3671 and handles the tunnelling protocol:
 
 import logging
 import socket
-import struct
 import threading
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from . import constants as C
 from . import frames
@@ -47,7 +46,7 @@ class KNXIPServer:
         port: int = 3671,
         client_address: int = 0x10FF,  # 1.0.255
         gateway_address: int = 0x1000,  # 1.0.0
-        on_telegram: Optional[Callable] = None,
+        on_telegram: Callable | None = None,
     ):
         self.host = host
         self.port = port
@@ -55,9 +54,9 @@ class KNXIPServer:
         self.gateway_address = gateway_address
         self.on_telegram = on_telegram
 
-        self._sock: Optional[socket.socket] = None
+        self._sock: socket.socket | None = None
         self._running = False
-        self._thread: Optional[threading.Thread] = None
+        self._thread: threading.Thread | None = None
         self._channels: dict[int, TunnelChannel] = {}
         self._next_channel_id = 1
         self._lock = threading.Lock()
@@ -107,7 +106,7 @@ class KNXIPServer:
         while self._running:
             try:
                 data, addr = self._sock.recvfrom(1024)
-            except socket.timeout:
+            except TimeoutError:
                 continue
             except OSError:
                 if self._running:

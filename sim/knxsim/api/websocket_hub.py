@@ -12,7 +12,6 @@ the `push_telegram()` and `push_state_change()` methods which use
 import asyncio
 import json
 import logging
-from typing import Optional
 
 from fastapi import WebSocket
 
@@ -25,7 +24,7 @@ class WebSocketHub:
     def __init__(self):
         # channel -> set of WebSocket connections
         self._channels: dict[str, set[WebSocket]] = {}
-        self._loop: Optional[asyncio.AbstractEventLoop] = None
+        self._loop: asyncio.AbstractEventLoop | None = None
 
     def set_loop(self, loop: asyncio.AbstractEventLoop):
         """Set the asyncio event loop (called from uvicorn startup)."""
@@ -80,8 +79,8 @@ class WebSocketHub:
         subscribers = self._channels.get(channel)
         sub_count = len(subscribers) if subscribers else 0
 
-        # Add type field for JS message routing
-        data = {"type": "telegram", **telegram_data}
+        # Wrap in payload field for JS message routing
+        data = {"type": "telegram", "payload": telegram_data}
         logger.info(
             "push_telegram: %s -> %d subscriber(s), loop_running=%s",
             channel,
@@ -89,7 +88,7 @@ class WebSocketHub:
             self._loop.is_running(),
         )
         try:
-            future = asyncio.run_coroutine_threadsafe(
+            asyncio.run_coroutine_threadsafe(
                 self.broadcast(channel, data),
                 self._loop,
             )

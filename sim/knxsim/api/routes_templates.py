@@ -1,6 +1,5 @@
 """Template browsing and from-template device creation routes."""
 
-from typing import Optional
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -24,7 +23,7 @@ class FromTemplateRequest(BaseModel):
     group_addresses: dict[str, str] = Field(
         ..., description="Mapping of template GA slots to actual group addresses"
     )
-    room_id: Optional[str] = Field(default=None, description="Room to place device in")
+    room_id: str | None = Field(default=None, description="Room to place device in")
 
 
 # ---------------------------------------------------------------------------
@@ -33,7 +32,7 @@ class FromTemplateRequest(BaseModel):
 
 
 @router.get("/api/v1/templates")
-def list_templates(domain: Optional[str] = Query(default=None)):
+def list_templates(domain: str | None = Query(default=None)):
     """List all available device templates, optionally filtered by domain."""
     loader = router.app.state.template_loader
     return {

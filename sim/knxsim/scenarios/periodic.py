@@ -14,7 +14,7 @@ import math
 import random
 import threading
 import time
-from typing import Callable
+from collections.abc import Callable
 
 from devices.base import BaseDevice
 from devices.presence import PresenceSensor

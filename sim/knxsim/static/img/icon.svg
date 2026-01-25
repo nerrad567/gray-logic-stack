@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<svg width="32" height="32" viewBox="0 0 32 32" xmlns="http://www.w3.org/2000/svg">
+  <!-- Extracted from original glcore.svg g226 path -->
+  <g transform="translate(-6, -10) scale(0.52)">
+    <path fill="#e4e2dd" stroke="#e4e2dd" stroke-width="0.5" stroke-linejoin="bevel"
+          d="m 41.812977,93.163273 -0.06609,0.11693 h 0.05338 z m -0.01271,0.11693 -0.970996,9.005857 3.040081,-0.35586 -6.957109,11.59094 H 49.672451 V 93.280203 Z m -4.888024,20.240937 h -0.01525 l -0.0051,0.0356 z m -0.01525,0 1.517499,-9.0872 -3.401028,0.71427 6.733424,-11.868007 H 29.431509 v 20.240937 z"
+          transform="translate(-7, -71)"/>
+  </g>
+</svg>

@@ -9,7 +9,6 @@ but respond to GroupRead requests for current status.
 """
 
 import logging
-from typing import Optional
 
 from .base import BaseDevice, decode_dpt1, decode_dpt9, encode_dpt1, encode_dpt9
 
@@ -22,7 +21,7 @@ class PresenceSensor(BaseDevice):
         "lux": "9.004",
     }
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         name = self.get_ga_name(ga)
         if not name:
             return None
@@ -40,7 +39,7 @@ class PresenceSensor(BaseDevice):
 
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         name = self.get_ga_name(ga)
         if not name:
             return None
@@ -56,7 +55,7 @@ class PresenceSensor(BaseDevice):
 
         return None
 
-    def get_indication_bool(self, field: str) -> Optional[bytes]:
+    def get_indication_bool(self, field: str) -> bytes | None:
         """Build an unsolicited L_DATA.ind for a boolean field (presence)."""
         ga = self.group_addresses.get(field)
         if ga is None:
@@ -64,7 +63,7 @@ class PresenceSensor(BaseDevice):
         value = self.state.get(field, False)
         return self._make_indication(ga, encode_dpt1(value))
 
-    def get_indication_float(self, field: str) -> Optional[bytes]:
+    def get_indication_float(self, field: str) -> bytes | None:
         """Build an unsolicited L_DATA.ind for a float field (lux)."""
         ga = self.group_addresses.get(field)
         if ga is None:

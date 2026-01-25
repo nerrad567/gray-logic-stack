@@ -1,0 +1,21 @@
+# Ruff linter configuration for KNXSim
+line-length = 100
+target-version = "py312"
+
+[lint]
+select = [
+    "E",     # pycodestyle errors
+    "F",     # pyflakes
+    "I",     # isort
+    "UP",    # pyupgrade
+    "B",     # flake8-bugbear
+    "SIM",   # flake8-simplify
+]
+ignore = [
+    "E501",  # line too long (handled by formatter)
+    "B008",  # function call in default argument (FastAPI Depends pattern)
+    "SIM108",  # ternary operator - sometimes if/else is clearer
+]
+
+[lint.isort]
+known-first-party = ["api", "core", "persistence", "devices", "templates", "knxip", "dpt", "scenarios"]

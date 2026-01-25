@@ -107,7 +107,7 @@ def decode_connect_request(body: bytes):
     ctrl_ip, ctrl_port, ctrl_len = decode_hpai(body, 0)
     data_ip, data_port, data_len = decode_hpai(body, ctrl_len)
     cri_offset = ctrl_len + data_len
-    cri_len = body[cri_offset]
+    body[cri_offset]
     conn_type = body[cri_offset + 1]
     return ctrl_ip, ctrl_port, data_ip, data_port, conn_type
 

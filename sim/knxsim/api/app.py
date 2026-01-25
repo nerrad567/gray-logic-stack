@@ -12,6 +12,7 @@ from fastapi import FastAPI
 from fastapi.staticfiles import StaticFiles
 
 from .routes_devices import router as devices_router
+from .routes_export import router as export_router
 from .routes_floors import router as floors_router
 from .routes_premises import router as premises_router
 from .routes_telegrams import router as telegrams_router
@@ -56,6 +57,7 @@ def create_app(
     app.include_router(floors_router)
     app.include_router(telegrams_router)
     app.include_router(templates_router)
+    app.include_router(export_router)
     app.include_router(ws_router)
 
     # Set app reference on routers (needed for app.state access)
@@ -64,6 +66,7 @@ def create_app(
     floors_router.app = app
     telegrams_router.app = app
     templates_router.app = app
+    export_router.app = app
     ws_router.app = app
 
     # Capture the event loop on startup for thread-safe WebSocket pushes

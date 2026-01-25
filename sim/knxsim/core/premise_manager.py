@@ -6,8 +6,7 @@ dynamic device/premise management via the API.
 """
 
 import logging
-import os
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from persistence.db import Database
 
@@ -24,8 +23,8 @@ class PremiseManager:
     def __init__(
         self,
         db: Database,
-        on_telegram: Optional[Callable] = None,
-        on_state_change: Optional[Callable] = None,
+        on_telegram: Callable | None = None,
+        on_state_change: Callable | None = None,
     ):
         self.db = db
         self.premises: dict[str, Premise] = {}
@@ -171,7 +170,7 @@ class PremiseManager:
         self._load_premise_from_db(data["id"])
         return result
 
-    def get_premise(self, premise_id: str) -> Optional[dict]:
+    def get_premise(self, premise_id: str) -> dict | None:
         return self.db.get_premise(premise_id)
 
     def list_premises(self) -> list[dict]:
@@ -194,7 +193,7 @@ class PremiseManager:
     # Device CRUD (live + persisted)
     # ------------------------------------------------------------------
 
-    def add_device(self, premise_id: str, data: dict) -> Optional[dict]:
+    def add_device(self, premise_id: str, data: dict) -> dict | None:
         """Add a device to a premise (persists + adds to live server)."""
         premise = self.premises.get(premise_id)
         if not premise:
@@ -224,7 +223,7 @@ class PremiseManager:
 
     def update_device(
         self, premise_id: str, device_id: str, data: dict
-    ) -> Optional[dict]:
+    ) -> dict | None:
         """Update device configuration."""
         return self.db.update_device(device_id, data)
 
@@ -239,12 +238,12 @@ class PremiseManager:
                     dev["state"] = dict(live_dev.state)
         return devices
 
-    def get_device(self, device_id: str) -> Optional[dict]:
+    def get_device(self, device_id: str) -> dict | None:
         return self.db.get_device(device_id)
 
     def update_device_placement(
-        self, device_id: str, room_id: Optional[str]
-    ) -> Optional[dict]:
+        self, device_id: str, room_id: str | None
+    ) -> dict | None:
         """Assign a device to a room (for floor plan placement)."""
         return self.db.update_device(device_id, {"room_id": room_id})
 
@@ -262,7 +261,7 @@ class PremiseManager:
     def create_floor(self, premise_id: str, data: dict) -> dict:
         return self.db.create_floor(premise_id, data)
 
-    def update_floor(self, floor_id: str, data: dict) -> Optional[dict]:
+    def update_floor(self, floor_id: str, data: dict) -> dict | None:
         return self.db.update_floor(floor_id, data)
 
     def delete_floor(self, floor_id: str) -> bool:
@@ -271,7 +270,7 @@ class PremiseManager:
     def create_room(self, floor_id: str, data: dict) -> dict:
         return self.db.create_room(floor_id, data)
 
-    def update_room(self, room_id: str, data: dict) -> Optional[dict]:
+    def update_room(self, room_id: str, data: dict) -> dict | None:
         return self.db.update_room(room_id, data)
 
     def delete_room(self, room_id: str) -> bool:

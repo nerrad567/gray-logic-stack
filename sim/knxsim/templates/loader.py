@@ -40,7 +40,6 @@ Template YAML format:
 
 import logging
 import os
-from typing import Optional
 
 try:
     import yaml
@@ -82,7 +81,7 @@ class DeviceTemplate:
 class TemplateLoader:
     """Discovers and loads device templates from the filesystem."""
 
-    def __init__(self, templates_dir: Optional[str] = None):
+    def __init__(self, templates_dir: str | None = None):
         if templates_dir is None:
             templates_dir = os.path.dirname(__file__)
         self.templates_dir = templates_dir
@@ -118,9 +117,9 @@ class TemplateLoader:
         self._loaded = True
         logger.info("Loaded %d device templates from %s", count, self.templates_dir)
 
-    def _load_template(self, file_path: str) -> Optional[DeviceTemplate]:
+    def _load_template(self, file_path: str) -> DeviceTemplate | None:
         """Load and validate a single template file."""
-        with open(file_path, "r") as f:
+        with open(file_path) as f:
             data = yaml.safe_load(f)
 
         if not data or not isinstance(data, dict):
@@ -134,13 +133,13 @@ class TemplateLoader:
 
         return DeviceTemplate(data, file_path)
 
-    def get_template(self, template_id: str) -> Optional[DeviceTemplate]:
+    def get_template(self, template_id: str) -> DeviceTemplate | None:
         """Get a template by ID."""
         if not self._loaded:
             self.load_all()
         return self._templates.get(template_id)
 
-    def list_templates(self, domain: Optional[str] = None) -> list[dict]:
+    def list_templates(self, domain: str | None = None) -> list[dict]:
         """List all templates, optionally filtered by domain."""
         if not self._loaded:
             self.load_all()

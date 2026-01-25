@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.10 – KNXSim Phase 2.6: Alpine.js Refactor & Export (2026-01-25)
+
+**Focus: Complete UI refactor to Alpine.js with project export capabilities**
+
+Major refactor of the KNXSim UI from vanilla JavaScript to Alpine.js for reactive, declarative UI. Added KNX project export functionality and development tooling improvements.
+
+### Added
+
+- **Alpine.js UI Framework** (`static/js/`):
+  - `vendor/alpine.min.js` — Bundled Alpine 3.x (~15KB, no CDN dependency)
+  - `store.js` — Global Alpine store for reactive state management
+  - Declarative templates with `x-data`, `x-for`, `x-show`, `@click`, `:class`
+
+- **KNX Project Export** (`api/routes_export.py`):
+  - `GET /api/v1/premises/{id}/export/knxproj` — ETS-compatible project file (.knxproj)
+  - `GET /api/v1/premises/{id}/export/esf` — ETS Symbol File (.esf) for group addresses
+  - Export dropdown in UI header (Edit Mode only)
+
+- **Logo Integration**:
+  - `static/img/knxsim.svg` — Gray Logic KNXSim branding
+  - `static/img/glcore.svg` — Gray Logic Core logo
+
+- **Development Tooling**:
+  - `ruff.toml` — Ruff linter configuration (Python 3.12, 100 char lines)
+  - `pyrightconfig.json` — Pyright/basedpyright config for IDE support
+  - `.gitignore` — Excludes `.venv/`
+  - Added `ruff>=0.8.0` to requirements.txt
+
+### Changed
+
+- **UI Label**: "Engineer Mode" → "Edit Mode" (clearer terminology)
+- **Header Height**: Increased to 80px to accommodate 64px logo
+- **Python Type Hints**: Modernised to Python 3.10+ syntax (`X | None` instead of `Optional[X]`)
+- **Import Style**: `from collections.abc import Callable` (modern pattern)
+
+### Removed
+
+- `static/js/components/room-grid.js` — Replaced by Alpine template
+- `static/js/components/device-panel.js` — Replaced by Alpine template  
+- `static/js/components/telegram-inspector.js` — Replaced by Alpine template
+- `static/js/websocket.js` — Merged into store.js
+
+### Fixed
+
+- **133 Ruff lint issues** auto-fixed across Python codebase:
+  - Unused imports removed
+  - Import sorting standardised
+  - Unused variables prefixed with `_`
+  - Modern type annotation syntax
+
+---
+
 ## 1.0.9 – KNXSim Engineer UI & Core Sync Fixes (2026-01-25)
 
 **Focus: KNX Simulator enhancement and bidirectional state synchronisation**

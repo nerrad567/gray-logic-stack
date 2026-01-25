@@ -10,7 +10,6 @@ GroupRead and send periodic updates via scenarios.
 """
 
 import logging
-from typing import Optional
 
 from .base import BaseDevice, decode_dpt9, encode_dpt9
 
@@ -24,7 +23,7 @@ class Sensor(BaseDevice):
         "lux": "9.004",
     }
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         # Sensors can accept write to update their simulated value
         name = self.get_ga_name(ga)
         if name and len(payload) >= 2:
@@ -35,7 +34,7 @@ class Sensor(BaseDevice):
             return self._make_response(ga, encode_dpt9(value))
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         name = self.get_ga_name(ga)
         if name and name in self.state:
             value = self.state[name]
@@ -43,7 +42,7 @@ class Sensor(BaseDevice):
             return self._make_response(ga, encode_dpt9(value))
         return None
 
-    def get_indication(self, field: str) -> Optional[bytes]:
+    def get_indication(self, field: str) -> bytes | None:
         """Build an unsolicited L_DATA.ind for a sensor field (used by scenarios)."""
         ga = self.group_addresses.get(field)
         if ga is None:

@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-25 (Session 17 - KNXSim Engineer UI & Sync Fixes)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 in progress
+**Last session:** 2026-01-25 (Session 18 - KNXSim Phase 2.6 Alpine.js Refactor)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.6 complete
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -19,9 +19,10 @@
 - M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
 - KNXSim Phase 2.3 Device Controls ✅ (lights, blinds, presence, sensors)
 - KNXSim Phase 2.4 Engineer Mode ✅ (telegram inspector, device panel, GA inspection)
+- KNXSim Phase 2.6 Alpine.js Refactor ✅ (reactive UI, global store, export endpoints)
 
 **What's next:**
-- KNXSim Phase 2.1/2.2: Building overview, floor navigation, room grid
+- Commit Phase 2.6 changes (30+ files modified)
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
 
@@ -538,6 +539,43 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 - **Tests**: 12 test files in Flutter (models, providers, services, widgets)
 - UX: Dimmer slider holds sent value until WebSocket confirms (no snap-back)
 - **M1.5 Flutter Wall Panel complete — Year 1 Foundation done!**
+
+### Session 18: 2026-01-25 — KNXSim Phase 2.6 Alpine.js Refactor
+
+**Goal:** Refactor UI to Alpine.js, add project export, improve dev tooling
+
+**Alpine.js Refactor** (`sim/knxsim/static/`):
+- Added `vendor/alpine.min.js` — Bundled locally (no CDN dependency)
+- Created `store.js` — Global Alpine store for reactive state management
+- Rewrote `index.html` with declarative Alpine templates (`x-data`, `x-for`, `x-show`, `@click`)
+- Deleted vanilla JS components: `room-grid.js`, `device-panel.js`, `telegram-inspector.js`, `websocket.js`
+- Updated `app.js` — Alpine init + WebSocket integration with store
+
+**KNX Project Export** (`api/routes_export.py`):
+- `GET /premises/{id}/export/knxproj` — ETS-compatible .knxproj file (ZIP with XML)
+- `GET /premises/{id}/export/esf` — ETS Symbol File (.esf) for group addresses
+- Added export dropdown button in UI header (Edit Mode only)
+
+**UI Improvements**:
+- Added `knxsim.svg` logo to header (64px, header height increased to 80px)
+- Changed "Engineer Mode" label to "Edit Mode"
+- Added `glcore.svg` for future use
+
+**Development Tooling**:
+- Added `ruff.toml` — Linter config (Python 3.12, line-length 100)
+- Added `pyrightconfig.json` — IDE type checking support
+- Added `.gitignore` — Excludes `.venv/`
+- Ran `ruff --fix` — Auto-fixed 133 lint issues across Python codebase:
+  - `Optional[X]` → `X | None` (modern syntax)
+  - `from typing import Callable` → `from collections.abc import Callable`
+  - Removed unused imports, sorted imports, prefixed unused vars with `_`
+- Created local `.venv` for Pyright/Zed IDE support
+
+**Files Created**: 8 new files
+**Files Modified**: 25+ Python/JS/CSS files
+**Files Deleted**: 4 vanilla JS component files
+
+---
 
 ### Session 17: 2026-01-25 — KNXSim Engineer UI & Sync Fixes
 

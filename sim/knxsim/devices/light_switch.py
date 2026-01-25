@@ -6,7 +6,6 @@ Group addresses:
 """
 
 import logging
-from typing import Optional
 
 from .base import BaseDevice, decode_dpt1, encode_dpt1
 
@@ -19,7 +18,7 @@ class LightSwitch(BaseDevice):
         "switch_status": "1.001",
     }
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         name = self.get_ga_name(ga)
         if name != "switch_cmd":
             return None
@@ -38,7 +37,7 @@ class LightSwitch(BaseDevice):
             return self._make_response(status_ga, encode_dpt1(value))
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         name = self.get_ga_name(ga)
         if name == "switch_status":
             return self._make_response(ga, encode_dpt1(self.state.get("on", False)))

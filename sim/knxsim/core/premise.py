@@ -6,7 +6,7 @@ run concurrently on different UDP ports.
 """
 
 import logging
-from typing import Callable, Optional
+from collections.abc import Callable
 
 from devices.base import BaseDevice
 from devices.blind import Blind
@@ -41,8 +41,8 @@ class Premise:
         gateway_address: str = "1.0.0",
         client_address: str = "1.0.255",
         port: int = 3671,
-        on_telegram: Optional[Callable] = None,
-        on_state_change: Optional[Callable] = None,
+        on_telegram: Callable | None = None,
+        on_state_change: Callable | None = None,
     ):
         self.id = premise_id
         self.name = name
@@ -55,8 +55,8 @@ class Premise:
         self._on_telegram = on_telegram
         self._on_state_change = on_state_change
 
-        self.server: Optional[KNXIPServer] = None
-        self.scenario_runner: Optional[ScenarioRunner] = None
+        self.server: KNXIPServer | None = None
+        self.scenario_runner: ScenarioRunner | None = None
         self._running = False
 
     def add_device(
@@ -66,7 +66,7 @@ class Premise:
         individual_address: str,
         group_addresses: dict,
         initial_state: dict,
-        config: Optional[dict] = None,
+        config: dict | None = None,
     ) -> BaseDevice:
         """Create and register a device in this premise."""
         cls = DEVICE_TYPES.get(device_type)
@@ -113,7 +113,7 @@ class Premise:
         logger.info("Device removed: %s from premise %s", device_id, self.id)
         return True
 
-    def on_telegram(self, channel, cemi_dict: dict) -> Optional[list[bytes]]:
+    def on_telegram(self, channel, cemi_dict: dict) -> list[bytes] | None:
         """Handle an incoming telegram from a KNXnet/IP client.
 
         Returns a list of response cEMI frames (may be empty or contain multiple).

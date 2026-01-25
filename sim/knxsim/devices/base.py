@@ -7,8 +7,6 @@ Each device has:
 """
 
 import logging
-import struct
-from typing import Optional
 
 from knxip import constants as C
 from knxip import frames
@@ -119,11 +117,11 @@ class BaseDevice:
         """Check if this device handles the given group address."""
         return ga in self._ga_to_name
 
-    def get_ga_name(self, ga: int) -> Optional[str]:
+    def get_ga_name(self, ga: int) -> str | None:
         """Get the semantic name of a GA (e.g., 'switch_cmd')."""
         return self._ga_to_name.get(ga)
 
-    def get_dpt_for_ga(self, ga: int) -> Optional[str]:
+    def get_dpt_for_ga(self, ga: int) -> str | None:
         """Get the DPT ID for a group address (e.g., '9.001' for temperature).
 
         Returns None if the GA is unknown or has no DPT mapping.
@@ -133,14 +131,14 @@ class BaseDevice:
             return self.GA_DPT_MAP.get(ga_name)
         return None
 
-    def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
+    def on_group_write(self, ga: int, payload: bytes) -> bytes | None:
         """Handle a GroupWrite. Returns response cEMI if state changed, else None.
 
         Subclasses override this to decode DPT and update state.
         """
         raise NotImplementedError
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         """Handle a GroupRead. Returns response cEMI with current state.
 
         Subclasses override this to encode current state as DPT.

@@ -3,7 +3,7 @@
 Defines request/response schemas for premises, devices, floors, and rooms.
 """
 
-from typing import Any, Optional
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -28,8 +28,8 @@ class PremiseResponse(BaseModel):
     port: int
     running: bool = False
     device_count: int = 0
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -43,17 +43,17 @@ class DeviceCreate(BaseModel):
     individual_address: str = Field(..., min_length=3)
     group_addresses: dict[str, str] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
-    room_id: Optional[str] = None
+    room_id: str | None = None
 
 
 class DeviceUpdate(BaseModel):
-    room_id: Optional[str] = None
-    individual_address: Optional[str] = None
-    group_addresses: Optional[dict[str, str]] = None
+    room_id: str | None = None
+    individual_address: str | None = None
+    group_addresses: dict[str, str] | None = None
 
 
 class DevicePlacement(BaseModel):
-    room_id: Optional[str] = None
+    room_id: str | None = None
 
 
 class DeviceCommand(BaseModel):
@@ -66,14 +66,14 @@ class DeviceCommand(BaseModel):
 class DeviceResponse(BaseModel):
     id: str
     premise_id: str
-    room_id: Optional[str] = None
+    room_id: str | None = None
     type: str
     individual_address: str
     group_addresses: dict[str, str] = Field(default_factory=dict)
     state: dict[str, Any] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
-    created_at: Optional[str] = None
-    updated_at: Optional[str] = None
+    created_at: str | None = None
+    updated_at: str | None = None
 
 
 # ---------------------------------------------------------------------------
@@ -88,13 +88,14 @@ class FloorCreate(BaseModel):
 
 
 class FloorUpdate(BaseModel):
-    name: Optional[str] = None
-    sort_order: Optional[int] = None
+    name: str | None = None
+    sort_order: int | None = None
 
 
 class RoomCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=128)
+    room_type: str = Field(default="other")
     grid_col: int = Field(default=0, ge=0)
     grid_row: int = Field(default=0, ge=0)
     grid_width: int = Field(default=1, ge=1, le=12)
@@ -102,17 +103,19 @@ class RoomCreate(BaseModel):
 
 
 class RoomUpdate(BaseModel):
-    name: Optional[str] = None
-    grid_col: Optional[int] = Field(default=None, ge=0)
-    grid_row: Optional[int] = Field(default=None, ge=0)
-    grid_width: Optional[int] = Field(default=None, ge=1, le=12)
-    grid_height: Optional[int] = Field(default=None, ge=1, le=12)
+    name: str | None = None
+    room_type: str | None = None
+    grid_col: int | None = Field(default=None, ge=0)
+    grid_row: int | None = Field(default=None, ge=0)
+    grid_width: int | None = Field(default=None, ge=1, le=12)
+    grid_height: int | None = Field(default=None, ge=1, le=12)
 
 
 class RoomResponse(BaseModel):
     id: str
     floor_id: str
     name: str
+    room_type: str = "other"
     grid_col: int = 0
     grid_row: int = 0
     grid_width: int = 1

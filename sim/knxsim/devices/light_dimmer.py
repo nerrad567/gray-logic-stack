@@ -12,7 +12,6 @@ behaviour.
 """
 
 import logging
-from typing import Optional, Union
 
 from .base import BaseDevice, decode_dpt1, decode_dpt5, encode_dpt1, encode_dpt5
 
@@ -29,7 +28,7 @@ class LightDimmer(BaseDevice):
 
     def on_group_write(
         self, ga: int, payload: bytes
-    ) -> Optional[Union[bytes, list[bytes]]]:
+    ) -> bytes | list[bytes] | None:
         name = self.get_ga_name(ga)
 
         if name == "switch_cmd":
@@ -81,7 +80,7 @@ class LightDimmer(BaseDevice):
 
         return None
 
-    def on_group_read(self, ga: int) -> Optional[bytes]:
+    def on_group_read(self, ga: int) -> bytes | None:
         name = self.get_ga_name(ga)
         if name in ("switch_cmd", "switch_status"):
             return self._make_response(ga, encode_dpt1(self.state.get("on", False)))
