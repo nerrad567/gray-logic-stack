@@ -1,12 +1,14 @@
 """KNX/IP Gateway Simulator — Main Entry Point.
 
-Loads device configuration from config.yaml, creates virtual devices,
-starts the KNXnet/IP tunnelling server on UDP 3671, and runs scenarios.
+Loads device configuration from config.yaml (on first run) or SQLite (subsequent),
+creates virtual devices via PremiseManager, starts the KNXnet/IP tunnelling server
+on UDP 3671, and runs the FastAPI management API on port 9090.
 
 This script is the single process that handles everything:
-  - KNXnet/IP protocol (UDP server)
+  - KNXnet/IP protocol (UDP server per premise)
   - Virtual device state machines
   - Periodic sensor scenarios
+  - FastAPI management API (HTTP + WebSocket on port 9090)
 """
 
 import logging
@@ -14,25 +16,12 @@ import os
 import signal
 import sys
 import threading
-import time
-from typing import Optional
 
 # Use PyYAML if available, otherwise fall back to a simple parser
 try:
     import yaml
 except ImportError:
     yaml = None
-
-from devices.base import BaseDevice
-from devices.blind import Blind
-from devices.light_dimmer import LightDimmer
-from devices.light_switch import LightSwitch
-from devices.presence import PresenceSensor
-from devices.sensor import Sensor
-from knxip import constants as C
-from knxip import frames
-from knxip.server import KNXIPServer
-from scenarios.periodic import ScenarioRunner
 
 # ---------------------------------------------------------------------------
 # Configuration
@@ -45,7 +34,6 @@ def load_config(path: str) -> dict:
         if yaml:
             return yaml.safe_load(f)
         else:
-            # Minimal YAML subset parser for our config format
             return _parse_yaml_minimal(f.read())
 
 
@@ -55,8 +43,6 @@ def _parse_yaml_minimal(text: str) -> dict:
     Only supports: scalars, lists of dicts, nested dicts (2 levels).
     Good enough for config.yaml without requiring pip install pyyaml.
     """
-    import re
-
     result = {"gateway": {}, "devices": [], "scenarios": []}
     current_section = None
     current_item = None
@@ -98,7 +84,6 @@ def _parse_yaml_minimal(text: str) -> dict:
 
             if current_item is not None:
                 if v == "" or v == "{}":
-                    # Start of nested dict within list item
                     current_sub = k
                     current_item[k] = {}
                 elif current_sub and indent >= 8:
@@ -117,117 +102,20 @@ def _parse_yaml_minimal(text: str) -> dict:
 
 def _parse_value(v: str):
     """Parse a YAML scalar value."""
-    # Remove quotes
     if (v.startswith('"') and v.endswith('"')) or (
         v.startswith("'") and v.endswith("'")
     ):
         return v[1:-1]
-    # Booleans
     if v.lower() in ("true", "yes"):
         return True
     if v.lower() in ("false", "no"):
         return False
-    # Numbers
     try:
         if "." in v:
             return float(v)
         return int(v)
     except ValueError:
         return v
-
-
-# ---------------------------------------------------------------------------
-# Device Registry
-# ---------------------------------------------------------------------------
-
-DEVICE_TYPES = {
-    "light_switch": LightSwitch,
-    "light_dimmer": LightDimmer,
-    "blind": Blind,
-    "sensor": Sensor,
-    "presence": PresenceSensor,
-}
-
-
-def create_devices(config: dict) -> list[BaseDevice]:
-    """Instantiate devices from config."""
-    devices = []
-    for dev_cfg in config.get("devices", []):
-        dev_type = dev_cfg.get("type", "")
-        cls = DEVICE_TYPES.get(dev_type)
-        if not cls:
-            logging.warning("Unknown device type: %s", dev_type)
-            continue
-
-        # Parse addresses
-        individual = frames.parse_individual_address(dev_cfg["individual_address"])
-        gas = {}
-        for name, ga_str in dev_cfg.get("group_addresses", {}).items():
-            gas[name] = frames.parse_group_address(ga_str)
-
-        initial = dev_cfg.get("initial", {})
-        device = cls(dev_cfg["id"], individual, gas, initial)
-        devices.append(device)
-
-        ga_list = ", ".join(
-            f"{n}={frames.format_group_address(g)}" for n, g in gas.items()
-        )
-        logging.info(
-            "Device: %s (%s) [%s] GAs: %s",
-            dev_cfg["id"],
-            dev_type,
-            frames.format_individual_address(individual),
-            ga_list,
-        )
-
-    return devices
-
-
-# ---------------------------------------------------------------------------
-# Telegram Dispatcher
-# ---------------------------------------------------------------------------
-
-
-class TelegramDispatcher:
-    """Routes incoming cEMI telegrams to the appropriate device."""
-
-    def __init__(self, devices: list[BaseDevice]):
-        self.devices = devices
-        # Build GA → device lookup for fast dispatch
-        self._ga_map: dict[int, BaseDevice] = {}
-        for dev in devices:
-            for ga in dev.group_addresses.values():
-                self._ga_map[ga] = dev
-
-    def on_telegram(self, channel, cemi_dict: dict) -> Optional[bytes]:
-        """Handle an incoming telegram from knxd.
-
-        Returns response cEMI bytes if the device generates one, else None.
-        """
-        dst_ga = cemi_dict["dst"]
-        apci = cemi_dict["apci"]
-        payload = cemi_dict["payload"]
-
-        device = self._ga_map.get(dst_ga)
-        if not device:
-            logging.debug("No device for GA %s", frames.format_group_address(dst_ga))
-            return None
-
-        ga_str = frames.format_group_address(dst_ga)
-
-        if apci == C.APCI_GROUP_WRITE:
-            logging.info("%s ← GroupWrite [%s]", ga_str, payload.hex())
-            return device.on_group_write(dst_ga, payload)
-
-        elif apci == C.APCI_GROUP_READ:
-            logging.info("%s ← GroupRead", ga_str)
-            return device.on_group_read(dst_ga)
-
-        elif apci == C.APCI_GROUP_RESPONSE:
-            logging.debug("%s ← GroupResponse (ignored)", ga_str)
-            return None
-
-        return None
 
 
 # ---------------------------------------------------------------------------
@@ -243,74 +131,136 @@ def main():
     )
     logger = logging.getLogger("knxsim")
 
+    # Late imports to avoid circular dependencies at module level
+    from api.app import create_app
+    from api.websocket_hub import WebSocketHub
+    from core.premise_manager import PremiseManager
+    from core.telegram_inspector import TelegramInspector
+    from persistence.db import Database
+
     # Load configuration
     config_path = os.environ.get("KNXSIM_CONFIG", "/app/config.yaml")
     if not os.path.exists(config_path):
-        # Try relative path for local development
         config_path = os.path.join(os.path.dirname(__file__), "config.yaml")
 
     logger.info("Loading config from %s", config_path)
     config = load_config(config_path)
 
-    # Parse gateway config
-    gw_cfg = config.get("gateway", {})
-    gateway_addr = frames.parse_individual_address(
-        gw_cfg.get("individual_address", "1.0.0")
-    )
-    client_addr = frames.parse_individual_address(
-        gw_cfg.get("client_address", "1.0.255")
-    )
+    # Initialize database
+    db_path = os.environ.get("KNXSIM_DB", "/app/data/knxsim.db")
+    db = Database(db_path=db_path)
+    db.connect()
+    logger.info("Database initialized: %s", db_path)
 
-    # Create devices
-    devices = create_devices(config)
-    if not devices:
-        logger.error("No devices configured — exiting")
-        sys.exit(1)
+    # Create real-time infrastructure
+    ws_hub = WebSocketHub()
+    telegram_inspector = TelegramInspector(max_size=1000)
 
-    # Create dispatcher
-    dispatcher = TelegramDispatcher(devices)
+    # Import DPT codec for payload decoding
+    from dpt.codec import DPTCodec
 
-    # Create and start KNXnet/IP server
-    port = int(os.environ.get("KNXSIM_PORT", "3671"))
-    server = KNXIPServer(
-        host="0.0.0.0",
-        port=port,
-        client_address=client_addr,
-        gateway_address=gateway_addr,
-        on_telegram=dispatcher.on_telegram,
-    )
-    server.start()
-
-    # Create and start scenarios
-    scenario_runner = ScenarioRunner(send_telegram=server.send_telegram)
-    for sc_cfg in config.get("scenarios", []):
-        device_id = sc_cfg.get("device_id")
-        device = next((d for d in devices if d.device_id == device_id), None)
-        if not device:
-            logger.warning("Scenario references unknown device: %s", device_id)
-            continue
-        if not isinstance(device, (Sensor, PresenceSensor)):
-            logger.warning("Scenario device %s is not a sensor", device_id)
-            continue
-        scenario_runner.add_scenario(
-            device=device,
-            field=sc_cfg.get("field", "temperature"),
-            scenario_type=sc_cfg.get("type", "sine_wave"),
-            params=sc_cfg.get("params", {}),
+    # Create premise manager with event callbacks
+    def on_telegram(premise_id, cemi_dict):
+        """Called when any premise receives/sends a telegram."""
+        logger.info(
+            "on_telegram called: premise=%s dst=%s", premise_id, cemi_dict.get("dst")
         )
-    scenario_runner.start()
+        # Determine direction (rx = from client, tx = from scenario/simulator)
+        direction = cemi_dict.pop("_direction", "rx")
 
-    logger.info(
-        "KNX/IP Gateway Simulator running (gateway=%s, client=%s, port=%d)",
-        frames.format_individual_address(gateway_addr),
-        frames.format_individual_address(client_addr),
-        port,
+        # Record in ring buffer — resolve device by GA or source address
+        device_id = None
+        device = None
+        dst_ga = cemi_dict.get("dst", 0)
+        premise = manager.premises.get(premise_id)
+        if premise:
+            if direction == "tx":
+                # Outgoing: find device by source individual address
+                src = cemi_dict.get("src", 0)
+                for dev in premise.devices.values():
+                    if dev.individual_address == src:
+                        device_id = dev.device_id
+                        device = dev
+                        break
+            else:
+                # Incoming: find device by destination GA
+                device = premise._ga_map.get(dst_ga)
+                if device:
+                    device_id = device.device_id
+
+        # Decode payload using DPT if device and GA are known
+        dpt = None
+        decoded_value = None
+        unit = None
+        ga_function = None
+
+        if device:
+            ga_function = device.get_ga_name(dst_ga)
+            dpt = device.get_dpt_for_ga(dst_ga)
+            if dpt:
+                payload = cemi_dict.get("payload", b"")
+                if payload:
+                    try:
+                        decoded_value = DPTCodec.decode(dpt, payload)
+                        dpt_info = DPTCodec.get_info(dpt)
+                        if dpt_info:
+                            unit = dpt_info.unit
+                    except (ValueError, IndexError):
+                        # Decoding failed — leave as None
+                        pass
+
+        telegram_inspector.record(
+            premise_id,
+            cemi_dict,
+            direction=direction,
+            device_id=device_id,
+            dpt=dpt,
+            decoded_value=decoded_value,
+            unit=unit,
+            ga_function=ga_function,
+        )
+
+        # Broadcast to WebSocket subscribers
+        entry = telegram_inspector.get_history(premise_id, limit=1)
+        if entry:
+            ws_hub.push_telegram(premise_id, entry[0])
+
+    def on_state_change(premise_id, device_id, state):
+        """Called when a device state changes."""
+        # Persist state to DB
+        db.update_device_state(device_id, state)
+        # Broadcast to WebSocket subscribers
+        ws_hub.push_state_change(premise_id, device_id, state)
+
+    manager = PremiseManager(
+        db=db,
+        on_telegram=on_telegram,
+        on_state_change=on_state_change,
     )
+
+    # Bootstrap from config.yaml (first run) or load from DB (subsequent)
+    manager.bootstrap_from_config(config)
+    manager.load_all_premises()
+
+    premise_count = len(manager.premises)
+    device_count = sum(len(p.devices) for p in manager.premises.values())
     logger.info(
-        "Simulating %d device(s), %d scenario(s)",
-        len(devices),
-        len(config.get("scenarios", [])),
+        "PremiseManager ready: %d premise(s), %d total device(s)",
+        premise_count,
+        device_count,
     )
+
+    # Create FastAPI app
+    app = create_app(manager, ws_hub=ws_hub, telegram_inspector=telegram_inspector)
+
+    # Start uvicorn in a background thread
+    api_port = int(os.environ.get("KNXSIM_API_PORT", "9090"))
+    api_thread = _start_api_server(app, api_port, logger)
+
+    logger.info("KNX Simulator fully started")
+    logger.info("  KNX server(s): %d premise(s) running", premise_count)
+    logger.info("  Management API: http://0.0.0.0:%d", api_port)
+    logger.info("  Health: http://0.0.0.0:%d/api/v1/health", api_port)
 
     # Wait for shutdown signal
     shutdown = threading.Event()
@@ -325,9 +275,29 @@ def main():
     shutdown.wait()
 
     # Cleanup
-    scenario_runner.stop()
-    server.stop()
+    logger.info("Stopping all premises...")
+    manager.stop_all()
+    db.close()
     logger.info("Shutdown complete")
+
+
+def _start_api_server(app, port: int, logger):
+    """Start uvicorn in a daemon thread."""
+    import uvicorn
+
+    config = uvicorn.Config(
+        app=app,
+        host="0.0.0.0",
+        port=port,
+        log_level="info",
+        access_log=False,
+    )
+    server = uvicorn.Server(config)
+
+    thread = threading.Thread(target=server.run, name="uvicorn", daemon=True)
+    thread.start()
+    logger.info("Uvicorn started on port %d (daemon thread)", port)
+    return thread
 
 
 if __name__ == "__main__":

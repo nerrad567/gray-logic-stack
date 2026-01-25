@@ -1,0 +1,26 @@
+id: binary_input
+name: Binary Input (4-channel)
+domain: controls
+description: 4-channel binary input module (dry contacts)
+group_addresses:
+  channel_1:
+    dpt: "1.001"
+    direction: status
+    description: Channel 1 state
+  channel_2:
+    dpt: "1.001"
+    direction: status
+    description: Channel 2 state
+  channel_3:
+    dpt: "1.001"
+    direction: status
+    description: Channel 3 state
+  channel_4:
+    dpt: "1.001"
+    direction: status
+    description: Channel 4 state
+initial_state:
+  channel_1: false
+  channel_2: false
+  channel_3: false
+  channel_4: false

@@ -1,0 +1,33 @@
+id: light_colour_temp
+name: Tunable White Light
+domain: lighting
+description: Dimmable light with colour temperature control (warm-cool white)
+group_addresses:
+  switch_cmd:
+    dpt: "1.001"
+    direction: write
+    description: On/Off command
+  switch_status:
+    dpt: "1.001"
+    direction: status
+    description: On/Off feedback
+  brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Brightness command (0-100%)
+  brightness_status:
+    dpt: "5.001"
+    direction: status
+    description: Brightness feedback
+  colour_temp_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Colour temperature (0%=warm, 100%=cool)
+  colour_temp_status:
+    dpt: "5.001"
+    direction: status
+    description: Colour temperature feedback
+initial_state:
+  on: false
+  brightness: 0
+  colour_temp: 50

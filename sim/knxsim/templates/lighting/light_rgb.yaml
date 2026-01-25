@@ -1,0 +1,39 @@
+id: light_rgb
+name: RGB Light
+domain: lighting
+description: Full colour RGB light with individual channel control
+group_addresses:
+  switch_cmd:
+    dpt: "1.001"
+    direction: write
+    description: On/Off command
+  switch_status:
+    dpt: "1.001"
+    direction: status
+    description: On/Off feedback
+  brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Master brightness (0-100%)
+  brightness_status:
+    dpt: "5.001"
+    direction: status
+    description: Master brightness feedback
+  red_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Red channel (0-100%)
+  green_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Green channel (0-100%)
+  blue_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Blue channel (0-100%)
+initial_state:
+  on: false
+  brightness: 0
+  red: 100
+  green: 100
+  blue: 100

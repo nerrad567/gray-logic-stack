@@ -1,0 +1,289 @@
+"""PremiseManager — orchestrates multiple simulated KNX installations.
+
+Bridges between SQLite persistence and live Premise objects.
+Handles bootstrapping from config.yaml on first run and
+dynamic device/premise management via the API.
+"""
+
+import logging
+import os
+from typing import Callable, Optional
+
+from persistence.db import Database
+
+from .premise import Premise
+
+logger = logging.getLogger("knxsim.manager")
+
+DEFAULT_PREMISE_ID = "default"
+
+
+class PremiseManager:
+    """Manages multiple Premise instances with SQLite-backed persistence."""
+
+    def __init__(
+        self,
+        db: Database,
+        on_telegram: Optional[Callable] = None,
+        on_state_change: Optional[Callable] = None,
+    ):
+        self.db = db
+        self.premises: dict[str, Premise] = {}
+        self._on_telegram = on_telegram
+        self._on_state_change = on_state_change
+
+    def bootstrap_from_config(self, config: dict):
+        """Bootstrap the default premise from config.yaml if it doesn't exist in DB.
+
+        This ensures backward compatibility — on first run, the existing
+        config.yaml devices are loaded into the database and started.
+        """
+        existing = self.db.get_premise(DEFAULT_PREMISE_ID)
+        if existing:
+            logger.info("Default premise already exists in database, loading...")
+            self._load_premise_from_db(DEFAULT_PREMISE_ID)
+            return
+
+        # First run: create default premise from config
+        gw_cfg = config.get("gateway", {})
+        gateway_addr = gw_cfg.get("individual_address", "1.0.0")
+        client_addr = gw_cfg.get("client_address", "1.0.255")
+
+        self.db.create_premise(
+            {
+                "id": DEFAULT_PREMISE_ID,
+                "name": "Default Installation",
+                "gateway_address": gateway_addr,
+                "client_address": client_addr,
+                "port": 3671,
+            }
+        )
+
+        # Import devices from config
+        for dev_cfg in config.get("devices", []):
+            self.db.create_device(
+                DEFAULT_PREMISE_ID,
+                {
+                    "id": dev_cfg["id"],
+                    "type": dev_cfg["type"],
+                    "individual_address": dev_cfg["individual_address"],
+                    "group_addresses": dev_cfg.get("group_addresses", {}),
+                    "initial_state": dev_cfg.get("initial", {}),
+                    "state": dev_cfg.get("initial", {}),
+                },
+            )
+
+        # Import scenarios from config
+        for i, sc_cfg in enumerate(config.get("scenarios", [])):
+            self.db.create_scenario(
+                DEFAULT_PREMISE_ID,
+                {
+                    "id": f"default-scenario-{i}",
+                    "device_id": sc_cfg["device_id"],
+                    "field": sc_cfg.get("field", "temperature"),
+                    "type": sc_cfg.get("type", "sine_wave"),
+                    "params": sc_cfg.get("params", {}),
+                    "enabled": True,
+                },
+            )
+
+        logger.info(
+            "Bootstrapped default premise from config: %d devices, %d scenarios",
+            len(config.get("devices", [])),
+            len(config.get("scenarios", [])),
+        )
+
+        self._load_premise_from_db(DEFAULT_PREMISE_ID)
+
+    def _load_premise_from_db(self, premise_id: str):
+        """Load a premise from the database and start it."""
+        premise_data = self.db.get_premise(premise_id)
+        if not premise_data:
+            raise ValueError(f"Premise not found: {premise_id}")
+
+        premise = Premise(
+            premise_id=premise_data["id"],
+            name=premise_data["name"],
+            gateway_address=premise_data["gateway_address"],
+            client_address=premise_data["client_address"],
+            port=premise_data["port"],
+            on_telegram=self._on_telegram,
+            on_state_change=self._on_state_change,
+        )
+
+        # Load devices
+        devices = self.db.list_devices(premise_id)
+        for dev in devices:
+            premise.add_device(
+                device_id=dev["id"],
+                device_type=dev["type"],
+                individual_address=dev["individual_address"],
+                group_addresses=dev["group_addresses"],
+                initial_state=dev.get("initial_state", {}),
+                config=dev.get("config"),
+            )
+            # Restore persisted state if different from initial
+            if dev.get("state") and dev["state"] != dev.get("initial_state", {}):
+                device_obj = premise.devices[dev["id"]]
+                device_obj.state.update(dev["state"])
+
+        # Register premise before starting so callbacks can resolve devices
+        self.premises[premise_id] = premise
+
+        # Start the premise (UDP server)
+        premise.start()
+
+        # Load and start scenarios
+        scenarios = self.db.list_scenarios(premise_id)
+        for sc in scenarios:
+            if not sc["enabled"]:
+                continue
+            device = premise.devices.get(sc["device_id"])
+            if device:
+                premise.scenario_runner.add_scenario(
+                    device=device,
+                    field=sc["field"],
+                    scenario_type=sc["type"],
+                    params=sc.get("params", {}),
+                )
+        if scenarios:
+            premise.scenario_runner.start()
+        logger.info(
+            "Premise loaded: %s (%d devices, %d scenarios)",
+            premise_id,
+            len(devices),
+            len(scenarios),
+        )
+
+    def load_all_premises(self):
+        """Load all premises from the database."""
+        for premise_data in self.db.list_premises():
+            if premise_data["id"] not in self.premises:
+                self._load_premise_from_db(premise_data["id"])
+
+    # ------------------------------------------------------------------
+    # Premise CRUD
+    # ------------------------------------------------------------------
+
+    def create_premise(self, data: dict) -> dict:
+        """Create a new premise and start its server."""
+        result = self.db.create_premise(data)
+        self._load_premise_from_db(data["id"])
+        return result
+
+    def get_premise(self, premise_id: str) -> Optional[dict]:
+        return self.db.get_premise(premise_id)
+
+    def list_premises(self) -> list[dict]:
+        premises = self.db.list_premises()
+        # Enrich with runtime info
+        for p in premises:
+            live = self.premises.get(p["id"])
+            p["running"] = live.is_running if live else False
+            p["device_count"] = len(live.devices) if live else 0
+        return premises
+
+    def delete_premise(self, premise_id: str) -> bool:
+        """Stop and remove a premise."""
+        live = self.premises.pop(premise_id, None)
+        if live:
+            live.stop()
+        return self.db.delete_premise(premise_id)
+
+    # ------------------------------------------------------------------
+    # Device CRUD (live + persisted)
+    # ------------------------------------------------------------------
+
+    def add_device(self, premise_id: str, data: dict) -> Optional[dict]:
+        """Add a device to a premise (persists + adds to live server)."""
+        premise = self.premises.get(premise_id)
+        if not premise:
+            return None
+
+        # Persist
+        result = self.db.create_device(premise_id, data)
+
+        # Add to live premise
+        premise.add_device(
+            device_id=data["id"],
+            device_type=data["type"],
+            individual_address=data["individual_address"],
+            group_addresses=data.get("group_addresses", {}),
+            initial_state=data.get("initial_state", {}),
+            config=data.get("config"),
+        )
+
+        return result
+
+    def remove_device(self, premise_id: str, device_id: str) -> bool:
+        """Remove a device from a premise (persists + removes from live server)."""
+        premise = self.premises.get(premise_id)
+        if premise:
+            premise.remove_device(device_id)
+        return self.db.delete_device(device_id)
+
+    def update_device(
+        self, premise_id: str, device_id: str, data: dict
+    ) -> Optional[dict]:
+        """Update device configuration."""
+        return self.db.update_device(device_id, data)
+
+    def list_devices(self, premise_id: str) -> list[dict]:
+        """List devices with live state from the running premise."""
+        devices = self.db.list_devices(premise_id)
+        premise = self.premises.get(premise_id)
+        if premise:
+            for dev in devices:
+                live_dev = premise.devices.get(dev["id"])
+                if live_dev:
+                    dev["state"] = dict(live_dev.state)
+        return devices
+
+    def get_device(self, device_id: str) -> Optional[dict]:
+        return self.db.get_device(device_id)
+
+    def update_device_placement(
+        self, device_id: str, room_id: Optional[str]
+    ) -> Optional[dict]:
+        """Assign a device to a room (for floor plan placement)."""
+        return self.db.update_device(device_id, {"room_id": room_id})
+
+    # ------------------------------------------------------------------
+    # Floor/Room CRUD
+    # ------------------------------------------------------------------
+
+    def list_floors(self, premise_id: str) -> list[dict]:
+        floors = self.db.list_floors(premise_id)
+        # Attach rooms to each floor
+        for floor in floors:
+            floor["rooms"] = self.db.list_rooms(floor["id"])
+        return floors
+
+    def create_floor(self, premise_id: str, data: dict) -> dict:
+        return self.db.create_floor(premise_id, data)
+
+    def update_floor(self, floor_id: str, data: dict) -> Optional[dict]:
+        return self.db.update_floor(floor_id, data)
+
+    def delete_floor(self, floor_id: str) -> bool:
+        return self.db.delete_floor(floor_id)
+
+    def create_room(self, floor_id: str, data: dict) -> dict:
+        return self.db.create_room(floor_id, data)
+
+    def update_room(self, room_id: str, data: dict) -> Optional[dict]:
+        return self.db.update_room(room_id, data)
+
+    def delete_room(self, room_id: str) -> bool:
+        return self.db.delete_room(room_id)
+
+    # ------------------------------------------------------------------
+    # Lifecycle
+    # ------------------------------------------------------------------
+
+    def stop_all(self):
+        """Stop all running premises."""
+        for premise in self.premises.values():
+            premise.stop()
+        self.premises.clear()
+        logger.info("All premises stopped")

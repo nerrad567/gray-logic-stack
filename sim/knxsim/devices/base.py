@@ -94,6 +94,10 @@ def decode_dpt9(payload: bytes) -> float:
 class BaseDevice:
     """Base class for all simulated KNX devices."""
 
+    # Default DPT mappings by GA function name. Subclasses can override.
+    # Maps ga_name → DPT ID string (e.g., "switch_cmd" → "1.001")
+    GA_DPT_MAP: dict[str, str] = {}
+
     def __init__(
         self,
         device_id: str,
@@ -118,6 +122,16 @@ class BaseDevice:
     def get_ga_name(self, ga: int) -> Optional[str]:
         """Get the semantic name of a GA (e.g., 'switch_cmd')."""
         return self._ga_to_name.get(ga)
+
+    def get_dpt_for_ga(self, ga: int) -> Optional[str]:
+        """Get the DPT ID for a group address (e.g., '9.001' for temperature).
+
+        Returns None if the GA is unknown or has no DPT mapping.
+        """
+        ga_name = self._ga_to_name.get(ga)
+        if ga_name:
+            return self.GA_DPT_MAP.get(ga_name)
+        return None
 
     def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
         """Handle a GroupWrite. Returns response cEMI if state changed, else None.

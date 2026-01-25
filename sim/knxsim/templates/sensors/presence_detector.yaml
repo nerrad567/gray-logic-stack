@@ -1,0 +1,25 @@
+id: presence_detector
+name: Presence Detector
+domain: sensors
+description: PIR presence detector with lux measurement
+group_addresses:
+  presence:
+    dpt: "1.018"
+    direction: status
+    description: Occupancy state (true=occupied)
+  lux:
+    dpt: "9.004"
+    direction: status
+    description: Measured illuminance (lux)
+initial_state:
+  presence: false
+  lux: 150.0
+scenarios:
+  - field: presence
+    type: presence_pattern
+    params:
+      occupied_min: 15
+      occupied_max: 90
+      empty_min: 5
+      empty_max: 20
+      long_absence_chance: 0.1

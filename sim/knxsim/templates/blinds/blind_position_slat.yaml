@@ -1,0 +1,32 @@
+id: blind_position_slat
+name: Blind (Position + Slat)
+domain: blinds
+description: Venetian blind with both position and slat angle control
+group_addresses:
+  move_cmd:
+    dpt: "1.008"
+    direction: write
+    description: Up/Down command
+  stop_cmd:
+    dpt: "1.010"
+    direction: write
+    description: Stop command
+  position_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Position command (0%=open, 100%=closed)
+  position_status:
+    dpt: "5.001"
+    direction: status
+    description: Current position feedback
+  slat_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Slat angle (0%=open, 100%=closed)
+  slat_status:
+    dpt: "5.001"
+    direction: status
+    description: Current slat angle feedback
+initial_state:
+  position: 0
+  slat: 0

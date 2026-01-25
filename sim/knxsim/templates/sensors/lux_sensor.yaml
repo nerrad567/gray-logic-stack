@@ -1,0 +1,18 @@
+id: lux_sensor
+name: Lux Sensor
+domain: sensors
+description: Ambient light sensor (DPT 9.004)
+group_addresses:
+  lux:
+    dpt: "9.004"
+    direction: status
+    description: Illuminance (lux)
+initial_state:
+  lux: 300.0
+scenarios:
+  - field: lux
+    type: sine_wave
+    params:
+      center: 400.0
+      amplitude: 300.0
+      period: 900

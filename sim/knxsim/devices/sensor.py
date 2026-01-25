@@ -18,6 +18,12 @@ logger = logging.getLogger("knxsim.devices")
 
 
 class Sensor(BaseDevice):
+    GA_DPT_MAP = {
+        "temperature": "9.001",
+        "humidity": "9.007",
+        "lux": "9.004",
+    }
+
     def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
         # Sensors can accept write to update their simulated value
         name = self.get_ga_name(ga)

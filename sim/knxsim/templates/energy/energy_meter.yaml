@@ -1,0 +1,39 @@
+id: energy_meter
+name: Energy Meter
+domain: energy
+description: KNX energy meter with power, voltage, current, and accumulated energy
+group_addresses:
+  power:
+    dpt: "14.056"
+    direction: status
+    description: Active power (W)
+  voltage:
+    dpt: "14.027"
+    direction: status
+    description: Voltage (V)
+  current:
+    dpt: "14.019"
+    direction: status
+    description: Current (A)
+  energy_total:
+    dpt: "13.010"
+    direction: status
+    description: Total energy consumed (Wh)
+  frequency:
+    dpt: "14.033"
+    direction: status
+    description: Line frequency (Hz)
+initial_state:
+  power: 0.0
+  voltage: 230.0
+  current: 0.0
+  energy_total: 0
+  frequency: 50.0
+scenarios:
+  - field: power
+    type: random_walk
+    params:
+      center: 250.0
+      step: 50.0
+      min: 0.0
+      max: 5000.0

@@ -1,0 +1,15 @@
+id: light_switch
+name: Switched Light
+domain: lighting
+description: Simple on/off light actuator (KNX switching actuator)
+group_addresses:
+  switch_cmd:
+    dpt: "1.001"
+    direction: write
+    description: On/Off command
+  switch_status:
+    dpt: "1.001"
+    direction: status
+    description: On/Off feedback
+initial_state:
+  on: false

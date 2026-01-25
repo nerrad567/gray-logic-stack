@@ -1,0 +1,39 @@
+id: hvac_unit
+name: HVAC Unit Controller
+domain: climate
+description: Fan coil unit or HVAC controller with fan speed and valve control
+group_addresses:
+  on_off_cmd:
+    dpt: "1.001"
+    direction: write
+    description: On/Off command
+  on_off_status:
+    dpt: "1.001"
+    direction: status
+    description: On/Off feedback
+  fan_speed_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Fan speed (0-100%)
+  fan_speed_status:
+    dpt: "5.001"
+    direction: status
+    description: Fan speed feedback
+  heating_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Heating valve position (0-100%)
+  cooling_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    description: Cooling valve position (0-100%)
+  hvac_mode_cmd:
+    dpt: "20.102"
+    direction: write
+    description: HVAC mode command
+initial_state:
+  on: false
+  fan_speed: 0
+  heating_valve: 0
+  cooling_valve: 0
+  hvac_mode: 0

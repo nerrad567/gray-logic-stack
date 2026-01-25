@@ -1,0 +1,24 @@
+id: wind_sensor
+name: Wind Speed Sensor
+domain: sensors
+description: Weather station wind sensor (DPT 9.005)
+group_addresses:
+  wind_speed:
+    dpt: "9.005"
+    direction: status
+    description: Wind speed (m/s)
+  wind_alarm:
+    dpt: "1.005"
+    direction: status
+    description: Wind alarm (high wind detected)
+initial_state:
+  wind_speed: 2.5
+  wind_alarm: false
+scenarios:
+  - field: wind_speed
+    type: random_walk
+    params:
+      center: 3.0
+      step: 1.0
+      min: 0.0
+      max: 25.0

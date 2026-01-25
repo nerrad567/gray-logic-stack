@@ -1,0 +1,41 @@
+id: thermostat
+name: Room Thermostat
+domain: climate
+description: KNX room thermostat with setpoint and current temperature
+group_addresses:
+  current_temp:
+    dpt: "9.001"
+    direction: status
+    description: Current room temperature
+  setpoint_cmd:
+    dpt: "9.001"
+    direction: write
+    description: Temperature setpoint command
+  setpoint_status:
+    dpt: "9.001"
+    direction: status
+    description: Temperature setpoint feedback
+  hvac_mode_cmd:
+    dpt: "20.102"
+    direction: write
+    description: HVAC mode (0=Auto, 1=Comfort, 2=Standby, 3=Economy, 4=Protection)
+  hvac_mode_status:
+    dpt: "20.102"
+    direction: status
+    description: Current HVAC mode feedback
+  heating_status:
+    dpt: "1.001"
+    direction: status
+    description: Heating valve active
+initial_state:
+  current_temp: 21.0
+  setpoint: 21.0
+  hvac_mode: 1
+  heating: false
+scenarios:
+  - field: current_temp
+    type: sine_wave
+    params:
+      center: 21.0
+      amplitude: 1.5
+      period: 300

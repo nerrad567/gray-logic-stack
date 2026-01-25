@@ -1,0 +1,18 @@
+id: temperature_sensor
+name: Temperature Sensor
+domain: sensors
+description: KNX temperature sensor (DPT 9.001)
+group_addresses:
+  temperature:
+    dpt: "9.001"
+    direction: status
+    description: Current temperature reading
+initial_state:
+  temperature: 21.5
+scenarios:
+  - field: temperature
+    type: sine_wave
+    params:
+      center: 21.5
+      amplitude: 2.0
+      period: 600

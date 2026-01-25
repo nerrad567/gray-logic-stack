@@ -14,6 +14,11 @@ logger = logging.getLogger("knxsim.devices")
 
 
 class LightSwitch(BaseDevice):
+    GA_DPT_MAP = {
+        "switch_cmd": "1.001",
+        "switch_status": "1.001",
+    }
+
     def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
         name = self.get_ga_name(ga)
         if name != "switch_cmd":

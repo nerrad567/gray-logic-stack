@@ -1,0 +1,46 @@
+id: push_button_4
+name: 4-Button Panel
+domain: controls
+description: Wall-mounted 4-gang push button panel
+group_addresses:
+  button_1:
+    dpt: "1.001"
+    direction: write
+    description: Button 1 press
+  button_2:
+    dpt: "1.001"
+    direction: write
+    description: Button 2 press
+  button_3:
+    dpt: "1.001"
+    direction: write
+    description: Button 3 press
+  button_4:
+    dpt: "1.001"
+    direction: write
+    description: Button 4 press
+  led_1:
+    dpt: "1.001"
+    direction: status
+    description: LED 1 feedback
+  led_2:
+    dpt: "1.001"
+    direction: status
+    description: LED 2 feedback
+  led_3:
+    dpt: "1.001"
+    direction: status
+    description: LED 3 feedback
+  led_4:
+    dpt: "1.001"
+    direction: status
+    description: LED 4 feedback
+initial_state:
+  button_1: false
+  button_2: false
+  button_3: false
+  button_4: false
+  led_1: false
+  led_2: false
+  led_3: false
+  led_4: false

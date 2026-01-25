@@ -262,25 +262,25 @@ class KNXIPServer:
             )
             # Only process data requests from client (L_DATA.req or L_DATA.ind with group addr)
             if cemi_dict["is_group"]:
-                response_cemi = self.on_telegram(channel, cemi_dict)
-                logger.info(
-                    "  on_telegram returned: %s (%d bytes)",
-                    response_cemi.hex() if response_cemi else "None",
-                    len(response_cemi) if response_cemi else 0,
-                )
-                if response_cemi:
-                    # Send response as TUNNELLING_REQUEST from server
-                    resp_frame = frames.encode_tunnelling_request(
-                        channel_id, channel.send_seq, response_cemi
-                    )
+                responses = self.on_telegram(channel, cemi_dict)
+                if responses:
                     logger.info(
-                        "→ TUNNEL_REQ ch=%d seq=%d response (%d bytes)",
-                        channel_id,
-                        channel.send_seq,
-                        len(resp_frame),
+                        "  on_telegram returned: %d response(s)",
+                        len(responses),
                     )
-                    channel.send_seq = (channel.send_seq + 1) & 0xFF
-                    self._send(resp_frame, addr)
+                    # Send each response as a separate TUNNELLING_REQUEST
+                    for response_cemi in responses:
+                        resp_frame = frames.encode_tunnelling_request(
+                            channel_id, channel.send_seq, response_cemi
+                        )
+                        logger.info(
+                            "→ TUNNEL_REQ ch=%d seq=%d response (%d bytes)",
+                            channel_id,
+                            channel.send_seq,
+                            len(resp_frame),
+                        )
+                        channel.send_seq = (channel.send_seq + 1) & 0xFF
+                        self._send(resp_frame, addr)
 
     def _send(self, data: bytes, addr: tuple):
         """Send a UDP datagram."""

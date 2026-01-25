@@ -1,0 +1,19 @@
+id: humidity_sensor
+name: Humidity Sensor
+domain: sensors
+description: Relative humidity sensor (DPT 9.007)
+group_addresses:
+  humidity:
+    dpt: "9.007"
+    direction: status
+    description: Relative humidity (%)
+initial_state:
+  humidity: 45.0
+scenarios:
+  - field: humidity
+    type: random_walk
+    params:
+      center: 45.0
+      step: 2.0
+      min: 20.0
+      max: 80.0

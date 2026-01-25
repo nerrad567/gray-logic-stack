@@ -1,0 +1,15 @@
+id: scene_controller
+name: Scene Controller
+domain: controls
+description: KNX scene actuator (recall/learn scenes)
+group_addresses:
+  scene_cmd:
+    dpt: "18.001"
+    direction: write
+    description: Scene control (recall/learn + scene number)
+  scene_status:
+    dpt: "17.001"
+    direction: status
+    description: Active scene number feedback
+initial_state:
+  active_scene: 0

@@ -16,6 +16,13 @@ logger = logging.getLogger("knxsim.devices")
 
 
 class Blind(BaseDevice):
+    GA_DPT_MAP = {
+        "position_cmd": "5.001",
+        "position_status": "5.001",
+        "slat_cmd": "5.001",
+        "slat_status": "5.001",
+    }
+
     def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
         name = self.get_ga_name(ga)
 

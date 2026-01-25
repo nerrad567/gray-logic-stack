@@ -1,0 +1,19 @@
+id: co2_sensor
+name: CO2 Sensor
+domain: sensors
+description: Air quality CO2 sensor (DPT 9.008)
+group_addresses:
+  co2:
+    dpt: "9.008"
+    direction: status
+    description: CO2 concentration (ppm)
+initial_state:
+  co2: 450.0
+scenarios:
+  - field: co2
+    type: random_walk
+    params:
+      center: 600.0
+      step: 50.0
+      min: 350.0
+      max: 2000.0

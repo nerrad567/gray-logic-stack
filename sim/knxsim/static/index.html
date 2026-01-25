@@ -1,0 +1,135 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KNXSim</title>
+    <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+    <div id="app">
+        <!-- Header -->
+        <header class="header">
+            <div class="header-left">
+                <h1 class="logo">KNXSim</h1>
+                <select id="premise-selector" class="premise-select">
+                    <option value="">Loading...</option>
+                </select>
+            </div>
+            <div class="header-right">
+                <span id="connection-status" class="status disconnected">
+                    <span class="status-dot"></span>
+                    <span class="status-text">Disconnected</span>
+                </span>
+                <button id="engineer-mode-btn" class="btn btn-engineer">
+                    Engineer Mode
+                </button>
+            </div>
+        </header>
+
+        <!-- Floor Navigation -->
+        <nav id="floor-tabs" class="floor-nav">
+            <div class="floor-tabs">
+                <!-- Populated by JS -->
+            </div>
+        </nav>
+
+        <!-- Main Content -->
+        <main class="main-content">
+            <!-- Room Grid -->
+            <section id="room-grid" class="room-grid">
+                <!-- Populated by JS -->
+                <div class="loading-placeholder">
+                    <p>Select a premise to view devices</p>
+                </div>
+            </section>
+
+            <!-- Device Detail Panel (Engineer Mode) -->
+            <aside id="device-panel" class="device-panel hidden">
+                <div class="panel-header">
+                    <h3 id="panel-device-name">Device Details</h3>
+                    <button id="panel-close" class="btn-close">&times;</button>
+                </div>
+                <div class="panel-content">
+                    <div class="detail-section">
+                        <h4>Address</h4>
+                        <div class="detail-row">
+                            <span class="label">Type:</span>
+                            <span id="panel-device-type" class="value">-</span>
+                        </div>
+                        <div class="detail-row">
+                            <span class="label">Individual:</span>
+                            <span id="panel-individual-addr" class="value mono">-</span>
+                        </div>
+                    </div>
+                    <div class="detail-section">
+                        <h4>Group Addresses</h4>
+                        <table id="panel-ga-table" class="ga-table">
+                            <thead>
+                                <tr>
+                                    <th>Name</th>
+                                    <th>GA</th>
+                                    <th>DPT</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <!-- Populated by JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                    <div class="detail-section">
+                        <h4>Current State</h4>
+                        <pre id="panel-state" class="state-display">{}</pre>
+                    </div>
+                    <div class="detail-section">
+                        <h4>Controls</h4>
+                        <div id="panel-controls" class="controls">
+                            <!-- Populated by JS based on device type -->
+                        </div>
+                    </div>
+                </div>
+            </aside>
+        </main>
+
+        <!-- Telegram Inspector -->
+        <section id="telegram-inspector" class="telegram-inspector">
+            <div class="inspector-header">
+                <h3>Telegram Inspector</h3>
+                <div class="inspector-controls">
+                    <select id="telegram-filter" class="filter-select">
+                        <option value="all">All</option>
+                        <option value="rx">RX Only</option>
+                        <option value="tx">TX Only</option>
+                    </select>
+                    <button id="telegram-clear" class="btn btn-small">Clear</button>
+                    <button id="telegram-pause" class="btn btn-small">Pause</button>
+                </div>
+            </div>
+            <div id="telegram-feed" class="telegram-feed">
+                <!-- Populated by JS -->
+                <div class="telegram-placeholder">
+                    <p>Waiting for telegrams...</p>
+                </div>
+            </div>
+        </section>
+
+        <!-- Stats Bar -->
+        <footer class="stats-bar">
+            <div class="stat">
+                <span class="stat-label">Devices:</span>
+                <span id="stat-devices" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Telegrams/s:</span>
+                <span id="stat-tps" class="stat-value">0</span>
+            </div>
+            <div class="stat">
+                <span class="stat-label">Uptime:</span>
+                <span id="stat-uptime" class="stat-value">-</span>
+            </div>
+        </footer>
+    </div>
+
+    <script type="module" src="js/app.js"></script>
+</body>
+</html>

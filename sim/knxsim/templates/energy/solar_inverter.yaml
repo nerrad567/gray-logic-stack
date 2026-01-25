@@ -1,0 +1,33 @@
+id: solar_inverter
+name: Solar Inverter
+domain: energy
+description: PV solar inverter with generation power and daily yield
+group_addresses:
+  generation_power:
+    dpt: "14.056"
+    direction: status
+    description: Current generation power (W)
+  daily_yield:
+    dpt: "13.013"
+    direction: status
+    description: Daily energy generated (kWh)
+  total_yield:
+    dpt: "13.013"
+    direction: status
+    description: Total lifetime energy (kWh)
+  status:
+    dpt: "1.001"
+    direction: status
+    description: Inverter active (generating)
+initial_state:
+  generation_power: 0.0
+  daily_yield: 0
+  total_yield: 15000
+  status: false
+scenarios:
+  - field: generation_power
+    type: sine_wave
+    params:
+      center: 2000.0
+      amplitude: 2000.0
+      period: 600

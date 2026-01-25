@@ -17,6 +17,11 @@ logger = logging.getLogger("knxsim.devices")
 
 
 class PresenceSensor(BaseDevice):
+    GA_DPT_MAP = {
+        "presence": "1.018",
+        "lux": "9.004",
+    }
+
     def on_group_write(self, ga: int, payload: bytes) -> Optional[bytes]:
         name = self.get_ga_name(ga)
         if not name:
