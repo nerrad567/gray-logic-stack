@@ -587,6 +587,38 @@ func (a *deviceRegistryAdapter) CreateDeviceIfNotExists(ctx context.Context, see
 	return a.registry.CreateDevice(ctx, dev)
 }
 
+// GetKNXDevices implements knx.DeviceRegistry.
+// Returns all devices with protocol "knx" for bridge device mapping.
+func (a *deviceRegistryAdapter) GetKNXDevices(ctx context.Context) ([]knx.RegistryDevice, error) {
+	devices, err := a.registry.GetDevicesByProtocol(ctx, device.ProtocolKNX)
+	if err != nil {
+		return nil, err
+	}
+
+	result := make([]knx.RegistryDevice, len(devices))
+	for i, dev := range devices {
+		caps := make([]string, len(dev.Capabilities))
+		for j, c := range dev.Capabilities {
+			caps[j] = string(c)
+		}
+		addr := make(map[string]string, len(dev.Address))
+		for k, v := range dev.Address {
+			if s, ok := v.(string); ok {
+				addr[k] = s
+			}
+		}
+		result[i] = knx.RegistryDevice{
+			ID:           dev.ID,
+			Name:         dev.Name,
+			Type:         string(dev.Type),
+			Domain:       string(dev.Domain),
+			Address:      addr,
+			Capabilities: caps,
+		}
+	}
+	return result, nil
+}
+
 // sceneDeviceRegistryAdapter adapts the device.Registry to the
 // automation.DeviceRegistry interface. It extracts only the minimal
 // DeviceInfo (ID, Protocol, GatewayID) needed for MQTT command routing.

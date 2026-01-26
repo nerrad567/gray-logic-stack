@@ -88,6 +88,21 @@ type DeviceRegistry interface {
 	// CreateDeviceIfNotExists seeds a device record from bridge config.
 	// No-op if the device already exists (preserves user modifications).
 	CreateDeviceIfNotExists(ctx context.Context, seed DeviceSeed) error
+
+	// GetKNXDevices returns all devices with protocol "knx".
+	// Used to load device mappings from the registry on startup.
+	GetKNXDevices(ctx context.Context) ([]RegistryDevice, error)
+}
+
+// RegistryDevice represents a device loaded from the registry.
+// This is a subset of device.Device fields needed for bridge operation.
+type RegistryDevice struct {
+	ID           string
+	Name         string
+	Type         string
+	Domain       string
+	Address      map[string]string // GA mappings: function -> GA
+	Capabilities []string
 }
 
 // DeviceSeed holds device fields derivable from bridge config.
@@ -178,6 +193,9 @@ func (b *Bridge) Start(ctx context.Context) error {
 	// Seed device registry from bridge config (idempotent)
 	b.seedDeviceRegistry(ctx)
 
+	// Load devices from registry (merges with config devices)
+	b.loadDevicesFromRegistry(ctx)
+
 	// Publish starting status
 	if err := b.health.PublishStarting(); err != nil {
 		b.logError("failed to publish starting status", err)
@@ -247,6 +265,143 @@ func (b *Bridge) seedDeviceRegistry(ctx context.Context) {
 			b.logInfo("failed to seed device", "device", devCfg.DeviceID, "error", err.Error())
 		}
 	}
+}
+
+// loadDevicesFromRegistry loads KNX devices from the device registry and
+// merges them into the bridge's device mappings. This allows devices created
+// via ETS import (or other means) to be controlled by the bridge without
+// requiring manual knx-bridge.yaml configuration.
+func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
+	if b.registry == nil {
+		return
+	}
+
+	devices, err := b.registry.GetKNXDevices(ctx)
+	if err != nil {
+		b.logError("failed to load devices from registry", err)
+		return
+	}
+
+	if len(devices) == 0 {
+		return
+	}
+
+	b.mappingMu.Lock()
+	defer b.mappingMu.Unlock()
+
+	loaded := 0
+	for _, dev := range devices {
+		// Skip if already in config (config takes precedence)
+		if _, exists := b.deviceToGAs[dev.ID]; exists {
+			continue
+		}
+
+		// Convert registry device to address configs
+		addresses := make(map[string]AddressConfig)
+		for fn, ga := range dev.Address {
+			if fn == "group_address" {
+				continue // Skip the primary GA marker
+			}
+			// Infer flags from function name
+			flags := inferFlagsFromFunction(fn)
+			addresses[fn] = AddressConfig{
+				GA:    ga,
+				Flags: flags,
+			}
+		}
+
+		if len(addresses) == 0 {
+			continue
+		}
+
+		// Build GA mappings
+		b.deviceToGAs[dev.ID] = addresses
+		for fn, addr := range addresses {
+			b.gaToDevice[addr.GA] = GAMapping{
+				DeviceID: dev.ID,
+				Function: fn,
+				Type:     dev.Type,
+				DPT:      inferDPTFromFunction(fn),
+			}
+		}
+
+		loaded++
+	}
+
+	if loaded > 0 {
+		b.logInfo("loaded devices from registry", "count", loaded)
+		// Update health reporter device count
+		b.health.SetDeviceCount(len(b.cfg.Devices) + loaded)
+	}
+}
+
+// inferFlagsFromFunction returns appropriate flags based on the function name.
+func inferFlagsFromFunction(fn string) []string {
+	fnLower := strings.ToLower(fn)
+
+	// Status/feedback addresses are read + transmit
+	if strings.Contains(fnLower, "status") || strings.Contains(fnLower, "feedback") {
+		return []string{"read", "transmit"}
+	}
+
+	// Sensor values are read + transmit
+	sensorFunctions := []string{"temperature", "humidity", "lux", "presence", "co2", "wind", "rain"}
+	for _, sf := range sensorFunctions {
+		if strings.Contains(fnLower, sf) {
+			return []string{"read", "transmit"}
+		}
+	}
+
+	// Command addresses are write
+	return []string{"write"}
+}
+
+// inferDPTFromFunction returns the appropriate DPT based on the function name.
+// This enables proper decoding of telegrams for devices loaded from the registry.
+func inferDPTFromFunction(fn string) string {
+	fnLower := strings.ToLower(fn)
+
+	// DPT 9.xxx - 2-byte float values
+	if strings.Contains(fnLower, "temperature") {
+		return "9.001" // Temperature in °C
+	}
+	if strings.Contains(fnLower, "humidity") {
+		return "9.007" // Humidity in %
+	}
+	if strings.Contains(fnLower, "lux") || strings.Contains(fnLower, "brightness") && strings.Contains(fnLower, "sensor") {
+		return "9.004" // Lux
+	}
+	if strings.Contains(fnLower, "wind") && strings.Contains(fnLower, "speed") {
+		return "9.005" // Wind speed m/s
+	}
+
+	// DPT 5.xxx - 1-byte unsigned (0-100% or 0-255)
+	if strings.Contains(fnLower, "brightness") || strings.Contains(fnLower, "level") || strings.Contains(fnLower, "dim") {
+		return "5.001" // Percentage 0-100%
+	}
+	if strings.Contains(fnLower, "position") || strings.Contains(fnLower, "slat") || strings.Contains(fnLower, "tilt") {
+		return "5.001" // Percentage 0-100%
+	}
+
+	// DPT 1.xxx - Boolean values
+	if strings.Contains(fnLower, "switch") || strings.Contains(fnLower, "on") || strings.Contains(fnLower, "off") {
+		return "1.001" // Switch on/off
+	}
+	if strings.Contains(fnLower, "presence") || strings.Contains(fnLower, "motion") || strings.Contains(fnLower, "occupied") {
+		return "1.018" // Occupancy
+	}
+	if strings.Contains(fnLower, "rain") || strings.Contains(fnLower, "alarm") || strings.Contains(fnLower, "fault") {
+		return "1.005" // Alarm
+	}
+	if strings.Contains(fnLower, "move") || strings.Contains(fnLower, "up") || strings.Contains(fnLower, "down") {
+		return "1.008" // Up/Down
+	}
+	if strings.Contains(fnLower, "stop") {
+		return "1.007" // Step
+	}
+
+	// Default: no DPT (will return raw bytes)
+	return ""
 }
 
 // buildDeviceSeed derives a DeviceSeed from bridge config.
@@ -990,13 +1145,44 @@ func (b *Bridge) stateUnchanged(deviceID, function string, value any) bool {
 	}
 
 	cached := b.stateCache[deviceID][function]
-	if cached == value {
+	if valuesEqual(cached, value) {
 		return true // Unchanged
 	}
 
 	// Update cache
 	b.stateCache[deviceID][function] = value
 	return false
+}
+
+// valuesEqual compares two values for equality, handling []byte specially
+// since Go's == operator cannot compare slices directly.
+func valuesEqual(a, b any) bool {
+	// Handle nil cases
+	if a == nil && b == nil {
+		return true
+	}
+	if a == nil || b == nil {
+		return false
+	}
+
+	// Handle []byte specially - cannot use == on slices
+	aBytes, aIsBytes := a.([]byte)
+	bBytes, bIsBytes := b.([]byte)
+	if aIsBytes && bIsBytes {
+		if len(aBytes) != len(bBytes) {
+			return false
+		}
+		for i := range aBytes {
+			if aBytes[i] != bBytes[i] {
+				return false
+			}
+		}
+		return true
+	}
+
+	// For all other types, use direct comparison
+	// This is safe because decode functions return bool, float64, uint8, etc.
+	return a == b
 }
 
 // ClearStateCache removes all entries from the state cache.

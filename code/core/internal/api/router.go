@@ -80,6 +80,14 @@ func (s *Server) buildRouter() http.Handler {
 				})
 			})
 
+			// Commissioning endpoints (ETS import)
+			r.Route("/commissioning", func(r chi.Router) {
+				r.Route("/ets", func(r chi.Router) {
+					r.Post("/parse", s.handleETSParse)
+					r.Post("/import", s.handleETSImport)
+				})
+			})
+
 			// WebSocket (auth via ticket, validated in handler)
 			r.Get("/ws", s.handleWebSocket)
 		})
