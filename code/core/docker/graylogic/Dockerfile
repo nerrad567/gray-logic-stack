@@ -1,11 +1,13 @@
-FROM golang:1.25-bookworm AS builder
-WORKDIR /build
-COPY go.mod go.sum ./
-RUN go mod download
-COPY . .
-RUN CGO_ENABLED=1 go build -o graylogic ./cmd/graylogic
+# Gray Logic Core - Production Image
+# ===================================
+# Uses pre-built binary from local build (preserves version/commit tags)
+#
+# Build:
+#   make build-release
+#   docker build -t graylogic-core:latest -f docker/graylogic/Dockerfile .
 
 FROM debian:bookworm-slim
+
 RUN apt-get update \
     && apt-get install -y --no-install-recommends \
        knxd \
@@ -15,7 +17,34 @@ RUN apt-get update \
        libsqlite3-0 \
        ca-certificates \
     && rm -rf /var/lib/apt/lists/*
+
+# Create non-root user
+RUN groupadd -r -g 1000 graylogic \
+    && useradd -r -u 1000 -g graylogic -d /app -s /sbin/nologin graylogic
+
+# Create app directories
+RUN mkdir -p /app/bin /app/configs /app/data /app/logs \
+    && chown -R graylogic:graylogic /app
+
 WORKDIR /app
-COPY --from=builder /build/graylogic /app/bin/graylogic
+
+# Copy pre-built binary from local build
+COPY --chown=graylogic:graylogic build/graylogic /app/bin/graylogic
+
+# Copy configs
+COPY --chown=graylogic:graylogic configs/config.yaml /app/configs/config.yaml.default
+COPY --chown=graylogic:graylogic configs/knx-bridge.yaml /app/configs/knx-bridge.yaml.default
+
+# Copy migrations
+COPY --chown=graylogic:graylogic migrations /app/migrations
+
+USER graylogic
+
+EXPOSE 8080/tcp
+EXPOSE 8081/tcp
+
+HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
+    CMD ["/app/bin/graylogic", "health"] || exit 1
+
 ENTRYPOINT ["/app/bin/graylogic"]
 CMD ["--config", "/app/configs/config.yaml"]

@@ -20,8 +20,12 @@ CREATE TABLE IF NOT EXISTS knx_group_addresses (
 
     -- Whether we've ever seen a read response from this address
     -- (indicates a device is bound to respond to reads on this GA)
-    has_read_response INTEGER NOT NULL DEFAULT 0
+    has_read_response INTEGER NOT NULL DEFAULT 0,
+
+    -- When this GA was last used for a health check (Unix timestamp)
+    -- Used to cycle through GAs instead of always hitting the same one
+    last_health_check INTEGER DEFAULT NULL
 ) STRICT;
 
--- Index for health check queries (prefer addresses with known read responses)
-CREATE INDEX IF NOT EXISTS idx_knx_group_addresses_health ON knx_group_addresses(has_read_response DESC, last_seen DESC);
+-- Index for health check queries: cycle through verified responders, then discovery
+CREATE INDEX IF NOT EXISTS idx_knx_group_addresses_health ON knx_group_addresses(has_read_response DESC, last_health_check ASC, last_seen DESC);

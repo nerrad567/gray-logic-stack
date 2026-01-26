@@ -49,6 +49,10 @@ const (
 // It carries a command (read/write/response) and optional data
 // to a destination group address.
 type Telegram struct {
+	// Source is the sender's individual address (e.g., "1.1.5").
+	// Only populated for received telegrams; empty for outgoing.
+	Source string
+
 	// Destination is the target group address.
 	Destination GroupAddress
 
@@ -86,7 +90,10 @@ func ParseTelegram(data []byte) (Telegram, error) {
 		return Telegram{}, fmt.Errorf("%w: too short (%d bytes, need at least 6)", ErrInvalidTelegram, len(data))
 	}
 
-	// Bytes 0-1: Source individual address (ignored for now, could be used for diagnostics)
+	// Bytes 0-1: Source individual address (big-endian uint16)
+	srcRaw := binary.BigEndian.Uint16(data[0:2])
+	source := formatIndividualAddress(srcRaw)
+
 	// Bytes 2-3: Destination group address (big-endian uint16)
 	destRaw := binary.BigEndian.Uint16(data[2:4])
 	dest := GroupAddressFromUint16(destRaw)
@@ -108,11 +115,21 @@ func ParseTelegram(data []byte) (Telegram, error) {
 	// For APCIRead, payload stays nil
 
 	return Telegram{
+		Source:      source,
 		Destination: dest,
 		APCI:        apci,
 		Data:        payload,
 		Timestamp:   time.Now(),
 	}, nil
+}
+
+// formatIndividualAddress converts a 16-bit individual address to "A.L.D" format.
+// Individual addresses identify physical devices on the KNX bus.
+func formatIndividualAddress(ia uint16) string {
+	area := (ia >> 12) & 0x0F
+	line := (ia >> 8) & 0x0F
+	device := ia & 0xFF
+	return fmt.Sprintf("%d.%d.%d", area, line, device)
 }
 
 // Encode encodes a Telegram to knxd wire format for EIB_OPEN_GROUPCON.

@@ -824,21 +824,10 @@ func TestNoopLogger(t *testing.T) {
 	// If we get here without panic, the test passes
 }
 
-// mockDeviceProvider implements DeviceProvider for testing
-type mockDeviceProvider struct {
-	devices []string
-}
-
-func (m *mockDeviceProvider) GetHealthCheckDevices(ctx context.Context, limit int) ([]string, error) {
-	if limit < len(m.devices) {
-		return m.devices[:limit], nil
-	}
-	return m.devices, nil
-}
-
 // mockGroupAddressProvider implements GroupAddressProvider for testing
 type mockGroupAddressProvider struct {
-	addresses []string
+	addresses      []string
+	lastMarkedUsed string
 }
 
 func (m *mockGroupAddressProvider) GetHealthCheckGroupAddresses(ctx context.Context, limit int) ([]string, error) {
@@ -848,24 +837,9 @@ func (m *mockGroupAddressProvider) GetHealthCheckGroupAddresses(ctx context.Cont
 	return m.addresses, nil
 }
 
-func TestManager_SetDeviceProvider(t *testing.T) {
-	cfg := Config{
-		Managed: true,
-		Backend: BackendConfig{Type: BackendUSB},
-	}
-
-	m, err := NewManager(cfg)
-	if err != nil {
-		t.Fatalf("NewManager() error: %v", err)
-	}
-
-	provider := &mockDeviceProvider{devices: []string{"1.1.1", "1.1.2"}}
-	m.SetDeviceProvider(provider)
-
-	// Verify provider is set
-	if m.deviceProvider == nil {
-		t.Error("deviceProvider is nil after SetDeviceProvider()")
-	}
+func (m *mockGroupAddressProvider) MarkHealthCheckUsed(ctx context.Context, ga string) error {
+	m.lastMarkedUsed = ga
+	return nil
 }
 
 func TestManager_SetGroupAddressProvider(t *testing.T) {

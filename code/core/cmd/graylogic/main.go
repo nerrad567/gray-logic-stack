@@ -252,7 +252,7 @@ func run(ctx context.Context) error {
 
 	// Start knxd daemon (if managed)
 	var knxdManager *knxd.Manager
-	var busMonitor *knx.BusMonitor
+	var gaRecorder *knx.GARecorder
 	if cfg.Protocols.KNX.Enabled && cfg.Protocols.KNX.KNXD.Managed {
 		knxdManager, err = startKNXD(ctx, cfg, log)
 		if err != nil {
@@ -265,30 +265,29 @@ func run(ctx context.Context) error {
 			}
 		}()
 
-		// Start bus monitor for passive device discovery
-		// This learns KNX device addresses from bus traffic for health checks
-		busMonitor = knx.NewBusMonitor(db.DB)
-		busMonitor.SetLogger(log)
-		if startErr := busMonitor.Start(ctx, knxdManager.ConnectionURL()); startErr != nil {
-			log.Warn("bus monitor failed to start (health checks will use fallback)", "error", startErr)
-			busMonitor = nil
+		// Create GA recorder for passive discovery
+		// Records all group addresses seen on the bus via the Bridge
+		gaRecorder = knx.NewGARecorder(db.DB)
+		gaRecorder.SetLogger(log)
+		if startErr := gaRecorder.Start(); startErr != nil {
+			log.Warn("GA recorder failed to start", "error", startErr)
+			gaRecorder = nil
 		} else {
 			defer func() {
-				log.Info("stopping bus monitor")
-				busMonitor.Stop()
+				log.Info("stopping GA recorder")
+				gaRecorder.Stop()
 			}()
-			log.Info("bus monitor started", "url", knxdManager.ConnectionURL())
+			log.Info("GA recorder started")
 
-			// Wire bus monitor as provider for health checks
-			knxdManager.SetDeviceProvider(busMonitor)       // Layer 4: individual addresses
-			knxdManager.SetGroupAddressProvider(busMonitor) // Layer 3: group addresses
+			// Wire GA recorder as provider for Layer 3 health checks
+			knxdManager.SetGroupAddressProvider(gaRecorder)
 		}
 	}
 
 	// Start KNX bridge (if enabled)
 	var knxBridge *knx.Bridge
 	if cfg.Protocols.KNX.Enabled {
-		knxBridge, err = startKNXBridge(ctx, cfg, knxdManager, mqttClient, log, deviceRegistry)
+		knxBridge, err = startKNXBridge(ctx, cfg, knxdManager, mqttClient, log, deviceRegistry, gaRecorder)
 		if err != nil {
 			return fmt.Errorf("starting KNX bridge: %w", err)
 		}
@@ -440,7 +439,7 @@ func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*k
 // Returns:
 //   - *knx.Bridge: Running KNX bridge
 //   - error: If bridge fails to start
-func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger, deviceRegistry *device.Registry) (*knx.Bridge, error) {
+func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger, deviceRegistry *device.Registry, gaRecorder *knx.GARecorder) (*knx.Bridge, error) {
 	// Load KNX bridge configuration (devices, group addresses, mappings)
 	knxBridgeCfg, err := knx.LoadConfig(cfg.Protocols.KNX.ConfigFile)
 	if err != nil {
@@ -484,6 +483,7 @@ func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.M
 		KNXDClient: knxdClient,
 		Logger:     log,
 		Registry:   registryAdapter,
+		GARecorder: gaRecorder, // May be nil if not started
 	})
 	if err != nil {
 		// Clean up knxd connection on error

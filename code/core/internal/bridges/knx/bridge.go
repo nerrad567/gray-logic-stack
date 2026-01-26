@@ -32,11 +32,12 @@ const (
 //
 // Thread Safety: All methods are safe for concurrent use.
 type Bridge struct {
-	cfg      *Config
-	mqtt     MQTTClient
-	knxd     Connector
-	health   *HealthReporter
-	registry DeviceRegistry // Optional device registry for state/health persistence
+	cfg        *Config
+	mqtt       MQTTClient
+	knxd       Connector
+	health     *HealthReporter
+	registry   DeviceRegistry      // Optional device registry for state/health persistence
+	gaRecorder GARecorderInterface // Optional GA recorder for passive discovery
 
 	// Device mappings (built from config)
 	gaToDevice  map[string]GAMapping
@@ -94,6 +95,16 @@ type DeviceRegistry interface {
 	GetKNXDevices(ctx context.Context) ([]RegistryDevice, error)
 }
 
+// GARecorderInterface records telegrams seen on the bus for passive discovery.
+// This is optional - if nil, the bridge operates without recording.
+type GARecorderInterface interface {
+	// RecordTelegram records a telegram's source device and destination GA.
+	// source is the sender's individual address (e.g., "1.1.5").
+	// ga is the destination group address (e.g., "1/2/3").
+	// isResponse indicates if this was a GroupValue_Response (APCI 0x40).
+	RecordTelegram(source, ga string, isResponse bool)
+}
+
 // RegistryDevice represents a device loaded from the registry.
 // This is a subset of device.Device fields needed for bridge operation.
 type RegistryDevice struct {
@@ -135,6 +146,10 @@ type BridgeOptions struct {
 	// Registry is optional device registry for state/health persistence.
 	// If nil, the bridge operates without registry integration.
 	Registry DeviceRegistry
+
+	// GARecorder is optional GA recorder for passive discovery.
+	// If nil, the bridge operates without recording seen GAs.
+	GARecorder GARecorderInterface
 }
 
 // NewBridge creates a new bridge instance.
@@ -160,7 +175,8 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		cfg:         opts.Config,
 		mqtt:        opts.MQTTClient,
 		knxd:        opts.KNXDClient,
-		registry:    opts.Registry, // May be nil (optional)
+		registry:    opts.Registry,   // May be nil (optional)
+		gaRecorder:  opts.GARecorder, // May be nil (optional)
 		gaToDevice:  gaToDevice,
 		deviceToGAs: deviceToGAs,
 		stateCache:  make(map[string]map[string]any),
@@ -1014,6 +1030,13 @@ func (b *Bridge) handleReadAll(req RequestMessage) ResponseMessage {
 func (b *Bridge) handleKNXTelegram(t Telegram) {
 	// Convert GA to string for lookup
 	gaStr := t.Destination.String()
+
+	// Record telegram for passive discovery (before any early returns)
+	// This builds a database of all devices and GAs seen on the bus
+	if b.gaRecorder != nil {
+		isResponse := t.APCI == APCIResponse
+		b.gaRecorder.RecordTelegram(t.Source, gaStr, isResponse)
+	}
 
 	// Look up device mapping
 	b.mappingMu.RLock()
