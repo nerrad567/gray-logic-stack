@@ -55,10 +55,17 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   PendingDevicesNotifier get _pending => _ref.read(pendingDevicesProvider.notifier);
 
   /// Load devices for a room from the API.
+  /// Use '__all__' to load all devices regardless of room assignment.
   Future<void> loadDevices(String roomId) async {
     state = const AsyncValue.loading();
     try {
-      final devices = await _deviceRepo.getDevicesByRoom(roomId);
+      final List<Device> devices;
+      if (roomId == '__all__') {
+        // Load all devices (no room filter)
+        devices = await _deviceRepo.getAllDevices();
+      } else {
+        devices = await _deviceRepo.getDevicesByRoom(roomId);
+      }
       state = AsyncValue.data(devices);
     } catch (e, st) {
       state = AsyncValue.error(e, st);

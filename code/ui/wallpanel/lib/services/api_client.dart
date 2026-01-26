@@ -1,9 +1,12 @@
+import 'dart:typed_data';
+
 import 'package:dio/dio.dart';
 
 import '../config/constants.dart';
 import '../models/area.dart';
 import '../models/auth.dart';
 import '../models/device.dart';
+import '../models/ets_import.dart';
 import '../models/room.dart';
 import '../models/scene.dart';
 import 'token_storage.dart';
@@ -123,6 +126,40 @@ class ApiClient {
     } catch (_) {
       return false;
     }
+  }
+
+  // --- ETS Import (Commissioning) ---
+
+  /// Parse an ETS project file and return detected devices.
+  /// The file is sent as multipart/form-data.
+  Future<ETSParseResult> parseETSFile(List<int> fileBytes, String filename) async {
+    // Ensure we have a proper Uint8List for web compatibility
+    final bytes = fileBytes is Uint8List ? fileBytes : Uint8List.fromList(fileBytes);
+
+    final formData = FormData.fromMap({
+      'file': MultipartFile.fromBytes(bytes, filename: filename),
+    });
+
+    final response = await _dio.post(
+      '/commissioning/ets/parse',
+      data: formData,
+      options: Options(
+        // Don't set contentType - Dio will set it with boundary automatically
+        receiveTimeout: const Duration(seconds: 60),
+      ),
+    );
+
+    return ETSParseResult.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Import devices from a parsed ETS file.
+  Future<ETSImportResponse> importETSDevices(ETSImportRequest request) async {
+    final response = await _dio.post(
+      '/commissioning/ets/import',
+      data: request.toJson(),
+    );
+
+    return ETSImportResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   /// Get the WebSocket URL for connecting.

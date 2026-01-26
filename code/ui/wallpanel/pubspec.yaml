@@ -13,6 +13,7 @@ dependencies:
   dio: ^5.7.0
   web_socket_channel: ^3.0.1
   shared_preferences: ^2.3.3
+  file_picker: ^5.5.0 # For mobile platforms only
 
 dev_dependencies:
   flutter_test:

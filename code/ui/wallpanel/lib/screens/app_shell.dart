@@ -7,6 +7,7 @@ import '../providers/connection_provider.dart';
 import '../providers/location_provider.dart';
 import '../widgets/room_nav_bar.dart';
 import 'config_screen.dart';
+import 'onboarding_screen.dart';
 import 'room_view.dart';
 
 /// Top-level shell that gates the app behind authentication.
@@ -71,6 +72,7 @@ class _AuthenticatedShell extends ConsumerStatefulWidget {
 class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
   bool _initialized = false;
   bool _connecting = false;
+  bool _isEmpty = false;
 
   @override
   void initState() {
@@ -89,10 +91,26 @@ class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
     // Load location data (areas + rooms)
     await ref.read(locationDataProvider.notifier).load();
 
+    // Check if we have any devices - if not, show onboarding
+    final apiClient = ref.read(apiClientProvider);
+    final deviceResponse = await apiClient.getDevices();
+    final hasDevices = deviceResponse.count > 0;
+    final locationData = ref.read(locationDataProvider).valueOrNull;
+
+    if (!hasDevices) {
+      // No devices configured - show onboarding
+      if (mounted) {
+        setState(() {
+          _isEmpty = true;
+          _initialized = true;
+        });
+      }
+      return;
+    }
+
     // Determine initial room
     final tokenStorage = ref.read(tokenStorageProvider);
     final defaultRoom = await tokenStorage.getRoomId();
-    final locationData = ref.read(locationDataProvider).valueOrNull;
 
     String? initialRoom;
     if (defaultRoom != null && defaultRoom.isNotEmpty) {
@@ -104,13 +122,31 @@ class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
       }
     }
 
+    // If no rooms but we have devices, use a placeholder
+    // (devices can exist without room assignment)
+    if (initialRoom == null && hasDevices) {
+      initialRoom = '__all__'; // Special value for "all devices" view
+    }
+
     if (mounted && initialRoom != null) {
       ref.read(selectedRoomProvider.notifier).state = initialRoom;
     }
 
     if (mounted) {
-      setState(() => _initialized = true);
+      setState(() {
+        _isEmpty = false;
+        _initialized = true;
+      });
     }
+  }
+
+  /// Reload data after import or other changes.
+  Future<void> _refresh() async {
+    setState(() {
+      _initialized = false;
+      _connecting = false;
+    });
+    await _initConnection();
   }
 
   @override
@@ -123,9 +159,20 @@ class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
 
   @override
   Widget build(BuildContext context) {
+    if (!_initialized) {
+      return const Scaffold(
+        body: Center(child: CircularProgressIndicator()),
+      );
+    }
+
+    // Show onboarding if no devices configured
+    if (_isEmpty) {
+      return OnboardingScreen(onRefresh: _refresh);
+    }
+
     final selectedRoom = ref.watch(selectedRoomProvider);
 
-    if (!_initialized || selectedRoom == null) {
+    if (selectedRoom == null) {
       return const Scaffold(
         body: Center(child: CircularProgressIndicator()),
       );

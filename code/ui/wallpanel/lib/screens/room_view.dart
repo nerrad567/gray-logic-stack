@@ -37,11 +37,16 @@ class _RoomViewState extends ConsumerState<RoomView> {
     final locationData = ref.watch(locationDataProvider).valueOrNull;
 
     // Resolve room name from location data
-    final roomName = locationData?.rooms
-            .where((r) => r.id == widget.roomId)
-            .map((r) => r.name)
-            .firstOrNull ??
-        widget.roomId;
+    final String roomName;
+    if (widget.roomId == '__all__') {
+      roomName = 'All Devices';
+    } else {
+      roomName = locationData?.rooms
+              .where((r) => r.id == widget.roomId)
+              .map((r) => r.name)
+              .firstOrNull ??
+          widget.roomId;
+    }
 
     return Column(
       children: [

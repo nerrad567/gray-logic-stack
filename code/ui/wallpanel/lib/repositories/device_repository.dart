@@ -7,6 +7,12 @@ class DeviceRepository {
 
   DeviceRepository({required ApiClient apiClient}) : _apiClient = apiClient;
 
+  /// Get all devices (no filtering).
+  Future<List<Device>> getAllDevices() async {
+    final response = await _apiClient.getDevices();
+    return response.devices;
+  }
+
   /// Get all devices in a room.
   Future<List<Device>> getDevicesByRoom(String roomId) async {
     final response = await _apiClient.getDevices(roomId: roomId);
