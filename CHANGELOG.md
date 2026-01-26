@@ -4,6 +4,52 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.11 – KNXSim Wall Switch Support & Shared GA Handling (2026-01-26)
+
+**Focus: Interactive wall switch controls and multi-field GA support**
+
+Added interactive push button controls for wall switches in KNXSim Edit Mode, with proper handling of multiple buttons sharing the same Group Address (a common KNX pattern).
+
+### Added
+
+- **Wall Switch Controls** (`static/index.html`, `static/js/store.js`):
+  - Push button controls in Edit Mode panel for template devices
+  - `toggleButton()` — Toggle button state and send command to linked devices
+  - `getButtonGAs()` — Extract button GAs from device for UI rendering
+  - Buttons display ON/OFF state with visual toggle styling
+
+- **DPT Detection** (`static/js/store.js`):
+  - `guessDPT()` now recognises `button_*` and `led_*` patterns → returns "1.001"
+
+### Fixed
+
+- **Multiple fields per GA** (`devices/template_device.py`):
+  - Changed `_ga_info` from single tuple to list of tuples per GA
+  - Structure: `{ga: [(slot_name, field, dpt, direction), ...]}`
+  - `on_group_write()` now iterates all mappings, updating all linked fields
+  - Fixes: button_1 and button_2 on same GA now both update correctly
+
+- **API command handler** (`api/routes_devices.py`):
+  - Updated to handle new `_ga_info` list structure (was expecting 3-tuple, now 4-tuple in list)
+  - Finds matching slot by command name for correct DPT lookup
+
+- **Live GA editing** (`core/premise_manager.py`):
+  - `update_device()` now rebuilds `_ga_info` when GAs are edited
+  - Added inline `_parse_ga()` function (was importing from non-existent module)
+  - GA edits take effect immediately without restart
+
+- **Telegram callback** (`knxsim.py`):
+  - `on_telegram` handles list of devices per GA (not just single device)
+
+### Changed
+
+- `devices/template_device.py` — `_ga_info` structure from `dict[int, tuple]` to `dict[int, list[tuple]]`
+- `core/premise_manager.py` — Rebuild `_ga_info` with new 4-tuple list structure
+- `api/routes_devices.py` — Iterate `_ga_info` list to find matching slot
+- `static/css/style.css` — Added `.push-btn-ctrl` styles for wall switch buttons
+
+---
+
 ## 1.0.10 – KNXSim Phase 2.6: Alpine.js Refactor & Export (2026-01-25)
 
 **Focus: Complete UI refactor to Alpine.js with project export capabilities**

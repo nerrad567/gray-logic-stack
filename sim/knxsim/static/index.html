@@ -519,6 +519,38 @@
                         </div>
                       </div>
                     </template>
+
+                    <!-- Push button / Wall switch controls -->
+                    <template
+                      x-if="$store.app.selectedDevice.type === 'template_device' || $store.app.selectedDevice.type === 'push_button'"
+                    >
+                      <div>
+                        <template
+                          x-for="(ga, btnName) in $store.app.getButtonGAs($store.app.selectedDevice)"
+                          :key="btnName"
+                        >
+                          <div class="control-row">
+                            <span
+                              class="control-label"
+                              x-text="btnName.replace('_', ' ').replace(/\b\w/g, l => l.toUpperCase())"
+                            ></span>
+                            <button
+                              class="toggle-btn push-btn-ctrl"
+                              :class="{ 'on': $store.app.selectedDevice.state?.[btnName] }"
+                              @click="$store.app.toggleButton($store.app.selectedDeviceId, btnName, $store.app.selectedDevice.state?.[btnName])"
+                            >
+                              <span
+                                x-text="$store.app.selectedDevice.state?.[btnName] ? 'ON' : 'OFF'"
+                              ></span>
+                            </button>
+                          </div>
+                        </template>
+                        <p class="control-hint">
+                          Click to toggle - sends command to linked devices via
+                          shared GA
+                        </p>
+                      </div>
+                    </template>
                   </div>
                 </div>
 

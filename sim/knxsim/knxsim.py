@@ -101,9 +101,7 @@ def _parse_yaml_minimal(text: str) -> dict:
 
 def _parse_value(v: str):
     """Parse a YAML scalar value."""
-    if (v.startswith('"') and v.endswith('"')) or (
-        v.startswith("'") and v.endswith("'")
-    ):
+    if (v.startswith('"') and v.endswith('"')) or (v.startswith("'") and v.endswith("'")):
         return v[1:-1]
     if v.lower() in ("true", "yes"):
         return True
@@ -161,9 +159,7 @@ def main():
     # Create premise manager with event callbacks
     def on_telegram(premise_id, cemi_dict):
         """Called when any premise receives/sends a telegram."""
-        logger.info(
-            "on_telegram called: premise=%s dst=%s", premise_id, cemi_dict.get("dst")
-        )
+        logger.info("on_telegram called: premise=%s dst=%s", premise_id, cemi_dict.get("dst"))
         # Determine direction (rx = from client, tx = from scenario/simulator)
         direction = cemi_dict.pop("_direction", "rx")
 
@@ -183,8 +179,10 @@ def main():
                         break
             else:
                 # Incoming: find device by destination GA
-                device = premise._ga_map.get(dst_ga)
-                if device:
+                # _ga_map stores a list of devices per GA (multiple devices can share the same GA)
+                devices = premise._ga_map.get(dst_ga)
+                if devices and len(devices) > 0:
+                    device = devices[0]  # Use first device for recording purposes
                     device_id = device.device_id
 
         # Decode payload using DPT if device and GA are known
@@ -231,10 +229,17 @@ def main():
         # Broadcast to WebSocket subscribers
         ws_hub.push_state_change(premise_id, device_id, state)
 
+    # Load device templates for template_device support in config
+    from templates.loader import TemplateLoader
+
+    template_loader = TemplateLoader()
+    template_loader.load_all()
+
     manager = PremiseManager(
         db=db,
         on_telegram=on_telegram,
         on_state_change=on_state_change,
+        template_loader=template_loader,
     )
 
     # Bootstrap from config.yaml (first run) or load from DB (subsequent)

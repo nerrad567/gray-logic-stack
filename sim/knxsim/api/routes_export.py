@@ -33,6 +33,36 @@ def _ga_to_int(ga_str: str) -> int:
         return int(parts[0])
 
 
+def _id_to_display_name(device_id: str) -> str:
+    """Convert device ID slug to human-readable display name.
+
+    Examples:
+        'living-room-ceiling-light' -> 'Living Room Ceiling Light'
+        'ch-3-blinds' -> 'Ch 3 Blinds'
+    """
+    # Replace hyphens and underscores with spaces
+    name = device_id.replace("-", " ").replace("_", " ")
+    # Title case each word
+    return " ".join(word.capitalize() for word in name.split())
+
+
+def _ga_name_to_function(ga_name: str) -> str:
+    """Convert internal GA name to human-readable function name.
+
+    Examples:
+        'switch_cmd' -> 'Switch'
+        'brightness_status' -> 'Brightness Status'
+        'position_cmd' -> 'Position'
+    """
+    # Map common suffixes to cleaner names
+    name = ga_name.replace("_", " ")
+    # Remove 'cmd' suffix as it's implied for commands
+    if name.endswith(" cmd"):
+        name = name[:-4]
+    # Title case
+    return " ".join(word.capitalize() for word in name.split())
+
+
 def _make_id(prefix: str) -> str:
     """Generate a unique ID in ETS format."""
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
@@ -125,6 +155,10 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
     ga_id_map = {}  # Maps GA string to XML ID
 
     for device in devices:
+        device_id = device.get("id", "device")
+        device_name = device.get("name") or _id_to_display_name(device_id)
+        device_type = device.get("type", "")
+
         for ga_name, ga_str in device.get("group_addresses", {}).items():
             if ga_str and "/" in ga_str:
                 main_group = ga_str.split("/")[0]
@@ -132,12 +166,14 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                     ga_by_main[main_group] = {}
 
                 # Use device ID + GA name as unique key
-                ga_key = f"{device['id']}_{ga_name}"
+                ga_key = f"{device_id}_{ga_name}"
+                # Create human-readable function name from ga_name
+                function_name = _ga_name_to_function(ga_name)
                 ga_by_main[main_group][ga_key] = {
                     "address": ga_str,
-                    "name": f"{device.get('id', 'Device')} - {ga_name}",
-                    "device_id": device.get("id"),
-                    "dpt": _guess_dpt(device.get("type"), ga_name),
+                    "name": f"{device_name} : {function_name}",
+                    "device_id": device_id,
+                    "dpt": _guess_dpt(device_type, ga_name),
                 }
 
     # Create GroupRange elements
@@ -152,7 +188,9 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
             ga_elem = ET.SubElement(main_range, "GroupAddress")
             ga_id = _make_id("GA")
             ga_elem.set("Id", ga_id)
-            ga_elem.set("Address", str(_ga_to_int(ga_info["address"])))
+            # Use 3-level format (1/2/3) for Address - this is what ETS uses
+            # and what Gray Logic Core parser expects
+            ga_elem.set("Address", ga_info["address"])
             ga_elem.set("Name", ga_info["name"])
             if ga_info.get("dpt"):
                 ga_elem.set("DatapointType", f"DPST-{ga_info['dpt'].replace('.', '-')}")

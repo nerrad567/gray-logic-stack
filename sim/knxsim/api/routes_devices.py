@@ -124,6 +124,10 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
       - lux: ambient light level in lux (float, DPT9)
     """
     from devices.base import encode_dpt1, encode_dpt5, encode_dpt9
+    from devices.template_device import TemplateDevice
+    from dpt.codec import DPTCodec
+    from knxip import constants as C
+    from knxip import frames
 
     manager = router.app.state.manager
     premise = manager.premises.get(premise_id)
@@ -137,7 +141,60 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
     # Map command to state field and GA
     command = body.command.lower()
     value = body.value
+    telegrams_sent = []
 
+    # Handle template devices (e.g., wall switches with buttons)
+    # These send GroupWrite telegrams to their configured GAs
+    if isinstance(device, TemplateDevice):
+        ga = device.group_addresses.get(command)
+        if ga is not None and premise.server:
+            # Get DPT info from template definition
+            # _ga_info is now a list of tuples: [(slot_name, field, dpt, direction), ...]
+            info_list = device._ga_info.get(ga)
+            if info_list:
+                # Find the matching slot for this command
+                dpt = None
+                field = command  # Default to command name as field
+                for slot_name, slot_field, slot_dpt, direction in info_list:
+                    if slot_name == command:
+                        field = slot_field
+                        dpt = slot_dpt
+                        break
+                # Fallback to first entry if no exact match
+                if dpt is None and info_list:
+                    _, field, dpt, _ = info_list[0]
+
+                # Encode value using the template's DPT
+                payload = DPTCodec.encode(dpt, value)
+                # Build GroupWrite telegram (simulates button press sending to bus)
+                cemi = frames.encode_cemi(
+                    msg_code=0x29,  # L_Data.ind
+                    src=device.individual_address,
+                    dst=ga,
+                    apci=C.APCI_GROUP_WRITE,
+                    payload=payload,
+                )
+                # Send to KNX bus - other devices listening on this GA will react
+                premise._send_telegram_with_hook(cemi)
+                # Also dispatch to local devices on same GA (simulate bus behavior)
+                premise._dispatch_telegram(ga, payload)
+                telegrams_sent.append(command)
+                # Update our own state
+                device.state[field] = value
+
+        # Trigger state change callback
+        if premise._on_state_change:
+            premise._on_state_change(premise_id, device_id, dict(device.state))
+
+        return {
+            "status": "ok",
+            "device_id": device_id,
+            "command": command,
+            "value": value,
+            "telegrams_sent": telegrams_sent,
+        }
+
+    # Standard device handling (lights, blinds, sensors, etc.)
     # Command to state field and status GA mapping
     field_map = {
         "switch": ("on", "switch_status"),
@@ -157,7 +214,6 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
     device.state[field] = value
 
     # Send status telegram onto KNX bus (simulates physical device reporting state)
-    telegrams_sent = []
     if status_ga_name and premise.server:
         status_ga = device.group_addresses.get(status_ga_name)
         if status_ga is not None:

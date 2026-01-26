@@ -421,6 +421,208 @@ select:focus {
   font-size: 12px;
 }
 
+/* Device "on" state visual feedback */
+.device-tile.device-on {
+  background: linear-gradient(
+    135deg,
+    var(--bg-tertiary) 0%,
+    rgba(63, 185, 80, 0.15) 100%
+  );
+  border-left: 3px solid var(--status-on);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Interactive Device Controls
+   ───────────────────────────────────────────────────────────── */
+
+.device-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.control-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: none;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  font-family: var(--font-sans);
+}
+
+/* Toggle button (lights, presence) */
+.control-btn.toggle-btn {
+  width: 40px;
+  height: 40px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-primary);
+  font-size: 18px;
+}
+
+.control-btn.toggle-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+}
+
+.control-btn.toggle-btn.on {
+  background: rgba(63, 185, 80, 0.2);
+  border-color: var(--status-on);
+  box-shadow: 0 0 12px rgba(63, 185, 80, 0.3);
+}
+
+.control-btn.toggle-btn:active {
+  transform: scale(0.95);
+}
+
+.toggle-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+/* Dimmer controls */
+.dimmer-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.dimmer-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 36px;
+  text-align: right;
+}
+
+/* Push button (wall switches) */
+.switch-buttons {
+  display: flex;
+  gap: 4px;
+}
+
+.control-btn.push-btn {
+  width: 32px;
+  height: 32px;
+  background: var(--bg-secondary);
+  border: 2px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 11px;
+  font-weight: 600;
+}
+
+.control-btn.push-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.control-btn.push-btn:active,
+.control-btn.push-btn.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+  transform: scale(0.92);
+}
+
+.btn-label {
+  font-size: 10px;
+  font-weight: 700;
+}
+
+/* Blind controls */
+.blind-controls {
+  display: flex;
+  align-items: center;
+  gap: 4px;
+}
+
+.control-btn.blind-btn {
+  width: 28px;
+  height: 28px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  color: var(--text-secondary);
+  font-size: 12px;
+}
+
+.control-btn.blind-btn:hover {
+  background: var(--bg-hover);
+  border-color: var(--accent-blue);
+  color: var(--text-primary);
+}
+
+.control-btn.blind-btn:active {
+  background: var(--accent-blue);
+  color: white;
+}
+
+.blind-value {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-secondary);
+  min-width: 32px;
+  text-align: center;
+}
+
+/* Sensor display */
+.sensor-display {
+  display: flex;
+  align-items: center;
+}
+
+.sensor-value {
+  font-family: var(--font-mono);
+  font-size: 13px;
+  font-weight: 600;
+  color: var(--accent-blue);
+  background: rgba(88, 166, 255, 0.1);
+  padding: 4px 8px;
+  border-radius: 4px;
+}
+
+/* Presence controls */
+.presence-controls {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
+.control-btn.presence-btn.on {
+  background: rgba(219, 109, 40, 0.2);
+  border-color: var(--accent-orange);
+  box-shadow: 0 0 12px rgba(219, 109, 40, 0.3);
+}
+
+.lux-value {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  color: var(--text-muted);
+}
+
+/* Push button control in Edit Mode panel */
+.push-btn-ctrl {
+  min-width: 80px;
+}
+
+.push-btn-ctrl.on {
+  background: var(--accent-blue) !important;
+  border-color: var(--accent-blue) !important;
+  color: white !important;
+}
+
+.push-btn-ctrl:active {
+  transform: scale(0.95);
+}
+
+.control-hint {
+  font-size: 11px;
+  color: var(--text-muted);
+  margin-top: var(--spacing-sm);
+  font-style: italic;
+}
+
 /* Device Panel (Engineer Mode) */
 .device-panel {
   width: var(--panel-width);

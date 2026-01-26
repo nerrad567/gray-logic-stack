@@ -25,11 +25,13 @@ class PremiseManager:
         db: Database,
         on_telegram: Callable | None = None,
         on_state_change: Callable | None = None,
+        template_loader=None,
     ):
         self.db = db
         self.premises: dict[str, Premise] = {}
         self._on_telegram = on_telegram
         self._on_state_change = on_state_change
+        self._template_loader = template_loader
 
     def bootstrap_from_config(self, config: dict):
         """Bootstrap the default premise from config.yaml if it doesn't exist in DB.
@@ -60,17 +62,38 @@ class PremiseManager:
 
         # Import devices from config
         for dev_cfg in config.get("devices", []):
-            self.db.create_device(
-                DEFAULT_PREMISE_ID,
-                {
-                    "id": dev_cfg["id"],
-                    "type": dev_cfg["type"],
-                    "individual_address": dev_cfg["individual_address"],
-                    "group_addresses": dev_cfg.get("group_addresses", {}),
-                    "initial_state": dev_cfg.get("initial", {}),
-                    "state": dev_cfg.get("initial", {}),
-                },
-            )
+            device_data = {
+                "id": dev_cfg["id"],
+                "type": dev_cfg["type"],
+                "individual_address": dev_cfg["individual_address"],
+                "group_addresses": dev_cfg.get("group_addresses", {}),
+                "initial_state": dev_cfg.get("initial", {}),
+                "state": dev_cfg.get("initial", {}),
+            }
+
+            # Handle template_device types - load template definition
+            if dev_cfg["type"] == "template_device" and self._template_loader:
+                template_id = dev_cfg.get("template")
+                if template_id:
+                    template = self._template_loader.get_template(template_id)
+                    if template:
+                        device_data["config"] = {
+                            "template_id": template_id,
+                            "template_def": template.group_addresses,
+                        }
+                        # Use template's initial state as defaults, override with config
+                        merged_state = dict(template.initial_state)
+                        merged_state.update(dev_cfg.get("initial", {}))
+                        device_data["initial_state"] = merged_state
+                        device_data["state"] = merged_state
+                    else:
+                        logger.warning(
+                            "Template not found for device %s: %s",
+                            dev_cfg["id"],
+                            template_id,
+                        )
+
+            self.db.create_device(DEFAULT_PREMISE_ID, device_data)
 
         # Import scenarios from config
         for i, sc_cfg in enumerate(config.get("scenarios", [])):
@@ -221,11 +244,75 @@ class PremiseManager:
             premise.remove_device(device_id)
         return self.db.delete_device(device_id)
 
-    def update_device(
-        self, premise_id: str, device_id: str, data: dict
-    ) -> dict | None:
-        """Update device configuration."""
-        return self.db.update_device(device_id, data)
+    def update_device(self, premise_id: str, device_id: str, data: dict) -> dict | None:
+        """Update device configuration.
+
+        If group_addresses are changed, the running device is also updated
+        so that changes take effect immediately without restart.
+        """
+        result = self.db.update_device(device_id, data)
+
+        # If group_addresses changed, update the running device
+        if result and "group_addresses" in data:
+            premise = self.premises.get(premise_id)
+            if premise:
+                device = premise.devices.get(device_id)
+                if device:
+                    # Update the device's group addresses
+                    new_gas = data["group_addresses"]
+                    old_gas = device.group_addresses.copy()
+
+                    # Remove old GA mappings from premise._ga_map
+                    for ga_int in old_gas.values():
+                        if ga_int in premise._ga_map:
+                            premise._ga_map[ga_int] = [
+                                d for d in premise._ga_map[ga_int] if d != device
+                            ]
+                            if not premise._ga_map[ga_int]:
+                                del premise._ga_map[ga_int]
+
+                    # Parse new GAs and update device
+                    def _parse_ga(ga_str: str) -> int:
+                        """Convert group address string '1/2/3' to integer."""
+                        parts = ga_str.split("/")
+                        if len(parts) == 3:
+                            main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
+                            return (main << 11) | (middle << 8) | sub
+                        elif len(parts) == 2:
+                            main, sub = int(parts[0]), int(parts[1])
+                            return (main << 11) | sub
+                        else:
+                            return int(parts[0])
+
+                    parsed_gas = {}
+                    for name, ga_str in new_gas.items():
+                        parsed_gas[name] = _parse_ga(ga_str)
+                    device.group_addresses = parsed_gas
+
+                    # Add new GA mappings to premise._ga_map
+                    for ga_int in parsed_gas.values():
+                        if ga_int not in premise._ga_map:
+                            premise._ga_map[ga_int] = []
+                        if device not in premise._ga_map[ga_int]:
+                            premise._ga_map[ga_int].append(device)
+
+                    # For template devices, also rebuild _ga_info
+                    if hasattr(device, "_ga_info") and hasattr(device, "_template_def"):
+                        device._ga_info = {}
+                        for slot_name, ga_int in parsed_gas.items():
+                            slot_def = device._template_def.get(slot_name, {})
+                            dpt = slot_def.get("dpt", "1.001")
+                            direction = slot_def.get("direction", "write")
+                            # For buttons/leds, use slot name directly as field
+                            if slot_name.startswith("button_") or slot_name.startswith("led_"):
+                                field = slot_name
+                            else:
+                                field = device._slot_to_field(slot_name)
+                            if ga_int not in device._ga_info:
+                                device._ga_info[ga_int] = []
+                            device._ga_info[ga_int].append((slot_name, field, dpt, direction))
+
+        return result
 
     def list_devices(self, premise_id: str) -> list[dict]:
         """List devices with live state from the running premise."""
@@ -241,9 +328,7 @@ class PremiseManager:
     def get_device(self, device_id: str) -> dict | None:
         return self.db.get_device(device_id)
 
-    def update_device_placement(
-        self, device_id: str, room_id: str | None
-    ) -> dict | None:
+    def update_device_placement(self, device_id: str, room_id: str | None) -> dict | None:
         """Assign a device to a room (for floor plan placement)."""
         return self.db.update_device(device_id, {"room_id": room_id})
 

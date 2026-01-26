@@ -3,6 +3,48 @@ gateway:
   client_address: "1.0.255"
 
 devices:
+  # ============================================
+  # WALL SWITCHES (Input Devices)
+  # ============================================
+
+  # 2-button wall switch by the living room door
+  # Button 1 controls the ceiling light (GA 1/1/0)
+  # Button 2 controls the blinds (GA 2/1/0)
+  - id: "living-room-wall-switch"
+    type: "template_device"
+    template: "push_button_2"
+    individual_address: "1.2.1"
+    group_addresses:
+      button_1: "1/1/0" # Same GA as living-room-ceiling-light switch_cmd
+      button_2: "2/1/0" # Same GA as living-room-blinds position_cmd
+      led_1: "1/1/1" # Feedback from light status
+      led_2: "2/1/1" # Feedback from blind status
+    initial:
+      button_1: false
+      button_2: false
+      led_1: false
+      led_2: false
+
+  # Single switch by kitchen entrance
+  - id: "kitchen-wall-switch"
+    type: "template_device"
+    template: "push_button_2"
+    individual_address: "1.2.2"
+    group_addresses:
+      button_1: "1/2/0" # Same GA as kitchen-pendant-light switch_cmd
+      button_2: "1/1/0" # Also controls living room light (multi-location control)
+      led_1: "1/2/1" # Feedback from kitchen light
+      led_2: "1/1/1" # Feedback from living room light
+    initial:
+      button_1: false
+      button_2: false
+      led_1: false
+      led_2: false
+
+  # ============================================
+  # LIGHTING (Output Devices / Actuators)
+  # ============================================
+
   - id: "living-room-ceiling-light"
     type: "light_dimmer"
     individual_address: "1.1.1"
@@ -24,6 +66,10 @@ devices:
     initial:
       "on": false
 
+  # ============================================
+  # BLINDS / SHADING (Output Devices)
+  # ============================================
+
   - id: "living-room-blinds"
     type: "blind"
     individual_address: "1.1.3"
@@ -35,6 +81,10 @@ devices:
     initial:
       position: 0
       tilt: 0
+
+  # ============================================
+  # SENSORS (Input Devices)
+  # ============================================
 
   - id: "living-room-temperature"
     type: "sensor"

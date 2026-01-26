@@ -1,14 +1,14 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-25
+> **Last Updated:** 2026-01-26
 > **Current Phase:** Implementation (M1.5 Complete — Year 1 Foundation Done!)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-25 (Session 18 - KNXSim Phase 2.6 Alpine.js Refactor)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.6 complete
+**Last session:** 2026-01-26 (Session 19 - KNXSim Wall Switch Support)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.7 complete
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -20,9 +20,9 @@
 - KNXSim Phase 2.3 Device Controls ✅ (lights, blinds, presence, sensors)
 - KNXSim Phase 2.4 Engineer Mode ✅ (telegram inspector, device panel, GA inspection)
 - KNXSim Phase 2.6 Alpine.js Refactor ✅ (reactive UI, global store, export endpoints)
+- KNXSim Phase 2.7 Wall Switch Support ✅ (push buttons, shared GA handling, live GA editing)
 
 **What's next:**
-- Commit Phase 2.6 changes (30+ files modified)
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
 
@@ -574,6 +574,32 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 **Files Created**: 8 new files
 **Files Modified**: 25+ Python/JS/CSS files
 **Files Deleted**: 4 vanilla JS component files
+
+---
+
+### Session 19: 2026-01-26 — KNXSim Wall Switch Support
+
+**Goal:** Add interactive wall switch controls and fix shared GA handling
+
+**Wall Switch Controls** (`sim/knxsim/static/`):
+- Added push button controls to Edit Mode panel for template devices
+- `toggleButton()` — Toggle button state and send command via shared GA
+- `getButtonGAs()` — Extract button GAs from device for UI rendering
+- `guessDPT()` — Recognises `button_*` and `led_*` patterns → returns "1.001"
+
+**Shared GA Fix** (`sim/knxsim/devices/template_device.py`):
+- Changed `_ga_info` from `dict[int, tuple]` to `dict[int, list[tuple]]`
+- Multiple buttons sharing same GA now all update when telegram arrives
+- Structure: `{ga: [(slot_name, field, dpt, direction), ...]}`
+
+**API & Manager Fixes**:
+- `api/routes_devices.py` — Updated to handle new `_ga_info` list structure
+- `core/premise_manager.py` — Added `_parse_ga()` inline (was importing non-existent module)
+- `core/premise_manager.py` — `update_device()` rebuilds `_ga_info` for live GA editing
+
+**Files Modified**: 6 files (`template_device.py`, `routes_devices.py`, `premise_manager.py`, `index.html`, `store.js`, `style.css`)
+
+**Result**: Wall switches work in Edit Mode — pressing button_1 or button_2 sends telegram to shared GA, all linked buttons and lights update correctly.
 
 ---
 

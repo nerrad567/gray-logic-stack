@@ -284,6 +284,78 @@ export function initStores() {
       }
     },
 
+    /**
+     * Toggle a device on/off (inverts current state)
+     */
+    async toggleDevice(deviceId, command, currentState) {
+      await this.sendCommand(deviceId, command, !currentState);
+    },
+
+    /**
+     * Press/release a push button (for wall switches) - momentary action
+     */
+    async pressButton(deviceId, buttonName, pressed) {
+      await this.sendCommand(deviceId, buttonName, pressed);
+    },
+
+    /**
+     * Toggle a push button on/off (latching action for simulation)
+     */
+    async toggleButton(deviceId, buttonName, currentState) {
+      await this.sendCommand(deviceId, buttonName, !currentState);
+    },
+
+    /**
+     * Check if a device is currently "on" (for visual feedback)
+     */
+    isDeviceOn(device) {
+      const state = device.state || {};
+      const type = device.type;
+
+      if (type.startsWith("light_")) {
+        return state.on === true;
+      }
+      if (
+        type === "presence" ||
+        type === "presence_detector" ||
+        type === "presence_sensor"
+      ) {
+        return state.presence === true;
+      }
+      return false;
+    },
+
+    /**
+     * Get button group addresses from a template device (for wall switches)
+     */
+    getButtonGAs(device) {
+      const gas = device.group_addresses || {};
+      const buttons = {};
+      for (const [name, ga] of Object.entries(gas)) {
+        if (name.startsWith("button_")) {
+          buttons[name] = ga;
+        }
+      }
+      return buttons;
+    },
+
+    /**
+     * Get sensor display value
+     */
+    getSensorDisplay(device) {
+      const state = device.state || {};
+      if (state.temperature !== undefined) {
+        return `${state.temperature.toFixed(1)}°C`;
+      }
+      if (state.humidity !== undefined) {
+        return `${state.humidity.toFixed(0)}%`;
+      }
+      if (state.lux !== undefined) {
+        return `${Math.round(state.lux)} lx`;
+      }
+      return "-";
+    },
+
     // ─────────────────────────────────────────────────────────
     // Actions — Floor CRUD
     // ─────────────────────────────────────────────────────────
@@ -614,21 +686,33 @@ export function initStores() {
 
     guessDPT(gaName, deviceType) {
       const name = gaName.toLowerCase();
+      // Switch/toggle types (DPT 1.001)
       if (name.includes("switch") || name.includes("on_off")) return "1.001";
+      // Push buttons and LEDs (DPT 1.001 - boolean)
+      if (name.includes("button") || name.includes("led")) return "1.001";
+      // Percentage values (DPT 5.001)
       if (
         name.includes("brightness") ||
         name.includes("position") ||
         name.includes("slat")
       )
         return "5.001";
+      // Temperature (DPT 9.001)
       if (name.includes("temperature") || name.includes("temp")) return "9.001";
+      // Humidity (DPT 9.007)
       if (name.includes("humidity")) return "9.007";
+      // Lux (DPT 9.004)
       if (name.includes("lux")) return "9.004";
+      // Presence (DPT 1.018)
       if (name.includes("presence") || name.includes("occupancy"))
         return "1.018";
+      // Scene (DPT 17.001)
       if (name.includes("scene")) return "17.001";
+      // HVAC mode (DPT 20.102)
       if (name.includes("hvac") || name.includes("mode")) return "20.102";
+      // Power (DPT 14.056)
       if (name.includes("power")) return "14.056";
+      // Energy (DPT 13.010)
       if (name.includes("energy")) return "13.010";
       return "-";
     },
@@ -701,7 +785,7 @@ export function initStores() {
       }
       return {
         ...telegram,
-        id: Date.now() + Math.random(),
+        id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
         time_formatted: timeFormatted,
       };
     },

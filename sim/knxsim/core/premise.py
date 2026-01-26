@@ -80,16 +80,17 @@ class Premise:
 
         if cls is TemplateDevice:
             template_def = config.get("template_def", {}) if config else {}
-            device = cls(
-                device_id, ind_addr, gas, initial_state, template_def=template_def
-            )
+            device = cls(device_id, ind_addr, gas, initial_state, template_def=template_def)
         else:
             device = cls(device_id, ind_addr, gas, initial_state)
         self.devices[device_id] = device
 
-        # Update GA lookup
+        # Update GA lookup (multiple devices can share the same GA)
         for ga in gas.values():
-            self._ga_map[ga] = device
+            if ga not in self._ga_map:
+                self._ga_map[ga] = []
+            if device not in self._ga_map[ga]:
+                self._ga_map[ga].append(device)
 
         logger.info(
             "Device added: %s (%s) [%s] port=%d",
@@ -106,10 +107,12 @@ class Premise:
         if not device:
             return False
 
-        # Remove GA mappings for this device
-        self._ga_map = {
-            ga: dev for ga, dev in self._ga_map.items() if dev is not device
-        }
+        # Remove device from GA mappings
+        for ga, devices in list(self._ga_map.items()):
+            if device in devices:
+                devices.remove(device)
+            if not devices:
+                del self._ga_map[ga]
         logger.info("Device removed: %s from premise %s", device_id, self.id)
         return True
 
@@ -117,6 +120,7 @@ class Premise:
         """Handle an incoming telegram from a KNXnet/IP client.
 
         Returns a list of response cEMI frames (may be empty or contain multiple).
+        All devices listening on the destination GA receive the telegram.
         """
         from knxip import constants as C
 
@@ -128,26 +132,63 @@ class Premise:
         if self._on_telegram:
             self._on_telegram(self.id, cemi_dict)
 
-        device = self._ga_map.get(dst_ga)
-        if not device:
+        devices = self._ga_map.get(dst_ga)
+        if not devices:
             return None
 
+        responses = []
+
         if apci == C.APCI_GROUP_WRITE:
-            result = device.on_group_write(dst_ga, payload)
-            # Notify state change
-            if self._on_state_change and result:
-                self._on_state_change(self.id, device.device_id, dict(device.state))
-            # Normalise to list
-            if result is None:
-                return None
-            if isinstance(result, bytes):
-                return [result]
-            return result  # Already a list
+            # Dispatch to ALL devices listening on this GA (real KNX behavior)
+            for device in devices:
+                result = device.on_group_write(dst_ga, payload)
+                # Notify state change
+                if self._on_state_change:
+                    self._on_state_change(self.id, device.device_id, dict(device.state))
+                # Collect responses
+                if result:
+                    if isinstance(result, bytes):
+                        responses.append(result)
+                    elif isinstance(result, list):
+                        responses.extend(result)
+            return responses if responses else None
+
         elif apci == C.APCI_GROUP_READ:
-            result = device.on_group_read(dst_ga)
-            return [result] if result else None
+            # For read, return first device's response
+            for device in devices:
+                result = device.on_group_read(dst_ga)
+                if result:
+                    return [result]
+            return None
 
         return None
+
+    def _dispatch_telegram(self, ga: int, payload: bytes):
+        """Dispatch a GroupWrite to local devices listening on the GA.
+
+        This simulates the KNX bus behavior where all devices on the same GA
+        receive the telegram. Used when a wall switch button sends a command
+        that should be received by lights/actuators on the same GA.
+        """
+        devices = self._ga_map.get(ga)
+        if not devices:
+            return
+
+        for device in devices:
+            # Call the device's GroupWrite handler
+            result = device.on_group_write(ga, payload)
+
+            # Notify state change
+            if self._on_state_change:
+                self._on_state_change(self.id, device.device_id, dict(device.state))
+
+            # If device returned a response (status telegram), send it
+            if result and self.server:
+                if isinstance(result, bytes):
+                    self._send_telegram_with_hook(result)
+                elif isinstance(result, list):
+                    for r in result:
+                        self._send_telegram_with_hook(r)
 
     def _send_telegram_with_hook(self, cemi: bytes):
         """Wrap server.send_telegram to also notify observers of outgoing telegrams."""
@@ -168,9 +209,7 @@ class Premise:
                         src = decoded.get("src", 0)
                         for dev in self.devices.values():
                             if dev.individual_address == src:
-                                self._on_state_change(
-                                    self.id, dev.device_id, dict(dev.state)
-                                )
+                                self._on_state_change(self.id, dev.device_id, dict(dev.state))
                                 break
             except Exception:
                 pass  # Don't break scenario on decode errors
@@ -189,9 +228,7 @@ class Premise:
         )
         self.server.start()
 
-        self.scenario_runner = ScenarioRunner(
-            send_telegram=self._send_telegram_with_hook
-        )
+        self.scenario_runner = ScenarioRunner(send_telegram=self._send_telegram_with_hook)
 
         self._running = True
         logger.info(
