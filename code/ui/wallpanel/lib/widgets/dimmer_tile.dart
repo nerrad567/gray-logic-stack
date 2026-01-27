@@ -91,27 +91,25 @@ class _DimmerTileState extends ConsumerState<DimmerTile> {
             const SizedBox(height: 8),
             // Brightness indicator + tap to toggle
             Expanded(
-              child: InkWell(
-                borderRadius: BorderRadius.circular(32),
-                splashFactory: NoSplash.splashFactory,
-                highlightColor: Colors.transparent,
-                hoverColor: activeColour.withValues(alpha: 0.05),
+              child: GestureDetector(
                 onTap: isOnline && !isPending ? _onTapToggle : null,
-                mouseCursor: isOnline && !isPending
-                    ? SystemMouseCursors.click
-                    : SystemMouseCursors.basic,
-                child: Center(
-                  child: isPending
-                      ? _PendingBrightnessIndicator(
-                          level: displayLevel,
-                          isOn: isOn,
-                          activeColour: activeColour,
-                        )
-                      : _BrightnessIndicator(
-                          level: displayLevel,
-                          isOn: isOn,
-                          activeColour: activeColour,
-                        ),
+                child: MouseRegion(
+                  cursor: isOnline && !isPending
+                      ? SystemMouseCursors.click
+                      : SystemMouseCursors.basic,
+                  child: Center(
+                    child: isPending
+                        ? _PendingBrightnessIndicator(
+                            level: displayLevel,
+                            isOn: isOn,
+                            activeColour: activeColour,
+                          )
+                        : _BrightnessIndicator(
+                            level: displayLevel,
+                            isOn: isOn,
+                            activeColour: activeColour,
+                          ),
+                  ),
                 ),
               ),
             ),
