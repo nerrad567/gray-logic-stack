@@ -1,11 +1,233 @@
+# ============================================
+# Gray Logic Stack - Root .gitignore
+# ============================================
+
+# ====================
+# Project-Specific
+# ====================
+
 # Claude Code audit tracking (local state)
 .claude/audit-history.json
-
-# Python bytecode
-__pycache__/
 
 # Specification PDFs (copyrighted, not for distribution)
 docs/specs/
 
 # Business documents (competitive intelligence, pricing - keep private)
 docs/business/
+
+# Local notes and scratchpad
+notes/private/
+scratch/
+
+# ====================
+# Environment & Secrets
+# ====================
+
+# Environment files (may contain secrets)
+.env
+.env.*
+*.env
+!.env.example
+!.env.template
+
+# Secrets and credentials
+*.pem
+*.key
+*.crt
+*.p12
+*.pfx
+secrets/
+credentials/
+*.secret
+
+# ====================
+# Build Artifacts
+# ====================
+
+# Go binaries
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+
+# Test binaries
+*.test
+
+# Output directories
+dist/
+out/
+build/
+target/
+
+# Coverage reports
+*.out
+coverage.*
+*.coverprofile
+
+# ====================
+# Dependencies
+# ====================
+
+# Go vendor (if not committed)
+# vendor/
+
+# Node modules
+node_modules/
+
+# Python
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+*.egg-info/
+.eggs/
+venv/
+.venv/
+ENV/
+
+# ====================
+# IDE & Editors
+# ====================
+
+# JetBrains (IntelliJ, GoLand, Android Studio)
+.idea/
+*.iml
+*.ipr
+*.iws
+
+# VS Code
+.vscode/
+*.code-workspace
+
+# Vim/Neovim
+*.swp
+*.swo
+*.swn
+*~
+.netrwhist
+tags
+
+# Emacs
+*~
+\#*\#
+/.emacs.desktop
+/.emacs.desktop.lock
+*.elc
+auto-save-list
+tramp
+
+# Sublime Text
+*.sublime-project
+*.sublime-workspace
+
+# Zed (keep settings, ignore local state)
+.zed/local/
+
+# ====================
+# Operating System
+# ====================
+
+# macOS
+.DS_Store
+.AppleDouble
+.LSOverride
+._*
+.Spotlight-V100
+.Trashes
+
+# Windows
+Thumbs.db
+Thumbs.db:encryptable
+ehthumbs.db
+ehthumbs_vista.db
+Desktop.ini
+$RECYCLE.BIN/
+*.lnk
+
+# Linux
+*~
+.fuse_hidden*
+.directory
+.Trash-*
+
+# ====================
+# Logs & Databases
+# ====================
+
+# Logs
+*.log
+logs/
+log/
+
+# Databases (local development)
+*.db
+*.sqlite
+*.sqlite3
+data/*.db
+
+# InfluxDB local data
+influxdb-data/
+
+# ====================
+# Temporary Files
+# ====================
+
+# Temp directories
+tmp/
+temp/
+.tmp/
+.temp/
+
+# Backup files
+*.bak
+*.backup
+*.old
+
+# ====================
+# Docker
+# ====================
+
+# Docker local overrides
+docker-compose.override.yml
+docker-compose.local.yml
+
+# ====================
+# Testing
+# ====================
+
+# Test output
+test-results/
+test-output/
+junit*.xml
+
+# Playwright / E2E
+playwright-report/
+test-results/
+
+# ====================
+# Misc
+# ====================
+
+# Archives
+*.zip
+*.tar.gz
+*.tgz
+*.rar
+*.7z
+
+# Large media files (if accidentally added)
+*.mp4
+*.mov
+*.avi
+*.mkv
+
+# Core dumps
+core
+core.*
+
+# Profiling
+*.prof
+*.pprof
+cpu.out
+mem.out
