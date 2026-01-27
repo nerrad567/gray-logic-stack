@@ -6,6 +6,7 @@ group_addresses:
   temperature:
     dpt: "9.001"
     direction: status
+    flags: "CR-T--"
     description: Current temperature reading
 initial_state:
   temperature: 21.5

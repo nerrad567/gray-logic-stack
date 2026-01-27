@@ -6,18 +6,22 @@ group_addresses:
   move_cmd:
     dpt: "1.008"
     direction: write
-    description: Up/Down command
+    flags: "C-W---"
+    description: Up/Down command (0=Up, 1=Down)
   stop_cmd:
     dpt: "1.010"
     direction: write
+    flags: "C-W---"
     description: Stop/Start command
   position_cmd:
     dpt: "5.001"
     direction: write
+    flags: "C-W-U-"
     description: Position command (0%=open, 100%=closed)
   position_status:
     dpt: "5.001"
     direction: status
+    flags: "CR-T--"
     description: Current position feedback
 initial_state:
   position: 0

@@ -715,6 +715,29 @@ select:focus {
   color: var(--accent-blue);
 }
 
+/* Flags column */
+.flags-cell {
+  font-family: var(--font-mono);
+}
+
+.flags-display {
+  background: var(--bg-primary);
+  padding: 2px 6px;
+  border-radius: 3px;
+  font-size: 11px;
+  letter-spacing: 1px;
+  color: var(--accent-purple);
+  cursor: help;
+}
+
+.flags-legend {
+  margin-top: var(--spacing-sm);
+  padding-top: var(--spacing-sm);
+  border-top: 1px solid var(--border-secondary);
+  color: var(--text-muted);
+  font-size: 10px;
+}
+
 /* State Display */
 .state-display {
   background: var(--bg-primary);

@@ -6,18 +6,22 @@ group_addresses:
   switch_cmd:
     dpt: "1.001"
     direction: write
+    flags: "C-W-U-"
     description: On/Off command
   switch_status:
     dpt: "1.001"
     direction: status
+    flags: "CR-T--"
     description: On/Off feedback
   brightness_cmd:
     dpt: "5.001"
     direction: write
+    flags: "C-W-U-"
     description: Brightness command (0-100%)
   brightness_status:
     dpt: "5.001"
     direction: status
+    flags: "CR-T--"
     description: Brightness feedback
 initial_state:
   on: false

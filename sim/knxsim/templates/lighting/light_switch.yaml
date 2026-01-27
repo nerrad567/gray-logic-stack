@@ -6,10 +6,12 @@ group_addresses:
   switch_cmd:
     dpt: "1.001"
     direction: write
+    flags: "C-W-U-"
     description: On/Off command
   switch_status:
     dpt: "1.001"
     direction: status
+    flags: "CR-T--"
     description: On/Off feedback
 initial_state:
   on: false

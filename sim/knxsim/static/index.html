@@ -330,6 +330,7 @@
                         <th>Name</th>
                         <th>GA</th>
                         <th>DPT</th>
+                        <th>Flags</th>
                       </tr>
                     </thead>
                     <tbody>
@@ -337,25 +338,40 @@
                         x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
                       >
                         <tr>
-                          <td colspan="3" style="color: var(--text-muted)">
+                          <td colspan="4" style="color: var(--text-muted)">
                             No group addresses
                           </td>
                         </tr>
                       </template>
                       <template
-                        x-for="[name, ga] in Object.entries($store.app.selectedDevice.group_addresses || {})"
+                        x-for="[name, gaData] in Object.entries($store.app.selectedDevice.group_addresses || {})"
                         :key="name"
                       >
                         <tr>
                           <td x-text="name"></td>
-                          <td x-text="ga"></td>
                           <td
-                            x-text="$store.app.guessDPT(name, $store.app.selectedDevice.type)"
+                            x-text="typeof gaData === 'object' ? gaData.ga : gaData"
                           ></td>
+                          <td
+                            x-text="typeof gaData === 'object' ? gaData.dpt : $store.app.guessDPT(name, $store.app.selectedDevice.type)"
+                          ></td>
+                          <td class="flags-cell">
+                            <span
+                              class="flags-display"
+                              x-text="typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name)"
+                              :title="$store.app.getFlagsTooltip(typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name))"
+                            ></span>
+                          </td>
                         </tr>
                       </template>
                     </tbody>
                   </table>
+                  <div class="flags-legend">
+                    <small
+                      >C=Communicate R=Read W=Write T=Transmit U=Update
+                      I=Init</small
+                    >
+                  </div>
                 </div>
 
                 <!-- Current State -->

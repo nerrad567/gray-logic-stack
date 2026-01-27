@@ -716,6 +716,51 @@ export function initStores() {
       if (name.includes("energy")) return "13.010";
       return "-";
     },
+
+    // Guess KNX communication flags based on GA name
+    guessFlags(gaName) {
+      const name = gaName.toLowerCase();
+      // Status/feedback objects - read + transmit
+      if (name.includes("status") || name.includes("feedback")) {
+        return "CR-T--";
+      }
+      // Buttons/switches that transmit - transmit only
+      if (name.includes("button") || name.includes("press")) {
+        return "C--T--";
+      }
+      // Command objects - write + update
+      if (name.includes("cmd") || name.includes("command")) {
+        return "C-W-U-";
+      }
+      // Sensor readings - read + transmit
+      if (
+        name.includes("temperature") ||
+        name.includes("humidity") ||
+        name.includes("lux") ||
+        name.includes("sensor")
+      ) {
+        return "CR-T--";
+      }
+      // LED feedback - write + update (receives status)
+      if (name.includes("led")) {
+        return "C-W-U-";
+      }
+      // Default: write + update (typical for command inputs)
+      return "C-W-U-";
+    },
+
+    // Get tooltip explaining what each flag means
+    getFlagsTooltip(flags) {
+      if (!flags || flags === "-") return "No flags set";
+      const explanations = [];
+      if (flags[0] === "C") explanations.push("C: Communication enabled");
+      if (flags[1] === "R") explanations.push("R: Can be read");
+      if (flags[2] === "W") explanations.push("W: Can be written");
+      if (flags[3] === "T") explanations.push("T: Transmits on change");
+      if (flags[4] === "U") explanations.push("U: Updates from bus");
+      if (flags[5] === "I") explanations.push("I: Reads at startup");
+      return explanations.join("\n") || "No flags set";
+    },
   });
 
   // ─────────────────────────────────────────────────────────────
