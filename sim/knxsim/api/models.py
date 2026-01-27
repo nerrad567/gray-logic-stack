@@ -8,6 +8,23 @@ from typing import Any
 from pydantic import BaseModel, Field
 
 # ---------------------------------------------------------------------------
+# Group Address with metadata
+# ---------------------------------------------------------------------------
+
+
+class GroupAddressInfo(BaseModel):
+    """Extended group address info with DPT and flags."""
+
+    ga: str = Field(..., description="Group address (e.g., '1/2/3')")
+    dpt: str = Field(default="1.001", description="Datapoint type")
+    flags: str = Field(default="C-W-U-", description="KNX flags (CRWTUI)")
+    description: str = Field(default="", description="Human-readable description")
+
+
+# Type alias: GA can be string (legacy) or object (new)
+GroupAddressValue = str | GroupAddressInfo | dict[str, Any]
+
+# ---------------------------------------------------------------------------
 # Premises
 # ---------------------------------------------------------------------------
 
@@ -41,7 +58,7 @@ class DeviceCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     type: str = Field(..., min_length=1)
     individual_address: str = Field(..., min_length=3)
-    group_addresses: dict[str, str] = Field(default_factory=dict)
+    group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
     room_id: str | None = None
 
@@ -49,7 +66,7 @@ class DeviceCreate(BaseModel):
 class DeviceUpdate(BaseModel):
     room_id: str | None = None
     individual_address: str | None = None
-    group_addresses: dict[str, str] | None = None
+    group_addresses: dict[str, GroupAddressValue] | None = None
 
 
 class DevicePlacement(BaseModel):
@@ -69,7 +86,7 @@ class DeviceResponse(BaseModel):
     room_id: str | None = None
     type: str
     individual_address: str
-    group_addresses: dict[str, str] = Field(default_factory=dict)
+    group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     state: dict[str, Any] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
     created_at: str | None = None

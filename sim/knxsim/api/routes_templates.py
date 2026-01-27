@@ -1,5 +1,6 @@
 """Template browsing and from-template device creation routes."""
 
+from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
 from pydantic import BaseModel, Field
@@ -14,9 +15,7 @@ router = APIRouter(tags=["templates"])
 
 class FromTemplateRequest(BaseModel):
     template_id: str = Field(..., description="Template type to instantiate")
-    device_id: str = Field(
-        ..., min_length=1, max_length=64, description="Unique device ID"
-    )
+    device_id: str = Field(..., min_length=1, max_length=64, description="Unique device ID")
     individual_address: str = Field(
         ..., min_length=3, description="KNX individual address (e.g., 1.1.10)"
     )
@@ -24,6 +23,30 @@ class FromTemplateRequest(BaseModel):
         ..., description="Mapping of template GA slots to actual group addresses"
     )
     room_id: str | None = Field(default=None, description="Room to place device in")
+
+
+def _merge_ga_with_template(
+    user_gas: dict[str, str], template_gas: dict[str, Any]
+) -> dict[str, dict[str, Any]]:
+    """Merge user-provided GA strings with template metadata (DPT, flags, etc).
+
+    Args:
+        user_gas: User-provided mapping of slot names to GA strings
+        template_gas: Template definition with DPT, flags, direction, description
+
+    Returns:
+        Merged dict with full GA info objects
+    """
+    result = {}
+    for slot_name, ga_string in user_gas.items():
+        template_info = template_gas.get(slot_name, {})
+        result[slot_name] = {
+            "ga": ga_string,
+            "dpt": template_info.get("dpt", "1.001"),
+            "flags": template_info.get("flags", "C-W-U-"),
+            "description": template_info.get("description", ""),
+        }
+    return result
 
 
 # ---------------------------------------------------------------------------
@@ -80,9 +103,7 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
     # Validate template exists
     template = loader.get_template(body.template_id)
     if not template:
-        raise HTTPException(
-            status_code=404, detail=f"Template not found: {body.template_id}"
-        )
+        raise HTTPException(status_code=404, detail=f"Template not found: {body.template_id}")
 
     # Check for duplicate device ID
     if manager.get_device(body.device_id):
@@ -98,12 +119,15 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
             detail=f"Missing required group addresses: {sorted(missing)}",
         )
 
+    # Merge user-provided GAs with template metadata (DPT, flags, etc)
+    merged_gas = _merge_ga_with_template(body.group_addresses, template.group_addresses)
+
     # Create device using the template_device type
     device_data = {
         "id": body.device_id,
         "type": "template_device",
         "individual_address": body.individual_address,
-        "group_addresses": body.group_addresses,
+        "group_addresses": merged_gas,
         "initial_state": dict(template.initial_state),
         "room_id": body.room_id,
         "config": {

@@ -238,35 +238,30 @@ class ETSWarning {
 /// Statistics from the parse operation.
 class ETSStatistics {
   final int totalGroupAddresses;
-  final int mappedAddresses;
-  final int unmappedAddresses;
   final int detectedDevices;
-  final Map<String, int> devicesByType;
-  final Map<String, int> devicesByDomain;
+  final int highConfidence;
+  final int mediumConfidence;
+  final int lowConfidence;
+  final int unmappedAddresses;
 
   const ETSStatistics({
     this.totalGroupAddresses = 0,
-    this.mappedAddresses = 0,
-    this.unmappedAddresses = 0,
     this.detectedDevices = 0,
-    this.devicesByType = const {},
-    this.devicesByDomain = const {},
+    this.highConfidence = 0,
+    this.mediumConfidence = 0,
+    this.lowConfidence = 0,
+    this.unmappedAddresses = 0,
   });
 
   factory ETSStatistics.fromJson(Map<String, dynamic> json) {
     return ETSStatistics(
       totalGroupAddresses: (json['total_group_addresses'] as num?)?.toInt() ?? 0,
-      mappedAddresses: (json['mapped_addresses'] as num?)?.toInt() ?? 0,
-      unmappedAddresses: (json['unmapped_addresses'] as num?)?.toInt() ?? 0,
       detectedDevices: (json['detected_devices'] as num?)?.toInt() ?? 0,
-      devicesByType: _asIntMap(json['devices_by_type']),
-      devicesByDomain: _asIntMap(json['devices_by_domain']),
+      highConfidence: (json['high_confidence'] as num?)?.toInt() ?? 0,
+      mediumConfidence: (json['medium_confidence'] as num?)?.toInt() ?? 0,
+      lowConfidence: (json['low_confidence'] as num?)?.toInt() ?? 0,
+      unmappedAddresses: (json['unmapped_addresses'] as num?)?.toInt() ?? 0,
     );
-  }
-
-  static Map<String, int> _asIntMap(dynamic value) {
-    if (value is! Map) return {};
-    return value.map((k, v) => MapEntry(k.toString(), (v as num).toInt()));
   }
 }
 

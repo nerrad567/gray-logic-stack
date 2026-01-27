@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css" />
+    <link rel="stylesheet" href="css/style.css?v=4" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -324,48 +324,52 @@
                 <!-- Group Addresses -->
                 <div class="detail-section">
                   <h4>Group Addresses</h4>
-                  <table class="ga-table">
-                    <thead>
-                      <tr>
-                        <th>Name</th>
-                        <th>GA</th>
-                        <th>DPT</th>
-                        <th>Flags</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      <template
-                        x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
-                      >
+                  <div class="ga-table-wrapper">
+                    <table class="ga-table">
+                      <thead>
                         <tr>
-                          <td colspan="4" style="color: var(--text-muted)">
-                            No group addresses
-                          </td>
+                          <th class="ga-col-name">Name</th>
+                          <th class="ga-col-ga">GA</th>
+                          <th class="ga-col-dpt">DPT</th>
+                          <th class="ga-col-flags">Flags</th>
                         </tr>
-                      </template>
-                      <template
-                        x-for="[name, gaData] in Object.entries($store.app.selectedDevice.group_addresses || {})"
-                        :key="name"
-                      >
-                        <tr>
-                          <td x-text="name"></td>
-                          <td
-                            x-text="typeof gaData === 'object' ? gaData.ga : gaData"
-                          ></td>
-                          <td
-                            x-text="typeof gaData === 'object' ? gaData.dpt : $store.app.guessDPT(name, $store.app.selectedDevice.type)"
-                          ></td>
-                          <td class="flags-cell">
-                            <span
-                              class="flags-display"
-                              x-text="typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name)"
-                              :title="$store.app.getFlagsTooltip(typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name))"
-                            ></span>
-                          </td>
-                        </tr>
-                      </template>
-                    </tbody>
-                  </table>
+                      </thead>
+                      <tbody>
+                        <template
+                          x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
+                        >
+                          <tr>
+                            <td colspan="4" class="ga-empty">
+                              No group addresses
+                            </td>
+                          </tr>
+                        </template>
+                        <template
+                          x-for="[name, gaData] in Object.entries($store.app.selectedDevice.group_addresses || {})"
+                          :key="name"
+                        >
+                          <tr>
+                            <td class="ga-col-name" x-text="name"></td>
+                            <td
+                              class="ga-col-ga mono"
+                              x-text="typeof gaData === 'object' ? gaData.ga : gaData"
+                            ></td>
+                            <td
+                              class="ga-col-dpt"
+                              x-text="typeof gaData === 'object' && gaData.dpt ? gaData.dpt : $store.app.guessDPT(name, $store.app.selectedDevice.type)"
+                            ></td>
+                            <td class="ga-col-flags">
+                              <span
+                                class="flags-display"
+                                x-text="typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name)"
+                                :title="$store.app.getFlagsTooltip(typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name))"
+                              ></span>
+                            </td>
+                          </tr>
+                        </template>
+                      </tbody>
+                    </table>
+                  </div>
                   <div class="flags-legend">
                     <small
                       >C=Communicate R=Read W=Write T=Transmit U=Update
@@ -595,7 +599,12 @@
       </main>
 
       <!-- Telegram Inspector -->
-      <section class="telegram-inspector">
+      <section
+        class="telegram-inspector"
+        x-data="telegramResizer()"
+        :style="{ height: height + 'px' }"
+      >
+        <div class="telegram-resize-handle" @mousedown="startResize"></div>
         <div class="inspector-header">
           <h3>Telegram Inspector</h3>
           <div class="inspector-controls">
@@ -636,6 +645,7 @@
           <div class="telegram-header">
             <span>Time</span>
             <span>Dir</span>
+            <span>Source</span>
             <span>APCI</span>
             <span>Group Address</span>
             <span>Device</span>
@@ -666,6 +676,10 @@
                   class="telegram-dir"
                   :class="telegram.direction"
                   x-text="telegram.direction === 'rx' ? '← RX' : '→ TX'"
+                ></span>
+                <span
+                  class="telegram-source"
+                  x-text="telegram.source || '-'"
                 ></span>
                 <span
                   class="telegram-apci"
@@ -982,23 +996,51 @@
             <div class="form-group">
               <label>Group Addresses</label>
               <div class="ga-editor">
+                <div class="ga-editor-header">
+                  <span class="ga-editor-col-name">Name</span>
+                  <span class="ga-editor-col-ga">GA</span>
+                  <span class="ga-editor-col-dpt">DPT</span>
+                  <span class="ga-editor-col-flags">Flags</span>
+                </div>
                 <template
-                  x-for="(ga, name) in form.group_addresses"
+                  x-for="(gaData, name) in form.group_addresses"
                   :key="name"
                 >
                   <div class="ga-row">
                     <input type="text" :value="name" disabled class="ga-name" />
                     <input
                       type="text"
-                      x-model="form.group_addresses[name]"
-                      placeholder="e.g., 1/0/1"
+                      :value="typeof gaData === 'object' ? gaData.ga : gaData"
+                      @input="updateGA(name, 'ga', $event.target.value)"
+                      placeholder="1/0/1"
                       class="ga-value"
+                    />
+                    <input
+                      type="text"
+                      :value="typeof gaData === 'object' ? gaData.dpt : ''"
+                      @input="updateGA(name, 'dpt', $event.target.value)"
+                      placeholder="1.001"
+                      class="ga-dpt"
+                    />
+                    <input
+                      type="text"
+                      :value="typeof gaData === 'object' ? gaData.flags : ''"
+                      @input="updateGA(name, 'flags', $event.target.value)"
+                      placeholder="C-W-U-"
+                      class="ga-flags"
+                      maxlength="6"
                     />
                   </div>
                 </template>
                 <button class="btn btn-small" @click="addGA()" type="button">
                   + Add GA
                 </button>
+              </div>
+              <div class="ga-editor-hint">
+                <small
+                  >Flags: C=Communicate R=Read W=Write T=Transmit U=Update
+                  I=Init</small
+                >
               </div>
             </div>
           </div>
@@ -1229,33 +1271,77 @@
                   this.$store.modal.mode === "edit" &&
                   this.$store.modal.data
                 ) {
+                  // Deep copy and normalize GA data to object format
+                  const normalizedGAs = {};
+                  for (const [name, gaData] of Object.entries(
+                    this.$store.modal.data.group_addresses || {},
+                  )) {
+                    if (typeof gaData === "object") {
+                      normalizedGAs[name] = { ...gaData };
+                    } else {
+                      // Convert legacy string format to object
+                      normalizedGAs[name] = {
+                        ga: gaData,
+                        dpt: this.$store.app.guessDPT(
+                          name,
+                          this.$store.modal.data.type,
+                        ),
+                        flags: this.$store.app.guessFlags(name),
+                      };
+                    }
+                  }
                   this.form = {
                     ...this.$store.modal.data,
-                    group_addresses: {
-                      ...this.$store.modal.data.group_addresses,
-                    },
+                    group_addresses: normalizedGAs,
                   };
                 } else {
                   const template = this.$store.modal.data?.template;
+                  // Convert template GAs to editable format
+                  const templateGAs = {};
+                  if (template?.group_addresses) {
+                    for (const [name, gaDef] of Object.entries(
+                      template.group_addresses,
+                    )) {
+                      templateGAs[name] = {
+                        ga: "",
+                        dpt: gaDef.dpt || "1.001",
+                        flags: gaDef.flags || "C-W-U-",
+                      };
+                    }
+                  }
                   this.form = {
                     id: template
-                      ? `${template.type}-${Date.now().toString(36)}`
+                      ? `${template.id}-${Date.now().toString(36)}`
                       : "",
-                    type: template?.type || "light_switch",
+                    type: template?.id || "light_switch",
                     individual_address: "",
                     room_id: "",
-                    group_addresses: template?.group_addresses
-                      ? { ...template.group_addresses }
-                      : {},
+                    group_addresses: templateGAs,
                   };
                 }
               }
             });
           },
+          // Update a specific field within a GA object
+          updateGA(name, field, value) {
+            if (typeof this.form.group_addresses[name] !== "object") {
+              // Convert to object if it was a string
+              this.form.group_addresses[name] = {
+                ga: this.form.group_addresses[name] || "",
+                dpt: "",
+                flags: "",
+              };
+            }
+            this.form.group_addresses[name][field] = value;
+          },
           addGA() {
             const name = prompt("Group address name:");
             if (name) {
-              this.form.group_addresses[name] = "";
+              this.form.group_addresses[name] = {
+                ga: "",
+                dpt: "1.001",
+                flags: "C-W-U-",
+              };
             }
           },
           async submit() {
@@ -1296,6 +1382,49 @@
       // Device controls component (placeholder for future enhancements)
       function deviceControls() {
         return {};
+      }
+
+      // Telegram inspector resizer component
+      function telegramResizer() {
+        return {
+          height:
+            parseInt(localStorage.getItem("telegramInspectorHeight")) || 200,
+          minHeight: 100,
+          maxHeight: window.innerHeight * 0.7,
+          startY: 0,
+          startHeight: 0,
+
+          startResize(e) {
+            this.startY = e.clientY;
+            this.startHeight = this.height;
+
+            const onMouseMove = (e) => {
+              const delta = this.startY - e.clientY;
+              const newHeight = Math.min(
+                this.maxHeight,
+                Math.max(this.minHeight, this.startHeight + delta),
+              );
+              this.height = newHeight;
+            };
+
+            const onMouseUp = () => {
+              document.removeEventListener("mousemove", onMouseMove);
+              document.removeEventListener("mouseup", onMouseUp);
+              document.body.style.cursor = "";
+              document.body.style.userSelect = "";
+              // Save to localStorage
+              localStorage.setItem(
+                "telegramInspectorHeight",
+                this.height.toString(),
+              );
+            };
+
+            document.addEventListener("mousemove", onMouseMove);
+            document.addEventListener("mouseup", onMouseUp);
+            document.body.style.cursor = "ns-resize";
+            document.body.style.userSelect = "none";
+          },
+        };
       }
     </script>
   </body>
