@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -15,7 +16,10 @@ class ConfigScreen extends ConsumerStatefulWidget {
 
 class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   final _formKey = GlobalKey<FormState>();
-  final _coreUrlController = TextEditingController(text: 'http://192.168.4.100:8081');
+  // On web, auto-detect host from browser; on native, use placeholder
+  final _coreUrlController = TextEditingController(
+    text: kIsWeb ? Uri.base.origin : '',
+  );
   final _roomIdController = TextEditingController();
   final _usernameController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: 'admin');
