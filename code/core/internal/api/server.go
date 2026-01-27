@@ -32,6 +32,13 @@ import (
 // to complete during shutdown.
 const gracefulShutdownTimeout = 10 * time.Second
 
+// KNXBridgeReloader is an interface for reloading KNX bridge device mappings.
+// This allows the API server to trigger a device reload after ETS import
+// without creating a circular dependency on the knx package.
+type KNXBridgeReloader interface {
+	ReloadDevices(ctx context.Context)
+}
+
 // Deps holds the dependencies required by the API server.
 type Deps struct {
 	Config        config.APIConfig
@@ -70,6 +77,7 @@ type Server struct {
 	hub           *Hub
 	externalHub   bool               // true if hub was injected externally
 	cancel        context.CancelFunc // cancels background goroutines on Close()
+	knxBridge     KNXBridgeReloader  // optional: for reloading devices after ETS import
 }
 
 // New creates a new API server with the given dependencies.
@@ -114,6 +122,13 @@ func New(deps Deps) (*Server, error) {
 	}
 
 	return s, nil
+}
+
+// SetKNXBridge sets the KNX bridge for device reload after ETS import.
+// This is called after both the API server and KNX bridge are created,
+// since they have a startup order dependency.
+func (s *Server) SetKNXBridge(bridge KNXBridgeReloader) {
+	s.knxBridge = bridge
 }
 
 // Start begins listening for HTTP connections.

@@ -221,6 +221,15 @@ func (s *Server) handleETSImport(w http.ResponseWriter, r *http.Request) {
 		"dry_run", req.Options.DryRun,
 	)
 
+	// Reload KNX bridge device mappings if devices were created/updated
+	// This allows the bridge to control newly imported devices without restart
+	if !req.Options.DryRun && (response.Created > 0 || response.Updated > 0) {
+		if s.knxBridge != nil {
+			s.knxBridge.ReloadDevices(r.Context())
+			s.logger.Info("KNX bridge devices reloaded after ETS import")
+		}
+	}
+
 	writeJSON(w, http.StatusOK, response)
 }
 

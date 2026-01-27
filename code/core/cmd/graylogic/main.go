@@ -295,6 +295,9 @@ func run(ctx context.Context) error {
 			log.Info("stopping KNX bridge")
 			knxBridge.Stop()
 		}()
+
+		// Wire KNX bridge to API server for device reload after ETS import
+		apiServer.SetKNXBridge(knxBridge)
 	} else {
 		log.Info("KNX bridge disabled")
 	}

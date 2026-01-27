@@ -351,6 +351,13 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 	}
 }
 
+// ReloadDevices reloads device mappings from the registry.
+// Call this after ETS import or other operations that create new KNX devices
+// so the bridge can control them without requiring a restart.
+func (b *Bridge) ReloadDevices(ctx context.Context) {
+	b.loadDevicesFromRegistry(ctx)
+}
+
 // inferFlagsFromFunction returns appropriate flags based on the function name.
 func inferFlagsFromFunction(fn string) []string {
 	fnLower := strings.ToLower(fn)
