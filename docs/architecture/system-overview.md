@@ -144,7 +144,7 @@ Bridges are separate processes that handle protocol-specific communication. They
 | Bridge | Protocol | Hardware |
 |--------|----------|----------|
 | **KNX Bridge** | KNX TP / KNX IP | Via knxd daemon |
-| **DALI Bridge** | DALI-2 | Via any DALI gateway (protocol-agnostic) |
+| **DALI Bridge** | DALI-2 (Hybrid) | Residential: Via KNX Gateway<br>Commercial: Via LogicMachine (Dual-Homed) |
 | **Modbus Bridge** | Modbus RTU/TCP | Direct or via converter |
 | **Audio Matrix** | RS232/IP | HTD, Russound, AudioControl |
 | **Video Matrix** | RS232/IP | Atlona, WyreStorm, etc. |
