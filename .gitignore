@@ -6,3 +6,6 @@ __pycache__/
 
 # Specification PDFs (copyrighted, not for distribution)
 docs/specs/
+
+# Business documents (competitive intelligence, pricing - keep private)
+docs/business/
