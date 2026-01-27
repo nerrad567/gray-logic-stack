@@ -7,6 +7,7 @@ import '../models/area.dart';
 import '../models/auth.dart';
 import '../models/device.dart';
 import '../models/ets_import.dart';
+import '../models/discovery.dart';
 import '../models/metrics.dart';
 import '../models/room.dart';
 import '../models/scene.dart';
@@ -135,6 +136,12 @@ class ApiClient {
   Future<SystemMetrics> getMetrics() async {
     final response = await _dio.get('/metrics');
     return SystemMetrics.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Get passive KNX bus discovery data (group addresses and devices seen).
+  Future<DiscoveryData> getDiscovery() async {
+    final response = await _dio.get('/discovery');
+    return DiscoveryData.fromJson(response.data as Map<String, dynamic>);
   }
 
   // --- Device Management ---

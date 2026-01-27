@@ -55,9 +55,10 @@ type KNXMetricsProvider interface {
 	GetMetrics() KNXBridgeMetrics
 }
 
-// DBStatsProvider is an interface for getting database statistics.
+// DBStatsProvider is an interface for getting database statistics and access.
 type DBStatsProvider interface {
 	Stats() sql.DBStats
+	SqlDB() *sql.DB // Returns the underlying *sql.DB for queries
 }
 
 // Deps holds the dependencies required by the API server.

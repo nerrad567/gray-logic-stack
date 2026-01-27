@@ -20,8 +20,8 @@ class RoomNavBar extends ConsumerWidget {
     return locationAsync.when(
       data: (data) {
         final roomsByArea = data.roomsByArea;
-        if (roomsByArea.isEmpty) return const SizedBox.shrink();
 
+        // Always show the nav bar with settings menu, even if no rooms
         return Container(
           height: 52,
           decoration: BoxDecoration(
@@ -33,71 +33,93 @@ class RoomNavBar extends ConsumerWidget {
           ),
           child: Row(
             children: [
-              // Room pills (scrollable)
+              // Room pills (scrollable) - or empty space if no rooms
               Expanded(
-                child: ListView(
-                  scrollDirection: Axis.horizontal,
-                  padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-                  children: [
-                    for (final entry in roomsByArea.entries) ...[
-                      // Area label
-                      Center(
-                        child: Padding(
-                          padding: const EdgeInsets.only(right: 8),
-                          child: Text(
-                            entry.key.name,
-                            style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                                  color: Colors.grey.shade500,
-                                  fontWeight: FontWeight.w600,
-                                  letterSpacing: 0.5,
+                child: roomsByArea.isEmpty
+                    ? const SizedBox.shrink()
+                    : ListView(
+                        scrollDirection: Axis.horizontal,
+                        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+                        children: [
+                          for (final entry in roomsByArea.entries) ...[
+                            // Area label
+                            Center(
+                              child: Padding(
+                                padding: const EdgeInsets.only(right: 8),
+                                child: Text(
+                                  entry.key.name,
+                                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                                        color: Colors.grey.shade500,
+                                        fontWeight: FontWeight.w600,
+                                        letterSpacing: 0.5,
+                                      ),
                                 ),
-                          ),
-                        ),
+                              ),
+                            ),
+                            // Room pills
+                            for (final room in entry.value)
+                              Padding(
+                                padding: const EdgeInsets.only(right: 6),
+                                child: ChoiceChip(
+                                  label: Text(room.name),
+                                  selected: room.id == selectedRoom,
+                                  onSelected: (_) {
+                                    ref.read(selectedRoomProvider.notifier).state = room.id;
+                                  },
+                                  labelStyle: TextStyle(
+                                    fontSize: 13,
+                                    color: room.id == selectedRoom
+                                        ? Theme.of(context).colorScheme.onPrimary
+                                        : null,
+                                  ),
+                                  selectedColor: Theme.of(context).colorScheme.primary,
+                                  visualDensity: VisualDensity.compact,
+                                ),
+                              ),
+                            // Separator between areas
+                            if (entry.key != roomsByArea.keys.last)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(horizontal: 8),
+                                child: Center(
+                                  child: Container(
+                                    width: 1,
+                                    height: 20,
+                                    color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ],
                       ),
-                      // Room pills
-                      for (final room in entry.value)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: ChoiceChip(
-                            label: Text(room.name),
-                            selected: room.id == selectedRoom,
-                            onSelected: (_) {
-                              ref.read(selectedRoomProvider.notifier).state = room.id;
-                            },
-                            labelStyle: TextStyle(
-                              fontSize: 13,
-                              color: room.id == selectedRoom
-                                  ? Theme.of(context).colorScheme.onPrimary
-                                  : null,
-                            ),
-                            selectedColor: Theme.of(context).colorScheme.primary,
-                            visualDensity: VisualDensity.compact,
-                          ),
-                        ),
-                      // Separator between areas
-                      if (entry.key != roomsByArea.keys.last)
-                        Padding(
-                          padding: const EdgeInsets.symmetric(horizontal: 8),
-                          child: Center(
-                            child: Container(
-                              width: 1,
-                              height: 20,
-                              color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
-                            ),
-                          ),
-                        ),
-                    ],
-                  ],
-                ),
               ),
-              // Settings menu
+              // Settings menu - always visible
               _SettingsMenu(ref: ref),
             ],
           ),
         );
       },
       loading: () => const SizedBox(height: 52),
-      error: (_, _) => const SizedBox.shrink(),
+      error: (_, _) => _buildErrorBar(context, ref),
+    );
+  }
+
+  /// Build a minimal nav bar with just settings when there's an error loading locations.
+  Widget _buildErrorBar(BuildContext context, WidgetRef ref) {
+    return Container(
+      height: 52,
+      decoration: BoxDecoration(
+        border: Border(
+          bottom: BorderSide(
+            color: Theme.of(context).dividerColor.withValues(alpha: 0.3),
+          ),
+        ),
+      ),
+      child: Row(
+        children: [
+          const Spacer(),
+          _SettingsMenu(ref: ref),
+        ],
+      ),
     );
   }
 }

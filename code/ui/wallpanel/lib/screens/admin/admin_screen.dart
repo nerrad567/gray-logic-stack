@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'devices_tab.dart';
+import 'discovery_tab.dart';
 import 'import_tab.dart';
 import 'metrics_tab.dart';
 
@@ -9,6 +10,7 @@ import 'metrics_tab.dart';
 ///
 /// Tabs:
 /// - Metrics: System monitoring dashboard
+/// - Discovery: Passive KNX bus scan results
 /// - Devices: Device list with edit/delete capabilities
 /// - Import: ETS import functionality
 class AdminScreen extends ConsumerStatefulWidget {
@@ -28,7 +30,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 3, vsync: this);
+    _tabController = TabController(length: 4, vsync: this);
   }
 
   @override
@@ -59,6 +61,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               text: 'Metrics',
             ),
             Tab(
+              icon: Icon(Icons.radar_outlined),
+              text: 'Discovery',
+            ),
+            Tab(
               icon: Icon(Icons.devices_outlined),
               text: 'Devices',
             ),
@@ -76,6 +82,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         controller: _tabController,
         children: [
           const MetricsTab(),
+          const DiscoveryTab(),
           const DevicesTab(),
           ImportTab(onImportComplete: widget.onRefresh),
         ],

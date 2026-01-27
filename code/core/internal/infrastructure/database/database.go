@@ -170,6 +170,12 @@ func (db *DB) Stats() sql.DBStats {
 	return db.DB.Stats()
 }
 
+// SqlDB returns the underlying *sql.DB connection.
+// Use this when you need direct database access for queries.
+func (db *DB) SqlDB() *sql.DB {
+	return db.DB
+}
+
 // ExecContext executes a query that doesn't return rows (INSERT, UPDATE, DELETE).
 // This is a convenience wrapper that provides consistent error handling.
 //

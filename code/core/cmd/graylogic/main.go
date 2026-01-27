@@ -208,7 +208,7 @@ func run(ctx context.Context) error {
 		LocationRepo:  locationRepo,
 		DevMode:       cfg.DevMode,
 		ExternalHub:   wsHub,
-		Version:       version,
+		Version:       version + " (" + commit + ")",
 	})
 	if err != nil {
 		return fmt.Errorf("creating API server: %w", err)

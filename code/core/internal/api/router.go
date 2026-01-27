@@ -33,6 +33,9 @@ func (s *Server) buildRouter() http.Handler {
 		// System metrics (no auth required for basic monitoring)
 		r.Get("/metrics", s.handleMetrics)
 
+		// Discovery data (passive KNX bus scan results)
+		r.Get("/discovery", s.handleListDiscovery)
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(s.authMiddleware)
