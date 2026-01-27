@@ -234,10 +234,11 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | M2.2 | Scene engine (multi-device, timed) |
 | M2.3 | Mode system (Home/Away/Night/Holiday) |
 | M2.4 | Astronomical clock + scheduler |
-| M2.5 | DALI bridge |
+| M2.5 | DALI bridge (Lunatone IoT Gateway REST API integration) |
 | M2.6 | Blind control |
 | M2.7 | Climate integration (Modbus → HVAC) |
 | M2.8 | Flutter mobile app |
+| M2.9 | Matter bridge (Apple/Google/Alexa via Matterbridge) |
 
 ### Year 3 — Integration & Resilience (2028)
 | Milestone | Goal |
@@ -246,10 +247,12 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | M3.2 | Video matrix (Atlona) |
 | M3.3 | Security panel (monitoring only) |
 | M3.4 | CCTV (RTSP/ONVIF) |
-| M3.5 | BACnet bridge |
+| M3.5 | BACnet bridge (commercial building systems) |
 | M3.6 | Advanced conditional logic |
 | M3.7 | System Supervisor (Level 1) |
 | M3.8 | Machine-readable error catalog |
+| M3.9 | Multi-site installer dashboard |
+| M3.10 | DALI PHM analytics (trending, predictive alerts) |
 
 ### Year 4 — Intelligence (2029)
 | Milestone | Goal |

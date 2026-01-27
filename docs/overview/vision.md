@@ -128,34 +128,71 @@ For critical installations:
 
 ## Target Markets
 
-### Primary
+Gray Logic is designed to scale from a single home to large commercial buildings. These are not priorities — they are **tiers of deployment complexity**.
 
-1. **High-end residential** (new builds, deep refurbishments)
-   - £500k+ property value
-   - Clients who value quality and longevity
-   - Architects and builders who want open systems
+### Tier 1: Residential
 
-2. **Pool/spa/leisure facilities**
-   - Real plant requiring monitoring
-   - Humidity and ventilation control
-   - Commercial-grade reliability needed
+| Segment | Property Value | Typical System Cost | Key Needs |
+|---------|----------------|---------------------|-----------|
+| **High-end new builds** | £750k+ | £15,000 - £40,000 | Reliability, design integration, handover |
+| **Deep refurbishments** | £500k+ | £10,000 - £30,000 | Retrofit-friendly, minimal disruption |
+| **Self-builds** | £400k+ | £8,000 - £25,000 | Technical involvement, flexibility |
+| **Small estates** | Multiple buildings | £25,000 - £80,000 | Unified control, outbuildings, remote management |
 
-3. **Light commercial**
-   - Small offices, showrooms, mixed-use
-   - Need visibility without full BMS cost
-   - No dedicated facilities team
+### Tier 2: Light Commercial
 
-### Secondary
+| Segment | Size | Typical System Cost | Key Needs |
+|---------|------|---------------------|-----------|
+| **Small offices** | <500m² | £10,000 - £30,000 | Energy monitoring, scheduling, presence |
+| **Retail/showrooms** | <1,000m² | £15,000 - £50,000 | Lighting scenes, presence detection |
+| **Boutique hospitality** | <20 rooms | £20,000 - £80,000 | Guest control, energy, HVAC |
+| **Pool/spa facilities** | Variable | £15,000 - £60,000 | Plant monitoring, humidity, safety |
 
-4. **Small estates** (multiple buildings)
-   - Outbuildings, guest houses, pool houses
-   - Unified control and monitoring
-   - Remote management essential
+### Tier 3: Commercial
 
-5. **Boutique hospitality**
-   - Small hotels, B&Bs, holiday lets
-   - Guest room control
-   - Energy monitoring critical
+| Segment | Size | Typical System Cost | Key Needs |
+|---------|------|---------------------|-----------|
+| **Medium offices** | 500-5,000m² | £50,000 - £200,000 | BACnet, energy management, central monitoring |
+| **Multi-site operations** | Chain/franchise | Per-site + central | Standardisation, central dashboard |
+| **Industrial** | Variable | £100,000+ | PHM, predictive maintenance, safety systems |
+
+**Technology requirements by tier:**
+- **Tier 1:** KNX + Matter (Year 1-2)
+- **Tier 2:** + DALI diagnostics + Modbus (Year 2)
+- **Tier 3:** + BACnet + Multi-site dashboard (Year 3)
+
+## Competitive Position
+
+Gray Logic occupies whitespace between three markets:
+
+| Market | Examples | Gray Logic Advantage |
+|--------|----------|---------------------|
+| **Premium proprietary** | Crestron, Savant, Control4 | Open source, no dealer lock-in, affordable |
+| **Consumer KNX bridges** | 1Home, Gira X1, Thinka | Professional tools, PHM, multi-site management |
+| **DIY platforms** | Home Assistant, openHAB | Reliability, professional support, stability |
+
+### Key Differentiators
+
+1. **Open source + Professional reliability** — Unlike Home Assistant (unstable) or Crestron (closed)
+2. **Predictive Health Monitoring** — Detect failures before they happen (rare in market)
+3. **Installer-first tools** — Multi-site dashboard, commissioning, handover docs
+4. **Matter compatible** — Consumer voice control via Apple/Google/Alexa (Year 2)
+5. **Commercial scale** — BACnet bridge for building systems (Year 3)
+6. **No artificial limits** — Unlike Gira X1's 1,000 data point cap
+
+### Technology Integration
+
+| Technology | Purpose | Timeline |
+|------------|---------|----------|
+| **KNX** | Physical control layer (switches, relays, sensors) | Year 1 ✅ |
+| **DALI** | Lighting intelligence — direct control via Lunatone IoT Gateway, full diagnostics for PHM | Year 2 |
+| **Matter** | Consumer ecosystem bridge (Apple/Google/Alexa) via Matterbridge | Year 2 |
+| **Modbus** | HVAC and plant equipment | Year 2 |
+| **BACnet** | Commercial building systems | Year 3 |
+
+**DALI Architecture:** KNX provides physical reliability (wall switches → relay → 230V → driver). DALI bus provides intelligence layer (dimming, CCT, diagnostics). If Gray Logic fails, lights still work at 100% via KNX. See `docs/architecture/decisions/0001-protocol-topology.md`.
+
+See `docs/business/market-research.md` for detailed competitive analysis.
 
 ## What Success Looks Like
 
