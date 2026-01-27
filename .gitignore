@@ -6,9 +6,6 @@
 # Project-Specific
 # ====================
 
-# Claude Code audit tracking (local state)
-.claude/audit-history.json
-
 # Specification PDFs (copyrighted, not for distribution)
 docs/specs/
 
@@ -18,6 +15,65 @@ docs/business/
 # Local notes and scratchpad
 notes/private/
 scratch/
+
+# ====================
+# AI Assistants
+# ====================
+
+# Claude Code
+.claude/audit-history.json
+.claude/settings.local.json
+.claude/projects/
+.claude/todos/
+.claude/*.local.*
+
+# Cursor
+.cursorignore
+.cursor/
+.cursorrules.local
+
+# GitHub Copilot
+.copilot/
+.github/copilot-*
+
+# Codeium
+.codeium/
+
+# Amazon Q / CodeWhisperer
+.aws/amazonq/
+.amazonq/
+
+# Tabnine
+.tabnine/
+.tabnine_root
+
+# Sourcegraph Cody
+.cody/
+.sourcegraph/
+
+# Windsurf
+.windsurf/
+
+# Aider
+.aider*
+.aider.chat.history.md
+.aider.input.history
+.aider.tags.cache.v3/
+
+# Continue.dev
+.continue/
+.continue.json
+
+# Generic AI/Agent directories
+.agent/
+.agents/
+.ai/
+.llm/
+
+# AI conversation logs and history
+**/ai-chat-history/
+**/conversation-logs/
+*.ai.log
 
 # ====================
 # Environment & Secrets
