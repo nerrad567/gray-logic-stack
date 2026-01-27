@@ -20,54 +20,62 @@ class SensorTile extends StatelessWidget {
     final isInactive = isPresenceSensor && !isOccupied;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(16),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Device name
-            Text(
-              device.name,
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const Spacer(),
-            // Sensor icon — greys out when presence is empty
-            Icon(
-              icon,
-              size: 32,
-              color: isOccupied
-                  ? Colors.green
-                  : isInactive
-                      ? Colors.grey.shade700
-                      : hasValue
-                          ? theme.colorScheme.primary
-                          : Colors.grey.shade600,
-            ),
-            const SizedBox(height: 8),
-            // Reading value
-            Text(
-              hasValue ? reading.display : '--',
-              style: TextStyle(
-                fontSize: hasValue ? 24 : 18,
-                fontWeight: FontWeight.bold,
-                color: hasValue
-                    ? theme.colorScheme.onSurface
-                    : Colors.grey.shade500,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        hoverColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+        mouseCursor: SystemMouseCursors.basic,
+        onTap: null, // Sensors are read-only
+        child: Padding(
+          padding: const EdgeInsets.all(16),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Device name
+              Text(
+                device.name,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
               ),
-            ),
-            const Spacer(),
-            // Label
-            Text(
-              reading.label,
-              style: TextStyle(
-                fontSize: 12,
-                color: Colors.grey.shade400,
+              const Spacer(),
+              // Sensor icon — greys out when presence is empty
+              Icon(
+                icon,
+                size: 32,
+                color: isOccupied
+                    ? Colors.green
+                    : isInactive
+                        ? Colors.grey.shade700
+                        : hasValue
+                            ? theme.colorScheme.primary
+                            : Colors.grey.shade600,
               ),
-            ),
-          ],
+              const SizedBox(height: 8),
+              // Reading value
+              Text(
+                hasValue ? reading.display : '--',
+                style: TextStyle(
+                  fontSize: hasValue ? 24 : 18,
+                  fontWeight: FontWeight.bold,
+                  color: hasValue
+                      ? theme.colorScheme.onSurface
+                      : Colors.grey.shade500,
+                ),
+              ),
+              const Spacer(),
+              // Label
+              Text(
+                reading.label,
+                style: TextStyle(
+                  fontSize: 12,
+                  color: Colors.grey.shade400,
+                ),
+              ),
+            ],
+          ),
         ),
       ),
     );

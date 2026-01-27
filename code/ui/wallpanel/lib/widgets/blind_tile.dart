@@ -62,69 +62,82 @@ class _BlindTileState extends ConsumerState<BlindTile> {
     final isOpen = displayPosition > 0;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Device name
-            Text(
-              device.name,
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            // Position indicator
-            Expanded(
-              child: Center(
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Icon(
-                      isOpen ? Icons.blinds : Icons.blinds_closed,
-                      size: 32,
-                      color: isOpen ? activeColour : Colors.grey.shade500,
-                    ),
-                    const SizedBox(height: 4),
-                    Text(
-                      '$displayPosition%',
-                      style: TextStyle(
-                        fontSize: 18,
-                        fontWeight: FontWeight.w600,
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        hoverColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+        mouseCursor: SystemMouseCursors.basic,
+        onTap: null, // Blinds don't have a tap action, just the slider
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Device name
+              Text(
+                device.name,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              // Position indicator
+              Expanded(
+                child: Center(
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Icon(
+                        isOpen ? Icons.blinds : Icons.blinds_closed,
+                        size: 32,
                         color: isOpen ? activeColour : Colors.grey.shade500,
                       ),
+                      const SizedBox(height: 4),
+                      Text(
+                        '$displayPosition%',
+                        style: TextStyle(
+                          fontSize: 18,
+                          fontWeight: FontWeight.w600,
+                          color: isOpen ? activeColour : Colors.grey.shade500,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              // Slider for position
+              MouseRegion(
+                cursor: !isPending
+                    ? SystemMouseCursors.grab
+                    : SystemMouseCursors.basic,
+                child: SizedBox(
+                  height: 32,
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 4,
+                      thumbShape:
+                          const RoundSliderThumbShape(enabledThumbRadius: 8),
+                      activeTrackColor: isPending
+                          ? activeColour.withValues(alpha: 0.4)
+                          : activeColour,
+                      inactiveTrackColor: Colors.grey.shade800,
+                      thumbColor: !isPending ? activeColour : Colors.grey,
+                      overlayShape:
+                          const RoundSliderOverlayShape(overlayRadius: 16),
                     ),
-                  ],
+                    child: Slider(
+                      value: (_draggingValue ?? _position.toDouble()).clamp(0, 100),
+                      min: 0,
+                      max: 100,
+                      onChanged: !isPending ? _onSliderChanged : null,
+                    ),
+                  ),
                 ),
               ),
-            ),
-            // Slider for position
-            SizedBox(
-              height: 32,
-              child: SliderTheme(
-                data: SliderThemeData(
-                  trackHeight: 4,
-                  thumbShape:
-                      const RoundSliderThumbShape(enabledThumbRadius: 8),
-                  activeTrackColor: isPending
-                      ? activeColour.withValues(alpha: 0.4)
-                      : activeColour,
-                  inactiveTrackColor: Colors.grey.shade800,
-                  thumbColor: !isPending ? activeColour : Colors.grey,
-                  overlayShape:
-                      const RoundSliderOverlayShape(overlayRadius: 16),
-                ),
-                child: Slider(
-                  value: (_draggingValue ?? _position.toDouble()).clamp(0, 100),
-                  min: 0,
-                  max: 100,
-                  onChanged: !isPending ? _onSliderChanged : null,
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

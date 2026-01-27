@@ -75,73 +75,75 @@ class _DimmerTileState extends ConsumerState<DimmerTile> {
         ?? device.level;
 
     return Card(
-      child: Padding(
-        padding: const EdgeInsets.all(12),
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            // Device name
-            Text(
-              device.name,
-              style: theme.textTheme.titleMedium,
-              textAlign: TextAlign.center,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-            ),
-            const SizedBox(height: 8),
-            // Brightness indicator + tap to toggle
-            Expanded(
-              child: GestureDetector(
-                onTap: isOnline && !isPending ? _onTapToggle : null,
-                child: MouseRegion(
-                  cursor: isOnline && !isPending
-                      ? SystemMouseCursors.click
-                      : SystemMouseCursors.basic,
-                  child: Center(
-                    child: isPending
-                        ? _PendingBrightnessIndicator(
-                            level: displayLevel,
-                            isOn: isOn,
-                            activeColour: activeColour,
-                          )
-                        : _BrightnessIndicator(
-                            level: displayLevel,
-                            isOn: isOn,
-                            activeColour: activeColour,
-                          ),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        splashFactory: NoSplash.splashFactory,
+        highlightColor: Colors.transparent,
+        hoverColor: theme.colorScheme.primary.withValues(alpha: 0.05),
+        mouseCursor: isOnline && !isPending
+            ? SystemMouseCursors.click
+            : SystemMouseCursors.basic,
+        onTap: isOnline && !isPending ? _onTapToggle : null,
+        child: Padding(
+          padding: const EdgeInsets.all(12),
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              // Device name
+              Text(
+                device.name,
+                style: theme.textTheme.titleMedium,
+                textAlign: TextAlign.center,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+              const SizedBox(height: 8),
+              // Brightness indicator
+              Expanded(
+                child: Center(
+                  child: isPending
+                      ? _PendingBrightnessIndicator(
+                          level: displayLevel,
+                          isOn: isOn,
+                          activeColour: activeColour,
+                        )
+                      : _BrightnessIndicator(
+                          level: displayLevel,
+                          isOn: isOn,
+                          activeColour: activeColour,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              // Slider — disabled during pending state
+              MouseRegion(
+                cursor: isOnline && !isPending
+                    ? SystemMouseCursors.grab
+                    : SystemMouseCursors.basic,
+                child: SizedBox(
+                  height: 32,
+                  child: SliderTheme(
+                    data: SliderThemeData(
+                      trackHeight: 4,
+                      thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
+                      activeTrackColor: isPending
+                          ? activeColour.withValues(alpha: 0.4)
+                          : activeColour,
+                      inactiveTrackColor: Colors.grey.shade800,
+                      thumbColor: isOnline && !isPending ? activeColour : Colors.grey,
+                      overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
+                    ),
+                    child: Slider(
+                      value: (_draggingValue ?? _sentValue ?? device.level.toDouble()).clamp(0, 100),
+                      min: 0,
+                      max: 100,
+                      onChanged: isOnline && !isPending ? _onSliderChanged : null,
+                    ),
                   ),
                 ),
               ),
-            ),
-            const SizedBox(height: 4),
-            // Slider — disabled during pending state
-            MouseRegion(
-              cursor: isOnline && !isPending
-                  ? SystemMouseCursors.grab
-                  : SystemMouseCursors.basic,
-              child: SizedBox(
-                height: 32,
-                child: SliderTheme(
-                  data: SliderThemeData(
-                    trackHeight: 4,
-                    thumbShape: const RoundSliderThumbShape(enabledThumbRadius: 8),
-                    activeTrackColor: isPending
-                        ? activeColour.withValues(alpha: 0.4)
-                        : activeColour,
-                    inactiveTrackColor: Colors.grey.shade800,
-                    thumbColor: isOnline && !isPending ? activeColour : Colors.grey,
-                    overlayShape: const RoundSliderOverlayShape(overlayRadius: 16),
-                  ),
-                  child: Slider(
-                    value: (_draggingValue ?? _sentValue ?? device.level.toDouble()).clamp(0, 100),
-                    min: 0,
-                    max: 100,
-                    onChanged: isOnline && !isPending ? _onSliderChanged : null,
-                  ),
-                ),
-              ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );
