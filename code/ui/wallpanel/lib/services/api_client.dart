@@ -7,6 +7,7 @@ import '../models/area.dart';
 import '../models/auth.dart';
 import '../models/device.dart';
 import '../models/ets_import.dart';
+import '../models/metrics.dart';
 import '../models/room.dart';
 import '../models/scene.dart';
 import 'token_storage.dart';
@@ -126,6 +127,27 @@ class ApiClient {
     } catch (_) {
       return false;
     }
+  }
+
+  // --- System Metrics ---
+
+  /// Get comprehensive system metrics for the admin dashboard.
+  Future<SystemMetrics> getMetrics() async {
+    final response = await _dio.get('/metrics');
+    return SystemMetrics.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // --- Device Management ---
+
+  /// Update a device's properties (name, room, etc.).
+  Future<Device> updateDevice(String id, Map<String, dynamic> updates) async {
+    final response = await _dio.patch('/devices/$id', data: updates);
+    return Device.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Delete a device from the registry.
+  Future<void> deleteDevice(String id) async {
+    await _dio.delete('/devices/$id');
   }
 
   // --- ETS Import (Commissioning) ---

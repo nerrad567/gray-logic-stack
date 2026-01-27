@@ -3,6 +3,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
+import '../screens/admin/admin_screen.dart';
 import '../screens/ets_import_screen.dart';
 
 /// Horizontal scrollable navigation bar showing rooms grouped by area.
@@ -118,6 +119,17 @@ class _SettingsMenu extends StatelessWidget {
       onSelected: (value) => _handleMenuSelection(context, value),
       itemBuilder: (context) => [
         const PopupMenuItem(
+          value: 'admin',
+          child: ListTile(
+            leading: Icon(Icons.admin_panel_settings_outlined),
+            title: Text('Admin'),
+            subtitle: Text('Metrics, devices & import'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuDivider(),
+        const PopupMenuItem(
           value: 'import_ets',
           child: ListTile(
             leading: Icon(Icons.upload_file_outlined),
@@ -152,6 +164,15 @@ class _SettingsMenu extends StatelessWidget {
 
   void _handleMenuSelection(BuildContext context, String value) {
     switch (value) {
+      case 'admin':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => AdminScreen(
+              onRefresh: () => ref.read(locationDataProvider.notifier).load(),
+            ),
+          ),
+        );
+        break;
       case 'import_ets':
         Navigator.of(context).push(
           MaterialPageRoute(

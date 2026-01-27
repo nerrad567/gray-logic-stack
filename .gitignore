@@ -278,9 +278,9 @@ test-results/
 *.avi
 *.mkv
 
-# Core dumps
-core
-core.*
+# Core dumps (files, not directories)
+/core
+/core.*
 
 # Profiling
 *.prof

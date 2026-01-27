@@ -1292,3 +1292,39 @@ func (b *Bridge) logDebug(msg string, keysAndValues ...any) {
 		logger.Debug(msg, keysAndValues...)
 	}
 }
+
+// BridgeMetrics contains metrics data for the API metrics endpoint.
+type BridgeMetrics struct {
+	Connected      bool
+	Status         string
+	TelegramsTx    uint64
+	TelegramsRx    uint64
+	DevicesManaged int
+}
+
+// GetMetrics returns current bridge metrics for the API metrics endpoint.
+func (b *Bridge) GetMetrics() BridgeMetrics {
+	b.mappingMu.RLock()
+	deviceCount := len(b.deviceToGAs)
+	b.mappingMu.RUnlock()
+
+	connected := false
+	var stats KNXDStats
+	status := "disconnected"
+
+	if b.knxd != nil {
+		connected = b.knxd.IsConnected()
+		stats = b.knxd.Stats()
+		if connected {
+			status = "healthy"
+		}
+	}
+
+	return BridgeMetrics{
+		Connected:      connected,
+		Status:         status,
+		TelegramsTx:    stats.TelegramsTx,
+		TelegramsRx:    stats.TelegramsRx,
+		DevicesManaged: deviceCount,
+	}
+}

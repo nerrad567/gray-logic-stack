@@ -30,6 +30,9 @@ func (s *Server) buildRouter() http.Handler {
 		// Auth endpoints (no auth required)
 		r.Post("/auth/login", s.handleLogin)
 
+		// System metrics (no auth required for basic monitoring)
+		r.Get("/metrics", s.handleMetrics)
+
 		// Protected routes
 		r.Group(func(r chi.Router) {
 			r.Use(s.authMiddleware)

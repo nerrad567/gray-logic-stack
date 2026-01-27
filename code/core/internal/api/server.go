@@ -15,6 +15,7 @@ package api
 
 import (
 	"context"
+	"database/sql"
 	"errors"
 	"fmt"
 	"net/http"
@@ -39,6 +40,26 @@ type KNXBridgeReloader interface {
 	ReloadDevices(ctx context.Context)
 }
 
+// KNXBridgeMetrics contains metrics data from the KNX bridge.
+type KNXBridgeMetrics struct {
+	Connected      bool
+	Status         string
+	TelegramsTx    uint64
+	TelegramsRx    uint64
+	DevicesManaged int
+}
+
+// KNXMetricsProvider is an interface for getting KNX bridge metrics.
+// This allows the API server to collect metrics without importing the knx package.
+type KNXMetricsProvider interface {
+	GetMetrics() KNXBridgeMetrics
+}
+
+// DBStatsProvider is an interface for getting database statistics.
+type DBStatsProvider interface {
+	Stats() sql.DBStats
+}
+
 // Deps holds the dependencies required by the API server.
 type Deps struct {
 	Config        config.APIConfig
@@ -47,6 +68,7 @@ type Deps struct {
 	Logger        *logging.Logger
 	Registry      *device.Registry
 	MQTT          *mqtt.Client
+	DB            DBStatsProvider // Optional: for metrics endpoint
 	SceneEngine   *automation.Engine
 	SceneRegistry *automation.Registry
 	SceneRepo     automation.Repository
@@ -61,23 +83,26 @@ type Deps struct {
 // It manages the HTTP listener, routes, middleware, and WebSocket hub.
 // The server is created with New() and started with Start().
 type Server struct {
-	cfg           config.APIConfig
-	wsCfg         config.WebSocketConfig
-	secCfg        config.SecurityConfig
-	logger        *logging.Logger
-	registry      *device.Registry
-	mqtt          *mqtt.Client
-	sceneEngine   *automation.Engine
-	sceneRegistry *automation.Registry
-	sceneRepo     automation.Repository
-	locationRepo  location.Repository
-	devMode       bool
-	version       string
-	server        *http.Server
-	hub           *Hub
-	externalHub   bool               // true if hub was injected externally
-	cancel        context.CancelFunc // cancels background goroutines on Close()
-	knxBridge     KNXBridgeReloader  // optional: for reloading devices after ETS import
+	cfg                config.APIConfig
+	wsCfg              config.WebSocketConfig
+	secCfg             config.SecurityConfig
+	logger             *logging.Logger
+	registry           *device.Registry
+	mqtt               *mqtt.Client
+	db                 DBStatsProvider
+	sceneEngine        *automation.Engine
+	sceneRegistry      *automation.Registry
+	sceneRepo          automation.Repository
+	locationRepo       location.Repository
+	devMode            bool
+	version            string
+	startTime          time.Time // server start time for uptime calculation
+	server             *http.Server
+	hub                *Hub
+	externalHub        bool               // true if hub was injected externally
+	cancel             context.CancelFunc // cancels background goroutines on Close()
+	knxBridge          KNXBridgeReloader  // optional: for reloading devices after ETS import
+	knxMetricsProvider KNXMetricsProvider // optional: for metrics endpoint
 }
 
 // New creates a new API server with the given dependencies.
@@ -106,12 +131,14 @@ func New(deps Deps) (*Server, error) {
 		logger:        deps.Logger,
 		registry:      deps.Registry,
 		mqtt:          deps.MQTT,
+		db:            deps.DB,
 		sceneEngine:   deps.SceneEngine,
 		sceneRegistry: deps.SceneRegistry,
 		sceneRepo:     deps.SceneRepo,
 		locationRepo:  deps.LocationRepo,
 		devMode:       deps.DevMode,
 		version:       deps.Version,
+		startTime:     time.Now(),
 	}
 
 	// Use externally-provided hub if available (needed when Engine also
@@ -129,6 +156,11 @@ func New(deps Deps) (*Server, error) {
 // since they have a startup order dependency.
 func (s *Server) SetKNXBridge(bridge KNXBridgeReloader) {
 	s.knxBridge = bridge
+}
+
+// SetKNXMetricsProvider sets the KNX metrics provider for the metrics endpoint.
+func (s *Server) SetKNXMetricsProvider(provider KNXMetricsProvider) {
+	s.knxMetricsProvider = provider
 }
 
 // Start begins listening for HTTP connections.

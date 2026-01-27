@@ -201,6 +201,7 @@ func run(ctx context.Context) error {
 		Logger:        log,
 		Registry:      deviceRegistry,
 		MQTT:          mqttClient,
+		DB:            db,
 		SceneEngine:   sceneEngine,
 		SceneRegistry: sceneRegistry,
 		SceneRepo:     sceneRepo,
@@ -298,6 +299,9 @@ func run(ctx context.Context) error {
 
 		// Wire KNX bridge to API server for device reload after ETS import
 		apiServer.SetKNXBridge(knxBridge)
+
+		// Wire KNX metrics provider to API server for /metrics endpoint
+		apiServer.SetKNXMetricsProvider(&knxMetricsAdapter{bridge: knxBridge})
 	} else {
 		log.Info("KNX bridge disabled")
 	}
@@ -656,4 +660,21 @@ type sceneMQTTClientAdapter struct {
 // Publish implements automation.MQTTClient.
 func (a *sceneMQTTClientAdapter) Publish(topic string, payload []byte, qos byte, retained bool) error {
 	return a.client.Publish(topic, payload, qos, retained)
+}
+
+// knxMetricsAdapter adapts knx.Bridge to api.KNXMetricsProvider.
+type knxMetricsAdapter struct {
+	bridge *knx.Bridge
+}
+
+// GetMetrics implements api.KNXMetricsProvider.
+func (a *knxMetricsAdapter) GetMetrics() api.KNXBridgeMetrics {
+	m := a.bridge.GetMetrics()
+	return api.KNXBridgeMetrics{
+		Connected:      m.Connected,
+		Status:         m.Status,
+		TelegramsTx:    m.TelegramsTx,
+		TelegramsRx:    m.TelegramsRx,
+		DevicesManaged: m.DevicesManaged,
+	}
 }
