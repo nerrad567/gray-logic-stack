@@ -16,6 +16,7 @@ RUN apt-get update \
        libev4 \
        libsqlite3-0 \
        ca-certificates \
+       curl \
     && rm -rf /var/lib/apt/lists/*
 
 # Create non-root user
@@ -44,7 +45,7 @@ EXPOSE 8080/tcp
 EXPOSE 8081/tcp
 
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["/app/bin/graylogic", "health"] || exit 1
+    CMD curl -sf http://localhost:8090/api/v1/health || exit 1
 
 ENTRYPOINT ["/app/bin/graylogic"]
 CMD ["--config", "/app/configs/config.yaml"]

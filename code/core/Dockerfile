@@ -106,9 +106,9 @@ USER graylogic
 EXPOSE 8080/tcp
 EXPOSE 8081/tcp
 
-# Health check using built-in health command
+# Health check using API endpoint
 HEALTHCHECK --interval=30s --timeout=10s --start-period=10s --retries=3 \
-    CMD ["/app/bin/graylogic", "health"] || exit 1
+    CMD curl -sf http://localhost:8090/api/v1/health || exit 1
 
 # Default entrypoint
 ENTRYPOINT ["/app/bin/graylogic"]
