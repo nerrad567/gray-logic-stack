@@ -87,10 +87,17 @@ body {
 #app {
   display: grid;
   grid-template-rows:
-    var(--header-height) var(--floor-nav-height) 1fr auto
-    var(--stats-height);
+    var(--header-height) auto auto 1fr auto var(--stats-height);
   height: 100vh;
 }
+
+/* Explicit grid row assignments for consistent layout */
+.header { grid-row: 1; }
+.view-switcher { grid-row: 2; }
+.floor-nav { grid-row: 3; }
+.main-content { grid-row: 4; }
+.telegram-inspector { grid-row: 5; }
+.stats-bar { grid-row: 6; }
 
 /* Header */
 .header {
