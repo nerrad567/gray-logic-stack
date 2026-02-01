@@ -1,14 +1,14 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-01-26
-> **Current Phase:** Implementation (M1.5 Complete — Year 1 Foundation Done!)
+> **Last Updated:** 2026-02-01
+> **Current Phase:** Implementation (Year 1 Complete + KNXSim Topology Restructure)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-01-26 (Session 19 - KNXSim Wall Switch Support)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.7 complete
+**Last session:** 2026-02-01 (Session 20 - KNXSim Topology Restructure Phase 1)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.8 (Topology) in progress
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -21,8 +21,10 @@
 - KNXSim Phase 2.4 Engineer Mode ✅ (telegram inspector, device panel, GA inspection)
 - KNXSim Phase 2.6 Alpine.js Refactor ✅ (reactive UI, global store, export endpoints)
 - KNXSim Phase 2.7 Wall Switch Support ✅ (push buttons, shared GA handling, live GA editing)
+- KNXSim Phase 2.8 Topology Restructure ✅ Phase 1 complete (Areas/Lines schema, API, Reference data, UI)
 
 **What's next:**
+- KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
 
@@ -603,6 +605,61 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 **Files Modified**: 6 files (`template_device.py`, `routes_devices.py`, `premise_manager.py`, `index.html`, `store.js`, `style.css`)
 
 **Result**: Wall switches work in Edit Mode — pressing button_1 or button_2 sends telegram to shared GA, all linked buttons and lights update correctly.
+
+---
+
+### Session 20: 2026-02-01 — KNXSim Topology Restructure Phase 1
+
+**Goal:** Add proper KNX topology (Area/Line/Device) alongside building view (Floor/Room)
+
+**Backend — Schema & Migration** (`sim/knxsim/persistence/db.py`):
+- New `areas` table: id, premise_id, area_number (0-15), name, description
+- New `lines` table: id, area_id, line_number (0-15), name, description
+- Added `line_id`, `device_number` columns to `devices`
+- Auto-migration: parses existing individual_address → creates topology
+- `ensure_topology_for_ia()` auto-creates Area/Line when IA provided
+
+**Backend — API Endpoints** (`sim/knxsim/api/routes_topology.py`):
+- `GET /premises/{id}/topology` — Full tree (Areas → Lines → Devices)
+- CRUD for `/premises/{id}/areas/*` and `/areas/{id}/lines/*`
+- Duplicate area_number/line_number detection (409 Conflict)
+
+**Backend — Reference API** (`sim/knxsim/api/routes_reference.py`):
+- `/reference/individual-address` — IA structure guide
+- `/reference/ga-structure` — GA hierarchy patterns
+- `/reference/flags` — Communication flags (CRWTUI) documentation
+- `/reference/dpts` — Complete DPT catalog (50+ types, categorized)
+- `/reference/device-templates` — Recommended GAs by device type
+
+**Frontend — View Switcher** (`sim/knxsim/static/`):
+- New view switcher tabs: "🏠 Building View" | "🔌 Topology View"
+- Building View: Existing Floor/Room layout unchanged
+- Topology View: Collapsible tree of Areas → Lines → Devices
+
+**Frontend — Topology View**:
+- Area cards with expand/collapse, line count
+- Line headers with device count, expand/collapse
+- Device rows showing: IA, icon, name, type, room assignment
+- Engineer Mode: Add/Edit/Delete buttons for Areas, Lines
+- Add Device button on each line with suggested IA
+
+**Frontend — Reference Store** (`sim/knxsim/static/js/store.js`):
+- `$store.reference` — DPT catalog, device templates, GA/IA helpers
+- `searchDpts(query)` — Search DPTs by id/name/use_case
+- `suggestNextIA(areaLine)` — Suggest next device number on line
+- `suggestNextGA(mainMiddle)` — Suggest next GA in group
+- `getDevicesByLine()` — Group devices for reference panel
+
+**Frontend — Device Modal Help Panel**:
+- Tabbed interface: Recommended | All Devices | All GAs | IA Help | GA Help | DPTs | Flags
+- "Suggest" button for Individual Address
+- Reference data from backend loaded on demand
+
+**Files Created**: 5 (`routes_topology.py`, `routes_reference.py`, `TOPOLOGY-RESTRUCTURE.md`, `CODEBASE.md`, `alpine-collapse.min.js`)
+**Files Modified**: 12 (db.py, app.py, store.js, api.js, index.html, style.css, and others)
+**Total Lines Added**: ~4,300
+
+**Result**: Phase 1 complete — Topology schema, API, and UI working. Devices auto-migrated to topology on startup.
 
 ---
 
