@@ -1131,173 +1131,562 @@
           <!-- GA Structure -->
           <div class="help-section" x-show="activeSection === 0">
             <h3>Group Address Structure</h3>
+            
+            <h4>What is a Group Address?</h4>
+            <p>Group addresses (GAs) are the logical addresses used for communication between KNX devices. Unlike individual addresses (which identify a specific device), group addresses represent a <strong>function</strong> - like "Living Room Light Switch" or "Kitchen Blind Position".</p>
+            <p>Multiple devices can listen to the same GA, enabling one switch to control multiple lights, or multiple displays to show the same temperature.</p>
+            
             <h4>3-Level Addressing (Main/Middle/Sub)</h4>
-            <p>KNX uses a hierarchical addressing scheme: <code>Main/Middle/Sub</code></p>
+            <p>KNX uses hierarchical addressing: <code>Main/Middle/Sub</code> (e.g., <code>1/2/15</code>)</p>
             <table class="help-table">
-              <tr><th>Level</th><th>Range</th><th>Typical Use</th></tr>
-              <tr><td>Main Group</td><td>0-31</td><td>Function type or building zone</td></tr>
-              <tr><td>Middle Group</td><td>0-7</td><td>Floor/location or sub-function</td></tr>
-              <tr><td>Sub Group</td><td>0-255</td><td>Individual object</td></tr>
+              <tr><th>Level</th><th>Range</th><th>Bits</th><th>Typical Use</th></tr>
+              <tr><td>Main Group</td><td>0-31</td><td>5 bits</td><td>Major function category (Lighting, HVAC, Blinds)</td></tr>
+              <tr><td>Middle Group</td><td>0-7</td><td>3 bits</td><td>Location/floor or sub-function</td></tr>
+              <tr><td>Sub Group</td><td>0-255</td><td>8 bits</td><td>Individual object/function</td></tr>
             </table>
-            <h4>Reserved Addresses</h4>
+            <p><em>Total: 16 bits = 65,536 possible group addresses</em></p>
+
+            <h4>2-Level Addressing (Main/Sub)</h4>
+            <p>Alternative format: <code>Main/Sub</code> (e.g., <code>1/2055</code>)</p>
+            <table class="help-table">
+              <tr><th>Level</th><th>Range</th><th>Bits</th></tr>
+              <tr><td>Main Group</td><td>0-31</td><td>5 bits</td></tr>
+              <tr><td>Sub Group</td><td>0-2047</td><td>11 bits</td></tr>
+            </table>
+            <p><em>Less common but useful for very flat structures.</em></p>
+
+            <h4>Reserved & Special Addresses</h4>
+            <table class="help-table">
+              <tr><th>Address</th><th>Convention</th><th>Recommendation</th></tr>
+              <tr><td><code>0/x/x</code></td><td>Central/System functions</td><td>Avoid for normal devices; use for "All Off", central commands</td></tr>
+              <tr><td><code>14/x/x</code></td><td>Building services</td><td>Sometimes used for HVAC central, building management</td></tr>
+              <tr><td><code>15/x/x</code></td><td>Diagnostics/Commissioning</td><td>Reserved for ETS diagnostics in some projects</td></tr>
+              <tr><td><code>x/x/0</code></td><td>"All in group" broadcast</td><td>Some use sub-address 0 for group-wide commands</td></tr>
+              <tr><td><code>0/0/0</code></td><td>Broadcast to all</td><td>Special system address - never use for normal objects</td></tr>
+            </table>
+
+            <h4>Choosing Your Structure</h4>
+            <p><strong>Before you start:</strong> Decide on your GA structure and document it. Changing later is painful.</p>
             <ul>
-              <li><strong>0/x/x</strong> — Often reserved for central/system functions</li>
-              <li><strong>14/x/x, 15/x/x</strong> — Sometimes reserved for diagnostics</li>
-              <li><strong>x/x/0</strong> — Some use for "all in group" broadcast</li>
+              <li><strong>Residential:</strong> Function-based main groups work well (Lighting=1, Blinds=2, etc.)</li>
+              <li><strong>Commercial:</strong> Location-based main groups scale better for large buildings</li>
+              <li><strong>Mixed:</strong> Some use function for main, location for middle, then object type for sub</li>
             </ul>
           </div>
 
           <!-- Layout Patterns -->
           <div class="help-section" x-show="activeSection === 1">
             <h3>Common GA Layout Patterns</h3>
-            <h4>Residential / Intuitive (Function-Based)</h4>
-            <p>Main groups by function, middle groups by floor:</p>
-            <pre class="help-code">1/x/x  Lighting
-2/x/x  Blinds/Shutters
-3/x/x  HVAC
-4/x/x  Sensors
-5/x/x  Scenes
 
-1/0/x  Lighting - Ground Floor
-1/1/x  Lighting - First Floor</pre>
-            <h4>Small/Medium Commercial (Location-Based)</h4>
-            <p>Main groups by floor/zone, middle groups by function:</p>
-            <pre class="help-code">1/x/x  Ground Floor
+            <h4>Pattern 1: Residential / Function-Based</h4>
+            <p><strong>Best for:</strong> Houses, apartments, small offices</p>
+            <p><strong>Structure:</strong> Main = Function type, Middle = Floor/Zone, Sub = Object</p>
+            <pre class="help-code">MAIN GROUPS (by function):
+1/x/x  Lighting
+2/x/x  Blinds & Shutters
+3/x/x  HVAC (Heating, Ventilation, Cooling)
+4/x/x  Sensors (Temperature, Presence, etc.)
+5/x/x  Scenes & Central Functions
+6/x/x  Security & Alarms
+7/x/x  Energy Management
+
+MIDDLE GROUPS (by floor):
+x/0/x  Ground Floor
+x/1/x  First Floor
+x/2/x  Second Floor
+x/3/x  Basement
+x/4/x  Garden / Exterior
+
+EXAMPLE - Living Room Dimmer:
+1/0/10  Switch (On/Off command)
+1/0/11  Switch Status (feedback)
+1/0/12  Brightness (0-100%)
+1/0/13  Brightness Status (feedback)</pre>
+            <p><strong>Pros:</strong> Intuitive, easy to find functions, good for visualization</p>
+            <p><strong>Cons:</strong> Doesn't scale well beyond ~3 floors</p>
+
+            <h4>Pattern 2: Commercial / Location-Based</h4>
+            <p><strong>Best for:</strong> Office buildings, hotels, large commercial spaces</p>
+            <p><strong>Structure:</strong> Main = Floor/Building, Middle = Function, Sub = Object</p>
+            <pre class="help-code">MAIN GROUPS (by floor/zone):
+1/x/x  Ground Floor
 2/x/x  First Floor
+3/x/x  Second Floor
+...
+10/x/x  Basement
+11/x/x  Roof / Plant Room
 
-1/0/x  Ground Floor - Lighting
-1/1/x  Ground Floor - Blinds
-1/2/x  Ground Floor - HVAC</pre>
+MIDDLE GROUPS (by function):
+x/0/x  Lighting
+x/1/x  Blinds
+x/2/x  HVAC
+x/3/x  Presence/Sensors
+x/4/x  Scenes
+
+EXAMPLE - Office 201 Light:
+2/0/10  Switch (On/Off)
+2/0/11  Switch Status
+2/0/12  Brightness
+2/0/13  Brightness Status</pre>
+            <p><strong>Pros:</strong> Scales to many floors, easy to isolate by zone</p>
+            <p><strong>Cons:</strong> Less intuitive for small projects</p>
+
+            <h4>Pattern 3: Large Commercial / Building-Based</h4>
+            <p><strong>Best for:</strong> Campus, multiple buildings, very large projects</p>
+            <pre class="help-code">MAIN GROUPS (by building):
+1/x/x  Building A
+2/x/x  Building B
+3/x/x  Building C
+...
+
+MIDDLE GROUPS (by floor within building):
+x/0/x  Ground Floor
+x/1/x  First Floor
+...
+
+SUB GROUPS encode function + room:
+x/x/0-49    Lighting
+x/x/50-99   Blinds
+x/x/100-149 HVAC
+x/x/150-199 Sensors
+x/x/200-255 Scenes/Other</pre>
+
+            <h4>Sub-Address Conventions</h4>
+            <p>Within each main/middle group, organize sub-addresses consistently:</p>
+            <pre class="help-code">LIGHTING SUB-ADDRESS PATTERN:
+x/x/0   Central - All lights in this group
+x/x/1   Room 1 - Switch
+x/x/2   Room 1 - Status
+x/x/3   Room 1 - Brightness
+x/x/4   Room 1 - Brightness Status
+x/x/5   Room 2 - Switch
+...
+
+GAPS FOR EXPANSION:
+Leave 10-address gaps between rooms:
+x/x/0-9    Room 1
+x/x/10-19  Room 2
+x/x/20-29  Room 3</pre>
           </div>
 
           <!-- Device Templates -->
           <div class="help-section" x-show="activeSection === 2">
-            <h3>Typical GA Assignments by Device</h3>
-            <h4>Light Switch</h4>
+            <h3>Device GA Templates</h3>
+            <p>Standard group objects for common device types. Use these as templates when assigning GAs.</p>
+
+            <h4>🔘 Switch Actuator (On/Off Light)</h4>
             <table class="help-table">
-              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
-              <tr><td>switch</td><td>1.001</td><td>CWT</td><td>On/Off command</td></tr>
-              <tr><td>switch_status</td><td>1.001</td><td>CRT</td><td>State feedback</td></tr>
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Switch</td><td>1.001</td><td>C-W--</td><td>On/Off command input</td></tr>
+              <tr><td>Switch Status</td><td>1.001</td><td>CR-T-</td><td>Current state feedback</td></tr>
             </table>
-            <h4>Dimmer</h4>
+            <p><em>Tip: Always use separate GAs for command and status for proper visualization feedback.</em></p>
+
+            <h4>💡 Dimmer Actuator</h4>
             <table class="help-table">
-              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
-              <tr><td>switch</td><td>1.001</td><td>CWT</td><td>On/Off command</td></tr>
-              <tr><td>switch_status</td><td>1.001</td><td>CRT</td><td>On/Off feedback</td></tr>
-              <tr><td>brightness</td><td>5.001</td><td>CWT</td><td>Dim level 0-100%</td></tr>
-              <tr><td>brightness_status</td><td>5.001</td><td>CRT</td><td>Current level</td></tr>
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Switch</td><td>1.001</td><td>C-W--</td><td>On/Off command</td></tr>
+              <tr><td>Switch Status</td><td>1.001</td><td>CR-T-</td><td>On/Off feedback</td></tr>
+              <tr><td>Brightness</td><td>5.001</td><td>C-W--</td><td>Dim level 0-100%</td></tr>
+              <tr><td>Brightness Status</td><td>5.001</td><td>CR-T-</td><td>Current dim level</td></tr>
+              <tr><td>Relative Dimming</td><td>3.007</td><td>C-W--</td><td>Dim up/down/stop (optional)</td></tr>
             </table>
-            <h4>Blind/Shutter</h4>
+
+            <h4>🪟 Blind/Shutter Actuator</h4>
             <table class="help-table">
-              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
-              <tr><td>move</td><td>1.008</td><td>CWT</td><td>Up/Down</td></tr>
-              <tr><td>stop</td><td>1.007</td><td>CWT</td><td>Stop movement</td></tr>
-              <tr><td>position</td><td>5.001</td><td>CWT</td><td>Position %</td></tr>
-              <tr><td>position_status</td><td>5.001</td><td>CRT</td><td>Current position</td></tr>
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Move Up/Down</td><td>1.008</td><td>C-W--</td><td>0=Up, 1=Down (long press)</td></tr>
+              <tr><td>Stop/Step</td><td>1.007</td><td>C-W--</td><td>Stop movement / step adjust</td></tr>
+              <tr><td>Position</td><td>5.001</td><td>C-W--</td><td>0%=Open, 100%=Closed</td></tr>
+              <tr><td>Position Status</td><td>5.001</td><td>CR-T-</td><td>Current position</td></tr>
+              <tr><td>Slat Angle</td><td>5.001</td><td>C-W--</td><td>Slat position (blinds only)</td></tr>
+              <tr><td>Slat Status</td><td>5.001</td><td>CR-T-</td><td>Current slat angle</td></tr>
             </table>
-            <h4>Presence Sensor</h4>
+            <p><em>Note: 0% = fully open (up), 100% = fully closed (down). This matches KNX convention.</em></p>
+
+            <h4>🌡️ Temperature Sensor</h4>
             <table class="help-table">
-              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
-              <tr><td>presence</td><td>1.018</td><td>CRT</td><td>Occupied/Unoccupied</td></tr>
-              <tr><td>brightness</td><td>9.004</td><td>CRT</td><td>Lux level</td></tr>
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Temperature</td><td>9.001</td><td>CR-T-</td><td>Current temperature °C</td></tr>
+            </table>
+
+            <h4>👤 Presence Sensor / PIR</h4>
+            <table class="help-table">
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Presence</td><td>1.018</td><td>CR-T-</td><td>0=Unoccupied, 1=Occupied</td></tr>
+              <tr><td>Brightness</td><td>9.004</td><td>CR-T-</td><td>Ambient light level (lux)</td></tr>
+            </table>
+
+            <h4>🔲 Push Button (2-fold)</h4>
+            <table class="help-table">
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Button 1 - Switch</td><td>1.001</td><td>C--T-</td><td>Toggle/trigger on press</td></tr>
+              <tr><td>Button 1 - Dimming</td><td>3.007</td><td>C--T-</td><td>Long press dim (optional)</td></tr>
+              <tr><td>Button 2 - Switch</td><td>1.001</td><td>C--T-</td><td>Second button</td></tr>
+              <tr><td>Button 2 - Dimming</td><td>3.007</td><td>C--T-</td><td>Second button dim</td></tr>
+              <tr><td>LED 1 Status</td><td>1.001</td><td>C-W--</td><td>LED feedback input</td></tr>
+              <tr><td>LED 2 Status</td><td>1.001</td><td>C-W--</td><td>LED feedback input</td></tr>
+            </table>
+
+            <h4>🌀 Thermostat / Room Controller</h4>
+            <table class="help-table">
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Actual Temperature</td><td>9.001</td><td>CR-T-</td><td>Current room temp</td></tr>
+              <tr><td>Setpoint</td><td>9.001</td><td>CRWT-</td><td>Target temperature</td></tr>
+              <tr><td>Heating Output</td><td>1.001</td><td>CR-T-</td><td>Heating demand On/Off</td></tr>
+              <tr><td>Heating Valve</td><td>5.001</td><td>CR-T-</td><td>Valve position 0-100%</td></tr>
+              <tr><td>Operating Mode</td><td>20.102</td><td>CRWT-</td><td>Comfort/Standby/Economy/Protection</td></tr>
+              <tr><td>Presence</td><td>1.018</td><td>C-W--</td><td>Occupancy input</td></tr>
+              <tr><td>Window Contact</td><td>1.019</td><td>C-W--</td><td>Window open input</td></tr>
+            </table>
+
+            <h4>⚡ Energy Meter</h4>
+            <table class="help-table">
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Power</td><td>9.024</td><td>CR-T-</td><td>Current power (kW)</td></tr>
+              <tr><td>Energy</td><td>13.010</td><td>CR-T-</td><td>Total energy (Wh)</td></tr>
+              <tr><td>Current</td><td>9.021</td><td>CR-T-</td><td>Current (mA)</td></tr>
+              <tr><td>Voltage</td><td>9.020</td><td>CR-T-</td><td>Voltage (mV)</td></tr>
+            </table>
+
+            <h4>🎬 Scene Controller</h4>
+            <table class="help-table">
+              <tr><th>Object</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>Scene Recall</td><td>17.001</td><td>C-W--</td><td>Recall scene 0-63</td></tr>
+              <tr><td>Scene Store</td><td>18.001</td><td>C-W--</td><td>Store current state to scene</td></tr>
             </table>
           </div>
 
           <!-- Flags -->
           <div class="help-section" x-show="activeSection === 3">
             <h3>Communication Flags (CRWTUI)</h3>
-            <p>Flags control how a group object communicates on the bus:</p>
+            <p>Every group object has flags that control how it communicates on the bus. Understanding these is <strong>essential</strong> for proper KNX operation.</p>
+
+            <h4>Flag Definitions</h4>
             <table class="help-table">
-              <tr><th>Flag</th><th>Name</th><th>Description</th></tr>
-              <tr><td><strong>C</strong></td><td>Communication</td><td>Object can communicate (required)</td></tr>
-              <tr><td><strong>R</strong></td><td>Read</td><td>Responds to GroupRead requests</td></tr>
-              <tr><td><strong>W</strong></td><td>Write</td><td>Accepts GroupWrite commands</td></tr>
-              <tr><td><strong>T</strong></td><td>Transmit</td><td>Sends on value change</td></tr>
-              <tr><td><strong>U</strong></td><td>Update</td><td>Updates value from bus (displays)</td></tr>
-              <tr><td><strong>I</strong></td><td>Read on Init</td><td>Request value on startup</td></tr>
+              <tr><th>Flag</th><th>Name</th><th>What it does</th></tr>
+              <tr><td><strong>C</strong></td><td>Communication</td><td><strong>Required for any bus activity.</strong> Without C, the object is completely isolated from the bus.</td></tr>
+              <tr><td><strong>R</strong></td><td>Read</td><td>Object responds to <code>GroupRead</code> requests. Essential for status objects that other devices query.</td></tr>
+              <tr><td><strong>W</strong></td><td>Write</td><td>Object accepts <code>GroupWrite</code> commands. Required to receive commands from other devices.</td></tr>
+              <tr><td><strong>T</strong></td><td>Transmit</td><td>Object sends a <code>GroupWrite</code> when its value changes. Essential for sensors and status feedback.</td></tr>
+              <tr><td><strong>U</strong></td><td>Update</td><td>Object updates its internal value when it receives a <code>GroupWrite</code>. Used for displays and synchronization.</td></tr>
+              <tr><td><strong>I</strong></td><td>Read on Init</td><td>Object sends a <code>GroupRead</code> on device startup to get current value from bus. Useful for synchronization.</td></tr>
             </table>
-            <h4>Common Combinations</h4>
+
+            <h4>Common Flag Combinations</h4>
             <table class="help-table">
-              <tr><th>Flags</th><th>Use Case</th></tr>
-              <tr><td>CWT</td><td>Command input (switch, button)</td></tr>
-              <tr><td>CRT</td><td>Status output (feedback)</td></tr>
-              <tr><td>CRWT</td><td>Bidirectional control + status</td></tr>
-              <tr><td>CRU</td><td>Display (read and update)</td></tr>
+              <tr><th>Flags</th><th>Pattern</th><th>Use Case</th><th>Example</th></tr>
+              <tr><td><strong>C-W--</strong></td><td>Command Input</td><td>Receives commands from other devices</td><td>Switch actuator input, blind position input</td></tr>
+              <tr><td><strong>CR-T-</strong></td><td>Status Output</td><td>Sends current state, responds to read requests</td><td>Switch status, sensor values, actuator feedback</td></tr>
+              <tr><td><strong>C--T-</strong></td><td>Transmit Only</td><td>Sends values but doesn't respond to reads</td><td>Push button (sends on press, nothing to read)</td></tr>
+              <tr><td><strong>CRWT-</strong></td><td>Full Bidirectional</td><td>Both control and status in one object</td><td>Thermostat setpoint (can be set locally or remotely)</td></tr>
+              <tr><td><strong>CRU--</strong></td><td>Display/Monitor</td><td>Reads values and updates from bus writes</td><td>Visualization panel, touch screen display</td></tr>
+              <tr><td><strong>CRWTUI</strong></td><td>Full Functionality</td><td>All operations enabled</td><td>Rarely used; typically too permissive</td></tr>
             </table>
+
+            <h4>Common Mistakes</h4>
+            <ul>
+              <li><strong>Missing C flag:</strong> Object won't communicate at all - nothing works</li>
+              <li><strong>Missing R on status:</strong> Visualization can't read current state on startup</li>
+              <li><strong>Missing T on sensor:</strong> Value changes but never sends to bus</li>
+              <li><strong>Missing W on actuator input:</strong> Actuator ignores all commands</li>
+              <li><strong>U flag on actuator command:</strong> Can cause feedback loops!</li>
+            </ul>
+
+            <h4>Flag Selection Guide</h4>
+            <pre class="help-code">ACTUATOR (receives commands):
+  Command input:  C-W--  (accepts writes)
+  Status output:  CR-T-  (sends state, answers reads)
+
+SENSOR (sends values):
+  Value output:   CR-T-  (sends on change, answers reads)
+
+PUSH BUTTON (triggers actions):
+  Button press:   C--T-  (just sends, nothing to read)
+
+DISPLAY/VISUALIZATION:
+  Value display:  CRU--  (reads + updates from writes)
+  Or with init:   CRUI-  (also reads on startup)
+
+BIDIRECTIONAL (control point):
+  Setpoint:       CRWT-  (full read/write/transmit)</pre>
           </div>
 
           <!-- Individual Address -->
           <div class="help-section" x-show="activeSection === 4">
-            <h3>Individual Address (IA)</h3>
+            <h3>Individual Address (Physical Address)</h3>
+            <p>Every KNX device has a unique individual address (IA) that identifies it on the bus. Unlike group addresses (which are logical), the IA is the device's "name".</p>
+
             <h4>Format: Area.Line.Device</h4>
             <table class="help-table">
-              <tr><th>Component</th><th>Range</th><th>Description</th></tr>
-              <tr><td>Area</td><td>0-15</td><td>Backbone segment</td></tr>
-              <tr><td>Line</td><td>0-15</td><td>Line within area</td></tr>
-              <tr><td>Device</td><td>0-255</td><td>Device on line (0 = coupler)</td></tr>
+              <tr><th>Component</th><th>Range</th><th>Bits</th><th>Description</th></tr>
+              <tr><td>Area</td><td>0-15</td><td>4 bits</td><td>Backbone segment / building area</td></tr>
+              <tr><td>Line</td><td>0-15</td><td>4 bits</td><td>Line within the area</td></tr>
+              <tr><td>Device</td><td>0-255</td><td>8 bits</td><td>Device on the line</td></tr>
             </table>
+            <p><em>Example: <code>1.2.15</code> = Area 1, Line 2, Device 15</em></p>
+
             <h4>Reserved Addresses</h4>
+            <table class="help-table">
+              <tr><th>Address</th><th>Purpose</th><th>Notes</th></tr>
+              <tr><td><code>0.0.0</code></td><td>System / Unconfigured</td><td>Never assign to a device. Factory default.</td></tr>
+              <tr><td><code>x.0.0</code></td><td>Backbone Coupler</td><td>Area coupler connecting to backbone</td></tr>
+              <tr><td><code>x.y.0</code></td><td>Line Coupler</td><td>Line coupler connecting lines within area</td></tr>
+              <tr><td><code>15.15.255</code></td><td>Broadcast / Programming</td><td>Used for bus reset and programming mode</td></tr>
+            </table>
+
+            <h4>Topology Structure</h4>
+            <pre class="help-code">BACKBONE (connects areas)
+│
+├── Area 1 (1.0.0 = Area Coupler)
+│   ├── Line 1.1 (1.1.0 = Line Coupler)
+│   │   ├── 1.1.1  Device
+│   │   ├── 1.1.2  Device
+│   │   └── 1.1.3  Device
+│   │
+│   └── Line 1.2 (1.2.0 = Line Coupler)
+│       ├── 1.2.1  Device
+│       └── 1.2.2  Device
+│
+└── Area 2 (2.0.0 = Area Coupler)
+    └── Line 2.1 (2.1.0 = Line Coupler)
+        ├── 2.1.1  Device
+        └── 2.1.2  Device</pre>
+
+            <h4>Practical Limits</h4>
+            <table class="help-table">
+              <tr><th>Resource</th><th>Maximum</th><th>Recommended</th></tr>
+              <tr><td>Devices per line</td><td>256 (0-255)</td><td>64 for reliability</td></tr>
+              <tr><td>Lines per area</td><td>16 (0-15)</td><td>As needed</td></tr>
+              <tr><td>Areas</td><td>16 (0-15)</td><td>As needed</td></tr>
+              <tr><td>Power supplies per line</td><td>-</td><td>1 per ~64 devices</td></tr>
+              <tr><td>Cable length (line)</td><td>1000m total</td><td>700m recommended</td></tr>
+              <tr><td>Device to PSU distance</td><td>350m max</td><td>-</td></tr>
+            </table>
+
+            <h4>Addressing Best Practices</h4>
             <ul>
-              <li><strong>0.0.0</strong> — System address, never assign</li>
-              <li><strong>x.y.0</strong> — Line/area coupler</li>
-              <li><strong>15.15.255</strong> — Broadcast / programming</li>
+              <li><strong>Start at 1, not 0:</strong> Device 0 is reserved for couplers</li>
+              <li><strong>Leave gaps:</strong> Use 1, 5, 10, 15... for easy expansion</li>
+              <li><strong>Group by location:</strong> All devices in Room 1 on same range (1-9), Room 2 (10-19), etc.</li>
+              <li><strong>Group by type:</strong> Or group all lights (1-20), all blinds (21-40), etc.</li>
+              <li><strong>Document everything:</strong> Create an address list before installation</li>
+              <li><strong>Label devices:</strong> Write the IA on each device during installation</li>
             </ul>
-            <h4>Best Practices</h4>
-            <ul>
-              <li>Start device numbering at 1 (0 is for couplers)</li>
-              <li>Group related devices on the same line</li>
-              <li>Leave gaps for future expansion</li>
-            </ul>
+
+            <h4>Line Organization Strategies</h4>
+            <pre class="help-code">STRATEGY 1: By Floor
+  Line 1.1 = Ground Floor
+  Line 1.2 = First Floor
+  Line 1.3 = Second Floor
+
+STRATEGY 2: By Function
+  Line 1.1 = Lighting (all floors)
+  Line 1.2 = Blinds (all floors)
+  Line 1.3 = HVAC (all floors)
+  Line 1.4 = Sensors (all floors)
+
+STRATEGY 3: By Room Type (Commercial)
+  Line 1.1 = Open Plan Office
+  Line 1.2 = Meeting Rooms
+  Line 1.3 = Common Areas
+  Line 1.4 = Server Room / Technical</pre>
           </div>
 
           <!-- DPTs -->
           <div class="help-section" x-show="activeSection === 5">
-            <h3>Common Data Point Types (DPT)</h3>
-            <h4>Boolean / Switch (1 bit)</h4>
+            <h3>Data Point Types (DPT)</h3>
+            <p>DPTs define the format and meaning of data transmitted on the KNX bus. Using the correct DPT ensures devices interpret values correctly.</p>
+
+            <h4>DPT 1.xxx - Boolean (1 bit)</h4>
             <table class="help-table">
-              <tr><th>DPT</th><th>Name</th><th>Values</th></tr>
-              <tr><td>1.001</td><td>Switch</td><td>0=Off, 1=On</td></tr>
-              <tr><td>1.008</td><td>UpDown</td><td>0=Up, 1=Down</td></tr>
-              <tr><td>1.009</td><td>OpenClose</td><td>0=Open, 1=Close</td></tr>
-              <tr><td>1.018</td><td>Occupancy</td><td>0=Unoccupied, 1=Occupied</td></tr>
+              <tr><th>DPT</th><th>Name</th><th>0 =</th><th>1 =</th><th>Use Case</th></tr>
+              <tr><td>1.001</td><td>Switch</td><td>Off</td><td>On</td><td>Light switching, general on/off</td></tr>
+              <tr><td>1.002</td><td>Bool</td><td>False</td><td>True</td><td>Generic boolean values</td></tr>
+              <tr><td>1.003</td><td>Enable</td><td>Disable</td><td>Enable</td><td>Function enable/disable</td></tr>
+              <tr><td>1.005</td><td>Alarm</td><td>No Alarm</td><td>Alarm</td><td>Alarm states</td></tr>
+              <tr><td>1.007</td><td>Step</td><td>Decrease</td><td>Increase</td><td>Dimming step, blind step</td></tr>
+              <tr><td>1.008</td><td>UpDown</td><td>Up</td><td>Down</td><td>Blind/shutter direction</td></tr>
+              <tr><td>1.009</td><td>OpenClose</td><td>Open</td><td>Close</td><td>Valves, contacts</td></tr>
+              <tr><td>1.010</td><td>Start</td><td>Stop</td><td>Start</td><td>Motor control</td></tr>
+              <tr><td>1.011</td><td>State</td><td>Inactive</td><td>Active</td><td>General state</td></tr>
+              <tr><td>1.017</td><td>Trigger</td><td>Trigger</td><td>Trigger</td><td>Scene trigger (both values trigger)</td></tr>
+              <tr><td>1.018</td><td>Occupancy</td><td>Unoccupied</td><td>Occupied</td><td>Presence detection</td></tr>
+              <tr><td>1.019</td><td>Window/Door</td><td>Closed</td><td>Open</td><td>Window/door contacts</td></tr>
             </table>
-            <h4>Percentage (8 bit)</h4>
+
+            <h4>DPT 3.xxx - Dimming Control (4 bit)</h4>
             <table class="help-table">
-              <tr><th>DPT</th><th>Name</th><th>Range</th></tr>
-              <tr><td>5.001</td><td>Percentage</td><td>0-100%</td></tr>
-              <tr><td>5.003</td><td>Angle</td><td>0-360°</td></tr>
+              <tr><th>DPT</th><th>Name</th><th>Format</th><th>Use Case</th></tr>
+              <tr><td>3.007</td><td>Dimming Control</td><td>Direction + Step</td><td>Relative dimming (long press)</td></tr>
+              <tr><td>3.008</td><td>Blind Control</td><td>Direction + Step</td><td>Relative blind movement</td></tr>
             </table>
-            <h4>Float (16 bit)</h4>
+            <p><em>Format: 1 bit direction (0=down/1=up) + 3 bits step code (0=break, 1-7=steps)</em></p>
+
+            <h4>DPT 5.xxx - Unsigned 8-bit</h4>
             <table class="help-table">
-              <tr><th>DPT</th><th>Name</th><th>Unit</th></tr>
-              <tr><td>9.001</td><td>Temperature</td><td>°C</td></tr>
-              <tr><td>9.004</td><td>Lux</td><td>lx</td></tr>
-              <tr><td>9.007</td><td>Humidity</td><td>%</td></tr>
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Unit</th><th>Use Case</th></tr>
+              <tr><td>5.001</td><td>Percentage</td><td>0-100</td><td>%</td><td>Dimmer level, blind position, valve position</td></tr>
+              <tr><td>5.003</td><td>Angle</td><td>0-360</td><td>°</td><td>Wind direction, slat angle</td></tr>
+              <tr><td>5.004</td><td>Percent (0-255)</td><td>0-255</td><td>%</td><td>Extended percentage range</td></tr>
+              <tr><td>5.005</td><td>Ratio</td><td>0-255</td><td>-</td><td>Decimal ratio</td></tr>
+              <tr><td>5.010</td><td>Counter Pulses</td><td>0-255</td><td>pulses</td><td>Pulse counter</td></tr>
+            </table>
+
+            <h4>DPT 6.xxx - Signed 8-bit</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Use Case</th></tr>
+              <tr><td>6.001</td><td>Percent (V8)</td><td>-128 to +127</td><td>Signed percentage</td></tr>
+              <tr><td>6.010</td><td>Counter Pulses</td><td>-128 to +127</td><td>Signed counter</td></tr>
+            </table>
+
+            <h4>DPT 7.xxx - Unsigned 16-bit</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Unit</th><th>Use Case</th></tr>
+              <tr><td>7.001</td><td>Pulses</td><td>0-65535</td><td>pulses</td><td>Counter, scene number</td></tr>
+              <tr><td>7.002</td><td>Time (ms)</td><td>0-65535</td><td>ms</td><td>Short time periods</td></tr>
+              <tr><td>7.005</td><td>Time (sec)</td><td>0-65535</td><td>s</td><td>Longer time periods</td></tr>
+              <tr><td>7.012</td><td>Brightness</td><td>0-65535</td><td>lux</td><td>Extended lux range</td></tr>
+            </table>
+
+            <h4>DPT 9.xxx - 16-bit Float</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Unit</th><th>Use Case</th></tr>
+              <tr><td>9.001</td><td>Temperature</td><td>-273 to +670760</td><td>°C</td><td>Temperature sensors, setpoints</td></tr>
+              <tr><td>9.002</td><td>Temp Difference</td><td>-670760 to +670760</td><td>K</td><td>Temperature difference</td></tr>
+              <tr><td>9.003</td><td>Kelvin/hour</td><td>-670760 to +670760</td><td>K/h</td><td>Temperature change rate</td></tr>
+              <tr><td>9.004</td><td>Lux</td><td>0 to +670760</td><td>lx</td><td>Light level sensors</td></tr>
+              <tr><td>9.005</td><td>Wind Speed</td><td>0 to +670760</td><td>m/s</td><td>Weather stations</td></tr>
+              <tr><td>9.006</td><td>Pressure</td><td>0 to +670760</td><td>Pa</td><td>Air pressure</td></tr>
+              <tr><td>9.007</td><td>Humidity</td><td>0 to +670760</td><td>%</td><td>Humidity sensors</td></tr>
+              <tr><td>9.008</td><td>Air Quality</td><td>0 to +670760</td><td>ppm</td><td>CO2, VOC sensors</td></tr>
+              <tr><td>9.020</td><td>Voltage</td><td>-670760 to +670760</td><td>mV</td><td>Voltage measurement</td></tr>
+              <tr><td>9.021</td><td>Current</td><td>-670760 to +670760</td><td>mA</td><td>Current measurement</td></tr>
+              <tr><td>9.024</td><td>Power</td><td>-670760 to +670760</td><td>kW</td><td>Power measurement</td></tr>
+              <tr><td>9.025</td><td>Volume Flow</td><td>-670760 to +670760</td><td>l/h</td><td>Flow meters</td></tr>
+            </table>
+
+            <h4>DPT 10-11 - Time & Date</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Format</th><th>Use Case</th></tr>
+              <tr><td>10.001</td><td>Time of Day</td><td>Day + HH:MM:SS</td><td>Time synchronization</td></tr>
+              <tr><td>11.001</td><td>Date</td><td>DD/MM/YYYY</td><td>Date synchronization</td></tr>
+            </table>
+
+            <h4>DPT 12-13 - 32-bit Values</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Use Case</th></tr>
+              <tr><td>12.001</td><td>Counter (unsigned)</td><td>0 to 4294967295</td><td>Large counter</td></tr>
+              <tr><td>13.001</td><td>Counter (signed)</td><td>-2147483648 to +2147483647</td><td>Signed counter</td></tr>
+              <tr><td>13.010</td><td>Active Energy</td><td>-2147483648 to +2147483647 Wh</td><td>Energy meter</td></tr>
+              <tr><td>13.013</td><td>Active Energy kWh</td><td>-2147483648 to +2147483647 kWh</td><td>Energy meter (kWh)</td></tr>
+            </table>
+
+            <h4>DPT 14.xxx - 32-bit Float</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Unit</th><th>Use Case</th></tr>
+              <tr><td>14.019</td><td>Electric Current</td><td>A</td><td>High precision current</td></tr>
+              <tr><td>14.027</td><td>Electric Potential</td><td>V</td><td>High precision voltage</td></tr>
+              <tr><td>14.056</td><td>Power</td><td>W</td><td>High precision power</td></tr>
+              <tr><td>14.068</td><td>Temperature</td><td>°C</td><td>High precision temperature</td></tr>
+            </table>
+
+            <h4>DPT 17-18 - Scene Control</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th><th>Use Case</th></tr>
+              <tr><td>17.001</td><td>Scene Number</td><td>0-63</td><td>Recall scene</td></tr>
+              <tr><td>18.001</td><td>Scene Control</td><td>0-63 + Learn bit</td><td>Recall or store scene</td></tr>
+            </table>
+
+            <h4>DPT 20.xxx - HVAC Mode</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Values</th><th>Use Case</th></tr>
+              <tr><td>20.102</td><td>HVAC Mode</td><td>0=Auto, 1=Comfort, 2=Standby, 3=Economy, 4=Protection</td><td>Thermostat operating mode</td></tr>
             </table>
           </div>
 
           <!-- Best Practices -->
           <div class="help-section" x-show="activeSection === 6">
-            <h3>Best Practices</h3>
-            <h4>Group Address Planning</h4>
+            <h3>KNX Best Practices</h3>
+
+            <h4>📋 Planning Phase</h4>
             <ul>
-              <li><strong>Plan before programming</strong> — Sketch your GA structure first</li>
-              <li><strong>Leave gaps</strong> — Room for expansion</li>
-              <li><strong>Separate commands and status</strong> — Different GAs for control vs feedback</li>
-              <li><strong>Be consistent</strong> — Same pattern throughout</li>
-              <li><strong>Document everything</strong></li>
+              <li><strong>Plan BEFORE buying:</strong> Design your GA structure, device locations, and line topology on paper first</li>
+              <li><strong>Create a GA spreadsheet:</strong> Document every group address with its function, DPT, and linked devices</li>
+              <li><strong>Choose a consistent naming convention:</strong> "Room-Function-Object" or "Function-Room-Object"</li>
+              <li><strong>Draw the topology:</strong> Sketch areas, lines, and device placements</li>
+              <li><strong>Calculate power requirements:</strong> Each line needs adequate power supply for connected devices</li>
+              <li><strong>Leave 30% expansion room:</strong> You WILL want to add devices later</li>
             </ul>
-            <h4>Status Feedback</h4>
+
+            <h4>🔗 Group Address Design</h4>
             <ul>
-              <li>Always use status GAs for actuators</li>
-              <li>Status on different GA than command</li>
-              <li>Configure actuators to send on change</li>
+              <li><strong>Separate command and status:</strong> Never use the same GA for both - it causes feedback issues</li>
+              <li><strong>Use status GAs for ALL actuators:</strong> Visualization won't work without feedback</li>
+              <li><strong>Leave gaps between sub-addresses:</strong> Room 1 uses 0-9, Room 2 uses 10-19, etc.</li>
+              <li><strong>Reserve sub-address 0:</strong> Some use x/x/0 for "all in group" commands</li>
+              <li><strong>Be consistent across the project:</strong> If dimmer brightness is always +2 from switch, keep it that way everywhere</li>
+              <li><strong>Don't over-link:</strong> Only connect objects that NEED to communicate</li>
             </ul>
-            <h4>Line Planning</h4>
+
+            <h4>🔧 Configuration Tips</h4>
             <ul>
-              <li>Max 64 devices per line (recommended)</li>
-              <li>Group related devices on same line</li>
-              <li>Heavy traffic devices on separate lines</li>
+              <li><strong>Set actuators to "Send on change":</strong> Status should update automatically when state changes</li>
+              <li><strong>Enable "Read on Init" for visualization:</strong> Panels should request current state on startup</li>
+              <li><strong>Configure cyclic transmission for sensors:</strong> Temperature should send every 5-10 minutes even if unchanged</li>
+              <li><strong>Set appropriate send thresholds:</strong> Temperature sensor should send on 0.5°C change, not every 0.01°C</li>
+              <li><strong>Test with bus monitor:</strong> Verify telegrams are sent correctly before finalizing</li>
+            </ul>
+
+            <h4>⚡ Bus Performance</h4>
+            <ul>
+              <li><strong>Max ~50 telegrams/second sustained:</strong> KNX TP1 runs at 9600 baud</li>
+              <li><strong>Avoid telegram storms:</strong> Don't configure 50 devices to all transmit on the same trigger</li>
+              <li><strong>Use delays for "All Off" scenes:</strong> Stagger actuator responses by a few ms</li>
+              <li><strong>Separate heavy traffic:</strong> Put frequently-communicating sensors on their own line</li>
+              <li><strong>Group lighting on same line:</strong> Reduces coupler traffic for local switching</li>
+              <li><strong>Filter at couplers:</strong> Configure line couplers to only pass necessary GAs</li>
+            </ul>
+
+            <h4>🏠 Residential Specifics</h4>
+            <ul>
+              <li><strong>Every light needs a physical switch:</strong> KNX should enhance, not replace basic function</li>
+              <li><strong>Plan for WAF (Wife Acceptance Factor):</strong> Keep UI simple, hide complexity</li>
+              <li><strong>Central Off by front door:</strong> Essential - one button to turn off everything when leaving</li>
+              <li><strong>Panic/All On scene:</strong> For emergencies, turn on all lights</li>
+              <li><strong>Night mode:</strong> Limit maximum brightness after midnight</li>
+              <li><strong>Presence simulation:</strong> Random light switching when away</li>
+            </ul>
+
+            <h4>🏢 Commercial Specifics</h4>
+            <ul>
+              <li><strong>Zone control:</strong> Group open-plan offices into controllable zones</li>
+              <li><strong>Energy management:</strong> Monitor consumption, implement scheduling</li>
+              <li><strong>Integration points:</strong> Plan BACnet/Modbus gateways for BMS integration</li>
+              <li><strong>Emergency lighting:</strong> Ensure KNX doesn't interfere with statutory systems</li>
+              <li><strong>Access control:</strong> Consider integration with building access</li>
+              <li><strong>Maintenance access:</strong> Plan how technicians will access the system</li>
+            </ul>
+
+            <h4>🔍 Troubleshooting Checklist</h4>
+            <ul>
+              <li><strong>Device not responding:</strong> Check IA is programmed, check bus connection, check power</li>
+              <li><strong>Commands not working:</strong> Verify GA is linked on both sender and receiver, check flags (W on receiver?)</li>
+              <li><strong>Status not updating:</strong> Check T flag on sender, check R flag if using Read requests</li>
+              <li><strong>Random behavior:</strong> Look for duplicate GAs, feedback loops, or faulty device</li>
+              <li><strong>Slow response:</strong> Check bus load, look for telegram storms, verify couplers aren't overloaded</li>
+              <li><strong>Device going offline:</strong> Check power supply capacity, measure bus voltage (21-30V DC)</li>
+            </ul>
+
+            <h4>📝 Documentation Requirements</h4>
+            <ul>
+              <li><strong>GA list:</strong> Every group address with description, DPT, linked devices</li>
+              <li><strong>Device list:</strong> Every device with IA, location, type, firmware version</li>
+              <li><strong>Topology diagram:</strong> Areas, lines, couplers, device counts</li>
+              <li><strong>Floor plans:</strong> Device locations marked on drawings</li>
+              <li><strong>Scene definitions:</strong> What each scene does to which devices</li>
+              <li><strong>Parameter settings:</strong> Non-default device parameters that affect behavior</li>
+              <li><strong>Backup of ETS project:</strong> With all programming complete, stored safely</li>
             </ul>
           </div>
         </div>
