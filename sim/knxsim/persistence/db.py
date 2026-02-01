@@ -95,9 +95,37 @@ CREATE TABLE IF NOT EXISTS scenarios (
     updated_at TEXT NOT NULL
 );
 
+-- Group Address hierarchy: Main Groups (0-31, typically by function)
+CREATE TABLE IF NOT EXISTS main_groups (
+    id TEXT PRIMARY KEY,
+    premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
+    group_number INTEGER NOT NULL CHECK (group_number >= 0 AND group_number <= 31),
+    name TEXT NOT NULL,
+    description TEXT,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(premise_id, group_number)
+);
+
+-- Group Address hierarchy: Middle Groups (0-7, typically by location/floor)
+CREATE TABLE IF NOT EXISTS middle_groups (
+    id TEXT PRIMARY KEY,
+    main_group_id TEXT NOT NULL REFERENCES main_groups(id) ON DELETE CASCADE,
+    group_number INTEGER NOT NULL CHECK (group_number >= 0 AND group_number <= 7),
+    name TEXT NOT NULL,
+    description TEXT,
+    floor_id TEXT REFERENCES floors(id) ON DELETE SET NULL,
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL,
+    UNIQUE(main_group_id, group_number)
+);
+
 -- Index for topology queries (line_id index created in migration after column exists)
 CREATE INDEX IF NOT EXISTS idx_lines_area ON lines(area_id);
 CREATE INDEX IF NOT EXISTS idx_areas_premise ON areas(premise_id);
+CREATE INDEX IF NOT EXISTS idx_main_groups_premise ON main_groups(premise_id);
+CREATE INDEX IF NOT EXISTS idx_middle_groups_main ON middle_groups(main_group_id);
+CREATE INDEX IF NOT EXISTS idx_middle_groups_floor ON middle_groups(floor_id);
 """
 
 # Migrations for existing databases
@@ -494,6 +522,224 @@ class Database:
         line = self.get_or_create_line(area["id"], line_num)
 
         return (line["id"], device_num)
+
+    # ------------------------------------------------------------------
+    # Main Groups (Group Address hierarchy)
+    # ------------------------------------------------------------------
+
+    def list_main_groups(self, premise_id: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM main_groups WHERE premise_id = ? ORDER BY group_number",
+            (premise_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_main_group(self, main_group_id: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM main_groups WHERE id = ?", (main_group_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_main_group_by_number(self, premise_id: str, group_number: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM main_groups WHERE premise_id = ? AND group_number = ?",
+            (premise_id, group_number),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def create_main_group(self, premise_id: str, data: dict) -> dict:
+        now = _now()
+        group_id = data.get("id") or f"main-group-{premise_id}-{data['group_number']}"
+        self.conn.execute(
+            """INSERT INTO main_groups (id, premise_id, group_number, name, description, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            (
+                group_id,
+                premise_id,
+                data["group_number"],
+                data["name"],
+                data.get("description"),
+                now,
+                now,
+            ),
+        )
+        self.conn.commit()
+        return self.get_main_group(group_id)
+
+    def update_main_group(self, main_group_id: str, data: dict) -> dict | None:
+        sets = []
+        vals = []
+        now = _now()
+        for key in ("name", "description"):
+            if key in data:
+                sets.append(f"{key} = ?")
+                vals.append(data[key])
+        if not sets:
+            return self.get_main_group(main_group_id)
+        sets.append("updated_at = ?")
+        vals.append(now)
+        vals.append(main_group_id)
+        self.conn.execute(f"UPDATE main_groups SET {', '.join(sets)} WHERE id = ?", vals)
+        self.conn.commit()
+        return self.get_main_group(main_group_id)
+
+    def delete_main_group(self, main_group_id: str) -> bool:
+        cur = self.conn.execute("DELETE FROM main_groups WHERE id = ?", (main_group_id,))
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def get_or_create_main_group(self, premise_id: str, group_number: int, name: str = None) -> dict:
+        """Get main group by number, creating it if it doesn't exist."""
+        group = self.get_main_group_by_number(premise_id, group_number)
+        if group:
+            return group
+        return self.create_main_group(premise_id, {
+            "group_number": group_number,
+            "name": name or f"Main Group {group_number}",
+        })
+
+    # ------------------------------------------------------------------
+    # Middle Groups (Group Address hierarchy)
+    # ------------------------------------------------------------------
+
+    def list_middle_groups(self, main_group_id: str) -> list[dict]:
+        rows = self.conn.execute(
+            "SELECT * FROM middle_groups WHERE main_group_id = ? ORDER BY group_number",
+            (main_group_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_middle_groups_by_premise(self, premise_id: str) -> list[dict]:
+        """List all middle groups in a premise, across all main groups."""
+        rows = self.conn.execute(
+            """SELECT mg.*, m.group_number as main_group_number, m.name as main_group_name
+               FROM middle_groups mg
+               JOIN main_groups m ON mg.main_group_id = m.id
+               WHERE m.premise_id = ?
+               ORDER BY m.group_number, mg.group_number""",
+            (premise_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_middle_group(self, middle_group_id: str) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM middle_groups WHERE id = ?", (middle_group_id,)
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_middle_group_by_number(self, main_group_id: str, group_number: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM middle_groups WHERE main_group_id = ? AND group_number = ?",
+            (main_group_id, group_number),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_middle_group_by_floor(self, main_group_id: str, floor_id: str) -> dict | None:
+        """Find a middle group linked to a specific floor."""
+        row = self.conn.execute(
+            "SELECT * FROM middle_groups WHERE main_group_id = ? AND floor_id = ?",
+            (main_group_id, floor_id),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def create_middle_group(self, main_group_id: str, data: dict) -> dict:
+        now = _now()
+        group_id = data.get("id") or f"middle-group-{main_group_id}-{data['group_number']}"
+        self.conn.execute(
+            """INSERT INTO middle_groups (id, main_group_id, group_number, name, description, floor_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                group_id,
+                main_group_id,
+                data["group_number"],
+                data["name"],
+                data.get("description"),
+                data.get("floor_id"),
+                now,
+                now,
+            ),
+        )
+        self.conn.commit()
+        return self.get_middle_group(group_id)
+
+    def update_middle_group(self, middle_group_id: str, data: dict) -> dict | None:
+        sets = []
+        vals = []
+        now = _now()
+        for key in ("name", "description", "floor_id"):
+            if key in data:
+                sets.append(f"{key} = ?")
+                vals.append(data[key])
+        if not sets:
+            return self.get_middle_group(middle_group_id)
+        sets.append("updated_at = ?")
+        vals.append(now)
+        vals.append(middle_group_id)
+        self.conn.execute(f"UPDATE middle_groups SET {', '.join(sets)} WHERE id = ?", vals)
+        self.conn.commit()
+        return self.get_middle_group(middle_group_id)
+
+    def delete_middle_group(self, middle_group_id: str) -> bool:
+        cur = self.conn.execute("DELETE FROM middle_groups WHERE id = ?", (middle_group_id,))
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def get_or_create_middle_group(self, main_group_id: str, group_number: int, name: str = None, floor_id: str = None) -> dict:
+        """Get middle group by number, creating it if it doesn't exist."""
+        group = self.get_middle_group_by_number(main_group_id, group_number)
+        if group:
+            return group
+        return self.create_middle_group(main_group_id, {
+            "group_number": group_number,
+            "name": name or f"Middle Group {group_number}",
+            "floor_id": floor_id,
+        })
+
+    # ------------------------------------------------------------------
+    # Group Address helpers
+    # ------------------------------------------------------------------
+
+    def get_group_address_tree(self, premise_id: str) -> dict:
+        """Get full GA hierarchy tree for a premise."""
+        main_groups = self.list_main_groups(premise_id)
+        for mg in main_groups:
+            mg["middle_groups"] = self.list_middle_groups(mg["id"])
+        return {"main_groups": main_groups}
+
+    def get_used_group_addresses(self, premise_id: str) -> list[str]:
+        """Get all group addresses currently in use by devices."""
+        devices = self.list_devices(premise_id)
+        used_gas = set()
+        for device in devices:
+            gas = device.get("group_addresses", {})
+            for ga in gas.values():
+                if isinstance(ga, str):
+                    used_gas.add(ga)
+                elif isinstance(ga, list):
+                    used_gas.update(ga)
+        return sorted(used_gas)
+
+    def suggest_next_ga(self, premise_id: str, main_group: int, middle_group: int) -> str:
+        """Suggest the next available sub-group address for a main/middle group."""
+        used_gas = self.get_used_group_addresses(premise_id)
+        prefix = f"{main_group}/{middle_group}/"
+
+        # Find used sub-groups in this main/middle
+        used_subs = set()
+        for ga in used_gas:
+            if ga.startswith(prefix):
+                try:
+                    sub = int(ga.split("/")[2])
+                    used_subs.add(sub)
+                except (IndexError, ValueError):
+                    pass
+
+        # Find next available (start from 0)
+        for sub in range(256):
+            if sub not in used_subs:
+                return f"{main_group}/{middle_group}/{sub}"
+
+        return f"{main_group}/{middle_group}/0"  # Fallback
 
     # ------------------------------------------------------------------
     # Floors
