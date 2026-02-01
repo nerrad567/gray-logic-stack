@@ -8,9 +8,6 @@ from pydantic import BaseModel
 
 router = APIRouter(prefix="/api/v1", tags=["groups"])
 
-# App reference set by app.py
-app = None
-
 
 class MainGroupCreate(BaseModel):
     group_number: int
@@ -36,11 +33,6 @@ class MiddleGroupUpdate(BaseModel):
     floor_id: str | None = None
 
 
-def _get_db():
-    """Get database from premise manager."""
-    return app.state.manager.db
-
-
 # ==============================================================================
 # Group Address Tree
 # ==============================================================================
@@ -49,7 +41,7 @@ def _get_db():
 @router.get("/premises/{premise_id}/groups")
 def get_group_tree(premise_id: str):
     """Get full GA hierarchy tree for a premise."""
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
@@ -67,7 +59,7 @@ def get_group_tree(premise_id: str):
 @router.get("/premises/{premise_id}/main-groups")
 def list_main_groups(premise_id: str):
     """List all main groups for a premise."""
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
@@ -78,7 +70,7 @@ def list_main_groups(premise_id: str):
 @router.post("/premises/{premise_id}/main-groups", status_code=201)
 def create_main_group(premise_id: str, data: MainGroupCreate):
     """Create a new main group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
@@ -97,7 +89,7 @@ def create_main_group(premise_id: str, data: MainGroupCreate):
 @router.get("/main-groups/{main_group_id}")
 def get_main_group(main_group_id: str):
     """Get a single main group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_main_group(main_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Main group not found")
@@ -107,7 +99,7 @@ def get_main_group(main_group_id: str):
 @router.patch("/main-groups/{main_group_id}")
 def update_main_group(main_group_id: str, data: MainGroupUpdate):
     """Update a main group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_main_group(main_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Main group not found")
@@ -119,7 +111,7 @@ def update_main_group(main_group_id: str, data: MainGroupUpdate):
 @router.delete("/main-groups/{main_group_id}", status_code=204)
 def delete_main_group(main_group_id: str):
     """Delete a main group (cascades to middle groups)."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_main_group(main_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Main group not found")
@@ -136,7 +128,7 @@ def delete_main_group(main_group_id: str):
 @router.get("/main-groups/{main_group_id}/middle-groups")
 def list_middle_groups(main_group_id: str):
     """List all middle groups for a main group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     main_group = db.get_main_group(main_group_id)
     if not main_group:
         raise HTTPException(status_code=404, detail="Main group not found")
@@ -147,7 +139,7 @@ def list_middle_groups(main_group_id: str):
 @router.post("/main-groups/{main_group_id}/middle-groups", status_code=201)
 def create_middle_group(main_group_id: str, data: MiddleGroupCreate):
     """Create a new middle group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     main_group = db.get_main_group(main_group_id)
     if not main_group:
         raise HTTPException(status_code=404, detail="Main group not found")
@@ -166,7 +158,7 @@ def create_middle_group(main_group_id: str, data: MiddleGroupCreate):
 @router.get("/middle-groups/{middle_group_id}")
 def get_middle_group(middle_group_id: str):
     """Get a single middle group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_middle_group(middle_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Middle group not found")
@@ -176,7 +168,7 @@ def get_middle_group(middle_group_id: str):
 @router.patch("/middle-groups/{middle_group_id}")
 def update_middle_group(middle_group_id: str, data: MiddleGroupUpdate):
     """Update a middle group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_middle_group(middle_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Middle group not found")
@@ -188,7 +180,7 @@ def update_middle_group(middle_group_id: str, data: MiddleGroupUpdate):
 @router.delete("/middle-groups/{middle_group_id}", status_code=204)
 def delete_middle_group(middle_group_id: str):
     """Delete a middle group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     group = db.get_middle_group(middle_group_id)
     if not group:
         raise HTTPException(status_code=404, detail="Middle group not found")
@@ -210,7 +202,7 @@ def suggest_group_addresses(
     main_group: int | None = Query(None, description="Override main group number"),
 ):
     """Suggest group addresses for a device based on type and room."""
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
@@ -260,7 +252,7 @@ def get_next_sub_address(
     middle: int = Query(..., description="Middle group number"),
 ):
     """Get the next available sub-group address for a main/middle group."""
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
@@ -280,7 +272,7 @@ def create_default_structure(premise_id: str):
     
     Creates main groups for common functions and middle groups matching floors.
     """
-    db = _get_db()
+    db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
