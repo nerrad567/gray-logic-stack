@@ -272,21 +272,45 @@ class PremiseManager:
                                 del premise._ga_map[ga_int]
 
                     # Parse new GAs and update device
-                    def _parse_ga(ga_str: str) -> int:
-                        """Convert group address string '1/2/3' to integer."""
-                        parts = ga_str.split("/")
-                        if len(parts) == 3:
-                            main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
-                            return (main << 11) | (middle << 8) | sub
-                        elif len(parts) == 2:
-                            main, sub = int(parts[0]), int(parts[1])
-                            return (main << 11) | sub
+                    def _parse_ga(ga_value: str | dict) -> int | None:
+                        """Convert group address to integer.
+
+                        Handles both legacy string format ('1/2/3') and
+                        extended object format ({'ga': '1/2/3', 'dpt': '1.001'}).
+
+                        Returns None if the address is empty or invalid.
+                        """
+                        # Handle extended format: extract the 'ga' field
+                        if isinstance(ga_value, dict):
+                            ga_str = ga_value.get("ga", "")
                         else:
-                            return int(parts[0])
+                            ga_str = ga_value
+
+                        # Handle empty strings
+                        if not ga_str or not isinstance(ga_str, str):
+                            return None
+                        ga_str = ga_str.strip()
+                        if not ga_str:
+                            return None
+
+                        try:
+                            parts = ga_str.split("/")
+                            if len(parts) == 3:
+                                main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
+                                return (main << 11) | (middle << 8) | sub
+                            elif len(parts) == 2:
+                                main, sub = int(parts[0]), int(parts[1])
+                                return (main << 11) | sub
+                            else:
+                                return int(parts[0])
+                        except (ValueError, IndexError):
+                            return None
 
                     parsed_gas = {}
                     for name, ga_str in new_gas.items():
-                        parsed_gas[name] = _parse_ga(ga_str)
+                        parsed = _parse_ga(ga_str)
+                        if parsed is not None:
+                            parsed_gas[name] = parsed
                     device.group_addresses = parsed_gas
 
                     # Add new GA mappings to premise._ga_map

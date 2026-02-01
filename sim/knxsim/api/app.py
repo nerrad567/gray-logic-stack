@@ -15,8 +15,10 @@ from .routes_devices import router as devices_router
 from .routes_export import router as export_router
 from .routes_floors import router as floors_router
 from .routes_premises import router as premises_router
+from .routes_reference import router as reference_router
 from .routes_telegrams import router as telegrams_router
 from .routes_templates import router as templates_router
+from .routes_topology import router as topology_router
 from .routes_ws import router as ws_router
 from .websocket_hub import WebSocketHub
 
@@ -58,6 +60,8 @@ def create_app(
     app.include_router(telegrams_router)
     app.include_router(templates_router)
     app.include_router(export_router)
+    app.include_router(reference_router)
+    app.include_router(topology_router)
     app.include_router(ws_router)
 
     # Set app reference on routers (needed for app.state access)
@@ -67,6 +71,8 @@ def create_app(
     telegrams_router.app = app
     templates_router.app = app
     export_router.app = app
+    reference_router.app = app
+    topology_router.app = app
     ws_router.app = app
 
     # Capture the event loop on startup for thread-safe WebSocket pushes
@@ -94,5 +100,5 @@ def create_app(
         app.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
         logger.info("Static UI mounted at /ui from %s", static_dir)
 
-    logger.info("FastAPI app created with %d routers", 6)
+    logger.info("FastAPI app created with %d routers", 8)
     return app

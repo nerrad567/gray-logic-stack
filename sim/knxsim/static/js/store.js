@@ -71,10 +71,17 @@ export function initStores() {
     engineerMode: false,
     selectedDeviceId: null,
     floorPlanMode: false,
+    viewMode: "building", // 'building' or 'topology'
+
+    // Topology data
+    topology: null,
+    expandedAreas: new Set(),
+    expandedLines: new Set(),
 
     // Drag-and-drop state
     draggingDeviceId: null,
     dragOverRoomId: null,
+    dragOverLineId: null,
 
     // Stats
     telegramCount: 0,
@@ -223,6 +230,167 @@ export function initStores() {
         this.selectedDeviceId = null;
         Alpine.store("modal").close();
       }
+    },
+
+    // ─────────────────────────────────────────────────────────
+    // Actions — View Mode & Topology
+    // ─────────────────────────────────────────────────────────
+
+    async switchView(mode) {
+      this.viewMode = mode;
+      this.selectedDeviceId = null;
+      if (mode === "topology" && !this.topology) {
+        await this.loadTopology();
+      }
+    },
+
+    async loadTopology() {
+      if (!this.currentPremiseId) return;
+      try {
+        this.topology = await API.getTopology(this.currentPremiseId);
+        // Expand all areas by default
+        this.expandedAreas = new Set(
+          this.topology.areas.map((a) => a.id)
+        );
+        // Expand all lines by default
+        this.expandedLines = new Set(
+          this.topology.areas.flatMap((a) => a.lines.map((l) => l.id))
+        );
+      } catch (err) {
+        console.error("Failed to load topology:", err);
+      }
+    },
+
+    toggleArea(areaId) {
+      if (this.expandedAreas.has(areaId)) {
+        this.expandedAreas.delete(areaId);
+      } else {
+        this.expandedAreas.add(areaId);
+      }
+      // Trigger reactivity
+      this.expandedAreas = new Set(this.expandedAreas);
+    },
+
+    toggleLine(lineId) {
+      if (this.expandedLines.has(lineId)) {
+        this.expandedLines.delete(lineId);
+      } else {
+        this.expandedLines.add(lineId);
+      }
+      // Trigger reactivity
+      this.expandedLines = new Set(this.expandedLines);
+    },
+
+    isAreaExpanded(areaId) {
+      return this.expandedAreas.has(areaId);
+    },
+
+    isLineExpanded(lineId) {
+      return this.expandedLines.has(lineId);
+    },
+
+    async createArea(data) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.createArea(this.currentPremiseId, data);
+        await this.loadTopology();
+        Alpine.store("modal").close();
+      } catch (err) {
+        console.error("Failed to create area:", err);
+        alert("Failed to create area: " + err.message);
+      }
+    },
+
+    async updateArea(areaId, data) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.updateArea(this.currentPremiseId, areaId, data);
+        await this.loadTopology();
+        Alpine.store("modal").close();
+      } catch (err) {
+        console.error("Failed to update area:", err);
+        alert("Failed to update area: " + err.message);
+      }
+    },
+
+    async deleteArea(areaId) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.deleteArea(this.currentPremiseId, areaId);
+        await this.loadTopology();
+      } catch (err) {
+        console.error("Failed to delete area:", err);
+        alert("Failed to delete area: " + err.message);
+      }
+    },
+
+    async createLine(areaId, data) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.createLine(this.currentPremiseId, areaId, data);
+        await this.loadTopology();
+        Alpine.store("modal").close();
+      } catch (err) {
+        console.error("Failed to create line:", err);
+        alert("Failed to create line: " + err.message);
+      }
+    },
+
+    async updateLine(areaId, lineId, data) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.updateLine(this.currentPremiseId, areaId, lineId, data);
+        await this.loadTopology();
+        Alpine.store("modal").close();
+      } catch (err) {
+        console.error("Failed to update line:", err);
+        alert("Failed to update line: " + err.message);
+      }
+    },
+
+    async deleteLine(areaId, lineId) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.deleteLine(this.currentPremiseId, areaId, lineId);
+        await this.loadTopology();
+      } catch (err) {
+        console.error("Failed to delete line:", err);
+        alert("Failed to delete line: " + err.message);
+      }
+    },
+
+    // Move device to a different line (topology)
+    async moveDeviceToLine(deviceId, lineId, deviceNumber) {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.updateDevice(this.currentPremiseId, deviceId, {
+          line_id: lineId,
+          device_number: deviceNumber,
+        });
+        // Reload both topology and devices
+        await Promise.all([
+          this.loadTopology(),
+          API.getDevices(this.currentPremiseId).then((d) => (this.devices = d)),
+        ]);
+      } catch (err) {
+        console.error("Failed to move device:", err);
+        alert("Failed to move device: " + err.message);
+      }
+    },
+
+    // Get next available device number on a line
+    getNextDeviceNumber(lineId) {
+      if (!this.topology) return 1;
+      for (const area of this.topology.areas) {
+        const line = area.lines.find((l) => l.id === lineId);
+        if (line) {
+          const usedNumbers = line.devices.map((d) => d.device_number || 0);
+          for (let i = 1; i <= 255; i++) {
+            if (!usedNumbers.includes(i)) return i;
+          }
+        }
+      }
+      return 1;
     },
 
     // ─────────────────────────────────────────────────────────
@@ -993,6 +1161,213 @@ export function initStores() {
         console.error("Failed to copy to clipboard:", err);
       } finally {
         document.body.removeChild(textarea);
+      }
+    },
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Reference Data Store
+  // ─────────────────────────────────────────────────────────────
+  Alpine.store("reference", {
+    loaded: false,
+    loading: false,
+    individualAddress: null,
+    gaStructure: null,
+    flags: null,
+    dpts: null,
+    deviceTemplates: null,
+
+    // Flattened DPT list for autocomplete
+    get dptList() {
+      if (!this.dpts?.categories) return [];
+      const list = [];
+      for (const cat of this.dpts.categories) {
+        for (const dpt of cat.dpts) {
+          list.push({
+            id: dpt.id,
+            name: dpt.name,
+            category: cat.name,
+            unit: dpt.unit || "",
+            range: dpt.range || dpt.values || "",
+            use_case: dpt.use_case || "",
+          });
+        }
+      }
+      return list;
+    },
+
+    // Search DPTs by id or name
+    searchDpts(query) {
+      if (!query) return this.dptList.slice(0, 20);
+      const q = query.toLowerCase();
+      return this.dptList.filter(
+        (d) =>
+          d.id.toLowerCase().includes(q) ||
+          d.name.toLowerCase().includes(q) ||
+          d.use_case.toLowerCase().includes(q)
+      );
+    },
+
+    // Get recommended GAs for a device type
+    getRecommendedGAs(deviceType) {
+      if (!this.deviceTemplates) return null;
+      return this.deviceTemplates[deviceType];
+    },
+
+    // Get existing devices of the same type (for reference)
+    getSimilarDevices(deviceType) {
+      const devices = Alpine.store("app").devices || [];
+      return devices.filter((d) => d.type === deviceType);
+    },
+
+    // Get ALL devices for reference
+    getAllDevices() {
+      return Alpine.store("app").devices || [];
+    },
+
+    // Parse individual address string to components
+    parseIA(addr) {
+      if (!addr) return null;
+      const parts = addr.split(".");
+      if (parts.length !== 3) return null;
+      return {
+        area: parseInt(parts[0], 10),
+        line: parseInt(parts[1], 10),
+        device: parseInt(parts[2], 10),
+      };
+    },
+
+    // Format IA components to string
+    formatIA(area, line, device) {
+      return `${area}.${line}.${device}`;
+    },
+
+    // Get all IAs in use
+    getAllUsedIAs() {
+      const devices = this.getAllDevices();
+      return devices
+        .map((d) => d.individual_address)
+        .filter((ia) => ia)
+        .sort((a, b) => {
+          const pa = this.parseIA(a);
+          const pb = this.parseIA(b);
+          if (!pa || !pb) return 0;
+          if (pa.area !== pb.area) return pa.area - pb.area;
+          if (pa.line !== pb.line) return pa.line - pb.line;
+          return pa.device - pb.device;
+        });
+    },
+
+    // Get devices grouped by area.line
+    getDevicesByLine() {
+      const devices = this.getAllDevices();
+      const byLine = {};
+      for (const dev of devices) {
+        const parsed = this.parseIA(dev.individual_address);
+        if (!parsed) continue;
+        const key = `${parsed.area}.${parsed.line}`;
+        if (!byLine[key]) {
+          byLine[key] = { area: parsed.area, line: parsed.line, devices: [] };
+        }
+        byLine[key].devices.push({
+          id: dev.id,
+          device: parsed.device,
+          type: dev.type,
+          address: dev.individual_address,
+        });
+      }
+      // Sort devices within each line
+      for (const key of Object.keys(byLine)) {
+        byLine[key].devices.sort((a, b) => a.device - b.device);
+      }
+      return byLine;
+    },
+
+    // Suggest next available IA on a given line
+    suggestNextIA(areaLine = "1.1") {
+      const [area, line] = areaLine.split(".").map((x) => parseInt(x, 10) || 1);
+      const devices = this.getAllDevices();
+
+      // Find max device number on this line
+      let maxDevice = 0;
+      for (const dev of devices) {
+        const parsed = this.parseIA(dev.individual_address);
+        if (parsed && parsed.area === area && parsed.line === line) {
+          maxDevice = Math.max(maxDevice, parsed.device);
+        }
+      }
+
+      // Suggest next (skip 0 which is for couplers)
+      const next = maxDevice < 255 ? maxDevice + 1 : maxDevice;
+      return this.formatIA(area, line, Math.max(1, next));
+    },
+
+    // Get all GAs in use across all devices
+    getAllUsedGAs() {
+      const devices = this.getAllDevices();
+      const gas = new Map(); // ga string -> { devices: [], names: [] }
+
+      for (const dev of devices) {
+        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+          const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
+          if (!gaStr) continue;
+
+          if (!gas.has(gaStr)) {
+            gas.set(gaStr, { ga: gaStr, devices: [], usages: [] });
+          }
+          const entry = gas.get(gaStr);
+          if (!entry.devices.includes(dev.id)) {
+            entry.devices.push(dev.id);
+          }
+          entry.usages.push({ device: dev.id, name, dpt: gaData?.dpt, flags: gaData?.flags });
+        }
+      }
+
+      // Convert to sorted array
+      return Array.from(gas.values()).sort((a, b) => {
+        // Sort by GA numerically
+        const parseGA = (s) => {
+          const p = s.split("/").map((x) => parseInt(x, 10));
+          return (p[0] || 0) * 65536 + (p[1] || 0) * 256 + (p[2] || 0);
+        };
+        return parseGA(a.ga) - parseGA(b.ga);
+      });
+    },
+
+    // Suggest next available GA in a given main/middle group
+    suggestNextGA(mainMiddle = "1/1") {
+      const [main, middle] = mainMiddle.split("/").map((x) => parseInt(x, 10) || 0);
+      const usedGAs = this.getAllUsedGAs();
+
+      // Find max sub address in this main/middle group
+      let maxSub = 0;
+      for (const entry of usedGAs) {
+        const parts = entry.ga.split("/").map((x) => parseInt(x, 10));
+        if (parts.length >= 3 && parts[0] === main && parts[1] === middle) {
+          maxSub = Math.max(maxSub, parts[2]);
+        }
+      }
+
+      const next = maxSub < 255 ? maxSub + 1 : maxSub;
+      return `${main}/${middle}/${next}`;
+    },
+
+    async load() {
+      if (this.loaded || this.loading) return;
+      this.loading = true;
+      try {
+        const data = await API.getReference();
+        this.individualAddress = data.individual_address;
+        this.gaStructure = data.ga_structure;
+        this.flags = data.flags;
+        this.dpts = data.dpts;
+        this.deviceTemplates = data.device_templates;
+        this.loaded = true;
+        console.log("Reference data loaded");
+      } catch (err) {
+        console.error("Failed to load reference data:", err);
+      } finally {
+        this.loading = false;
       }
     },
   });

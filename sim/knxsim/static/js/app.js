@@ -205,8 +205,11 @@ export async function startApp() {
 
   // Load initial data
   const app = Alpine.store("app");
-  await app.loadPremises();
-  await app.loadTemplates();
+  await Promise.all([
+    app.loadPremises(),
+    app.loadTemplates(),
+    Alpine.store("reference").load(),
+  ]);
 }
 
 // Export for potential external use

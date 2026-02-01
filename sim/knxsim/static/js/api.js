@@ -204,4 +204,88 @@ export const API = {
             method: 'DELETE',
         });
     },
+
+    // ─────────────────────────────────────────────────────────────
+    // Reference Data
+    // ─────────────────────────────────────────────────────────────
+
+    async getReference() {
+        return request('/reference');
+    },
+
+    async getGaStructure() {
+        return request('/reference/ga-structure');
+    },
+
+    async getFlags() {
+        return request('/reference/flags');
+    },
+
+    async getDpts() {
+        return request('/reference/dpts');
+    },
+
+    async getDeviceTemplates() {
+        return request('/reference/device-templates');
+    },
+
+    async getDeviceTemplate(deviceType) {
+        return request(`/reference/device-templates/${deviceType}`);
+    },
+
+    // ─────────────────────────────────────────────────────────────
+    // Topology (Areas & Lines)
+    // ─────────────────────────────────────────────────────────────
+
+    async getTopology(premiseId) {
+        return request(`/premises/${premiseId}/topology`);
+    },
+
+    async getAreas(premiseId) {
+        return request(`/premises/${premiseId}/areas`);
+    },
+
+    async createArea(premiseId, data) {
+        return request(`/premises/${premiseId}/areas`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateArea(premiseId, areaId, data) {
+        return request(`/premises/${premiseId}/areas/${areaId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteArea(premiseId, areaId) {
+        return request(`/premises/${premiseId}/areas/${areaId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    async getLines(premiseId, areaId) {
+        return request(`/premises/${premiseId}/areas/${areaId}/lines`);
+    },
+
+    async createLine(premiseId, areaId, data) {
+        return request(`/premises/${premiseId}/areas/${areaId}/lines`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateLine(premiseId, areaId, lineId, data) {
+        return request(`/premises/${premiseId}/areas/${areaId}/lines/${lineId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteLine(premiseId, areaId, lineId) {
+        return request(`/premises/${premiseId}/areas/${areaId}/lines/${lineId}`, {
+            method: 'DELETE',
+        });
+    },
 };

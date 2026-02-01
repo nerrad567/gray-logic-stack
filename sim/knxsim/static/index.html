@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=4" />
+    <link rel="stylesheet" href="css/style.css?v=8" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -19,6 +19,7 @@
         startApp();
       });
     </script>
+    <script defer src="js/vendor/alpine-collapse.min.js"></script>
     <script defer src="js/vendor/alpine-intersect.min.js"></script>
     <script defer src="js/vendor/alpine.min.js"></script>
   </head>
@@ -111,8 +112,26 @@
         </div>
       </header>
 
-      <!-- Floor Navigation -->
-      <nav class="floor-nav">
+      <!-- View Switcher -->
+      <nav class="view-switcher">
+        <button
+          class="view-tab"
+          :class="{ 'active': $store.app.viewMode === 'building' }"
+          @click="$store.app.switchView('building')"
+        >
+          🏠 Building View
+        </button>
+        <button
+          class="view-tab"
+          :class="{ 'active': $store.app.viewMode === 'topology' }"
+          @click="$store.app.switchView('topology')"
+        >
+          🔌 Topology View
+        </button>
+      </nav>
+
+      <!-- Floor Navigation (Building View only) -->
+      <nav class="floor-nav" x-show="$store.app.viewMode === 'building'">
         <div class="floor-tabs">
           <!-- Floor tabs -->
           <template x-for="floor in $store.app.floors" :key="floor.id">
@@ -168,22 +187,178 @@
 
       <!-- Main Content -->
       <main class="main-content">
-        <!-- Floor Plan Layer (future) -->
-        <div
-          id="floor-plan-layer"
-          class="floor-plan-layer"
-          x-show="$store.app.floorPlanMode && $store.app.currentFloor?.plan_image"
-        >
-          <img
-            :src="$store.app.currentFloor?.plan_image"
-            class="floor-plan-image"
-            alt="Floor plan"
-          />
-          <!-- Device markers will be positioned here -->
-        </div>
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- TOPOLOGY VIEW -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <section class="topology-view" x-show="$store.app.viewMode === 'topology'">
+          <!-- Loading state -->
+          <div class="loading-placeholder" x-show="!$store.app.topology">
+            <p>Loading topology...</p>
+          </div>
 
-        <!-- Room Grid -->
-        <section class="room-grid" x-show="!$store.app.floorPlanMode">
+          <!-- Topology tree -->
+          <div class="topology-tree" x-show="$store.app.topology">
+            <!-- Add Area button (Engineer Mode) -->
+            <div class="topology-actions" x-show="$store.app.engineerMode">
+              <button
+                class="btn btn-primary"
+                @click="$store.modal.show('area', 'create')"
+              >
+                + Add Area
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div
+              class="topology-empty"
+              x-show="$store.app.topology?.areas?.length === 0"
+            >
+              <p>No areas configured. Add an area to organize your KNX topology.</p>
+            </div>
+
+            <!-- Areas -->
+            <template x-for="area in $store.app.topology?.areas || []" :key="area.id">
+              <div class="topology-area">
+                <div
+                  class="topology-area-header"
+                  @click="$store.app.toggleArea(area.id)"
+                >
+                  <span class="topology-expand-icon" x-text="$store.app.isAreaExpanded(area.id) ? '▼' : '▶'"></span>
+                  <span class="topology-area-number" x-text="'Area ' + area.area_number"></span>
+                  <span class="topology-area-name" x-text="area.name"></span>
+                  <span class="topology-area-count" x-text="area.lines?.length + ' line(s)'"></span>
+                  <!-- Area actions (Engineer Mode) -->
+                  <div class="topology-actions-inline" x-show="$store.app.engineerMode" @click.stop>
+                    <button
+                      class="btn-icon"
+                      @click="$store.modal.show('line', 'create', { area_id: area.id, area_number: area.area_number })"
+                      title="Add line"
+                    >
+                      ➕
+                    </button>
+                    <button
+                      class="btn-icon"
+                      @click="$store.modal.show('area', 'edit', area)"
+                      title="Edit area"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="btn-icon btn-danger"
+                      @click="$store.modal.confirm('Delete Area', `Delete '${area.name}' and all its lines?`, () => $store.app.deleteArea(area.id))"
+                      title="Delete area"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Lines (collapsible) -->
+                <div class="topology-lines" x-show="$store.app.isAreaExpanded(area.id)" x-collapse>
+                  <template x-for="line in area.lines || []" :key="line.id">
+                    <div class="topology-line">
+                      <div
+                        class="topology-line-header"
+                        @click="$store.app.toggleLine(line.id)"
+                      >
+                        <span class="topology-expand-icon" x-text="$store.app.isLineExpanded(line.id) ? '▼' : '▶'"></span>
+                        <span class="topology-line-number" x-text="area.area_number + '.' + line.line_number"></span>
+                        <span class="topology-line-name" x-text="line.name"></span>
+                        <span class="topology-line-count" x-text="line.devices?.length + ' device(s)'"></span>
+                        <!-- Line actions (Engineer Mode) -->
+                        <div class="topology-actions-inline" x-show="$store.app.engineerMode" @click.stop>
+                          <button
+                            class="btn-icon"
+                            @click="$store.modal.show('device', 'create', { line_id: line.id, suggested_ia: area.area_number + '.' + line.line_number + '.' + $store.app.getNextDeviceNumber(line.id) })"
+                            title="Add device"
+                          >
+                            ➕
+                          </button>
+                          <button
+                            class="btn-icon"
+                            @click="$store.modal.show('line', 'edit', { ...line, area_id: area.id, area_number: area.area_number })"
+                            title="Edit line"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            class="btn-icon btn-danger"
+                            @click="$store.modal.confirm('Delete Line', `Delete '${line.name}'? Devices will become unlinked.`, () => $store.app.deleteLine(area.id, line.id))"
+                            title="Delete line"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- Devices on this line (collapsible) -->
+                      <div class="topology-devices" x-show="$store.app.isLineExpanded(line.id)" x-collapse>
+                        <template x-for="device in line.devices || []" :key="device.id">
+                          <div
+                            class="topology-device"
+                            :class="{ 'selected': device.id === $store.app.selectedDeviceId }"
+                            @click="$store.app.selectDevice(device.id)"
+                          >
+                            <span class="topology-device-addr" x-text="device.individual_address"></span>
+                            <span class="topology-device-icon" x-text="$store.app.getDeviceIcon(device.type)"></span>
+                            <span class="topology-device-name" x-text="device.id"></span>
+                            <span class="topology-device-type" x-text="device.type"></span>
+                            <span class="topology-device-room" x-show="device.room_id" x-text="'📍 ' + device.room_id"></span>
+                          </div>
+                        </template>
+
+                        <!-- Empty line -->
+                        <div class="topology-empty-line" x-show="!line.devices?.length">
+                          <span>No devices on this line</span>
+                          <button
+                            class="btn btn-small"
+                            x-show="$store.app.engineerMode"
+                            @click="$store.modal.show('device', 'create', { line_id: line.id, suggested_ia: area.area_number + '.' + line.line_number + '.1' })"
+                          >
+                            + Add Device
+                          </button>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
+
+                  <!-- Empty area -->
+                  <div class="topology-empty-area" x-show="!area.lines?.length">
+                    <span>No lines in this area</span>
+                    <button
+                      class="btn btn-small"
+                      x-show="$store.app.engineerMode"
+                      @click="$store.modal.show('line', 'create', { area_id: area.id, area_number: area.area_number })"
+                    >
+                      + Add Line
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- BUILDING VIEW -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <section class="building-view" x-show="$store.app.viewMode === 'building'">
+          <!-- Floor Plan Layer (future) -->
+          <div
+            id="floor-plan-layer"
+            class="floor-plan-layer"
+            x-show="$store.app.floorPlanMode && $store.app.currentFloor?.plan_image"
+          >
+            <img
+              :src="$store.app.currentFloor?.plan_image"
+              class="floor-plan-image"
+              alt="Floor plan"
+            />
+            <!-- Device markers will be positioned here -->
+          </div>
+
+          <!-- Room Grid -->
+          <div class="room-grid" x-show="!$store.app.floorPlanMode">
           <!-- No devices placeholder -->
           <div
             class="loading-placeholder"
@@ -284,6 +459,7 @@
               <span class="add-label">Add Room</span>
             </div>
           </div>
+        </div>
         </section>
 
         <!-- Device Detail Panel (Engineer Mode) -->
@@ -823,6 +999,193 @@
           </div>
         </div>
 
+        <!-- Area Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'area'"
+          @click.stop
+          x-data="{
+            form: {
+              area_number: 0,
+              name: '',
+              description: ''
+            },
+            init() {
+              if ($store.modal.mode === 'edit' && $store.modal.data) {
+                this.form = { 
+                  area_number: $store.modal.data.area_number,
+                  name: $store.modal.data.name || '',
+                  description: $store.modal.data.description || ''
+                };
+              } else {
+                // Suggest next available area number
+                const areas = $store.app.topology?.areas || [];
+                const usedNumbers = areas.map(a => a.area_number);
+                for (let i = 1; i <= 15; i++) {
+                  if (!usedNumbers.includes(i)) {
+                    this.form.area_number = i;
+                    break;
+                  }
+                }
+                this.form.name = 'Area ' + this.form.area_number;
+              }
+            },
+            async submit() {
+              if ($store.modal.mode === 'create') {
+                await $store.app.createArea(this.form);
+              } else {
+                await $store.app.updateArea($store.modal.data.id, this.form);
+              }
+            }
+          }"
+        >
+          <div class="modal-header">
+            <h3 x-text="$store.modal.mode === 'create' ? 'Add Area' : 'Edit Area'"></h3>
+            <button class="btn-close" @click="$store.modal.close()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="area-number">Area Number</label>
+              <input
+                type="number"
+                id="area-number"
+                x-model.number="form.area_number"
+                min="0"
+                max="15"
+                :disabled="$store.modal.mode === 'edit'"
+              />
+              <small class="form-hint">0-15 (KNX topology limit)</small>
+            </div>
+            <div class="form-group">
+              <label for="area-name">Name</label>
+              <input
+                type="text"
+                id="area-name"
+                x-model="form.name"
+                placeholder="e.g., Main Building, Ground Floor Zone"
+              />
+            </div>
+            <div class="form-group">
+              <label for="area-desc">Description (optional)</label>
+              <textarea
+                id="area-desc"
+                x-model="form.description"
+                rows="2"
+                placeholder="Optional description"
+              ></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.name"
+            >
+              <span x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Line Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'line'"
+          @click.stop
+          x-data="{
+            form: {
+              line_number: 0,
+              name: '',
+              description: ''
+            },
+            init() {
+              if ($store.modal.mode === 'edit' && $store.modal.data) {
+                this.form = { 
+                  line_number: $store.modal.data.line_number,
+                  name: $store.modal.data.name || '',
+                  description: $store.modal.data.description || ''
+                };
+              } else {
+                // Suggest next available line number for this area
+                const areaId = $store.modal.data.area_id;
+                const areaNum = $store.modal.data.area_number || 1;
+                const area = $store.app.topology?.areas?.find(a => a.id === areaId);
+                const usedNumbers = (area?.lines || []).map(l => l.line_number);
+                for (let i = 1; i <= 15; i++) {
+                  if (!usedNumbers.includes(i)) {
+                    this.form.line_number = i;
+                    break;
+                  }
+                }
+                this.form.name = 'Line ' + areaNum + '.' + this.form.line_number;
+              }
+            },
+            async submit() {
+              const areaId = $store.modal.data.area_id;
+              if ($store.modal.mode === 'create') {
+                await $store.app.createLine(areaId, this.form);
+              } else {
+                await $store.app.updateLine(areaId, $store.modal.data.id, this.form);
+              }
+            }
+          }"
+        >
+          <div class="modal-header">
+            <h3 x-text="$store.modal.mode === 'create' ? 'Add Line' : 'Edit Line'"></h3>
+            <button class="btn-close" @click="$store.modal.close()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label>Area</label>
+              <input
+                type="text"
+                :value="'Area ' + ($store.modal.data.area_number || 1)"
+                disabled
+              />
+            </div>
+            <div class="form-group">
+              <label for="line-number">Line Number</label>
+              <input
+                type="number"
+                id="line-number"
+                x-model.number="form.line_number"
+                min="0"
+                max="15"
+                :disabled="$store.modal.mode === 'edit'"
+              />
+              <small class="form-hint">0-15 (KNX topology limit)</small>
+            </div>
+            <div class="form-group">
+              <label for="line-name">Name</label>
+              <input
+                type="text"
+                id="line-name"
+                x-model="form.name"
+                placeholder="e.g., Lighting, Sensors, HVAC"
+              />
+            </div>
+            <div class="form-group">
+              <label for="line-desc">Description (optional)</label>
+              <textarea
+                id="line-desc"
+                x-model="form.description"
+                rows="2"
+                placeholder="Optional description"
+              ></textarea>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.name"
+            >
+              <span x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"></span>
+            </button>
+          </div>
+        </div>
+
         <!-- Room Modal -->
         <div
           class="modal"
@@ -960,6 +1323,7 @@
                 id="device-type"
                 x-model="form.type"
                 :disabled="$store.modal.mode === 'edit'"
+                @change="onTypeChange()"
               >
                 <option value="light_switch">Light Switch</option>
                 <option value="light_dimmer">Light Dimmer</option>
@@ -972,13 +1336,22 @@
             </div>
             <div class="form-group">
               <label for="device-addr">Individual Address</label>
-              <input
-                type="text"
-                id="device-addr"
-                x-model="form.individual_address"
-                placeholder="e.g., 1.1.1"
-                pattern="\d+\.\d+\.\d+"
-              />
+              <div class="input-with-button">
+                <input
+                  type="text"
+                  id="device-addr"
+                  x-model="form.individual_address"
+                  placeholder="e.g., 1.1.1"
+                  pattern="\d+\.\d+\.\d+"
+                />
+                <button 
+                  type="button" 
+                  class="btn btn-small"
+                  @click="suggestIA()"
+                  title="Suggest next available address"
+                >Suggest</button>
+              </div>
+              <small class="form-hint">Format: area.line.device (e.g., 1.1.1) — <span x-text="getIAHint()"></span></small>
             </div>
             <div class="form-group">
               <label for="device-room">Room</label>
@@ -993,14 +1366,351 @@
                 </template>
               </select>
             </div>
+            
+            <!-- Group Addresses Section -->
             <div class="form-group">
-              <label>Group Addresses</label>
+              <div class="ga-section-header">
+                <label>Group Addresses</label>
+                <button 
+                  type="button" 
+                  class="btn btn-small btn-outline"
+                  @click="showHelp = !showHelp"
+                >
+                  <span x-text="showHelp ? '✕ Hide Help' : '? Help & Reference'"></span>
+                </button>
+              </div>
+              
+              <!-- Help Panel (collapsible) -->
+              <div class="ga-help-panel" x-show="showHelp" x-collapse>
+                <div class="ga-help-tabs">
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'recommended' }"
+                    @click="helpTab = 'recommended'"
+                  >Recommended</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'all-devices' }"
+                    @click="helpTab = 'all-devices'"
+                  >All Devices</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'all-gas' }"
+                    @click="helpTab = 'all-gas'"
+                  >All GAs</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'individual' }"
+                    @click="helpTab = 'individual'"
+                  >IA Help</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'addressing' }"
+                    @click="helpTab = 'addressing'"
+                  >GA Help</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'dpts' }"
+                    @click="helpTab = 'dpts'"
+                  >DPTs</button>
+                  <button 
+                    type="button"
+                    class="ga-help-tab" 
+                    :class="{ active: helpTab === 'flags' }"
+                    @click="helpTab = 'flags'"
+                  >Flags</button>
+                </div>
+                
+                <!-- All Devices Reference -->
+                <div class="ga-help-content" x-show="helpTab === 'all-devices'">
+                  <p class="help-intro">All devices in this premise, grouped by line:</p>
+                  <template x-if="Object.keys($store.reference.getDevicesByLine()).length > 0">
+                    <div class="all-devices-list">
+                      <template x-for="(lineData, lineKey) in $store.reference.getDevicesByLine()" :key="lineKey">
+                        <div class="device-line-group">
+                          <div class="line-header">
+                            <span class="line-label">Line <code x-text="lineKey + '.x'"></code></span>
+                            <span class="line-count" x-text="lineData.devices.length + ' device(s)'"></span>
+                          </div>
+                          <div class="line-devices">
+                            <template x-for="dev in lineData.devices" :key="dev.id">
+                              <div 
+                                class="device-ref-item"
+                                :class="{ 'current': dev.id === form.id }"
+                                @click="form.individual_address || (form.individual_address = $store.reference.suggestNextIA(lineKey))"
+                              >
+                                <code class="dev-addr" x-text="dev.address"></code>
+                                <span class="dev-id" x-text="dev.id"></span>
+                                <span class="dev-type" x-text="dev.type"></span>
+                              </div>
+                            </template>
+                          </div>
+                          <button 
+                            type="button" 
+                            class="btn btn-small btn-outline"
+                            @click="form.individual_address = $store.reference.suggestNextIA(lineKey)"
+                          >Use next on this line → <code x-text="$store.reference.suggestNextIA(lineKey)"></code></button>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  <template x-if="Object.keys($store.reference.getDevicesByLine()).length === 0">
+                    <div class="help-empty">
+                      <p>No devices yet. First device will be assigned to a new line.</p>
+                      <button 
+                        type="button" 
+                        class="btn btn-small"
+                        @click="form.individual_address = '1.1.1'"
+                      >Start with 1.1.1</button>
+                    </div>
+                  </template>
+                </div>
+                
+                <!-- All GAs Reference -->
+                <div class="ga-help-content" x-show="helpTab === 'all-gas'">
+                  <p class="help-intro">All group addresses in use (<span x-text="$store.reference.getAllUsedGAs().length"></span> total):</p>
+                  <div class="ga-search-input">
+                    <input 
+                      type="text" 
+                      placeholder="Filter GAs..."
+                      x-model="gaFilter"
+                    />
+                  </div>
+                  <div class="all-gas-list">
+                    <template x-for="gaEntry in $store.reference.getAllUsedGAs().filter(g => !gaFilter || g.ga.includes(gaFilter) || g.devices.some(d => d.toLowerCase().includes(gaFilter.toLowerCase())))" :key="gaEntry.ga">
+                      <div class="ga-ref-item">
+                        <div class="ga-ref-header">
+                          <code class="ga-addr" x-text="gaEntry.ga"></code>
+                          <span class="ga-device-count" x-text="gaEntry.devices.length + ' device(s)'"></span>
+                        </div>
+                        <div class="ga-ref-usages">
+                          <template x-for="usage in gaEntry.usages" :key="usage.device + usage.name">
+                            <span class="ga-usage-chip">
+                              <span class="usage-device" x-text="usage.device"></span>.<span class="usage-name" x-text="usage.name"></span>
+                              <code class="usage-dpt" x-show="usage.dpt" x-text="usage.dpt"></code>
+                            </span>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                  <template x-if="$store.reference.getAllUsedGAs().length === 0">
+                    <p class="help-empty">No group addresses configured yet.</p>
+                  </template>
+                </div>
+                
+                <!-- Recommended GAs for this device type -->
+                <div class="ga-help-content" x-show="helpTab === 'recommended'">
+                  <template x-if="$store.reference.getRecommendedGAs(form.type)">
+                    <div>
+                      <p class="help-intro" x-text="$store.reference.getRecommendedGAs(form.type)?.description"></p>
+                      <table class="help-table">
+                        <thead>
+                          <tr><th>Name</th><th>DPT</th><th>Flags</th><th>Purpose</th></tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="ga in $store.reference.getRecommendedGAs(form.type)?.recommended_gas || []" :key="ga.name">
+                            <tr>
+                              <td><code x-text="ga.name"></code></td>
+                              <td><code x-text="ga.dpt"></code></td>
+                              <td><code x-text="ga.flags"></code></td>
+                              <td x-text="ga.description"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                      <button 
+                        type="button" 
+                        class="btn btn-small btn-primary"
+                        @click="applyRecommendedGAs()"
+                        style="margin-top: 0.5rem;"
+                      >Apply Recommended Structure</button>
+                    </div>
+                  </template>
+                  <template x-if="!$store.reference.getRecommendedGAs(form.type)">
+                    <p class="help-empty">No recommended structure for this device type.</p>
+                  </template>
+                </div>
+                
+                <!-- Individual Address Reference -->
+                <div class="ga-help-content" x-show="helpTab === 'individual'">
+                  <template x-if="$store.reference.individualAddress">
+                    <div>
+                      <p class="help-intro" x-text="$store.reference.individualAddress.description"></p>
+                      
+                      <div class="ga-format-box">
+                        <strong>Format:</strong> <code x-text="$store.reference.individualAddress.format"></code>
+                        <span class="ga-bits" x-text="'(' + $store.reference.individualAddress.bits + ')'"></span>
+                      </div>
+                      
+                      <h5>Address Components</h5>
+                      <table class="help-table">
+                        <thead>
+                          <tr><th>Part</th><th>Range</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                          <tr>
+                            <td><code>Area</code></td>
+                            <td x-text="$store.reference.individualAddress.structure.area.range"></td>
+                            <td x-text="$store.reference.individualAddress.structure.area.description"></td>
+                          </tr>
+                          <tr>
+                            <td><code>Line</code></td>
+                            <td x-text="$store.reference.individualAddress.structure.line.range"></td>
+                            <td x-text="$store.reference.individualAddress.structure.line.description"></td>
+                          </tr>
+                          <tr>
+                            <td><code>Device</code></td>
+                            <td x-text="$store.reference.individualAddress.structure.device.range"></td>
+                            <td x-text="$store.reference.individualAddress.structure.device.description"></td>
+                          </tr>
+                        </tbody>
+                      </table>
+                      
+                      <h5 style="margin-top: 1rem;">Special Addresses</h5>
+                      <div class="ga-examples">
+                        <template x-for="special in $store.reference.individualAddress.special_addresses" :key="special.address">
+                          <div class="ga-example">
+                            <code x-text="special.address"></code>
+                            <span><strong x-text="special.meaning"></strong> — <span x-text="special.note"></span></span>
+                          </div>
+                        </template>
+                      </div>
+                      
+                      <h5 style="margin-top: 1rem;">Individual vs Group Address</h5>
+                      <div class="addr-comparison">
+                        <div class="addr-compare-item">
+                          <strong>Individual (1.1.1)</strong>
+                          <p x-text="$store.reference.individualAddress.vs_group_address.individual"></p>
+                        </div>
+                        <div class="addr-compare-item">
+                          <strong>Group (1/1/1)</strong>
+                          <p x-text="$store.reference.individualAddress.vs_group_address.group"></p>
+                        </div>
+                        <div class="addr-compare-analogy">
+                          <em x-text="'💡 ' + $store.reference.individualAddress.vs_group_address.analogy"></em>
+                        </div>
+                      </div>
+                      
+                      <div class="ga-tips">
+                        <h5>Tips</h5>
+                        <ul>
+                          <template x-for="tip in $store.reference.individualAddress.tips" :key="tip">
+                            <li x-text="tip"></li>
+                          </template>
+                        </ul>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                
+                <!-- DPT Reference -->
+                <div class="ga-help-content" x-show="helpTab === 'dpts'">
+                  <div class="dpt-search">
+                    <input 
+                      type="text" 
+                      placeholder="Search DPTs (e.g., temperature, 9.001, switch...)"
+                      x-model="dptSearch"
+                    />
+                  </div>
+                  <div class="dpt-results">
+                    <template x-for="dpt in $store.reference.searchDpts(dptSearch).slice(0, 15)" :key="dpt.id">
+                      <div class="dpt-item" @click="copyDpt(dpt.id)">
+                        <div class="dpt-id"><code x-text="dpt.id"></code></div>
+                        <div class="dpt-info">
+                          <span class="dpt-name" x-text="dpt.name"></span>
+                          <span class="dpt-unit" x-show="dpt.unit" x-text="'(' + dpt.unit + ')'"></span>
+                          <span class="dpt-range" x-show="dpt.range" x-text="dpt.range"></span>
+                        </div>
+                        <div class="dpt-use" x-text="dpt.use_case"></div>
+                      </div>
+                    </template>
+                  </div>
+                  <p class="help-hint">Click a DPT to copy it</p>
+                </div>
+                
+                <!-- GA Addressing Structure -->
+                <div class="ga-help-content" x-show="helpTab === 'addressing'">
+                  <template x-if="$store.reference.gaStructure">
+                    <div>
+                      <p class="help-intro" x-text="$store.reference.gaStructure.description"></p>
+                      <div class="ga-format-box">
+                        <strong>Format:</strong> <code x-text="$store.reference.gaStructure.format"></code>
+                        <span class="ga-bits" x-text="'(' + $store.reference.gaStructure.bits + ')'"></span>
+                      </div>
+                      <template x-for="conv in $store.reference.gaStructure.conventions.slice(0, 2)" :key="conv.name">
+                        <div class="ga-convention">
+                          <h5 x-text="conv.name"></h5>
+                          <p x-text="conv.description"></p>
+                          <div class="ga-examples">
+                            <template x-for="ex in conv.example_addresses || []" :key="ex.ga">
+                              <div class="ga-example">
+                                <code x-text="ex.ga"></code>
+                                <span x-text="ex.meaning"></span>
+                              </div>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                      <div class="ga-tips">
+                        <h5>Tips</h5>
+                        <ul>
+                          <template x-for="tip in $store.reference.gaStructure.tips" :key="tip">
+                            <li x-text="tip"></li>
+                          </template>
+                        </ul>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+                
+                <!-- Flags Reference -->
+                <div class="ga-help-content" x-show="helpTab === 'flags'">
+                  <template x-if="$store.reference.flags">
+                    <div>
+                      <p class="help-intro" x-text="$store.reference.flags.description"></p>
+                      <table class="help-table">
+                        <thead>
+                          <tr><th>Flag</th><th>Name</th><th>Description</th></tr>
+                        </thead>
+                        <tbody>
+                          <template x-for="flag in $store.reference.flags.flags" :key="flag.letter">
+                            <tr>
+                              <td><code x-text="flag.letter"></code></td>
+                              <td x-text="flag.name"></td>
+                              <td x-text="flag.description"></td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                      <h5 style="margin-top: 1rem;">Common Patterns</h5>
+                      <div class="flag-patterns">
+                        <template x-for="pattern in $store.reference.flags.common_patterns" :key="pattern.flags">
+                          <div class="flag-pattern">
+                            <code x-text="pattern.flags"></code>
+                            <span class="pattern-use" x-text="pattern.use_case"></span>
+                          </div>
+                        </template>
+                      </div>
+                    </div>
+                  </template>
+                </div>
+              </div>
+              
+              <!-- GA Editor -->
               <div class="ga-editor">
                 <div class="ga-editor-header">
                   <span class="ga-editor-col-name">Name</span>
                   <span class="ga-editor-col-ga">GA</span>
                   <span class="ga-editor-col-dpt">DPT</span>
                   <span class="ga-editor-col-flags">Flags</span>
+                  <span class="ga-editor-col-actions"></span>
                 </div>
                 <template
                   x-for="(gaData, name) in form.group_addresses"
@@ -1021,6 +1731,7 @@
                       @input="updateGA(name, 'dpt', $event.target.value)"
                       placeholder="1.001"
                       class="ga-dpt"
+                      :title="getDptTooltip(typeof gaData === 'object' ? gaData.dpt : '')"
                     />
                     <input
                       type="text"
@@ -1029,18 +1740,19 @@
                       placeholder="C-W-U-"
                       class="ga-flags"
                       maxlength="6"
+                      :title="$store.app.getFlagsTooltip(typeof gaData === 'object' ? gaData.flags : '')"
                     />
+                    <button 
+                      type="button" 
+                      class="btn-icon btn-danger ga-delete"
+                      @click="removeGA(name)"
+                      title="Remove GA"
+                    >✕</button>
                   </div>
                 </template>
                 <button class="btn btn-small" @click="addGA()" type="button">
                   + Add GA
                 </button>
-              </div>
-              <div class="ga-editor-hint">
-                <small
-                  >Flags: C=Communicate R=Read W=Write T=Transmit U=Update
-                  I=Init</small
-                >
               </div>
             </div>
           </div>
@@ -1264,9 +1976,20 @@
             room_id: "",
             group_addresses: {},
           },
+          // Help panel state
+          showHelp: false,
+          helpTab: "all-devices",
+          dptSearch: "",
+          gaFilter: "",
+          
           init() {
             this.$watch("$store.modal.open", (open) => {
               if (open && this.$store.modal.type === "device") {
+                // Reset help panel state
+                this.showHelp = false;
+                this.helpTab = "recommended";
+                this.dptSearch = "";
+                
                 if (
                   this.$store.modal.mode === "edit" &&
                   this.$store.modal.data
@@ -1322,6 +2045,7 @@
               }
             });
           },
+          
           // Update a specific field within a GA object
           updateGA(name, field, value) {
             if (typeof this.form.group_addresses[name] !== "object") {
@@ -1334,6 +2058,7 @@
             }
             this.form.group_addresses[name][field] = value;
           },
+          
           addGA() {
             const name = prompt("Group address name:");
             if (name) {
@@ -1344,6 +2069,79 @@
               };
             }
           },
+          
+          removeGA(name) {
+            const newGAs = { ...this.form.group_addresses };
+            delete newGAs[name];
+            this.form.group_addresses = newGAs;
+          },
+          
+          // Apply recommended GA structure from reference
+          applyRecommendedGAs() {
+            const template = this.$store.reference.getRecommendedGAs(this.form.type);
+            if (!template?.recommended_gas) return;
+            
+            const newGAs = {};
+            for (const ga of template.recommended_gas) {
+              newGAs[ga.name] = {
+                ga: "",  // User fills in the actual address
+                dpt: ga.dpt,
+                flags: ga.flags,
+              };
+            }
+            this.form.group_addresses = newGAs;
+          },
+          
+          // Handle device type change - offer to apply recommended structure
+          onTypeChange() {
+            if (this.$store.modal.mode === "create" && Object.keys(this.form.group_addresses).length === 0) {
+              // Auto-show help panel with recommended tab for new devices
+              this.showHelp = true;
+              this.helpTab = "recommended";
+            }
+          },
+          
+          // Copy DPT to clipboard
+          copyDpt(dptId) {
+            navigator.clipboard?.writeText(dptId) || (() => {
+              const ta = document.createElement('textarea');
+              ta.value = dptId;
+              document.body.appendChild(ta);
+              ta.select();
+              document.execCommand('copy');
+              document.body.removeChild(ta);
+            })();
+          },
+          
+          // Get tooltip for a DPT
+          getDptTooltip(dptId) {
+            if (!dptId) return "Datapoint type (e.g., 1.001 for switch)";
+            const dpt = this.$store.reference.dptList.find(d => d.id === dptId);
+            if (!dpt) return dptId;
+            return `${dpt.name}${dpt.unit ? ' (' + dpt.unit + ')' : ''} - ${dpt.use_case}`;
+          },
+          
+          // Suggest next available IA
+          suggestIA() {
+            // If we have an existing address, suggest next on same line
+            if (this.form.individual_address) {
+              const parts = this.form.individual_address.split(".");
+              if (parts.length >= 2) {
+                this.form.individual_address = this.$store.reference.suggestNextIA(`${parts[0]}.${parts[1]}`);
+                return;
+              }
+            }
+            // Otherwise suggest on line 1.1
+            this.form.individual_address = this.$store.reference.suggestNextIA("1.1");
+          },
+          
+          // Get hint for IA field
+          getIAHint() {
+            const used = this.$store.reference.getAllUsedIAs();
+            if (used.length === 0) return "No devices yet";
+            return `${used.length} addresses in use`;
+          },
+          
           async submit() {
             try {
               if (this.$store.modal.mode === "create") {

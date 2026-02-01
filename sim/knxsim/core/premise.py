@@ -76,7 +76,9 @@ class Premise:
         ind_addr = frames.parse_individual_address(individual_address)
         gas = {}
         for name, ga_str in group_addresses.items():
-            gas[name] = frames.parse_group_address(ga_str)
+            parsed = frames.parse_group_address(ga_str)
+            if parsed is not None:
+                gas[name] = parsed
 
         if cls is TemplateDevice:
             template_def = config.get("template_def", {}) if config else {}

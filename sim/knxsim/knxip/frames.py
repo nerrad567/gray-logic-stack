@@ -28,11 +28,37 @@ def format_individual_address(addr: int) -> str:
     return f"{(addr >> 12) & 0x0F}.{(addr >> 8) & 0x0F}.{addr & 0xFF}"
 
 
-def parse_group_address(text: str) -> int:
-    """Parse "1/1/0" → 0x0900 (main/middle/sub as 5.3.8 bits)."""
+def parse_group_address(ga: str | dict) -> int | None:
+    """Parse group address to integer (main/middle/sub as 5.3.8 bits).
+
+    Handles both legacy string format ("1/1/0") and extended object format
+    ({"ga": "1/1/0", "dpt": "1.001", ...}).
+
+    Returns None if the address is empty or invalid.
+    """
+    # Handle extended format: extract the 'ga' field
+    if isinstance(ga, dict):
+        text = ga.get("ga", "")
+    else:
+        text = ga
+
+    # Handle empty or invalid input
+    if not text or not isinstance(text, str):
+        return None
+
+    text = text.strip()
+    if not text:
+        return None
+
     parts = text.split("/")
-    main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
-    return (main << 11) | (middle << 8) | sub
+    if len(parts) != 3:
+        return None
+
+    try:
+        main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
+        return (main << 11) | (middle << 8) | sub
+    except (ValueError, IndexError):
+        return None
 
 
 def format_group_address(addr: int) -> str:
