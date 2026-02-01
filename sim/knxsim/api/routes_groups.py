@@ -278,12 +278,16 @@ def create_default_structure(premise_id: str):
         raise HTTPException(status_code=404, detail="Premise not found")
 
     # Default main groups (function-based)
+    # Standard KNX group layout - avoiding reserved addresses:
+    # - Main Group 0: Reserved for central/system functions
+    # - Main Groups 1-13: Application groups (user-defined)
+    # - Main Group 14-15: Often reserved for diagnostics/system
     default_main_groups = [
-        {"group_number": 0, "name": "Lighting", "description": "Switch and dimming"},
-        {"group_number": 1, "name": "Blinds", "description": "Position and slat control"},
-        {"group_number": 2, "name": "HVAC", "description": "Heating, ventilation, cooling"},
-        {"group_number": 3, "name": "Sensors", "description": "Temperature, presence, brightness"},
-        {"group_number": 4, "name": "Scenes", "description": "Scene recall and storage"},
+        {"group_number": 1, "name": "Lighting", "description": "Switch and dimming"},
+        {"group_number": 2, "name": "Blinds", "description": "Position and slat control"},
+        {"group_number": 3, "name": "HVAC", "description": "Heating, ventilation, cooling"},
+        {"group_number": 4, "name": "Sensors", "description": "Temperature, presence, brightness"},
+        {"group_number": 5, "name": "Scenes", "description": "Scene recall and storage"},
     ]
 
     created_main = []
@@ -325,32 +329,40 @@ def create_default_structure(premise_id: str):
 
 
 def _get_main_group_for_device_type(device_type: str) -> int:
-    """Map device type to default main group number."""
+    """Map device type to default main group number.
+    
+    Uses standard KNX layout (avoiding reserved group 0):
+    - 1: Lighting
+    - 2: Blinds
+    - 3: HVAC
+    - 4: Sensors
+    - 5: Scenes
+    """
     mapping = {
-        # Lighting (0)
-        "light_switch": 0,
-        "light_dimmer": 0,
-        # Blinds (1)
-        "blind": 1,
-        "shutter": 1,
-        # HVAC (2)
-        "thermostat": 2,
-        "hvac": 2,
-        "valve": 2,
-        # Sensors (3)
-        "temperature_sensor": 3,
-        "presence_sensor": 3,
-        "presence": 3,
-        "brightness_sensor": 3,
-        "sensor": 3,
-        # Wall controls - usually lighting
-        "push_button": 0,
-        "push_button_2": 0,
-        "push_button_4": 0,
-        "wall_switch": 0,
-        "template_device": 0,
+        # Lighting (1)
+        "light_switch": 1,
+        "light_dimmer": 1,
+        # Blinds (2)
+        "blind": 2,
+        "shutter": 2,
+        # HVAC (3)
+        "thermostat": 3,
+        "hvac": 3,
+        "valve": 3,
+        # Sensors (4)
+        "temperature_sensor": 4,
+        "presence_sensor": 4,
+        "presence": 4,
+        "brightness_sensor": 4,
+        "sensor": 4,
+        # Wall controls - usually lighting (1)
+        "push_button": 1,
+        "push_button_2": 1,
+        "push_button_4": 1,
+        "wall_switch": 1,
+        "template_device": 1,
     }
-    return mapping.get(device_type, 0)
+    return mapping.get(device_type, 1)
 
 
 def _get_ga_suggestions_for_device(
