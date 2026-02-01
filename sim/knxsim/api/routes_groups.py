@@ -310,6 +310,26 @@ def get_available_layouts(premise_id: str):
     }
 
 
+@router.delete("/premises/{premise_id}/groups/all", status_code=204)
+def delete_all_groups(premise_id: str):
+    """Delete all main groups (and their middle groups) for a premise.
+    
+    Use this to reset the GA structure and start fresh with a different layout.
+    Note: This does NOT affect device group_addresses - those remain unchanged.
+    """
+    db = router.app.state.manager.db
+    premise = db.get_premise(premise_id)
+    if not premise:
+        raise HTTPException(status_code=404, detail="Premise not found")
+
+    # Get all main groups and delete them (cascades to middle groups)
+    main_groups = db.list_main_groups(premise_id)
+    for mg in main_groups:
+        db.delete_main_group(mg["id"])
+
+    return None
+
+
 @router.post("/premises/{premise_id}/groups/create-defaults")
 def create_default_structure(
     premise_id: str,

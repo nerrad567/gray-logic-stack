@@ -349,6 +349,12 @@ export const API = {
         return request(`/premises/${premiseId}/groups/layouts`);
     },
 
+    async deleteAllGroups(premiseId) {
+        return request(`/premises/${premiseId}/groups/all`, {
+            method: 'DELETE',
+        });
+    },
+
     async createDefaultGroups(premiseId, layout = 'residential') {
         return request(`/premises/${premiseId}/groups/create-defaults?layout=${layout}`, {
             method: 'POST',

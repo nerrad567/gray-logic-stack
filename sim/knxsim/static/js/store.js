@@ -1297,6 +1297,17 @@ export function initStores() {
       }
     },
 
+    async deleteAll(premiseId) {
+      try {
+        await API.deleteAllGroups(premiseId);
+        this.mainGroups = [];
+        this.loaded = false;
+      } catch (err) {
+        console.error("Failed to delete all groups:", err);
+        throw err;
+      }
+    },
+
     async createMainGroup(premiseId, data) {
       try {
         await API.createMainGroup(premiseId, data);

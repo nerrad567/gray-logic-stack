@@ -397,6 +397,17 @@
               >
                 + Add Main Group
               </button>
+              <button
+                class="btn btn-danger"
+                x-show="$store.groups.mainGroups.length > 0"
+                @click="$store.modal.confirm(
+                  'Reset GA Structure',
+                  'Delete all main groups and middle groups? Device group addresses will NOT be affected.',
+                  async () => { await $store.groups.deleteAll($store.app.currentPremiseId); }
+                )"
+              >
+                🗑️ Reset Structure
+              </button>
             </div>
 
             <!-- Empty state -->
