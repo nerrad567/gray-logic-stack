@@ -345,8 +345,12 @@ export const API = {
         });
     },
 
-    async createDefaultGroups(premiseId) {
-        return request(`/premises/${premiseId}/groups/create-defaults`, {
+    async getGroupLayouts(premiseId) {
+        return request(`/premises/${premiseId}/groups/layouts`);
+    },
+
+    async createDefaultGroups(premiseId, layout = 'residential') {
+        return request(`/premises/${premiseId}/groups/create-defaults?layout=${layout}`, {
             method: 'POST',
         });
     },

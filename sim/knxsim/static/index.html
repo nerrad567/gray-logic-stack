@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=10" />
+    <link rel="stylesheet" href="css/style.css?v=11" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -359,13 +359,31 @@
           <div class="groups-tree" x-show="!$store.groups.loading">
             <!-- Create Defaults button (Engineer Mode, no groups yet) -->
             <div class="groups-actions" x-show="$store.app.engineerMode">
-              <button
-                class="btn btn-primary"
-                @click="$store.groups.createDefaults($store.app.currentPremiseId)"
-                x-show="$store.groups.mainGroups.length === 0"
-              >
-                🔧 Create Default Structure
-              </button>
+              <div class="dropdown" x-data="{ open: false }" x-show="$store.groups.mainGroups.length === 0">
+                <button
+                  class="btn btn-primary"
+                  @click="open = !open"
+                  @click.away="open = false"
+                >
+                  🔧 Create Default Structure ▾
+                </button>
+                <div class="dropdown-menu" x-show="open" x-transition>
+                  <button
+                    class="dropdown-item"
+                    @click="$store.groups.createDefaults($store.app.currentPremiseId, 'residential'); open = false"
+                  >
+                    <strong>Residential / Intuitive</strong>
+                    <small>Function-based: Lighting, Blinds, HVAC...</small>
+                  </button>
+                  <button
+                    class="dropdown-item"
+                    @click="$store.groups.createDefaults($store.app.currentPremiseId, 'small_commercial'); open = false"
+                  >
+                    <strong>Small/Medium Commercial</strong>
+                    <small>Location-based: Floor 1, Floor 2...</small>
+                  </button>
+                </div>
+              </div>
               <button
                 class="btn btn-primary"
                 @click="$store.modal.show('mainGroup', 'create')"

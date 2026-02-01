@@ -1282,9 +1282,9 @@ export function initStores() {
       }
     },
 
-    async createDefaults(premiseId) {
+    async createDefaults(premiseId, layout = 'residential') {
       try {
-        await API.createDefaultGroups(premiseId);
+        await API.createDefaultGroups(premiseId, layout);
         await this.load(premiseId);
       } catch (err) {
         console.error("Failed to create default groups:", err);
