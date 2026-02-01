@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=11" />
+    <link rel="stylesheet" href="css/style.css?v=12" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -74,6 +74,13 @@
             @click="$store.app.toggleEngineerMode()"
           >
             Edit Mode
+          </button>
+          <button
+            class="btn btn-help"
+            @click="$store.app.toggleHelp()"
+            title="KNX Reference Guide"
+          >
+            ❓ Help
           </button>
           <!-- Export dropdown (Engineer Mode only) -->
           <div
@@ -1086,6 +1093,208 @@
           ></span>
         </div>
       </footer>
+
+      <!-- KNX Reference Help Drawer -->
+      <div
+        class="help-drawer"
+        :class="{ 'open': $store.app.helpOpen }"
+        x-show="$store.app.helpOpen"
+        x-transition:enter="drawer-enter"
+        x-transition:leave="drawer-leave"
+      >
+        <div class="help-header">
+          <h2>📚 KNX Reference Guide</h2>
+          <button class="btn-close" @click="$store.app.toggleHelp()">&times;</button>
+        </div>
+        <div class="help-nav" x-data="{ activeSection: 0 }">
+          <button class="help-nav-btn" :class="{ active: activeSection === 0 }" @click="activeSection = 0">GA Structure</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 1 }" @click="activeSection = 1">Layout Patterns</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 2 }" @click="activeSection = 2">Device Templates</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 3 }" @click="activeSection = 3">Flags (CRWTUI)</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 4 }" @click="activeSection = 4">Individual Address</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 5 }" @click="activeSection = 5">Common DPTs</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 6 }" @click="activeSection = 6">Best Practices</button>
+        </div>
+        <div class="help-content">
+          <!-- GA Structure -->
+          <div class="help-section" x-show="activeSection === 0">
+            <h3>Group Address Structure</h3>
+            <h4>3-Level Addressing (Main/Middle/Sub)</h4>
+            <p>KNX uses a hierarchical addressing scheme: <code>Main/Middle/Sub</code></p>
+            <table class="help-table">
+              <tr><th>Level</th><th>Range</th><th>Typical Use</th></tr>
+              <tr><td>Main Group</td><td>0-31</td><td>Function type or building zone</td></tr>
+              <tr><td>Middle Group</td><td>0-7</td><td>Floor/location or sub-function</td></tr>
+              <tr><td>Sub Group</td><td>0-255</td><td>Individual object</td></tr>
+            </table>
+            <h4>Reserved Addresses</h4>
+            <ul>
+              <li><strong>0/x/x</strong> — Often reserved for central/system functions</li>
+              <li><strong>14/x/x, 15/x/x</strong> — Sometimes reserved for diagnostics</li>
+              <li><strong>x/x/0</strong> — Some use for "all in group" broadcast</li>
+            </ul>
+          </div>
+
+          <!-- Layout Patterns -->
+          <div class="help-section" x-show="activeSection === 1">
+            <h3>Common GA Layout Patterns</h3>
+            <h4>Residential / Intuitive (Function-Based)</h4>
+            <p>Main groups by function, middle groups by floor:</p>
+            <pre class="help-code">1/x/x  Lighting
+2/x/x  Blinds/Shutters
+3/x/x  HVAC
+4/x/x  Sensors
+5/x/x  Scenes
+
+1/0/x  Lighting - Ground Floor
+1/1/x  Lighting - First Floor</pre>
+            <h4>Small/Medium Commercial (Location-Based)</h4>
+            <p>Main groups by floor/zone, middle groups by function:</p>
+            <pre class="help-code">1/x/x  Ground Floor
+2/x/x  First Floor
+
+1/0/x  Ground Floor - Lighting
+1/1/x  Ground Floor - Blinds
+1/2/x  Ground Floor - HVAC</pre>
+          </div>
+
+          <!-- Device Templates -->
+          <div class="help-section" x-show="activeSection === 2">
+            <h3>Typical GA Assignments by Device</h3>
+            <h4>Light Switch</h4>
+            <table class="help-table">
+              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>switch</td><td>1.001</td><td>CWT</td><td>On/Off command</td></tr>
+              <tr><td>switch_status</td><td>1.001</td><td>CRT</td><td>State feedback</td></tr>
+            </table>
+            <h4>Dimmer</h4>
+            <table class="help-table">
+              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>switch</td><td>1.001</td><td>CWT</td><td>On/Off command</td></tr>
+              <tr><td>switch_status</td><td>1.001</td><td>CRT</td><td>On/Off feedback</td></tr>
+              <tr><td>brightness</td><td>5.001</td><td>CWT</td><td>Dim level 0-100%</td></tr>
+              <tr><td>brightness_status</td><td>5.001</td><td>CRT</td><td>Current level</td></tr>
+            </table>
+            <h4>Blind/Shutter</h4>
+            <table class="help-table">
+              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>move</td><td>1.008</td><td>CWT</td><td>Up/Down</td></tr>
+              <tr><td>stop</td><td>1.007</td><td>CWT</td><td>Stop movement</td></tr>
+              <tr><td>position</td><td>5.001</td><td>CWT</td><td>Position %</td></tr>
+              <tr><td>position_status</td><td>5.001</td><td>CRT</td><td>Current position</td></tr>
+            </table>
+            <h4>Presence Sensor</h4>
+            <table class="help-table">
+              <tr><th>Function</th><th>DPT</th><th>Flags</th><th>Description</th></tr>
+              <tr><td>presence</td><td>1.018</td><td>CRT</td><td>Occupied/Unoccupied</td></tr>
+              <tr><td>brightness</td><td>9.004</td><td>CRT</td><td>Lux level</td></tr>
+            </table>
+          </div>
+
+          <!-- Flags -->
+          <div class="help-section" x-show="activeSection === 3">
+            <h3>Communication Flags (CRWTUI)</h3>
+            <p>Flags control how a group object communicates on the bus:</p>
+            <table class="help-table">
+              <tr><th>Flag</th><th>Name</th><th>Description</th></tr>
+              <tr><td><strong>C</strong></td><td>Communication</td><td>Object can communicate (required)</td></tr>
+              <tr><td><strong>R</strong></td><td>Read</td><td>Responds to GroupRead requests</td></tr>
+              <tr><td><strong>W</strong></td><td>Write</td><td>Accepts GroupWrite commands</td></tr>
+              <tr><td><strong>T</strong></td><td>Transmit</td><td>Sends on value change</td></tr>
+              <tr><td><strong>U</strong></td><td>Update</td><td>Updates value from bus (displays)</td></tr>
+              <tr><td><strong>I</strong></td><td>Read on Init</td><td>Request value on startup</td></tr>
+            </table>
+            <h4>Common Combinations</h4>
+            <table class="help-table">
+              <tr><th>Flags</th><th>Use Case</th></tr>
+              <tr><td>CWT</td><td>Command input (switch, button)</td></tr>
+              <tr><td>CRT</td><td>Status output (feedback)</td></tr>
+              <tr><td>CRWT</td><td>Bidirectional control + status</td></tr>
+              <tr><td>CRU</td><td>Display (read and update)</td></tr>
+            </table>
+          </div>
+
+          <!-- Individual Address -->
+          <div class="help-section" x-show="activeSection === 4">
+            <h3>Individual Address (IA)</h3>
+            <h4>Format: Area.Line.Device</h4>
+            <table class="help-table">
+              <tr><th>Component</th><th>Range</th><th>Description</th></tr>
+              <tr><td>Area</td><td>0-15</td><td>Backbone segment</td></tr>
+              <tr><td>Line</td><td>0-15</td><td>Line within area</td></tr>
+              <tr><td>Device</td><td>0-255</td><td>Device on line (0 = coupler)</td></tr>
+            </table>
+            <h4>Reserved Addresses</h4>
+            <ul>
+              <li><strong>0.0.0</strong> — System address, never assign</li>
+              <li><strong>x.y.0</strong> — Line/area coupler</li>
+              <li><strong>15.15.255</strong> — Broadcast / programming</li>
+            </ul>
+            <h4>Best Practices</h4>
+            <ul>
+              <li>Start device numbering at 1 (0 is for couplers)</li>
+              <li>Group related devices on the same line</li>
+              <li>Leave gaps for future expansion</li>
+            </ul>
+          </div>
+
+          <!-- DPTs -->
+          <div class="help-section" x-show="activeSection === 5">
+            <h3>Common Data Point Types (DPT)</h3>
+            <h4>Boolean / Switch (1 bit)</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Values</th></tr>
+              <tr><td>1.001</td><td>Switch</td><td>0=Off, 1=On</td></tr>
+              <tr><td>1.008</td><td>UpDown</td><td>0=Up, 1=Down</td></tr>
+              <tr><td>1.009</td><td>OpenClose</td><td>0=Open, 1=Close</td></tr>
+              <tr><td>1.018</td><td>Occupancy</td><td>0=Unoccupied, 1=Occupied</td></tr>
+            </table>
+            <h4>Percentage (8 bit)</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Range</th></tr>
+              <tr><td>5.001</td><td>Percentage</td><td>0-100%</td></tr>
+              <tr><td>5.003</td><td>Angle</td><td>0-360°</td></tr>
+            </table>
+            <h4>Float (16 bit)</h4>
+            <table class="help-table">
+              <tr><th>DPT</th><th>Name</th><th>Unit</th></tr>
+              <tr><td>9.001</td><td>Temperature</td><td>°C</td></tr>
+              <tr><td>9.004</td><td>Lux</td><td>lx</td></tr>
+              <tr><td>9.007</td><td>Humidity</td><td>%</td></tr>
+            </table>
+          </div>
+
+          <!-- Best Practices -->
+          <div class="help-section" x-show="activeSection === 6">
+            <h3>Best Practices</h3>
+            <h4>Group Address Planning</h4>
+            <ul>
+              <li><strong>Plan before programming</strong> — Sketch your GA structure first</li>
+              <li><strong>Leave gaps</strong> — Room for expansion</li>
+              <li><strong>Separate commands and status</strong> — Different GAs for control vs feedback</li>
+              <li><strong>Be consistent</strong> — Same pattern throughout</li>
+              <li><strong>Document everything</strong></li>
+            </ul>
+            <h4>Status Feedback</h4>
+            <ul>
+              <li>Always use status GAs for actuators</li>
+              <li>Status on different GA than command</li>
+              <li>Configure actuators to send on change</li>
+            </ul>
+            <h4>Line Planning</h4>
+            <ul>
+              <li>Max 64 devices per line (recommended)</li>
+              <li>Group related devices on same line</li>
+              <li>Heavy traffic devices on separate lines</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+      <div
+        class="help-overlay"
+        x-show="$store.app.helpOpen"
+        @click="$store.app.toggleHelp()"
+      ></div>
 
       <!-- Floating Action Button (Engineer Mode) -->
       <button

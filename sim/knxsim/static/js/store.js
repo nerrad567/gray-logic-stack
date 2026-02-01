@@ -69,6 +69,7 @@ export function initStores() {
 
     // UI state
     engineerMode: false,
+    helpOpen: false,
     selectedDeviceId: null,
     floorPlanMode: false,
     viewMode: "building", // 'building', 'topology', or 'groups'
@@ -233,6 +234,10 @@ export function initStores() {
         this.selectedDeviceId = null;
         Alpine.store("modal").close();
       }
+    },
+
+    toggleHelp() {
+      this.helpOpen = !this.helpOpen;
     },
 
     // ─────────────────────────────────────────────────────────
