@@ -2330,8 +2330,8 @@ select:focus {
    ═══════════════════════════════════════════════════════════════════════════ */
 
 .topology-view {
+  flex: 1;
   padding: var(--spacing-md);
-  height: 100%;
   overflow-y: auto;
 }
 
