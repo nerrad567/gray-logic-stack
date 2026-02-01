@@ -71,7 +71,7 @@ export function initStores() {
     engineerMode: false,
     selectedDeviceId: null,
     floorPlanMode: false,
-    viewMode: "building", // 'building' or 'topology'
+    viewMode: "building", // 'building', 'topology', or 'groups'
 
     // Topology data
     topology: null,
@@ -206,6 +206,9 @@ export function initStores() {
 
         // Load telegram history for this premise
         Alpine.store("telegrams").loadHistory(premiseId);
+
+        // Load group address structure
+        Alpine.store("groups").load(premiseId);
       } catch (err) {
         console.error("Failed to load premise data:", err);
       }
@@ -241,6 +244,9 @@ export function initStores() {
       this.selectedDeviceId = null;
       if (mode === "topology" && !this.topology) {
         await this.loadTopology();
+      }
+      if (mode === "groups" && !Alpine.store("groups").loaded) {
+        await Alpine.store("groups").load(this.currentPremiseId);
       }
     },
 
@@ -1161,6 +1167,202 @@ export function initStores() {
         console.error("Failed to copy to clipboard:", err);
       } finally {
         document.body.removeChild(textarea);
+      }
+    },
+  });
+
+  // ─────────────────────────────────────────────────────────────
+  // Groups Store (GA Hierarchy)
+  // ─────────────────────────────────────────────────────────────
+  Alpine.store("groups", {
+    loaded: false,
+    loading: false,
+    mainGroups: [],
+    usedAddresses: [],
+
+    // Expanded state for tree view
+    expandedMainGroups: new Set(),
+    expandedMiddleGroups: new Set(),
+
+    isMainGroupExpanded(id) {
+      return this.expandedMainGroups.has(id);
+    },
+
+    toggleMainGroup(id) {
+      if (this.expandedMainGroups.has(id)) {
+        this.expandedMainGroups.delete(id);
+      } else {
+        this.expandedMainGroups.add(id);
+      }
+    },
+
+    isMiddleGroupExpanded(id) {
+      return this.expandedMiddleGroups.has(id);
+    },
+
+    toggleMiddleGroup(id) {
+      if (this.expandedMiddleGroups.has(id)) {
+        this.expandedMiddleGroups.delete(id);
+      } else {
+        this.expandedMiddleGroups.add(id);
+      }
+    },
+
+    // Get main group by number
+    getMainGroupByNumber(num) {
+      return this.mainGroups.find(g => g.group_number === num);
+    },
+
+    // Get middle group by main group ID and number
+    getMiddleGroupByNumber(mainGroupId, num) {
+      const main = this.mainGroups.find(g => g.id === mainGroupId);
+      if (!main || !main.middle_groups) return null;
+      return main.middle_groups.find(g => g.group_number === num);
+    },
+
+    // Check if a GA is used
+    isGaUsed(ga) {
+      return this.usedAddresses.includes(ga);
+    },
+
+    // Get devices using a specific GA
+    getDevicesUsingGa(ga) {
+      const devices = Alpine.store("app").devices || [];
+      const result = [];
+      for (const dev of devices) {
+        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+          const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
+          if (gaStr === ga) {
+            result.push({ device: dev, function: name });
+          }
+        }
+      }
+      return result;
+    },
+
+    // Get all GAs in a main/middle group with their device mappings
+    getGAsInGroup(mainNum, middleNum) {
+      const prefix = `${mainNum}/${middleNum}/`;
+      const devices = Alpine.store("app").devices || [];
+      const gas = [];
+
+      for (const dev of devices) {
+        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+          const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
+          if (gaStr && gaStr.startsWith(prefix)) {
+            gas.push({
+              ga: gaStr,
+              sub: parseInt(gaStr.split("/")[2], 10),
+              device: dev,
+              function: name,
+              dpt: typeof gaData === "object" ? gaData.dpt : null,
+            });
+          }
+        }
+      }
+
+      // Sort by sub-address
+      return gas.sort((a, b) => a.sub - b.sub);
+    },
+
+    async load(premiseId) {
+      if (this.loading) return;
+      this.loading = true;
+
+      try {
+        const data = await API.getGroupTree(premiseId);
+        this.mainGroups = data.main_groups || [];
+        this.usedAddresses = data.used_addresses || [];
+        this.loaded = true;
+        console.log("Groups loaded:", this.mainGroups.length, "main groups");
+      } catch (err) {
+        console.error("Failed to load groups:", err);
+      } finally {
+        this.loading = false;
+      }
+    },
+
+    async createDefaults(premiseId) {
+      try {
+        await API.createDefaultGroups(premiseId);
+        await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to create default groups:", err);
+        throw err;
+      }
+    },
+
+    async createMainGroup(premiseId, data) {
+      try {
+        await API.createMainGroup(premiseId, data);
+        await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to create main group:", err);
+        throw err;
+      }
+    },
+
+    async updateMainGroup(mainGroupId, data) {
+      try {
+        await API.updateMainGroup(mainGroupId, data);
+        const premiseId = Alpine.store("app").currentPremiseId;
+        if (premiseId) await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to update main group:", err);
+        throw err;
+      }
+    },
+
+    async deleteMainGroup(mainGroupId) {
+      try {
+        await API.deleteMainGroup(mainGroupId);
+        const premiseId = Alpine.store("app").currentPremiseId;
+        if (premiseId) await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to delete main group:", err);
+        throw err;
+      }
+    },
+
+    async createMiddleGroup(mainGroupId, data) {
+      try {
+        await API.createMiddleGroup(mainGroupId, data);
+        const premiseId = Alpine.store("app").currentPremiseId;
+        if (premiseId) await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to create middle group:", err);
+        throw err;
+      }
+    },
+
+    async updateMiddleGroup(middleGroupId, data) {
+      try {
+        await API.updateMiddleGroup(middleGroupId, data);
+        const premiseId = Alpine.store("app").currentPremiseId;
+        if (premiseId) await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to update middle group:", err);
+        throw err;
+      }
+    },
+
+    async deleteMiddleGroup(middleGroupId) {
+      try {
+        await API.deleteMiddleGroup(middleGroupId);
+        const premiseId = Alpine.store("app").currentPremiseId;
+        if (premiseId) await this.load(premiseId);
+      } catch (err) {
+        console.error("Failed to delete middle group:", err);
+        throw err;
+      }
+    },
+
+    async suggestGAs(premiseId, deviceType, roomId = null) {
+      try {
+        return await API.suggestGroupAddresses(premiseId, deviceType, roomId);
+      } catch (err) {
+        console.error("Failed to suggest GAs:", err);
+        return null;
       }
     },
   });

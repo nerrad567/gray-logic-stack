@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=9" />
+    <link rel="stylesheet" href="css/style.css?v=10" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -127,6 +127,13 @@
           @click="$store.app.switchView('topology')"
         >
           🔌 Topology View
+        </button>
+        <button
+          class="view-tab"
+          :class="{ 'active': $store.app.viewMode === 'groups' }"
+          @click="$store.app.switchView('groups')"
+        >
+          📋 Group Addresses
         </button>
       </nav>
 
@@ -333,6 +340,146 @@
                       + Add Line
                     </button>
                   </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
+
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <!-- GROUPS VIEW (Group Address Hierarchy) -->
+        <!-- ═══════════════════════════════════════════════════════════ -->
+        <section class="groups-view" x-show="$store.app.viewMode === 'groups'">
+          <!-- Loading state -->
+          <div class="loading-placeholder" x-show="$store.groups.loading">
+            <p>Loading group addresses...</p>
+          </div>
+
+          <!-- Groups tree -->
+          <div class="groups-tree" x-show="!$store.groups.loading">
+            <!-- Create Defaults button (Engineer Mode, no groups yet) -->
+            <div class="groups-actions" x-show="$store.app.engineerMode">
+              <button
+                class="btn btn-primary"
+                @click="$store.groups.createDefaults($store.app.currentPremiseId)"
+                x-show="$store.groups.mainGroups.length === 0"
+              >
+                🔧 Create Default Structure
+              </button>
+              <button
+                class="btn btn-primary"
+                @click="$store.modal.show('mainGroup', 'create')"
+              >
+                + Add Main Group
+              </button>
+            </div>
+
+            <!-- Empty state -->
+            <div
+              class="groups-empty"
+              x-show="$store.groups.mainGroups.length === 0 && !$store.groups.loading"
+            >
+              <p>No group address structure defined.</p>
+              <p x-show="$store.app.engineerMode">Click "Create Default Structure" to generate a standard KNX layout.</p>
+            </div>
+
+            <!-- Main Groups -->
+            <template x-for="mainGroup in $store.groups.mainGroups" :key="mainGroup.id">
+              <div class="groups-main-group">
+                <div
+                  class="groups-main-header"
+                  @click="$store.groups.toggleMainGroup(mainGroup.id)"
+                >
+                  <span class="groups-expand-icon" x-text="$store.groups.isMainGroupExpanded(mainGroup.id) ? '▼' : '▶'"></span>
+                  <span class="groups-main-number" x-text="mainGroup.group_number"></span>
+                  <span class="groups-main-name" x-text="mainGroup.name"></span>
+                  <span class="groups-main-count" x-text="(mainGroup.middle_groups?.length || 0) + ' middle group(s)'"></span>
+                  <!-- Main Group actions (Engineer Mode) -->
+                  <div class="groups-actions-inline" x-show="$store.app.engineerMode" @click.stop>
+                    <button
+                      class="btn-icon"
+                      @click="$store.modal.show('middleGroup', 'create', { main_group_id: mainGroup.id, main_group_number: mainGroup.group_number })"
+                      title="Add middle group"
+                    >
+                      ➕
+                    </button>
+                    <button
+                      class="btn-icon"
+                      @click="$store.modal.show('mainGroup', 'edit', mainGroup)"
+                      title="Edit main group"
+                    >
+                      ✏️
+                    </button>
+                    <button
+                      class="btn-icon btn-danger"
+                      @click="$store.modal.confirm('Delete Main Group', `Delete '${mainGroup.name}' and all its middle groups?`, () => $store.groups.deleteMainGroup(mainGroup.id))"
+                      title="Delete main group"
+                    >
+                      🗑️
+                    </button>
+                  </div>
+                </div>
+
+                <!-- Middle Groups (collapsed by default) -->
+                <div class="groups-middle-list" x-show="$store.groups.isMainGroupExpanded(mainGroup.id)" x-collapse>
+                  <!-- Empty middle groups -->
+                  <div
+                    class="groups-empty-middle"
+                    x-show="!mainGroup.middle_groups || mainGroup.middle_groups.length === 0"
+                  >
+                    <p>No middle groups. <span x-show="$store.app.engineerMode">Click ➕ to add one.</span></p>
+                  </div>
+
+                  <template x-for="middleGroup in mainGroup.middle_groups || []" :key="middleGroup.id">
+                    <div class="groups-middle-group">
+                      <div
+                        class="groups-middle-header"
+                        @click="$store.groups.toggleMiddleGroup(middleGroup.id)"
+                      >
+                        <span class="groups-expand-icon" x-text="$store.groups.isMiddleGroupExpanded(middleGroup.id) ? '▼' : '▶'"></span>
+                        <span class="groups-middle-number" x-text="mainGroup.group_number + '/' + middleGroup.group_number"></span>
+                        <span class="groups-middle-name" x-text="middleGroup.name"></span>
+                        <span class="groups-middle-floor" x-show="middleGroup.floor_id">
+                          📍 <span x-text="$store.app.floors.find(f => f.id === middleGroup.floor_id)?.name || ''"></span>
+                        </span>
+                        <!-- Middle Group actions (Engineer Mode) -->
+                        <div class="groups-actions-inline" x-show="$store.app.engineerMode" @click.stop>
+                          <button
+                            class="btn-icon"
+                            @click="$store.modal.show('middleGroup', 'edit', { ...middleGroup, main_group_number: mainGroup.group_number })"
+                            title="Edit middle group"
+                          >
+                            ✏️
+                          </button>
+                          <button
+                            class="btn-icon btn-danger"
+                            @click="$store.modal.confirm('Delete Middle Group', `Delete '${middleGroup.name}'?`, () => $store.groups.deleteMiddleGroup(middleGroup.id))"
+                            title="Delete middle group"
+                          >
+                            🗑️
+                          </button>
+                        </div>
+                      </div>
+
+                      <!-- GAs in this middle group (collapsed by default) -->
+                      <div class="groups-ga-list" x-show="$store.groups.isMiddleGroupExpanded(middleGroup.id)" x-collapse>
+                        <template x-for="gaInfo in $store.groups.getGAsInGroup(mainGroup.group_number, middleGroup.group_number)" :key="gaInfo.ga + gaInfo.device.id + gaInfo.function">
+                          <div class="groups-ga-row">
+                            <span class="groups-ga-address mono" x-text="gaInfo.ga"></span>
+                            <span class="groups-ga-function" x-text="gaInfo.function"></span>
+                            <span class="groups-ga-device" x-text="gaInfo.device.id"></span>
+                            <span class="groups-ga-dpt mono" x-text="gaInfo.dpt || '-'"></span>
+                          </div>
+                        </template>
+                        <div
+                          class="groups-ga-empty"
+                          x-show="$store.groups.getGAsInGroup(mainGroup.group_number, middleGroup.group_number).length === 0"
+                        >
+                          <p>No group addresses assigned in this range.</p>
+                        </div>
+                      </div>
+                    </div>
+                  </template>
                 </div>
               </div>
             </template>
@@ -1287,6 +1434,187 @@
               <span
                 x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
               ></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Main Group Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'mainGroup'"
+          @click.stop
+          x-data="{
+            form: { group_number: 0, name: '', description: '' },
+            init() {
+              this.$watch('$store.modal.open', (open) => {
+                if (open && this.$store.modal.type === 'mainGroup') {
+                  if (this.$store.modal.mode === 'edit' && this.$store.modal.data) {
+                    this.form = { ...this.$store.modal.data };
+                  } else {
+                    // Find next available main group number
+                    const used = $store.groups.mainGroups.map(g => g.group_number);
+                    let next = 0;
+                    while (used.includes(next) && next < 32) next++;
+                    this.form = { group_number: next, name: '', description: '' };
+                  }
+                }
+              });
+            },
+            async submit() {
+              const premiseId = $store.app.currentPremiseId;
+              if (this.$store.modal.mode === 'create') {
+                await $store.groups.createMainGroup(premiseId, this.form);
+              } else {
+                await $store.groups.updateMainGroup(this.$store.modal.data.id, this.form);
+              }
+              $store.modal.close();
+            }
+          }"
+        >
+          <div class="modal-header">
+            <h3 x-text="$store.modal.mode === 'create' ? 'Add Main Group' : 'Edit Main Group'"></h3>
+            <button class="btn-close" @click="$store.modal.close()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="main-group-number">Group Number (0-31)</label>
+              <input
+                type="number"
+                id="main-group-number"
+                x-model.number="form.group_number"
+                min="0"
+                max="31"
+                :disabled="$store.modal.mode === 'edit'"
+              />
+              <small class="help-text">Main groups are typically function-based: 0=Lighting, 1=Blinds, 2=HVAC, etc.</small>
+            </div>
+            <div class="form-group">
+              <label for="main-group-name">Name</label>
+              <input
+                type="text"
+                id="main-group-name"
+                x-model="form.name"
+                placeholder="e.g. Lighting, Blinds, HVAC"
+              />
+            </div>
+            <div class="form-group">
+              <label for="main-group-desc">Description (optional)</label>
+              <input
+                type="text"
+                id="main-group-desc"
+                x-model="form.description"
+                placeholder="e.g. Switch and dimming controls"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.name"
+            >
+              <span x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Middle Group Modal -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'middleGroup'"
+          @click.stop
+          x-data="{
+            form: { group_number: 0, name: '', description: '', floor_id: '' },
+            mainGroupId: null,
+            mainGroupNumber: null,
+            init() {
+              this.$watch('$store.modal.open', (open) => {
+                if (open && this.$store.modal.type === 'middleGroup') {
+                  const data = this.$store.modal.data || {};
+                  this.mainGroupId = data.main_group_id || data.main_group_id;
+                  this.mainGroupNumber = data.main_group_number;
+                  if (this.$store.modal.mode === 'edit') {
+                    this.form = {
+                      group_number: data.group_number,
+                      name: data.name,
+                      description: data.description || '',
+                      floor_id: data.floor_id || ''
+                    };
+                  } else {
+                    // Find next available middle group number
+                    const mainGroup = $store.groups.mainGroups.find(g => g.id === this.mainGroupId);
+                    const used = (mainGroup?.middle_groups || []).map(g => g.group_number);
+                    let next = 0;
+                    while (used.includes(next) && next < 8) next++;
+                    this.form = { group_number: next, name: '', description: '', floor_id: '' };
+                  }
+                }
+              });
+            },
+            async submit() {
+              if (this.$store.modal.mode === 'create') {
+                await $store.groups.createMiddleGroup(this.mainGroupId, this.form);
+              } else {
+                await $store.groups.updateMiddleGroup(this.$store.modal.data.id, this.form);
+              }
+              $store.modal.close();
+            }
+          }"
+        >
+          <div class="modal-header">
+            <h3 x-text="$store.modal.mode === 'create' ? 'Add Middle Group' : 'Edit Middle Group'"></h3>
+            <button class="btn-close" @click="$store.modal.close()">&times;</button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="middle-group-number">Group Number (0-7)</label>
+              <input
+                type="number"
+                id="middle-group-number"
+                x-model.number="form.group_number"
+                min="0"
+                max="7"
+                :disabled="$store.modal.mode === 'edit'"
+              />
+              <small class="help-text">Middle groups are typically location-based: 0=Ground Floor, 1=First Floor, etc.</small>
+            </div>
+            <div class="form-group">
+              <label for="middle-group-name">Name</label>
+              <input
+                type="text"
+                id="middle-group-name"
+                x-model="form.name"
+                placeholder="e.g. Ground Floor, First Floor"
+              />
+            </div>
+            <div class="form-group">
+              <label for="middle-group-floor">Link to Floor (optional)</label>
+              <select id="middle-group-floor" x-model="form.floor_id">
+                <option value="">-- No floor link --</option>
+                <template x-for="floor in $store.app.floors" :key="floor.id">
+                  <option :value="floor.id" x-text="floor.name"></option>
+                </template>
+              </select>
+              <small class="help-text">Linking to a floor enables automatic GA suggestions for devices in that floor's rooms.</small>
+            </div>
+            <div class="form-group">
+              <label for="middle-group-desc">Description (optional)</label>
+              <input
+                type="text"
+                id="middle-group-desc"
+                x-model="form.description"
+              />
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!form.name"
+            >
+              <span x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"></span>
             </button>
           </div>
         </div>

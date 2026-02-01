@@ -288,4 +288,77 @@ export const API = {
             method: 'DELETE',
         });
     },
+
+    // ─────────────────────────────────────────────────────────────
+    // Group Address Hierarchy
+    // ─────────────────────────────────────────────────────────────
+
+    async getGroupTree(premiseId) {
+        return request(`/premises/${premiseId}/groups`);
+    },
+
+    async getMainGroups(premiseId) {
+        return request(`/premises/${premiseId}/main-groups`);
+    },
+
+    async createMainGroup(premiseId, data) {
+        return request(`/premises/${premiseId}/main-groups`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateMainGroup(mainGroupId, data) {
+        return request(`/main-groups/${mainGroupId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteMainGroup(mainGroupId) {
+        return request(`/main-groups/${mainGroupId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    async getMiddleGroups(mainGroupId) {
+        return request(`/main-groups/${mainGroupId}/middle-groups`);
+    },
+
+    async createMiddleGroup(mainGroupId, data) {
+        return request(`/main-groups/${mainGroupId}/middle-groups`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateMiddleGroup(middleGroupId, data) {
+        return request(`/middle-groups/${middleGroupId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteMiddleGroup(middleGroupId) {
+        return request(`/middle-groups/${middleGroupId}`, {
+            method: 'DELETE',
+        });
+    },
+
+    async createDefaultGroups(premiseId) {
+        return request(`/premises/${premiseId}/groups/create-defaults`, {
+            method: 'POST',
+        });
+    },
+
+    async suggestGroupAddresses(premiseId, deviceType, roomId = null, mainGroup = null) {
+        const params = new URLSearchParams({ device_type: deviceType });
+        if (roomId) params.append('room_id', roomId);
+        if (mainGroup !== null) params.append('main_group', mainGroup);
+        return request(`/premises/${premiseId}/groups/suggest?${params}`);
+    },
+
+    async getNextSubAddress(premiseId, main, middle) {
+        return request(`/premises/${premiseId}/groups/next-sub?main=${main}&middle=${middle}`);
+    },
 };

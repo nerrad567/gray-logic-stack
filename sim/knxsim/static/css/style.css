@@ -99,6 +99,8 @@ body {
 .telegram-inspector { grid-row: 5; }
 .stats-bar { grid-row: 6; }
 
+/* View sections: topology and groups use flex:1 to fill space */
+
 /* Header */
 .header {
   display: flex;
@@ -2537,4 +2539,183 @@ select:focus {
 /* Building View wrapper */
 .building-view {
   display: contents;
+}
+
+/* ═══════════════════════════════════════════════════════════════════════════
+   GROUPS VIEW (Group Address Hierarchy)
+   ═══════════════════════════════════════════════════════════════════════════ */
+
+.groups-view {
+  flex: 1;
+  padding: var(--spacing-md);
+  overflow-y: auto;
+}
+
+.groups-tree {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.groups-actions {
+  margin-bottom: var(--spacing-md);
+  display: flex;
+  gap: var(--spacing-sm);
+}
+
+.groups-empty,
+.groups-empty-middle,
+.groups-ga-empty {
+  padding: var(--spacing-md);
+  color: var(--text-muted);
+  font-style: italic;
+}
+
+/* Main Group */
+.groups-main-group {
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  overflow: hidden;
+}
+
+.groups-main-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-tertiary);
+  cursor: pointer;
+  user-select: none;
+}
+
+.groups-main-header:hover {
+  background: var(--bg-hover);
+}
+
+.groups-expand-icon {
+  font-size: 10px;
+  color: var(--text-muted);
+  width: 16px;
+  text-align: center;
+}
+
+.groups-main-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-yellow);
+  background: rgba(255, 200, 87, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.groups-main-name {
+  color: var(--text-primary);
+  font-weight: 500;
+  flex: 1;
+}
+
+.groups-main-count {
+  color: var(--text-muted);
+  font-size: 12px;
+}
+
+.groups-actions-inline {
+  display: flex;
+  gap: var(--spacing-xs);
+  opacity: 0;
+  transition: opacity 0.15s;
+}
+
+.groups-main-header:hover .groups-actions-inline,
+.groups-middle-header:hover .groups-actions-inline {
+  opacity: 1;
+}
+
+/* Middle Group */
+.groups-middle-list {
+  border-top: 1px solid var(--border-primary);
+}
+
+.groups-middle-group {
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.groups-middle-group:last-child {
+  border-bottom: none;
+}
+
+.groups-middle-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-left: calc(var(--spacing-md) + 16px);
+  cursor: pointer;
+  user-select: none;
+}
+
+.groups-middle-header:hover {
+  background: var(--bg-hover);
+}
+
+.groups-middle-number {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--accent-cyan);
+  background: rgba(56, 189, 248, 0.15);
+  padding: 2px 8px;
+  border-radius: 4px;
+  font-family: var(--font-mono);
+}
+
+.groups-middle-name {
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.groups-middle-floor {
+  color: var(--accent-purple);
+  font-size: 11px;
+}
+
+/* GA List */
+.groups-ga-list {
+  padding: var(--spacing-sm) var(--spacing-md);
+  padding-left: calc(var(--spacing-md) + 32px);
+  background: var(--bg-primary);
+}
+
+.groups-ga-row {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-md);
+  padding: var(--spacing-xs) 0;
+  font-size: 13px;
+  border-bottom: 1px solid var(--border-primary);
+}
+
+.groups-ga-row:last-child {
+  border-bottom: none;
+}
+
+.groups-ga-address {
+  color: var(--accent-green);
+  min-width: 70px;
+}
+
+.groups-ga-function {
+  color: var(--text-secondary);
+  min-width: 120px;
+}
+
+.groups-ga-device {
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.groups-ga-dpt {
+  color: var(--text-muted);
+  font-size: 11px;
 }
