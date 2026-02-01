@@ -1101,12 +1101,13 @@
         x-show="$store.app.helpOpen"
         x-transition:enter="drawer-enter"
         x-transition:leave="drawer-leave"
+        x-data="{ activeSection: 0 }"
       >
         <div class="help-header">
           <h2>📚 KNX Reference Guide</h2>
           <button class="btn-close" @click="$store.app.toggleHelp()">&times;</button>
         </div>
-        <div class="help-nav" x-data="{ activeSection: 0 }">
+        <div class="help-nav">
           <button class="help-nav-btn" :class="{ active: activeSection === 0 }" @click="activeSection = 0">GA Structure</button>
           <button class="help-nav-btn" :class="{ active: activeSection === 1 }" @click="activeSection = 1">Layout Patterns</button>
           <button class="help-nav-btn" :class="{ active: activeSection === 2 }" @click="activeSection = 2">Device Templates</button>
