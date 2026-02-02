@@ -680,62 +680,129 @@
                   </div>
                 </div>
 
-                <!-- Group Addresses -->
-                <div class="detail-section">
-                  <h4>Group Addresses</h4>
-                  <div class="ga-table-wrapper">
-                    <table class="ga-table">
-                      <thead>
-                        <tr>
-                          <th class="ga-col-name">Name</th>
-                          <th class="ga-col-ga">GA</th>
-                          <th class="ga-col-dpt">DPT</th>
-                          <th class="ga-col-flags">Flags</th>
-                        </tr>
-                      </thead>
-                      <tbody>
-                        <template
-                          x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
+                <!-- Channels (new multi-channel structure) -->
+                <template x-if="$store.app.selectedDevice.channels && $store.app.selectedDevice.channels.length > 0">
+                  <div class="detail-section channels-section">
+                    <h4>
+                      Channels
+                      <span class="channel-count" x-text="'(' + $store.app.selectedDevice.channels.length + ')'"></span>
+                    </h4>
+                    <div class="channels-list">
+                      <template x-for="(channel, channelIndex) in $store.app.selectedDevice.channels" :key="channel.id">
+                        <div 
+                          class="channel-card"
+                          x-data="{ expanded: $store.app.selectedDevice.channels.length === 1 }"
                         >
-                          <tr>
-                            <td colspan="4" class="ga-empty">
-                              No group addresses
-                            </td>
-                          </tr>
-                        </template>
-                        <template
-                          x-for="[name, gaData] in Object.entries($store.app.selectedDevice.group_addresses || {})"
-                          :key="name"
-                        >
-                          <tr>
-                            <td class="ga-col-name" x-text="name"></td>
-                            <td
-                              class="ga-col-ga mono"
-                              x-text="typeof gaData === 'object' ? gaData.ga : gaData"
-                            ></td>
-                            <td
-                              class="ga-col-dpt"
-                              x-text="typeof gaData === 'object' && gaData.dpt ? gaData.dpt : $store.app.guessDPT(name, $store.app.selectedDevice.type)"
-                            ></td>
-                            <td class="ga-col-flags">
-                              <span
-                                class="flags-display"
-                                x-text="typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name)"
-                                :title="$store.app.getFlagsTooltip(typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name))"
-                              ></span>
-                            </td>
-                          </tr>
-                        </template>
-                      </tbody>
-                    </table>
+                          <div class="channel-header" @click="expanded = !expanded">
+                            <span class="channel-expand-icon" x-text="expanded ? '▼' : '▶'"></span>
+                            <span class="channel-id" x-text="'[' + channel.id + ']'"></span>
+                            <span class="channel-name" x-text="channel.name"></span>
+                            <span 
+                              class="channel-ga-count" 
+                              x-text="Object.keys(channel.group_objects || {}).length + ' GOs'"
+                            ></span>
+                          </div>
+                          <div class="channel-body" x-show="expanded" x-collapse>
+                            <!-- Group Objects Table -->
+                            <table class="ga-table channel-ga-table">
+                              <thead>
+                                <tr>
+                                  <th class="ga-col-name">Object</th>
+                                  <th class="ga-col-ga">GA</th>
+                                  <th class="ga-col-dpt">DPT</th>
+                                  <th class="ga-col-flags">Flags</th>
+                                </tr>
+                              </thead>
+                              <tbody>
+                                <template x-if="Object.keys(channel.group_objects || {}).length === 0">
+                                  <tr><td colspan="4" class="ga-empty">No group objects</td></tr>
+                                </template>
+                                <template x-for="[goName, goData] in Object.entries(channel.group_objects || {})" :key="goName">
+                                  <tr>
+                                    <td class="ga-col-name" x-text="goName"></td>
+                                    <td class="ga-col-ga mono" x-text="goData.ga || '-'"></td>
+                                    <td class="ga-col-dpt" x-text="goData.dpt || '-'"></td>
+                                    <td class="ga-col-flags">
+                                      <span 
+                                        class="flags-display" 
+                                        x-text="goData.flags || '-'"
+                                        :title="$store.app.getFlagsTooltip(goData.flags)"
+                                      ></span>
+                                    </td>
+                                  </tr>
+                                </template>
+                              </tbody>
+                            </table>
+                            <!-- Channel State -->
+                            <div class="channel-state">
+                              <span class="channel-state-label">State:</span>
+                              <code class="channel-state-value" x-text="JSON.stringify(channel.state || {})"></code>
+                            </div>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
                   </div>
-                  <div class="flags-legend">
-                    <small
-                      >C=Communicate R=Read W=Write T=Transmit U=Update
-                      I=Init</small
-                    >
+                </template>
+
+                <!-- Legacy Group Addresses (fallback for devices without channels) -->
+                <template x-if="!$store.app.selectedDevice.channels || $store.app.selectedDevice.channels.length === 0">
+                  <div class="detail-section">
+                    <h4>Group Addresses</h4>
+                    <div class="ga-table-wrapper">
+                      <table class="ga-table">
+                        <thead>
+                          <tr>
+                            <th class="ga-col-name">Name</th>
+                            <th class="ga-col-ga">GA</th>
+                            <th class="ga-col-dpt">DPT</th>
+                            <th class="ga-col-flags">Flags</th>
+                          </tr>
+                        </thead>
+                        <tbody>
+                          <template
+                            x-if="Object.keys($store.app.selectedDevice.group_addresses || {}).length === 0"
+                          >
+                            <tr>
+                              <td colspan="4" class="ga-empty">
+                                No group addresses
+                              </td>
+                            </tr>
+                          </template>
+                          <template
+                            x-for="[name, gaData] in Object.entries($store.app.selectedDevice.group_addresses || {})"
+                            :key="name"
+                          >
+                            <tr>
+                              <td class="ga-col-name" x-text="name"></td>
+                              <td
+                                class="ga-col-ga mono"
+                                x-text="typeof gaData === 'object' ? gaData.ga : gaData"
+                              ></td>
+                              <td
+                                class="ga-col-dpt"
+                                x-text="typeof gaData === 'object' && gaData.dpt ? gaData.dpt : $store.app.guessDPT(name, $store.app.selectedDevice.type)"
+                              ></td>
+                              <td class="ga-col-flags">
+                                <span
+                                  class="flags-display"
+                                  x-text="typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name)"
+                                  :title="$store.app.getFlagsTooltip(typeof gaData === 'object' && gaData.flags ? gaData.flags : $store.app.guessFlags(name))"
+                                ></span>
+                              </td>
+                            </tr>
+                          </template>
+                        </tbody>
+                      </table>
+                    </div>
+                    <div class="flags-legend">
+                      <small
+                        >C=Communicate R=Read W=Write T=Transmit U=Update
+                        I=Init</small
+                      >
+                    </div>
                   </div>
-                </div>
+                </template>
 
                 <!-- Current State -->
                 <div class="detail-section">
