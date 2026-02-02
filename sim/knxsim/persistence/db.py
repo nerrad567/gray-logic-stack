@@ -1311,12 +1311,93 @@ class Database:
         return self.get_device(device_id)
 
     def update_device_state(self, device_id: str, state: dict):
-        """Update just the state field (called frequently by scenarios/telegrams)."""
-        self.conn.execute(
-            "UPDATE devices SET state = ?, updated_at = ? WHERE id = ?",
-            (json.dumps(state), _now(), device_id),
-        )
+        """Update device state and sync to channels.
+        
+        For single-channel devices, updates channels[0].state.
+        For multi-channel devices, updates all channels with matching state keys.
+        Called frequently by scenarios/telegrams.
+        """
+        now = _now()
+        
+        # Get current device to access channels
+        device = self.get_device(device_id)
+        if device and device.get("channels"):
+            channels = device["channels"]
+            if len(channels) == 1:
+                # Single channel - sync all state
+                channels[0]["state"] = state
+            else:
+                # Multi-channel - sync matching state keys to each channel
+                # This is a basic approach; full implementation would route by GA
+                for channel in channels:
+                    channel_state = channel.get("state", {})
+                    for key, value in state.items():
+                        if key in channel_state:
+                            channel_state[key] = value
+                    channel["state"] = channel_state
+            
+            # Update both state and channels
+            self.conn.execute(
+                "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(state), json.dumps(channels), now, device_id),
+            )
+        else:
+            # No channels - just update state
+            self.conn.execute(
+                "UPDATE devices SET state = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(state), now, device_id),
+            )
         self.conn.commit()
+
+    def find_device_channel_by_ga(self, premise_id: str, ga: str) -> tuple[dict, dict, str] | None:
+        """Find device and channel that owns a group address.
+        
+        Returns (device, channel, group_object_name) or None if not found.
+        Searches through all devices' channels' group_objects.
+        """
+        devices = self.list_devices(premise_id)
+        for device in devices:
+            channels = device.get("channels", [])
+            for channel in channels:
+                group_objects = channel.get("group_objects", {})
+                for go_name, go_data in group_objects.items():
+                    if isinstance(go_data, dict) and go_data.get("ga") == ga:
+                        return (device, channel, go_name)
+        return None
+
+    def update_channel_state(self, device_id: str, channel_id: str, state_updates: dict):
+        """Update a specific channel's state within a device.
+        
+        Args:
+            device_id: Device ID
+            channel_id: Channel ID (e.g., "A", "B")
+            state_updates: Dict of state keys to update
+        """
+        device = self.get_device(device_id)
+        if not device or not device.get("channels"):
+            return
+        
+        channels = device["channels"]
+        updated = False
+        
+        for channel in channels:
+            if channel.get("id") == channel_id:
+                channel_state = channel.get("state", {})
+                channel_state.update(state_updates)
+                channel["state"] = channel_state
+                updated = True
+                break
+        
+        if updated:
+            # Also update top-level state for compatibility
+            device_state = device.get("state", {})
+            device_state.update(state_updates)
+            
+            self.conn.execute(
+                "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(device_state), json.dumps(channels), _now(), device_id),
+            )
+            self.conn.commit()
 
     def delete_device(self, device_id: str) -> bool:
         cur = self.conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
