@@ -1,7 +1,7 @@
 # KNXSim Default Configuration
 # =============================
 # Realistic sample home demonstrating KNX installation patterns.
-# Each room has: physical load (light), wall switch, temperature sensor, presence detector.
+# Each room has: light, wall switch, room thermostat, presence detector.
 # Actuators are centralized in Distribution Board (as in real installations).
 #
 # KEY CONCEPT: Devices vs Loads
@@ -12,15 +12,18 @@
 # GA Structure: Standard 3-level (Main=Function, Middle=Floor, Sub=Object)
 #   1/x/x = Lighting
 #   3/x/x = HVAC / Heating
-#   4/x/x = Sensors
+#   4/x/x = Sensors (presence, brightness)
 #
 # Topology: Area 1
-#   1.1.x = Actuators (switch, heating)
+#   1.1.x = Actuators (switch, heating) - Distribution Board
 #   1.2.x = Wall controls (push buttons)
-#   1.3.x = Sensors (temperature, presence)
+#   1.3.x = Room controllers (thermostats, presence)
 #
-# IMPORTANT: Push buttons share GAs with actuator channels
-# so pressing a button actually controls the linked light.
+# ROOM THERMOSTAT PATTERN:
+# Each room thermostat has a built-in temp sensor, setpoint, and heating output.
+# The heating_output GA matches the heating actuator valve channel GA.
+# When thermostat calculates demand (0-100%), it sends to that GA,
+# and the heating actuator opens the valve proportionally.
 
 gateway:
   individual_address: "1.0.0"
@@ -28,7 +31,7 @@ gateway:
 
 devices:
   # ============================================
-  # DISTRIBUTION BOARD - SWITCH ACTUATORS
+  # DISTRIBUTION BOARD - ACTUATORS
   # ============================================
   
   # 6-fold Switch Actuator for Lighting
@@ -37,6 +40,7 @@ devices:
   - id: "light-actuator-6ch"
     type: "switch_actuator_6fold"
     individual_address: "1.1.1"
+    room_id: "distribution-board"
     group_addresses:
       # Channel A - Living Room Light
       channel_a_switch: "1/0/1"
@@ -58,70 +62,99 @@ devices:
       channel_f_switch_status: "1/0/51"
 
   # 6-fold Heating Actuator for Underfloor Heating Manifold
-  # Controls zone valves for each room
+  # Controls zone valves for each room - PROPORTIONAL (0-100%)
   # Real device: MDT AKH-0600.02 / ABB VAA/S 6.230.2.1
+  # DPT 5.001 = percentage for proportional valve control
   - id: "heating-actuator-6ch"
     type: "heating_actuator_6fold"
     individual_address: "1.1.2"
+    room_id: "distribution-board"
     group_addresses:
-      # Channel A - Living Room Heating Valve
-      channel_a_valve: "3/0/1"
-      channel_a_valve_status: "3/0/2"
-      # Channel B - Kitchen Heating Valve
-      channel_b_valve: "3/0/10"
-      channel_b_valve_status: "3/0/11"
-      # Channel C - Hallway Heating Valve
-      channel_c_valve: "3/0/20"
-      channel_c_valve_status: "3/0/21"
-      # Channel D - Bedroom Heating Valve
-      channel_d_valve: "3/0/30"
-      channel_d_valve_status: "3/0/31"
-      # Channel E - Bathroom Heating Valve
-      channel_e_valve: "3/0/40"
-      channel_e_valve_status: "3/0/41"
+      # Channel A - Living Room UFH Valve (receives from thermostat)
+      channel_a_valve:
+        ga: "3/0/1"
+        dpt: "5.001"
+      channel_a_valve_status:
+        ga: "3/0/2"
+        dpt: "5.001"
+      # Channel B - Kitchen UFH Valve
+      channel_b_valve:
+        ga: "3/0/10"
+        dpt: "5.001"
+      channel_b_valve_status:
+        ga: "3/0/11"
+        dpt: "5.001"
+      # Channel C - Hallway UFH Valve
+      channel_c_valve:
+        ga: "3/0/20"
+        dpt: "5.001"
+      channel_c_valve_status:
+        ga: "3/0/21"
+        dpt: "5.001"
+      # Channel D - Bedroom UFH Valve
+      channel_d_valve:
+        ga: "3/0/30"
+        dpt: "5.001"
+      channel_d_valve_status:
+        ga: "3/0/31"
+        dpt: "5.001"
+      # Channel E - Bathroom UFH Valve
+      channel_e_valve:
+        ga: "3/0/40"
+        dpt: "5.001"
+      channel_e_valve_status:
+        ga: "3/0/41"
+        dpt: "5.001"
       # Channel F - Spare
-      channel_f_valve: "3/0/50"
-      channel_f_valve_status: "3/0/51"
+      channel_f_valve:
+        ga: "3/0/50"
+        dpt: "5.001"
+      channel_f_valve_status:
+        ga: "3/0/51"
+        dpt: "5.001"
 
   # ============================================
   # LIVING ROOM DEVICES
   # ============================================
 
-  # Push Button - Living Room
-  # 2-fold = 2 independent buttons, each can be assigned to any GA
-  #
-  # Button A: Controls this room's light
-  # Button B: UNASSIGNED — Example uses:
-  #   - Assign to 3/0/1 to control UFH valve
-  #   - Assign to 5/0/1 to trigger a scene
-  #   - Assign to 1/0/20 for multi-location hallway control
-  #   - Assign same GA as another room for "master off"
-  #
+  # Wall Switch - Living Room
   - id: "switch-living"
     type: "push_button_2fold"
     individual_address: "1.2.1"
+    room_id: "living-room"
     group_addresses:
-      button_1: "1/0/1"        # → Light actuator Ch A (Living Room)
-      button_1_led: "1/0/2"    # ← Status feedback from actuator
-      # button_2: unassigned   # See examples above
-      # button_2_led: ""
+      button_1: "1/0/1"        # → Light actuator Ch A
+      button_1_led: "1/0/2"    # ← Status feedback
 
-  # Temperature Sensor - Living Room
-  - id: "temp-living"
-    type: "sensor"
+  # Room Thermostat - Living Room
+  # Built-in temp sensor + PI controller + heating output
+  # heating_output sends demand (0-100%) to heating actuator channel A
+  - id: "thermostat-living"
+    type: "thermostat"
     individual_address: "1.3.1"
+    room_id: "living-room"
     group_addresses:
-      temperature: "4/0/1"
+      actual_temperature:
+        ga: "3/0/3"
+        dpt: "9.001"
+      setpoint:
+        ga: "3/0/4"
+        dpt: "9.001"
+      heating_output:
+        ga: "3/0/1"            # → Heating actuator Ch A valve
+        dpt: "5.001"
     initial:
-      temperature: 21.5
+      current_temperature: 21.5
+      setpoint: 21.0
 
   # Presence Detector - Living Room
   - id: "presence-living"
     type: "presence"
     individual_address: "1.3.2"
+    room_id: "living-room"
     group_addresses:
-      presence: "4/1/1"
-      lux: "4/2/1"
+      presence: "4/0/1"
+      lux: "4/0/2"
     initial:
       presence: false
       lux: 300
@@ -130,31 +163,39 @@ devices:
   # KITCHEN DEVICES
   # ============================================
 
-  # Push Button - Kitchen (Button B unassigned)
   - id: "switch-kitchen"
     type: "push_button_2fold"
     individual_address: "1.2.2"
+    room_id: "kitchen"
     group_addresses:
-      button_1: "1/0/10"       # → Light actuator Ch B (Kitchen)
+      button_1: "1/0/10"
       button_1_led: "1/0/11"
-      # button_2: unassigned
 
-  # Temperature Sensor - Kitchen
-  - id: "temp-kitchen"
-    type: "sensor"
+  - id: "thermostat-kitchen"
+    type: "thermostat"
     individual_address: "1.3.3"
+    room_id: "kitchen"
     group_addresses:
-      temperature: "4/0/10"
+      actual_temperature:
+        ga: "3/0/13"
+        dpt: "9.001"
+      setpoint:
+        ga: "3/0/14"
+        dpt: "9.001"
+      heating_output:
+        ga: "3/0/10"           # → Heating actuator Ch B valve
+        dpt: "5.001"
     initial:
-      temperature: 22.0
+      current_temperature: 22.0
+      setpoint: 20.0
 
-  # Presence Detector - Kitchen
   - id: "presence-kitchen"
     type: "presence"
     individual_address: "1.3.4"
+    room_id: "kitchen"
     group_addresses:
-      presence: "4/1/10"
-      lux: "4/2/10"
+      presence: "4/0/10"
+      lux: "4/0/11"
     initial:
       presence: false
       lux: 400
@@ -163,31 +204,39 @@ devices:
   # HALLWAY DEVICES
   # ============================================
 
-  # Push Button - Hallway (Button B unassigned)
   - id: "switch-hallway"
     type: "push_button_2fold"
     individual_address: "1.2.3"
+    room_id: "hallway"
     group_addresses:
-      button_1: "1/0/20"       # → Light actuator Ch C (Hallway)
+      button_1: "1/0/20"
       button_1_led: "1/0/21"
-      # button_2: unassigned
 
-  # Temperature Sensor - Hallway
-  - id: "temp-hallway"
-    type: "sensor"
+  - id: "thermostat-hallway"
+    type: "thermostat"
     individual_address: "1.3.5"
+    room_id: "hallway"
     group_addresses:
-      temperature: "4/0/20"
+      actual_temperature:
+        ga: "3/0/23"
+        dpt: "9.001"
+      setpoint:
+        ga: "3/0/24"
+        dpt: "9.001"
+      heating_output:
+        ga: "3/0/20"           # → Heating actuator Ch C valve
+        dpt: "5.001"
     initial:
-      temperature: 19.5
+      current_temperature: 19.5
+      setpoint: 18.0
 
-  # Presence Detector - Hallway
   - id: "presence-hallway"
     type: "presence"
     individual_address: "1.3.6"
+    room_id: "hallway"
     group_addresses:
-      presence: "4/1/20"
-      lux: "4/2/20"
+      presence: "4/0/20"
+      lux: "4/0/21"
     initial:
       presence: false
       lux: 100
@@ -196,31 +245,39 @@ devices:
   # BEDROOM DEVICES
   # ============================================
 
-  # Push Button - Bedroom (Button B unassigned)
   - id: "switch-bedroom"
     type: "push_button_2fold"
     individual_address: "1.2.4"
+    room_id: "bedroom"
     group_addresses:
-      button_1: "1/0/30"       # → Light actuator Ch D (Bedroom)
+      button_1: "1/0/30"
       button_1_led: "1/0/31"
-      # button_2: unassigned
 
-  # Temperature Sensor - Bedroom
-  - id: "temp-bedroom"
-    type: "sensor"
+  - id: "thermostat-bedroom"
+    type: "thermostat"
     individual_address: "1.3.7"
+    room_id: "bedroom"
     group_addresses:
-      temperature: "4/0/30"
+      actual_temperature:
+        ga: "3/0/33"
+        dpt: "9.001"
+      setpoint:
+        ga: "3/0/34"
+        dpt: "9.001"
+      heating_output:
+        ga: "3/0/30"           # → Heating actuator Ch D valve
+        dpt: "5.001"
     initial:
-      temperature: 20.0
+      current_temperature: 20.0
+      setpoint: 19.0
 
-  # Presence Detector - Bedroom
   - id: "presence-bedroom"
     type: "presence"
     individual_address: "1.3.8"
+    room_id: "bedroom"
     group_addresses:
-      presence: "4/1/30"
-      lux: "4/2/30"
+      presence: "4/0/30"
+      lux: "4/0/31"
     initial:
       presence: false
       lux: 50
@@ -229,31 +286,39 @@ devices:
   # BATHROOM DEVICES
   # ============================================
 
-  # Push Button - Bathroom (Button B unassigned)
   - id: "switch-bathroom"
     type: "push_button_2fold"
     individual_address: "1.2.5"
+    room_id: "bathroom"
     group_addresses:
-      button_1: "1/0/40"       # → Light actuator Ch E (Bathroom)
+      button_1: "1/0/40"
       button_1_led: "1/0/41"
-      # button_2: unassigned
 
-  # Temperature Sensor - Bathroom
-  - id: "temp-bathroom"
-    type: "sensor"
+  - id: "thermostat-bathroom"
+    type: "thermostat"
     individual_address: "1.3.9"
+    room_id: "bathroom"
     group_addresses:
-      temperature: "4/0/40"
+      actual_temperature:
+        ga: "3/0/43"
+        dpt: "9.001"
+      setpoint:
+        ga: "3/0/44"
+        dpt: "9.001"
+      heating_output:
+        ga: "3/0/40"           # → Heating actuator Ch E valve
+        dpt: "5.001"
     initial:
-      temperature: 23.0
+      current_temperature: 23.0
+      setpoint: 22.0
 
-  # Presence Detector - Bathroom
   - id: "presence-bathroom"
     type: "presence"
     individual_address: "1.3.10"
+    room_id: "bathroom"
     group_addresses:
-      presence: "4/1/40"
-      lux: "4/2/40"
+      presence: "4/0/40"
+      lux: "4/0/41"
     initial:
       presence: false
       lux: 200
@@ -262,9 +327,9 @@ devices:
 # SCENARIOS (Simulated sensor behavior)
 # ============================================
 scenarios:
-  # Temperature variations per room
-  - device_id: "temp-living"
-    field: "temperature"
+  # Temperature variations - thermostats now have built-in sensors
+  - device_id: "thermostat-living"
+    field: "current_temperature"
     type: "sine_wave"
     params:
       center: 21.5
@@ -272,8 +337,8 @@ scenarios:
       period_minutes: 60
       interval_seconds: 30
 
-  - device_id: "temp-kitchen"
-    field: "temperature"
+  - device_id: "thermostat-kitchen"
+    field: "current_temperature"
     type: "sine_wave"
     params:
       center: 22.0
@@ -281,8 +346,8 @@ scenarios:
       period_minutes: 45
       interval_seconds: 30
 
-  - device_id: "temp-hallway"
-    field: "temperature"
+  - device_id: "thermostat-hallway"
+    field: "current_temperature"
     type: "sine_wave"
     params:
       center: 19.5
@@ -290,8 +355,8 @@ scenarios:
       period_minutes: 90
       interval_seconds: 30
 
-  - device_id: "temp-bedroom"
-    field: "temperature"
+  - device_id: "thermostat-bedroom"
+    field: "current_temperature"
     type: "sine_wave"
     params:
       center: 20.0
@@ -299,8 +364,8 @@ scenarios:
       period_minutes: 120
       interval_seconds: 30
 
-  - device_id: "temp-bathroom"
-    field: "temperature"
+  - device_id: "thermostat-bathroom"
+    field: "current_temperature"
     type: "sine_wave"
     params:
       center: 23.0
@@ -330,9 +395,6 @@ scenarios:
 # ============================================
 # LOADS (Physical equipment - NOT KNX devices)
 # ============================================
-# Loads are dumb 230V equipment controlled by actuator channels.
-# They have NO individual address - their state comes from the actuator.
-# room_id is set during sample generation based on name pattern.
 loads:
   # Lights controlled by the 6-fold switch actuator
   - id: "load-light-living"
@@ -341,6 +403,7 @@ loads:
     icon: "💡"
     actuator_device_id: "light-actuator-6ch"
     actuator_channel_id: "A"
+    room_id: "living-room"
 
   - id: "load-light-kitchen"
     name: "Kitchen Light"
@@ -348,6 +411,7 @@ loads:
     icon: "💡"
     actuator_device_id: "light-actuator-6ch"
     actuator_channel_id: "B"
+    room_id: "kitchen"
 
   - id: "load-light-hallway"
     name: "Hallway Light"
@@ -355,6 +419,7 @@ loads:
     icon: "💡"
     actuator_device_id: "light-actuator-6ch"
     actuator_channel_id: "C"
+    room_id: "hallway"
 
   - id: "load-light-bedroom"
     name: "Bedroom Light"
@@ -362,6 +427,7 @@ loads:
     icon: "💡"
     actuator_device_id: "light-actuator-6ch"
     actuator_channel_id: "D"
+    room_id: "bedroom"
 
   - id: "load-light-bathroom"
     name: "Bathroom Light"
@@ -369,39 +435,45 @@ loads:
     icon: "💡"
     actuator_device_id: "light-actuator-6ch"
     actuator_channel_id: "E"
+    room_id: "bathroom"
 
   # UFH zone valves controlled by the 6-fold heating actuator
   - id: "load-ufh-living"
-    name: "Living Room UFH Valve"
+    name: "UFH Valve"
     type: "valve"
     icon: "🔥"
     actuator_device_id: "heating-actuator-6ch"
     actuator_channel_id: "A"
+    room_id: "living-room"
 
   - id: "load-ufh-kitchen"
-    name: "Kitchen UFH Valve"
+    name: "UFH Valve"
     type: "valve"
     icon: "🔥"
     actuator_device_id: "heating-actuator-6ch"
     actuator_channel_id: "B"
+    room_id: "kitchen"
 
   - id: "load-ufh-hallway"
-    name: "Hallway UFH Valve"
+    name: "UFH Valve"
     type: "valve"
     icon: "🔥"
     actuator_device_id: "heating-actuator-6ch"
     actuator_channel_id: "C"
+    room_id: "hallway"
 
   - id: "load-ufh-bedroom"
-    name: "Bedroom UFH Valve"
+    name: "UFH Valve"
     type: "valve"
     icon: "🔥"
     actuator_device_id: "heating-actuator-6ch"
     actuator_channel_id: "D"
+    room_id: "bedroom"
 
   - id: "load-ufh-bathroom"
-    name: "Bathroom UFH Valve"
+    name: "UFH Valve"
     type: "valve"
     icon: "🔥"
     actuator_device_id: "heating-actuator-6ch"
     actuator_channel_id: "E"
+    room_id: "bathroom"
