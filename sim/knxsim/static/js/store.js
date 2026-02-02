@@ -746,7 +746,7 @@ export function initStores() {
         const result = await API.resetToSample(this.currentPremiseId);
         console.log("Reset to sample:", result);
         // Reload all data
-        await this.loadDevices();
+        this.devices = await API.getDevices(this.currentPremiseId);
         await this.loadTopology();
         this.selectedDeviceId = null;
       } catch (err) {
