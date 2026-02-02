@@ -645,27 +645,24 @@ DEVICE_GA_TEMPLATES = {
     },
     "thermostat": {
         "description": (
-            "Smart room thermostat with internal PID controller. "
-            "The thermostat measures temperature, compares to setpoint, and calculates "
-            "a heating demand (0-100%) via its internal PID loop. This percentage is output "
-            "to control valve actuators — either directly to modulating actuators, or via "
-            "PWM (pulse-width modulation) to thermal actuators. Gray Logic Core observes "
-            "all values and can override the setpoint, but the PID runs on the KNX device "
-            "itself, ensuring heating continues to function even if GLCore is offline. "
-            "This matches the offline-first architecture principle."
+            "Smart room thermostat with internal proportional controller. "
+            "The thermostat measures temperature, compares to setpoint (like a physical dial), "
+            "and calculates heating demand (0-100%). This percentage controls valve actuators. "
+            "Gray Logic Core can override the setpoint for scheduling/presence, but the control "
+            "runs on-device, ensuring heating works even if GLCore is offline. "
+            "Kp=10 means 10% valve opening per 1°C error (10°C diff = 100% open)."
         ),
         "channel_count": 1,
         "recommended_gas": [
             {"name": "current_temperature", "dpt": "9.001", "flags": "CR-T--", "description": "Measured room temperature"},
-            {"name": "setpoint", "dpt": "9.001", "flags": "CRW-U-", "description": "Target temperature (GLCore can override)"},
-            {"name": "setpoint_status", "dpt": "9.001", "flags": "CR-T--", "description": "Current active setpoint"},
-            {"name": "heating_output", "dpt": "5.001", "flags": "CR-T--", "description": "PID output: valve demand 0-100%"},
-            {"name": "mode", "dpt": "20.102", "flags": "CRW-U-", "description": "HVAC mode (comfort/standby/economy/protection)"},
-            {"name": "mode_status", "dpt": "20.102", "flags": "CR-T--", "description": "Current active mode"},
+            {"name": "setpoint", "dpt": "9.001", "flags": "CRW-U-", "description": "Target temperature (user dial / GLCore override)"},
+            {"name": "setpoint_status", "dpt": "9.001", "flags": "CR-T--", "description": "Current setpoint feedback"},
+            {"name": "heating_output", "dpt": "5.001", "flags": "CR-T--", "description": "Controller output: valve demand 0-100%"},
         ],
         "notes": [
-            "The heating_output (0-100%) represents the thermostat's internal PID calculation",
-            "For thermal actuators: thermostat converts % to PWM internally (e.g., 50% = ON 7.5min, OFF 7.5min in 15min cycle)",
+            "Setpoint is like a physical dial — user sets desired temp, or GLCore overrides",
+            "heating_output (0-100%) is calculated: Kp × (setpoint - current_temp)",
+            "For thermal actuators: real thermostats PWM this internally",
             "For modulating actuators: percentage sent directly as valve position",
             "GLCore role: observe + setpoint override — NOT primary control",
         ],

@@ -1,45 +1,35 @@
-"""Thermostat device with internal PID controller.
+"""Thermostat device with internal proportional controller.
 
 Simulates a smart KNX thermostat (like MDT, Theben, ABB) that:
 - Measures temperature (simulated)
-- Compares to setpoint
-- Calculates heating demand via PID
+- Compares to setpoint (like a physical dial in the room)
+- Calculates heating demand via simple proportional control
 - Outputs heating_output (0-100%) to control valve actuators
 
 Group addresses:
   current_temperature — measured room temperature (DPT 9.001)
   setpoint           — target temperature, writable (DPT 9.001)
-  setpoint_status    — current active setpoint (DPT 9.001)
-  heating_output     — PID output 0-100% valve demand (DPT 5.001)
-  mode               — HVAC mode: comfort/standby/economy/protection (DPT 20.102)
-  mode_status        — current active mode (DPT 20.102)
+  setpoint_status    — current setpoint feedback (DPT 9.001)
+  heating_output     — controller output 0-100% valve demand (DPT 5.001)
 
-The thermostat runs its PID internally. Gray Logic Core observes all values
-and can override the setpoint, but the PID runs here (simulating on-device
-control), ensuring heating works even if GLCore is offline.
+The thermostat runs its control loop internally. Gray Logic Core can
+override the setpoint for scheduling/presence, but the control runs
+on-device, ensuring heating works even if GLCore is offline.
+
+This matches the offline-first architecture principle: KNX handles
+the basics, GLCore is an overlay for intelligence.
 """
 
 import logging
 import time
 
-from .base import BaseDevice, decode_dpt1, decode_dpt5, decode_dpt9, encode_dpt5, encode_dpt9
+from .base import BaseDevice, decode_dpt9, encode_dpt5, encode_dpt9
 
 logger = logging.getLogger("knxsim.devices")
 
 
-# HVAC modes (DPT 20.102)
-HVAC_MODES = {
-    0: "auto",
-    1: "comfort",
-    2: "standby",
-    3: "economy",
-    4: "protection",
-}
-HVAC_MODE_NAMES = {v: k for k, v in HVAC_MODES.items()}
-
-
 class Thermostat(BaseDevice):
-    """Smart thermostat with internal PID controller."""
+    """Smart thermostat with internal proportional controller."""
 
     GA_DPT_MAP = {
         "current_temperature": "9.001",
@@ -48,24 +38,15 @@ class Thermostat(BaseDevice):
         "setpoint": "9.001",
         "setpoint_status": "9.001",
         "heating_output": "5.001",
-        "mode": "20.102",
-        "mode_status": "20.102",
     }
 
-    # PID parameters (simplified proportional-only for simulation)
-    # Real thermostats have full PID with integral/derivative terms
-    KP = 10.0  # Proportional gain: 10% output per 1°C error
+    # Proportional control parameter
+    # Real thermostats use full PID, but P-only is fine for simulation
+    # Kp=10 means: 10% valve opening per 1°C error
+    # So 10°C below setpoint = 100% open
+    KP = 10.0
     OUTPUT_MIN = 0
     OUTPUT_MAX = 100
-
-    # Mode setpoint offsets
-    MODE_OFFSETS = {
-        "comfort": 0,
-        "standby": -2,
-        "economy": -4,
-        "protection": -10,  # Frost protection
-        "auto": 0,
-    }
 
     def __init__(
         self,
@@ -79,31 +60,26 @@ class Thermostat(BaseDevice):
             "current_temperature": 20.0,
             "setpoint": 21.0,
             "heating_output": 0,
-            "mode": "comfort",
         }
         defaults.update(initial_state)
         super().__init__(device_id, individual_address, group_addresses, defaults)
 
-        # Calculate initial PID output based on initial state
-        self.state["heating_output"] = self._calculate_pid()
+        # Calculate initial output based on initial state
+        self.state["heating_output"] = self._calculate_output()
         self._last_output = self.state["heating_output"]
         self._last_calculation = time.time()
 
-    def _calculate_pid(self) -> int:
-        """Calculate PID output based on current temperature and setpoint.
+    def _calculate_output(self) -> int:
+        """Calculate heating output based on current temperature and setpoint.
 
+        Simple proportional control: output = Kp × error
         Returns heating demand as percentage (0-100).
         """
         current_temp = self.state.get("current_temperature", 20.0)
-        base_setpoint = self.state.get("setpoint", 21.0)
-        mode = self.state.get("mode", "comfort")
+        setpoint = self.state.get("setpoint", 21.0)
 
-        # Apply mode offset
-        offset = self.MODE_OFFSETS.get(mode, 0)
-        effective_setpoint = base_setpoint + offset
-
-        # Simple proportional control
-        error = effective_setpoint - current_temp
+        # Error = how far below setpoint
+        error = setpoint - current_temp
 
         # Only heat if below setpoint (no cooling in this simple model)
         if error <= 0:
@@ -111,10 +87,8 @@ class Thermostat(BaseDevice):
         else:
             output = int(self.KP * error)
 
-        # Clamp output
-        output = max(self.OUTPUT_MIN, min(self.OUTPUT_MAX, output))
-
-        return output
+        # Clamp to 0-100%
+        return max(self.OUTPUT_MIN, min(self.OUTPUT_MAX, output))
 
     def _send_heating_output(self) -> bytes | None:
         """Generate telegram for heating_output if GA is configured."""
@@ -133,15 +107,6 @@ class Thermostat(BaseDevice):
         setpoint = self.state["setpoint"]
         return self._make_indication(ga, encode_dpt9(setpoint))
 
-    def _send_mode_status(self) -> bytes | None:
-        """Generate telegram for mode_status if GA is configured."""
-        ga = self.group_addresses.get("mode_status")
-        if ga is None:
-            return None
-        mode = self.state.get("mode", "comfort")
-        mode_val = HVAC_MODE_NAMES.get(mode, 1)
-        return self._make_indication(ga, bytes([mode_val]))
-
     def on_group_write(self, ga: int, payload: bytes) -> bytes | list[bytes] | None:
         """Handle incoming GroupWrite telegrams."""
         name = self.get_ga_name(ga)
@@ -151,14 +116,14 @@ class Thermostat(BaseDevice):
         responses = []
 
         if name == "setpoint":
-            # Setpoint change from external source (e.g., GLCore override)
+            # Setpoint change (user turned dial, or GLCore override)
             if len(payload) >= 2:
                 value = decode_dpt9(payload)
                 self.state["setpoint"] = value
                 logger.info("%s ← setpoint = %.1f°C", self.device_id, value)
 
-                # Recalculate PID with new setpoint
-                self.state["heating_output"] = self._calculate_pid()
+                # Recalculate with new setpoint
+                self.state["heating_output"] = self._calculate_output()
                 self._last_output = self.state["heating_output"]
 
                 # Send status updates
@@ -170,40 +135,20 @@ class Thermostat(BaseDevice):
                     responses.append(output)
 
         elif name in ("current_temperature", "actual_temperature", "temperature"):
-            # Temperature update (from external sensor or simulation)
+            # Temperature update (sensor reading)
             if len(payload) >= 2:
                 value = decode_dpt9(payload)
                 self.state["current_temperature"] = value
                 logger.info("%s ← temperature = %.1f°C", self.device_id, value)
 
-                # Recalculate PID with new temperature
-                new_output = self._calculate_pid()
+                # Recalculate with new temperature
+                new_output = self._calculate_output()
                 if new_output != self._last_output:
                     self.state["heating_output"] = new_output
                     self._last_output = new_output
                     output = self._send_heating_output()
                     if output:
                         responses.append(output)
-
-        elif name == "mode":
-            # Mode change
-            if len(payload) >= 1:
-                mode_val = payload[0]
-                mode_name = HVAC_MODES.get(mode_val, "comfort")
-                self.state["mode"] = mode_name
-                logger.info("%s ← mode = %s", self.device_id, mode_name)
-
-                # Recalculate PID with new mode
-                self.state["heating_output"] = self._calculate_pid()
-                self._last_output = self.state["heating_output"]
-
-                # Send status updates
-                status = self._send_mode_status()
-                if status:
-                    responses.append(status)
-                output = self._send_heating_output()
-                if output:
-                    responses.append(output)
 
         return responses if responses else None
 
@@ -213,27 +158,20 @@ class Thermostat(BaseDevice):
         if not name:
             return None
 
-        if name in ("current_temperature", "actual_temperature", "temperature", "setpoint", "setpoint_status"):
-            if name == "setpoint_status":
-                key = "setpoint"
-            elif name in ("actual_temperature", "temperature"):
-                key = "current_temperature"
-            else:
-                key = name
-            value = self.state.get(key, 20.0)
-            logger.info("%s → read %s = %.1f°C", self.device_id, name, value)
+        if name in ("current_temperature", "actual_temperature", "temperature"):
+            value = self.state.get("current_temperature", 20.0)
+            logger.info("%s → read temperature = %.1f°C", self.device_id, value)
+            return self._make_response(ga, encode_dpt9(value))
+
+        elif name in ("setpoint", "setpoint_status"):
+            value = self.state.get("setpoint", 21.0)
+            logger.info("%s → read setpoint = %.1f°C", self.device_id, value)
             return self._make_response(ga, encode_dpt9(value))
 
         elif name == "heating_output":
             value = self.state.get("heating_output", 0)
             logger.info("%s → read heating_output = %d%%", self.device_id, value)
             return self._make_response(ga, encode_dpt5(value))
-
-        elif name in ("mode", "mode_status"):
-            mode = self.state.get("mode", "comfort")
-            mode_val = HVAC_MODE_NAMES.get(mode, 1)
-            logger.info("%s → read %s = %s", self.device_id, name, mode)
-            return self._make_response(ga, bytes([mode_val]))
 
         return None
 
@@ -243,35 +181,28 @@ class Thermostat(BaseDevice):
         if ga is None:
             return None
 
-        if field in ("current_temperature", "actual_temperature", "temperature", "setpoint", "setpoint_status"):
-            if field == "setpoint_status":
-                key = "setpoint"
-            elif field in ("actual_temperature", "temperature"):
-                key = "current_temperature"
-            else:
-                key = field
-            value = self.state.get(key, 20.0)
+        if field in ("current_temperature", "actual_temperature", "temperature"):
+            value = self.state.get("current_temperature", 20.0)
+            return self._make_indication(ga, encode_dpt9(value))
+
+        elif field in ("setpoint", "setpoint_status"):
+            value = self.state.get("setpoint", 21.0)
             return self._make_indication(ga, encode_dpt9(value))
 
         elif field == "heating_output":
             value = self.state.get("heating_output", 0)
             return self._make_indication(ga, encode_dpt5(value))
 
-        elif field in ("mode", "mode_status"):
-            mode = self.state.get("mode", "comfort")
-            mode_val = HVAC_MODE_NAMES.get(mode, 1)
-            return self._make_indication(ga, bytes([mode_val]))
-
         return None
 
     def update_temperature(self, temperature: float) -> bytes | None:
-        """Update temperature and recalculate PID. Returns heating_output telegram if changed.
+        """Update temperature and recalculate. Returns heating_output telegram if changed.
 
         Used by scenarios to simulate temperature changes.
         """
         self.state["current_temperature"] = temperature
 
-        new_output = self._calculate_pid()
+        new_output = self._calculate_output()
         if new_output != self._last_output:
             self.state["heating_output"] = new_output
             self._last_output = new_output
@@ -279,12 +210,12 @@ class Thermostat(BaseDevice):
 
         return None
 
-    def recalculate_pid(self) -> None:
-        """Recalculate PID output based on current state.
+    def recalculate_output(self) -> None:
+        """Recalculate heating output based on current state.
 
         Called after state is restored from persistence to ensure
         heating_output reflects current temperature/setpoint, not
         stale persisted values.
         """
-        self.state["heating_output"] = self._calculate_pid()
+        self.state["heating_output"] = self._calculate_output()
         self._last_output = self.state["heating_output"]
