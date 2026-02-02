@@ -45,6 +45,7 @@ services:
       - knxsim_data:/app/data
       - ./sim/knxsim/static:/app/static  # Dev: live reload CSS/JS/HTML
       - ./sim/knxsim/templates:/app/templates  # Dev: live reload templates
+      - ./sim/knxsim/config.yaml:/app/config.yaml  # Dev: live reload config
     networks:
       - graylogic
 
