@@ -279,7 +279,12 @@ class Premise:
         )
         self.server.start()
 
-        self.scenario_runner = ScenarioRunner(send_telegram=self._send_telegram_with_hook)
+        self.scenario_runner = ScenarioRunner(
+            send_telegram=self._send_telegram_with_hook,
+            dispatch_local=self._dispatch_telegram,
+            on_state_change=self._on_state_change,
+            premise_id=self.id,
+        )
 
         self._running = True
         logger.info(

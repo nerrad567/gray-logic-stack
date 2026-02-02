@@ -8,6 +8,7 @@ import json
 import logging
 import os
 import sqlite3
+import threading
 from datetime import UTC, datetime
 
 logger = logging.getLogger("knxsim.persistence")
@@ -461,6 +462,7 @@ class Database:
         os.makedirs(os.path.dirname(db_path), exist_ok=True)
         self.db_path = db_path
         self._conn: sqlite3.Connection | None = None
+        self._lock = threading.RLock()  # RLock allows nested locking from same thread
 
     def connect(self):
         """Open the database and apply schema."""
@@ -1312,10 +1314,11 @@ class Database:
         return [_parse_device_row(r) for r in rows]
 
     def get_device(self, device_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM devices WHERE id = ?", (device_id,)
-        ).fetchone()
-        return _parse_device_row(row) if row else None
+        with self._lock:
+            row = self.conn.execute(
+                "SELECT * FROM devices WHERE id = ?", (device_id,)
+            ).fetchone()
+            return _parse_device_row(row) if row else None
 
     def create_device(self, premise_id: str, data: dict) -> dict:
         now = _now()
@@ -1434,37 +1437,38 @@ class Database:
         For multi-channel devices, updates all channels with matching state keys.
         Called frequently by scenarios/telegrams.
         """
-        now = _now()
-        
-        # Get current device to access channels
-        device = self.get_device(device_id)
-        if device and device.get("channels"):
-            channels = device["channels"]
-            if len(channels) == 1:
-                # Single channel - sync all state
-                channels[0]["state"] = state
-            else:
-                # Multi-channel - sync matching state keys to each channel
-                # This is a basic approach; full implementation would route by GA
-                for channel in channels:
-                    channel_state = channel.get("state", {})
-                    for key, value in state.items():
-                        if key in channel_state:
-                            channel_state[key] = value
-                    channel["state"] = channel_state
+        with self._lock:
+            now = _now()
             
-            # Update both state and channels
-            self.conn.execute(
-                "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
-                (json.dumps(state), json.dumps(channels), now, device_id),
-            )
-        else:
-            # No channels - just update state
-            self.conn.execute(
-                "UPDATE devices SET state = ?, updated_at = ? WHERE id = ?",
-                (json.dumps(state), now, device_id),
-            )
-        self.conn.commit()
+            # Get current device to access channels
+            device = self.get_device(device_id)
+            if device and device.get("channels"):
+                channels = device["channels"]
+                if len(channels) == 1:
+                    # Single channel - sync all state
+                    channels[0]["state"] = state
+                else:
+                    # Multi-channel - sync matching state keys to each channel
+                    # This is a basic approach; full implementation would route by GA
+                    for channel in channels:
+                        channel_state = channel.get("state", {})
+                        for key, value in state.items():
+                            if key in channel_state:
+                                channel_state[key] = value
+                        channel["state"] = channel_state
+                
+                # Update both state and channels
+                self.conn.execute(
+                    "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
+                    (json.dumps(state), json.dumps(channels), now, device_id),
+                )
+            else:
+                # No channels - just update state
+                self.conn.execute(
+                    "UPDATE devices SET state = ?, updated_at = ? WHERE id = ?",
+                    (json.dumps(state), now, device_id),
+                )
+            self.conn.commit()
 
     def find_device_channel_by_ga(self, premise_id: str, ga: str) -> tuple[dict, dict, str] | None:
         """Find device and channel that owns a group address.
@@ -1529,62 +1533,63 @@ class Database:
             ga: Group address (as integer) that was written to
             state_updates: Dict of state keys to update
         """
-        device = self.get_device(device_id)
-        if not device or not device.get("channels"):
-            logger.debug("update_channel_state_by_ga: no device/channels for %s", device_id)
-            return
-        
-        channels = device["channels"]
-        ga_str = self._format_ga(ga)
-        
-        logger.info("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
-                     device_id, ga, ga_str, state_updates)
-        
-        # Find which channel has this GA
-        target_channel = None
-        for channel in channels:
-            for go_name, go_data in channel.get("group_objects", {}).items():
-                if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
-                    target_channel = channel
-                    logger.debug("Found target channel: %s (via %s)", channel.get("id"), go_name)
+        with self._lock:
+            device = self.get_device(device_id)
+            if not device or not device.get("channels"):
+                logger.debug("update_channel_state_by_ga: no device/channels for %s", device_id)
+                return
+            
+            channels = device["channels"]
+            ga_str = self._format_ga(ga)
+            
+            logger.info("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
+                         device_id, ga, ga_str, state_updates)
+            
+            # Find which channel has this GA
+            target_channel = None
+            for channel in channels:
+                for go_name, go_data in channel.get("group_objects", {}).items():
+                    if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
+                        target_channel = channel
+                        logger.debug("Found target channel: %s (via %s)", channel.get("id"), go_name)
+                        break
+                if target_channel:
                     break
-            if target_channel:
-                break
-        
-        if not target_channel:
-            logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
-            return
-        
-        # Normalize state field names for consistency
-        # Runtime devices may use button_1/button_2, but channels use 'pressed'
-        # Also handle case where runtime state has both button_X AND pressed (stale)
-        normalized_updates = {}
-        has_button_key = any(k.startswith("button_") for k in state_updates)
-        
-        for key, value in state_updates.items():
-            if key.startswith("button_"):
-                # Map button_X to 'pressed' for channel state
-                normalized_updates["pressed"] = value
-            elif key == "pressed" and has_button_key:
-                # Skip stale 'pressed' value if we have a fresh button_X value
-                pass
-            else:
-                normalized_updates[key] = value
-        
-        # Update the channel's state (don't carry over stale button_X keys)
-        channel_state = target_channel.get("state", {})
-        # Remove any button_X keys that may have leaked in previously
-        channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
-        channel_state.update(normalized_updates)
-        target_channel["state"] = channel_state
-        
-        logger.info("update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state)
-        
-        self.conn.execute(
-            "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
-            (json.dumps(channels), _now(), device_id),
-        )
-        self.conn.commit()
+            
+            if not target_channel:
+                logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
+                return
+            
+            # Normalize state field names for consistency
+            # Runtime devices may use button_1/button_2, but channels use 'pressed'
+            # Also handle case where runtime state has both button_X AND pressed (stale)
+            normalized_updates = {}
+            has_button_key = any(k.startswith("button_") for k in state_updates)
+            
+            for key, value in state_updates.items():
+                if key.startswith("button_"):
+                    # Map button_X to 'pressed' for channel state
+                    normalized_updates["pressed"] = value
+                elif key == "pressed" and has_button_key:
+                    # Skip stale 'pressed' value if we have a fresh button_X value
+                    pass
+                else:
+                    normalized_updates[key] = value
+            
+            # Update the channel's state (don't carry over stale button_X keys)
+            channel_state = target_channel.get("state", {})
+            # Remove any button_X keys that may have leaked in previously
+            channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
+            channel_state.update(normalized_updates)
+            target_channel["state"] = channel_state
+            
+            logger.info("update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state)
+            
+            self.conn.execute(
+                "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
+                (json.dumps(channels), _now(), device_id),
+            )
+            self.conn.commit()
     
     def _format_ga(self, ga: int) -> str:
         """Convert GA integer to 3-level string format."""

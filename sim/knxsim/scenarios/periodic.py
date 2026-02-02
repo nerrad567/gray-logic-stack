@@ -7,6 +7,7 @@ Supported patterns:
   - sine_wave: Oscillates around a center value
   - random_walk: Drifts randomly within bounds
   - presence_pattern: Simulates realistic occupancy transitions
+  - thermal_simulation: Realistic room temperature based on heating state
 """
 
 import logging
@@ -19,6 +20,7 @@ from collections.abc import Callable
 from devices.base import BaseDevice
 from devices.presence import PresenceSensor
 from devices.sensor import Sensor
+from devices.thermostat import Thermostat
 
 logger = logging.getLogger("knxsim.scenarios")
 
@@ -26,12 +28,24 @@ logger = logging.getLogger("knxsim.scenarios")
 class ScenarioRunner:
     """Manages all periodic scenarios in background threads."""
 
-    def __init__(self, send_telegram: Callable[[bytes], None]):
+    def __init__(
+        self,
+        send_telegram: Callable[[bytes], None],
+        dispatch_local: Callable[[int, bytes], None] | None = None,
+        on_state_change: Callable[[str, dict], None] | None = None,
+        premise_id: str = "default",
+    ):
         """
         Args:
             send_telegram: Function to broadcast a cEMI frame to all connected clients.
+            dispatch_local: Optional function to dispatch payload to local devices on a GA.
+            on_state_change: Optional callback(device_id, state) for WebSocket pushes.
+            premise_id: Premise ID for state change callbacks.
         """
         self._send_telegram = send_telegram
+        self._dispatch_local = dispatch_local
+        self._on_state_change = on_state_change
+        self._premise_id = premise_id
         self._threads: list[threading.Thread] = []
         self._running = False
 
@@ -45,6 +59,8 @@ class ScenarioRunner:
             target = self._run_random_walk
         elif scenario_type == "presence_pattern":
             target = self._run_presence_pattern
+        elif scenario_type == "thermal_simulation":
+            target = self._run_thermal_simulation
         else:
             logger.warning("Unknown scenario type: %s", scenario_type)
             return
@@ -213,3 +229,100 @@ class ScenarioRunner:
 
             # Toggle state
             occupied = not occupied
+
+    def _run_thermal_simulation(self, device: Thermostat, field: str, params: dict):
+        """Thermal simulation: realistic room temperature based on heating state.
+
+        Models real-world thermal behavior:
+        - When heating (valve open), temperature rises toward setpoint
+        - When not heating, temperature falls toward ambient (heat loss)
+        - Rate of change proportional to valve opening percentage
+        - Includes thermal mass (temperature changes gradually)
+
+        Params:
+            ambient_temp: External/ambient temperature (default: 10°C)
+            heating_power: Max temp rise per minute at 100% (default: 0.15°C/min)
+            heat_loss_rate: Temp drop per minute toward ambient (default: 0.03°C/min)
+            interval_seconds: Update frequency (default: 10)
+        """
+        ambient = params.get("ambient_temp", 10.0)
+        heating_power = params.get("heating_power", 0.15)  # °C/min at 100%
+        heat_loss = params.get("heat_loss_rate", 0.03)  # °C/min toward ambient
+        interval = params.get("interval_seconds", 10)
+
+        logger.info(
+            "%s: thermal simulation started (ambient=%.1f°C, power=%.2f, loss=%.3f, interval=%ds)",
+            device.device_id, ambient, heating_power, heat_loss, interval
+        )
+
+        last_time = time.time()
+
+        while self._running:
+            now = time.time()
+            elapsed_minutes = (now - last_time) / 60.0
+            last_time = now
+
+            # Get current state
+            current_temp = device.state.get("current_temperature", 20.0)
+            heating_output = device.state.get("heating_output", 0)  # 0-100%
+
+            # Calculate temperature change
+            # 1. Heat gain from heating system (proportional to valve %)
+            heat_gain = (heating_output / 100.0) * heating_power * elapsed_minutes
+
+            # 2. Heat loss to ambient (proportional to temp difference)
+            temp_diff = current_temp - ambient
+            heat_loss_amount = heat_loss * temp_diff * elapsed_minutes
+
+            # Net change
+            delta = heat_gain - heat_loss_amount
+            new_temp = current_temp + delta
+
+            # Clamp to reasonable bounds
+            new_temp = max(ambient - 2, min(40, new_temp))
+
+            # Only update if changed significantly (avoid noise)
+            if abs(new_temp - current_temp) >= 0.01:
+                device.state["current_temperature"] = round(new_temp, 2)
+
+                # Recalculate heating output (thermostat PID)
+                old_output = device.state.get("heating_output", 0)
+                device.recalculate_output()
+                new_output = device.state.get("heating_output", 0)
+
+                # Send temperature telegram
+                cemi = device.get_indication("current_temperature")
+                if cemi:
+                    self._send_telegram(cemi)
+
+                # Push state change to WebSocket
+                if self._on_state_change:
+                    self._on_state_change(
+                        self._premise_id, device.device_id, dict(device.state)
+                    )
+
+                # If heating output changed, send that too and dispatch to local devices
+                if new_output != old_output:
+                    output_cemi = device.get_indication("heating_output")
+                    if output_cemi:
+                        self._send_telegram(output_cemi)
+                        # Also dispatch to local devices (e.g., valve actuator)
+                        if self._dispatch_local:
+                            from devices.base import encode_dpt5
+                            heating_ga = device.group_addresses.get("heating_output")
+                            if heating_ga:
+                                self._dispatch_local(heating_ga, encode_dpt5(new_output))
+
+                logger.info(
+                    "%s: temp=%.2f°C (Δ%.3f) heating=%d%% (ambient=%.1f°C)",
+                    device.device_id,
+                    new_temp,
+                    delta,
+                    new_output,
+                    ambient,
+                )
+
+            # Sleep in small increments
+            deadline = time.time() + interval
+            while self._running and time.time() < deadline:
+                time.sleep(0.5)

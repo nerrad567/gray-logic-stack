@@ -50,6 +50,7 @@ services:
       - ./sim/knxsim/api:/app/api  # Dev: Python API code
       - ./sim/knxsim/core:/app/core  # Dev: Python core code
       - ./sim/knxsim/devices:/app/devices  # Dev: Python device classes
+      - ./sim/knxsim/scenarios:/app/scenarios  # Dev: Python scenarios
     networks:
       - graylogic
 

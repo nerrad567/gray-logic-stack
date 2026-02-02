@@ -327,51 +327,53 @@ devices:
 # SCENARIOS (Simulated sensor behavior)
 # ============================================
 scenarios:
-  # Temperature variations - thermostats now have built-in sensors
+  # Thermal simulation - realistic temperature based on heating state
+  # When valve is open, temp rises; when closed, temp falls toward ambient
+  # Parameters tuned so heating at ~50% maintains ~20°C with 10°C ambient
   - device_id: "thermostat-living"
     field: "current_temperature"
-    type: "sine_wave"
+    type: "thermal_simulation"
     params:
-      center: 21.5
-      amplitude: 1.0
-      period_minutes: 60
-      interval_seconds: 30
+      ambient_temp: 10.0       # Outside temperature
+      heating_power: 0.5       # °C/min at 100% valve
+      heat_loss_rate: 0.02     # Heat loss rate per °C difference
+      interval_seconds: 10
 
   - device_id: "thermostat-kitchen"
     field: "current_temperature"
-    type: "sine_wave"
+    type: "thermal_simulation"
     params:
-      center: 22.0
-      amplitude: 1.5
-      period_minutes: 45
-      interval_seconds: 30
+      ambient_temp: 10.0
+      heating_power: 0.6       # Smaller room, heats faster
+      heat_loss_rate: 0.025
+      interval_seconds: 10
 
   - device_id: "thermostat-hallway"
     field: "current_temperature"
-    type: "sine_wave"
+    type: "thermal_simulation"
     params:
-      center: 19.5
-      amplitude: 0.5
-      period_minutes: 90
-      interval_seconds: 30
+      ambient_temp: 10.0
+      heating_power: 0.4       # Hallway - draft, less efficient
+      heat_loss_rate: 0.03     # More heat loss (doors opening)
+      interval_seconds: 10
 
   - device_id: "thermostat-bedroom"
     field: "current_temperature"
-    type: "sine_wave"
+    type: "thermal_simulation"
     params:
-      center: 20.0
-      amplitude: 1.0
-      period_minutes: 120
-      interval_seconds: 30
+      ambient_temp: 10.0
+      heating_power: 0.55
+      heat_loss_rate: 0.018    # Well insulated, less loss
+      interval_seconds: 10
 
   - device_id: "thermostat-bathroom"
     field: "current_temperature"
-    type: "sine_wave"
+    type: "thermal_simulation"
     params:
-      center: 23.0
-      amplitude: 2.0
-      period_minutes: 30
-      interval_seconds: 30
+      ambient_temp: 10.0
+      heating_power: 0.7       # Small room, heats quickly
+      heat_loss_rate: 0.03     # Ventilation = more loss
+      interval_seconds: 10
 
   # Presence patterns
   - device_id: "presence-living"

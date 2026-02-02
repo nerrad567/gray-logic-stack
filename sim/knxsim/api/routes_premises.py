@@ -250,9 +250,14 @@ def reset_to_sample(premise_id: str):
         except Exception as e:
             print(f"Warning: Failed to create load {load_config['id']}: {e}")
     
-    # Reload premise to pick up new devices
+    # Reload premise to pick up new devices and scenarios
     if live_premise:
-        manager._load_premise_from_db(premise_id)
+        # Stop the old premise first (to free the UDP port)
+        live_premise.stop()
+        # Remove from manager
+        del manager.premises[premise_id]
+    # Load and start fresh
+    manager._load_premise_from_db(premise_id)
     
     # Mark setup as complete
     manager.db.mark_premise_setup_complete(premise_id)
