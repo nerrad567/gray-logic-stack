@@ -88,15 +88,23 @@ devices:
   # ============================================
 
   # Push Button - Living Room
-  # Button 1 controls living room light (same GA as actuator Ch A)
+  # 2-fold = 2 independent buttons, each can be assigned to any GA
+  #
+  # Button A: Controls this room's light
+  # Button B: UNASSIGNED — Example uses:
+  #   - Assign to 3/0/1 to control UFH valve
+  #   - Assign to 5/0/1 to trigger a scene
+  #   - Assign to 1/0/20 for multi-location hallway control
+  #   - Assign same GA as another room for "master off"
+  #
   - id: "switch-living"
     type: "push_button_2fold"
     individual_address: "1.2.1"
     group_addresses:
       button_1: "1/0/1"        # → Light actuator Ch A (Living Room)
       button_1_led: "1/0/2"    # ← Status feedback from actuator
-      button_2: "1/0/20"       # → Also controls Hallway (multi-location)
-      button_2_led: "1/0/21"
+      # button_2: unassigned   # See examples above
+      # button_2_led: ""
 
   # Temperature Sensor - Living Room
   - id: "temp-living"
@@ -122,15 +130,14 @@ devices:
   # KITCHEN DEVICES
   # ============================================
 
-  # Push Button - Kitchen
+  # Push Button - Kitchen (Button B unassigned)
   - id: "switch-kitchen"
     type: "push_button_2fold"
     individual_address: "1.2.2"
     group_addresses:
       button_1: "1/0/10"       # → Light actuator Ch B (Kitchen)
       button_1_led: "1/0/11"
-      button_2: "1/0/1"        # → Also controls Living Room
-      button_2_led: "1/0/2"
+      # button_2: unassigned
 
   # Temperature Sensor - Kitchen
   - id: "temp-kitchen"
@@ -156,15 +163,14 @@ devices:
   # HALLWAY DEVICES
   # ============================================
 
-  # Push Button - Hallway
+  # Push Button - Hallway (Button B unassigned)
   - id: "switch-hallway"
     type: "push_button_2fold"
     individual_address: "1.2.3"
     group_addresses:
       button_1: "1/0/20"       # → Light actuator Ch C (Hallway)
       button_1_led: "1/0/21"
-      button_2: "1/0/1"        # → Also controls Living Room
-      button_2_led: "1/0/2"
+      # button_2: unassigned
 
   # Temperature Sensor - Hallway
   - id: "temp-hallway"
@@ -190,15 +196,14 @@ devices:
   # BEDROOM DEVICES
   # ============================================
 
-  # Push Button - Bedroom
+  # Push Button - Bedroom (Button B unassigned)
   - id: "switch-bedroom"
     type: "push_button_2fold"
     individual_address: "1.2.4"
     group_addresses:
       button_1: "1/0/30"       # → Light actuator Ch D (Bedroom)
       button_1_led: "1/0/31"
-      button_2: "1/0/40"       # → Also controls Bathroom
-      button_2_led: "1/0/41"
+      # button_2: unassigned
 
   # Temperature Sensor - Bedroom
   - id: "temp-bedroom"
@@ -224,15 +229,14 @@ devices:
   # BATHROOM DEVICES
   # ============================================
 
-  # Push Button - Bathroom
+  # Push Button - Bathroom (Button B unassigned)
   - id: "switch-bathroom"
     type: "push_button_2fold"
     individual_address: "1.2.5"
     group_addresses:
       button_1: "1/0/40"       # → Light actuator Ch E (Bathroom)
       button_1_led: "1/0/41"
-      button_2: "1/0/30"       # → Also controls Bedroom
-      button_2_led: "1/0/31"
+      # button_2: unassigned
 
   # Temperature Sensor - Bathroom
   - id: "temp-bathroom"
