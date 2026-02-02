@@ -685,6 +685,11 @@
                               class="channel-ga-count" 
                               x-text="Object.keys(channel.group_objects || {}).length + ' GOs'"
                             ></span>
+                            <button 
+                              class="btn-icon channel-edit-btn"
+                              @click.stop="$store.modal.show('channel', 'edit', { device: $store.app.selectedDevice, channel: channel, channelIndex: channelIndex })"
+                              title="Edit channel"
+                            >✏️</button>
                           </div>
                           <div class="channel-body" x-show="expanded" x-collapse>
                             <!-- Group Objects Table -->
@@ -2844,6 +2849,70 @@ STRATEGY 3: By Room Type (Commercial)
           </div>
         </div>
 
+        <!-- Channel Edit Modal -->
+        <div
+          class="modal modal-medium"
+          x-show="$store.modal.type === 'channel'"
+          @click.stop
+          x-data="channelForm()"
+        >
+          <div class="modal-header">
+            <h3>Edit Channel</h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <div class="form-group">
+              <label for="channel-id">Channel ID</label>
+              <input
+                type="text"
+                id="channel-id"
+                x-model="form.id"
+                disabled
+                class="input-disabled"
+              />
+            </div>
+            <div class="form-group">
+              <label for="channel-name">Channel Name</label>
+              <input
+                type="text"
+                id="channel-name"
+                x-model="form.name"
+                placeholder="e.g., Kitchen Light"
+              />
+            </div>
+            
+            <!-- Group Objects -->
+            <div class="form-group">
+              <label>Group Objects</label>
+              <div class="channel-go-editor">
+                <template x-for="(go, goName) in form.group_objects" :key="goName">
+                  <div class="go-row">
+                    <span class="go-name" x-text="goName"></span>
+                    <input
+                      type="text"
+                      class="go-ga-input"
+                      :value="go.ga || ''"
+                      @input="form.group_objects[goName].ga = $event.target.value || null"
+                      placeholder="e.g., 1/0/1"
+                    />
+                    <span class="go-dpt" x-text="go.dpt"></span>
+                    <span class="go-flags" x-text="go.flags"></span>
+                  </div>
+                </template>
+              </div>
+              <small class="form-hint">Enter group addresses in format: main/middle/sub (e.g., 1/0/1)</small>
+            </div>
+          </div>
+          <div class="modal-footer">
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button class="btn btn-primary" @click="save()">
+              Save Channel
+            </button>
+          </div>
+        </div>
+
         <!-- Template Browser Modal -->
         <div
           class="modal modal-large"
@@ -3230,6 +3299,65 @@ STRATEGY 3: By Room Type (Commercial)
               this.$store.modal.close();
             } catch (err) {
               alert("Failed: " + err.message);
+            }
+          },
+        };
+      }
+
+      // Channel edit form component
+      function channelForm() {
+        return {
+          form: {
+            id: "",
+            name: "",
+            group_objects: {},
+          },
+          deviceId: null,
+          channelIndex: null,
+          init() {
+            this.$watch("$store.modal.open", (open) => {
+              if (open && this.$store.modal.type === "channel") {
+                const data = this.$store.modal.data;
+                if (data && data.channel) {
+                  this.deviceId = data.device.id;
+                  this.channelIndex = data.channelIndex;
+                  // Deep copy the channel data
+                  this.form = {
+                    id: data.channel.id,
+                    name: data.channel.name,
+                    group_objects: JSON.parse(JSON.stringify(data.channel.group_objects || {})),
+                  };
+                }
+              }
+            });
+          },
+          async save() {
+            try {
+              // Get current device channels
+              const device = this.$store.app.selectedDevice;
+              if (!device || !device.channels) {
+                throw new Error("Device or channels not found");
+              }
+
+              // Update the channel in the array
+              const channels = [...device.channels];
+              channels[this.channelIndex] = {
+                ...channels[this.channelIndex],
+                name: this.form.name,
+                group_objects: this.form.group_objects,
+              };
+
+              // Save via API
+              await API.updateDevice(this.$store.app.currentPremiseId, this.deviceId, {
+                channels: channels,
+              });
+
+              // Reload devices
+              await this.$store.app.loadDevices();
+
+              this.$store.modal.close();
+            } catch (err) {
+              alert("Failed to save channel: " + err.message);
             }
           },
         };

@@ -964,6 +964,85 @@ select:focus {
   width: 100%;
 }
 
+/* Channel Edit Button */
+.channel-edit-btn {
+  margin-left: auto;
+  padding: 2px 6px;
+  font-size: 12px;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  opacity: 0.6;
+  transition: opacity 0.15s;
+}
+
+.channel-edit-btn:hover {
+  opacity: 1;
+}
+
+/* Channel Modal Group Object Editor */
+.channel-go-editor {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 4px;
+  padding: var(--spacing-sm);
+  max-height: 300px;
+  overflow-y: auto;
+}
+
+.go-row {
+  display: grid;
+  grid-template-columns: 1fr 120px 60px 50px;
+  gap: var(--spacing-sm);
+  align-items: center;
+  padding: var(--spacing-xs) 0;
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.go-row:last-child {
+  border-bottom: none;
+}
+
+.go-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.go-ga-input {
+  font-family: var(--font-mono);
+  font-size: 12px;
+  padding: 4px 8px;
+  border: 1px solid var(--border-primary);
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--accent-blue);
+}
+
+.go-ga-input:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.go-ga-input::placeholder {
+  color: var(--text-muted);
+}
+
+.go-dpt, .go-flags {
+  font-family: var(--font-mono);
+  font-size: 11px;
+  color: var(--text-muted);
+  text-align: center;
+}
+
+.modal-medium {
+  width: 500px;
+  max-width: 90vw;
+}
+
 /* Controls */
 .controls {
   display: flex;
