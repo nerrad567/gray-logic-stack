@@ -101,6 +101,7 @@ def reset_to_sample(premise_id: str):
                 {"id": "living-room", "name": "Living Room", "room_type": "living"},
                 {"id": "kitchen", "name": "Kitchen", "room_type": "kitchen"},
                 {"id": "hallway", "name": "Hallway", "room_type": "hallway"},
+                {"id": "distribution-board", "name": "Distribution Board", "room_type": "utility"},
             ],
         },
         "first": {
@@ -113,15 +114,20 @@ def reset_to_sample(premise_id: str):
         },
     }
     
-    # Device-to-room mapping based on device ID patterns or GA comments in config
-    # Format: substring in device_id or GA name -> room_id
+    # Device-to-room mapping based on device ID patterns
+    # Format: substring in device_id -> room_id
+    # Actuators go to Distribution Board (they're DIN-rail mounted)
     DEVICE_ROOM_MAP = {
+        # Room-specific devices (sensors, controls)
         "living": "living-room",
         "kitchen": "kitchen",
         "hallway": "hallway",
         "bedroom": "bedroom",
         "bathroom": "bathroom",
         "dining": "living-room",  # Dining is often part of living area
+        # Centralized equipment (actuators in distribution board)
+        "actuator": "distribution-board",
+        "binary-input": "distribution-board",
     }
     
     floors_created = 0
