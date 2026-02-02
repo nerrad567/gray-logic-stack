@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=18" />
+    <link rel="stylesheet" href="css/style.css?v=19" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -714,7 +714,7 @@
           :class="{ 'hidden': !$store.app.engineerMode || !$store.app.selectedDevice }"
         >
           <template x-if="$store.app.selectedDevice">
-            <div>
+            <div class="panel-wrapper">
               <div class="panel-header">
                 <h3
                   x-text="$store.app.formatDeviceName($store.app.selectedDevice.id)"

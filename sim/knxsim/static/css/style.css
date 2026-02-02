@@ -729,12 +729,21 @@ select:focus {
   display: flex;
   flex-direction: column;
   flex-shrink: 0;
-  overflow-y: auto;
-  max-height: 100%;
+  overflow: hidden;
+  min-height: 0;
 }
 
 .device-panel.hidden {
   display: none;
+}
+
+/* Wrapper div created by x-if template */
+.panel-wrapper {
+  display: flex;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
+  overflow: hidden;
 }
 
 .panel-header {
