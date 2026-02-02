@@ -121,12 +121,13 @@ def reset_to_sample(premise_id: str):
         # Centralized equipment (actuators in distribution board)
         ("actuator", "distribution-board"),
         ("binary-input", "distribution-board"),
-        # Room-specific devices (sensors, controls, switches)
-        ("living", "living-room"),
-        ("kitchen", "kitchen"),
-        ("hallway", "hallway"),
-        ("bedroom", "bedroom"),
-        ("bathroom", "bathroom"),
+        # Room-specific devices (lights, sensors, controls, switches)
+        # Match room name in device ID
+        ("-living", "living-room"),
+        ("-kitchen", "kitchen"),
+        ("-hallway", "hallway"),
+        ("-bedroom", "bedroom"),
+        ("-bathroom", "bathroom"),
     ]
     
     floors_created = 0

@@ -82,6 +82,16 @@ devices:
   # LIVING ROOM DEVICES
   # ============================================
 
+  # Light Fixture - Living Room (230V load connected to actuator Ch A)
+  - id: "light-living"
+    type: "light_switch"
+    individual_address: "1.5.1"
+    group_addresses:
+      switch: "1/0/1"          # Same GA as actuator Ch A
+      switch_status: "1/0/2"
+    initial:
+      on: false
+
   # Push Button - Living Room
   # Button 1 controls living room light (same GA as actuator Ch A)
   - id: "switch-living"
@@ -117,6 +127,16 @@ devices:
   # KITCHEN DEVICES
   # ============================================
 
+  # Light Fixture - Kitchen (230V load connected to actuator Ch B)
+  - id: "light-kitchen"
+    type: "light_switch"
+    individual_address: "1.5.2"
+    group_addresses:
+      switch: "1/0/10"
+      switch_status: "1/0/11"
+    initial:
+      on: false
+
   # Push Button - Kitchen
   - id: "switch-kitchen"
     type: "push_button_2fold"
@@ -150,6 +170,16 @@ devices:
   # ============================================
   # HALLWAY DEVICES
   # ============================================
+
+  # Light Fixture - Hallway (230V load connected to actuator Ch C)
+  - id: "light-hallway"
+    type: "light_switch"
+    individual_address: "1.5.3"
+    group_addresses:
+      switch: "1/0/20"
+      switch_status: "1/0/21"
+    initial:
+      on: false
 
   # Push Button - Hallway
   - id: "switch-hallway"
@@ -185,6 +215,16 @@ devices:
   # BEDROOM DEVICES
   # ============================================
 
+  # Light Fixture - Bedroom (230V load connected to actuator Ch D)
+  - id: "light-bedroom"
+    type: "light_switch"
+    individual_address: "1.5.4"
+    group_addresses:
+      switch: "1/0/30"
+      switch_status: "1/0/31"
+    initial:
+      on: false
+
   # Push Button - Bedroom
   - id: "switch-bedroom"
     type: "push_button_2fold"
@@ -218,6 +258,16 @@ devices:
   # ============================================
   # BATHROOM DEVICES
   # ============================================
+
+  # Light Fixture - Bathroom (230V load connected to actuator Ch E)
+  - id: "light-bathroom"
+    type: "light_switch"
+    individual_address: "1.5.5"
+    group_addresses:
+      switch: "1/0/40"
+      switch_status: "1/0/41"
+    initial:
+      on: false
 
   # Push Button - Bathroom
   - id: "switch-bathroom"
