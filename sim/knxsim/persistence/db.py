@@ -19,6 +19,7 @@ CREATE TABLE IF NOT EXISTS premises (
     gateway_address TEXT NOT NULL,
     client_address TEXT NOT NULL,
     port INTEGER NOT NULL UNIQUE,
+    setup_complete INTEGER NOT NULL DEFAULT 0,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -443,6 +444,18 @@ class Database:
             # Migrate existing devices to single-channel format
             self._migrate_devices_to_channels()
 
+        # Check if setup_complete column exists in premises
+        cursor = self.conn.execute("PRAGMA table_info(premises)")
+        premise_columns = [row[1] for row in cursor.fetchall()]
+
+        if "setup_complete" not in premise_columns:
+            logger.info("Applying migration: adding setup_complete column to premises")
+            # Existing premises are considered setup complete (they already have devices)
+            self.conn.execute(
+                "ALTER TABLE premises ADD COLUMN setup_complete INTEGER NOT NULL DEFAULT 1"
+            )
+            self.conn.commit()
+
     def close(self):
         if self._conn:
             self._conn.close()
@@ -617,20 +630,31 @@ class Database:
     def create_premise(self, data: dict) -> dict:
         now = _now()
         self.conn.execute(
-            """INSERT INTO premises (id, name, gateway_address, client_address, port, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO premises (id, name, gateway_address, client_address, port, setup_complete, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data["id"],
                 data["name"],
                 data["gateway_address"],
                 data["client_address"],
                 data["port"],
+                1 if data.get("setup_complete") else 0,
                 now,
                 now,
             ),
         )
         self.conn.commit()
         return self.get_premise(data["id"])
+
+    def mark_premise_setup_complete(self, premise_id: str) -> bool:
+        """Mark a premise as setup complete (user made a choice)."""
+        now = _now()
+        cur = self.conn.execute(
+            "UPDATE premises SET setup_complete = 1, updated_at = ? WHERE id = ?",
+            (now, premise_id),
+        )
+        self.conn.commit()
+        return cur.rowcount > 0
 
     def delete_premise(self, premise_id: str) -> bool:
         cur = self.conn.execute("DELETE FROM premises WHERE id = ?", (premise_id,))

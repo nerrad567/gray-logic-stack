@@ -36,8 +36,8 @@ class PremiseManager:
     def bootstrap_from_config(self, config: dict):
         """Bootstrap the default premise from config.yaml if it doesn't exist in DB.
 
-        This ensures backward compatibility — on first run, the existing
-        config.yaml devices are loaded into the database and started.
+        On first run, creates an empty premise with setup_complete=False.
+        The user will see a welcome modal to choose: load samples or start empty.
         """
         existing = self.db.get_premise(DEFAULT_PREMISE_ID)
         if existing:
@@ -45,7 +45,7 @@ class PremiseManager:
             self._load_premise_from_db(DEFAULT_PREMISE_ID)
             return
 
-        # First run: create default premise from config
+        # First run: create empty premise (user chooses via welcome modal)
         gw_cfg = config.get("gateway", {})
         gateway_addr = gw_cfg.get("individual_address", "1.0.0")
         client_addr = gw_cfg.get("client_address", "1.0.255")
@@ -57,8 +57,18 @@ class PremiseManager:
                 "gateway_address": gateway_addr,
                 "client_address": client_addr,
                 "port": 3671,
+                "setup_complete": False,  # User hasn't made a choice yet
             }
         )
+
+        logger.info("Created empty premise '%s' — awaiting user setup choice", DEFAULT_PREMISE_ID)
+
+        # Load the empty premise (starts KNX server)
+        self._load_premise_from_db(DEFAULT_PREMISE_ID)
+        return
+
+        # NOTE: The code below is now DEAD CODE — kept for reference
+        # Device import now happens via reset-sample endpoint when user chooses
 
         # Import devices from config
         for dev_cfg in config.get("devices", []):

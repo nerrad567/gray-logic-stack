@@ -52,11 +52,13 @@ def delete_premise(premise_id: str):
 
 @router.post("/{premise_id}/reset-sample")
 def reset_to_sample(premise_id: str):
-    """Reset premise to sample devices from config.yaml.
+    """Reset premise to sample installation from config.yaml.
     
     This will:
-    1. Delete all existing devices in the premise
-    2. Reload sample devices from the config file
+    1. Delete all existing devices, floors, and rooms
+    2. Create sample topology (floors and rooms)
+    3. Create sample devices and assign them to appropriate rooms
+    4. Mark the premise as setup_complete
     
     Useful for starting fresh or restoring the default learning environment.
     """
@@ -82,7 +84,82 @@ def reset_to_sample(premise_id: str):
     for device in existing_devices:
         manager.remove_device(premise_id, device["id"])
     
-    # Add sample devices from config
+    # Delete existing floors (cascades to rooms)
+    existing_floors = manager.db.list_floors(premise_id)
+    for floor in existing_floors:
+        manager.db.delete_floor(premise_id, floor["id"])
+    
+    # ─────────────────────────────────────────────────────────────
+    # Create sample topology
+    # ─────────────────────────────────────────────────────────────
+    
+    SAMPLE_TOPOLOGY = {
+        "ground": {
+            "name": "Ground Floor",
+            "sort_order": 0,
+            "rooms": [
+                {"id": "living-room", "name": "Living Room", "room_type": "living"},
+                {"id": "kitchen", "name": "Kitchen", "room_type": "kitchen"},
+                {"id": "hallway", "name": "Hallway", "room_type": "hallway"},
+            ],
+        },
+        "first": {
+            "name": "First Floor",
+            "sort_order": 1,
+            "rooms": [
+                {"id": "bedroom", "name": "Bedroom", "room_type": "bedroom"},
+                {"id": "bathroom", "name": "Bathroom", "room_type": "bathroom"},
+            ],
+        },
+    }
+    
+    # Device-to-room mapping based on device ID patterns or GA comments in config
+    # Format: substring in device_id or GA name -> room_id
+    DEVICE_ROOM_MAP = {
+        "living": "living-room",
+        "kitchen": "kitchen",
+        "hallway": "hallway",
+        "bedroom": "bedroom",
+        "bathroom": "bathroom",
+        "dining": "living-room",  # Dining is often part of living area
+    }
+    
+    floors_created = 0
+    rooms_created = 0
+    
+    for floor_id, floor_data in SAMPLE_TOPOLOGY.items():
+        manager.db.create_floor(premise_id, {
+            "id": floor_id,
+            "name": floor_data["name"],
+            "sort_order": floor_data["sort_order"],
+        })
+        floors_created += 1
+        
+        for room_data in floor_data["rooms"]:
+            manager.db.create_room(premise_id, floor_id, room_data)
+            rooms_created += 1
+    
+    # ─────────────────────────────────────────────────────────────
+    # Create sample devices
+    # ─────────────────────────────────────────────────────────────
+    
+    def guess_room_for_device(device_id: str, group_addresses: dict) -> str | None:
+        """Guess which room a device belongs to based on its ID or GA names."""
+        # Check device ID
+        device_id_lower = device_id.lower()
+        for pattern, room_id in DEVICE_ROOM_MAP.items():
+            if pattern in device_id_lower:
+                return room_id
+        
+        # Check GA names (e.g., "channel_a_switch" might have comment "Living Room")
+        ga_str = str(group_addresses).lower()
+        for pattern, room_id in DEVICE_ROOM_MAP.items():
+            if pattern in ga_str:
+                return room_id
+        
+        # Default: unassigned
+        return None
+    
     devices_created = 0
     for dev_config in config.get("devices", []):
         device_data = {
@@ -91,6 +168,10 @@ def reset_to_sample(premise_id: str):
             "individual_address": dev_config["individual_address"],
             "group_addresses": dev_config.get("group_addresses", {}),
             "initial_state": dev_config.get("initial", {}),
+            "room_id": guess_room_for_device(
+                dev_config["id"],
+                dev_config.get("group_addresses", {}),
+            ),
         }
         
         # Handle template devices
@@ -101,17 +182,18 @@ def reset_to_sample(premise_id: str):
             manager.add_device(premise_id, device_data)
             devices_created += 1
         except Exception as e:
-            # Log but continue
             print(f"Warning: Failed to create device {dev_config['id']}: {e}")
     
+    # ─────────────────────────────────────────────────────────────
     # Reload scenarios
+    # ─────────────────────────────────────────────────────────────
+    
     scenarios_created = 0
     live_premise = manager.premises.get(premise_id)
     if live_premise and live_premise.scenario_runner:
         live_premise.scenario_runner.stop()
         live_premise.scenario_runner = None
     
-    # Re-add scenarios from config
     for scenario_config in config.get("scenarios", []):
         try:
             manager.db.create_scenario(premise_id, {
@@ -125,16 +207,34 @@ def reset_to_sample(premise_id: str):
         except Exception:
             pass  # May already exist
     
-    # Restart scenarios
-    # Note: ScenarioRunner is typically started by premise_manager
-    # For now, just let the existing runner continue or reload the premise
+    # Reload premise to pick up new devices
     if live_premise:
-        # Re-fetch devices and rebuild GA map
         manager._load_premise_from_db(premise_id)
+    
+    # Mark setup as complete
+    manager.db.mark_premise_setup_complete(premise_id)
     
     return {
         "status": "ok",
+        "floors_created": floors_created,
+        "rooms_created": rooms_created,
         "devices_deleted": len(existing_devices),
         "devices_created": devices_created,
         "scenarios_created": scenarios_created,
     }
+
+
+@router.post("/{premise_id}/mark-setup-complete")
+def mark_setup_complete(premise_id: str):
+    """Mark premise setup as complete (user chose to start empty).
+    
+    Called when user dismisses the welcome modal without loading samples.
+    """
+    manager = router.app.state.manager
+    premise = manager.get_premise(premise_id)
+    if not premise:
+        raise HTTPException(status_code=404, detail="Premise not found")
+    
+    manager.db.mark_premise_setup_complete(premise_id)
+    
+    return {"status": "ok"}

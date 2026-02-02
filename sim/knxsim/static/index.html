@@ -3008,6 +3008,60 @@ STRATEGY 3: By Room Type (Commercial)
           </div>
         </div>
       </div>
+
+      <!-- Welcome Modal (First-Run Setup) -->
+      <div
+        class="modal-overlay welcome-overlay"
+        x-show="$store.app.needsSetup && !$store.app.connecting"
+        x-transition:enter="modal-enter"
+        x-transition:leave="modal-leave"
+        x-data="{ loading: false }"
+      >
+        <div class="modal modal-welcome" @click.stop>
+          <div class="modal-header">
+            <h3>👋 Welcome to KNXSim</h3>
+          </div>
+          <div class="modal-body welcome-body">
+            <p class="welcome-intro">
+              KNXSim is a virtual KNX installation for learning and testing.
+              How would you like to start?
+            </p>
+
+            <div class="welcome-options">
+              <button
+                class="welcome-option"
+                :disabled="loading"
+                @click="loading = true; $store.app.resetToSample().finally(() => loading = false)"
+              >
+                <span class="welcome-option-icon">🏠</span>
+                <span class="welcome-option-title">Load Sample Installation</span>
+                <span class="welcome-option-desc">
+                  Start with a pre-configured home: floors, rooms, and realistic
+                  KNX devices. Perfect for learning.
+                </span>
+              </button>
+
+              <button
+                class="welcome-option welcome-option-secondary"
+                :disabled="loading"
+                @click="$store.app.markSetupComplete()"
+              >
+                <span class="welcome-option-icon">📝</span>
+                <span class="welcome-option-title">Start Empty</span>
+                <span class="welcome-option-desc">
+                  Begin with a blank slate. Add your own floors, rooms, and
+                  devices from scratch.
+                </span>
+              </button>
+            </div>
+
+            <p class="welcome-hint" x-show="loading">
+              <span class="loading-spinner"></span>
+              Setting up your installation...
+            </p>
+          </div>
+        </div>
+      </div>
     </div>
 
     <!-- Alpine component definitions -->

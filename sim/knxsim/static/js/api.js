@@ -67,6 +67,12 @@ export const API = {
         });
     },
 
+    async markSetupComplete(premiseId) {
+        return request(`/premises/${premiseId}/mark-setup-complete`, {
+            method: 'POST',
+        });
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Devices
     // ─────────────────────────────────────────────────────────────

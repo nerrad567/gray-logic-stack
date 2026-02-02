@@ -3203,3 +3203,117 @@ select:focus {
   overflow-x: auto;
   white-space: pre;
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Welcome Modal (First-Run Setup)
+   ───────────────────────────────────────────────────────────── */
+
+.welcome-overlay {
+  z-index: 1001; /* Above regular modals */
+}
+
+.modal-welcome {
+  max-width: 500px;
+  text-align: center;
+}
+
+.modal-welcome .modal-header {
+  border-bottom: none;
+  padding-bottom: 0;
+}
+
+.modal-welcome .modal-header h3 {
+  font-size: 24px;
+  margin: 0;
+}
+
+.welcome-body {
+  padding: var(--spacing-lg);
+}
+
+.welcome-intro {
+  color: var(--text-secondary);
+  margin-bottom: var(--spacing-lg);
+  font-size: 14px;
+  line-height: 1.5;
+}
+
+.welcome-options {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-md);
+}
+
+.welcome-option {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--spacing-xs);
+  padding: var(--spacing-lg);
+  background: var(--bg-tertiary);
+  border: 2px solid var(--border-primary);
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: all 0.2s ease;
+  text-align: center;
+}
+
+.welcome-option:hover:not(:disabled) {
+  border-color: var(--accent-blue);
+  background: rgba(59, 130, 246, 0.1);
+}
+
+.welcome-option:disabled {
+  opacity: 0.6;
+  cursor: wait;
+}
+
+.welcome-option-icon {
+  font-size: 32px;
+}
+
+.welcome-option-title {
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.welcome-option-desc {
+  font-size: 13px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+}
+
+.welcome-option-secondary {
+  background: transparent;
+  border-style: dashed;
+}
+
+.welcome-option-secondary:hover:not(:disabled) {
+  background: var(--bg-tertiary);
+}
+
+.welcome-hint {
+  margin-top: var(--spacing-md);
+  font-size: 13px;
+  color: var(--text-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-sm);
+}
+
+.loading-spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-primary);
+  border-top-color: var(--accent-blue);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}

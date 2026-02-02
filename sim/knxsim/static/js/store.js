@@ -749,11 +749,34 @@ export function initStores() {
         this.devices = await API.getDevices(this.currentPremiseId);
         await this.loadTopology();
         this.selectedDeviceId = null;
+        // Mark setup as complete locally
+        const premise = this.premises.find((p) => p.id === this.currentPremiseId);
+        if (premise) premise.setup_complete = true;
       } catch (err) {
         console.error("Failed to reset to sample:", err);
         alert("Failed to reset: " + err.message);
         throw err;
       }
+    },
+
+    async markSetupComplete() {
+      if (!this.currentPremiseId) return;
+      try {
+        await API.markSetupComplete(this.currentPremiseId);
+        // Mark locally
+        const premise = this.premises.find((p) => p.id === this.currentPremiseId);
+        if (premise) premise.setup_complete = true;
+      } catch (err) {
+        console.error("Failed to mark setup complete:", err);
+      }
+    },
+
+    /**
+     * Check if current premise needs setup (show welcome modal)
+     */
+    get needsSetup() {
+      const premise = this.premises.find((p) => p.id === this.currentPremiseId);
+      return premise && !premise.setup_complete;
     },
 
     async assignDeviceToRoom(deviceId, roomId) {

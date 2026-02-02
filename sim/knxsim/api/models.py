@@ -70,6 +70,7 @@ class PremiseResponse(BaseModel):
     gateway_address: str
     client_address: str
     port: int
+    setup_complete: bool = False
     running: bool = False
     device_count: int = 0
     created_at: str | None = None
