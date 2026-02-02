@@ -159,7 +159,15 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
         device_name = device.get("name") or _id_to_display_name(device_id)
         device_type = device.get("type", "")
 
-        for ga_name, ga_str in device.get("group_addresses", {}).items():
+        for ga_name, ga_data in device.get("group_addresses", {}).items():
+            # Handle both old format (string) and new format (dict with ga, dpt, flags)
+            if isinstance(ga_data, dict):
+                ga_str = ga_data.get("ga", "")
+                ga_dpt = ga_data.get("dpt", "")
+            else:
+                ga_str = ga_data
+                ga_dpt = ""
+            
             if ga_str and "/" in ga_str:
                 main_group = ga_str.split("/")[0]
                 if main_group not in ga_by_main:
@@ -173,7 +181,7 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                     "address": ga_str,
                     "name": f"{device_name} : {function_name}",
                     "device_id": device_id,
-                    "dpt": _guess_dpt(device_type, ga_name),
+                    "dpt": ga_dpt or _guess_dpt(device_type, ga_name),
                 }
 
     # Create GroupRange elements
@@ -224,7 +232,9 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
 
         # Link group addresses
         ga_refs = ET.SubElement(func, "GroupAddressRefs")
-        for ga_name, ga_str in device.get("group_addresses", {}).items():
+        for ga_name, ga_data in device.get("group_addresses", {}).items():
+            # Handle both old format (string) and new format (dict)
+            ga_str = ga_data.get("ga", "") if isinstance(ga_data, dict) else ga_data
             if ga_str in ga_id_map:
                 ga_ref = ET.SubElement(ga_refs, "GroupAddressRef")
                 ga_ref.set("RefId", ga_id_map[ga_str])
