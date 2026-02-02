@@ -73,8 +73,8 @@ export const API = {
         });
     },
 
-    async clearAll(premiseId) {
-        return request(`/premises/${premiseId}/clear-all`, {
+    async factoryReset(premiseId) {
+        return request(`/premises/${premiseId}/factory-reset`, {
             method: 'POST',
         });
     },

@@ -3318,12 +3318,12 @@ select:focus {
   }
 }
 
-.btn-clear-all {
+.btn-factory-reset {
   background: transparent;
-  border: 1px solid var(--accent-red);
-  color: var(--accent-red);
+  border: 1px solid var(--accent-orange, #f97316);
+  color: var(--accent-orange, #f97316);
 }
 
-.btn-clear-all:hover {
-  background: rgba(239, 68, 68, 0.1);
+.btn-factory-reset:hover {
+  background: rgba(249, 115, 22, 0.1);
 }

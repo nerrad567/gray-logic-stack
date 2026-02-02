@@ -240,11 +240,12 @@ def mark_setup_complete(premise_id: str):
     return {"status": "ok"}
 
 
-@router.post("/{premise_id}/clear-all")
-def clear_all(premise_id: str):
-    """Delete all devices, floors, and rooms from a premise.
+@router.post("/{premise_id}/factory-reset")
+def factory_reset(premise_id: str):
+    """Factory reset — delete everything and show welcome modal again.
     
-    Resets to a blank slate but keeps the premise itself.
+    Clears all devices, floors, rooms, and sets setup_complete=false
+    so the user sees the welcome modal to choose their setup.
     """
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
@@ -260,6 +261,14 @@ def clear_all(premise_id: str):
     existing_floors = manager.db.list_floors(premise_id)
     for floor in existing_floors:
         manager.db.delete_floor(floor["id"])
+    
+    # Reset setup_complete to show welcome modal
+    now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
+    manager.db.conn.execute(
+        "UPDATE premises SET setup_complete = 0, updated_at = ? WHERE id = ?",
+        (now, premise_id),
+    )
+    manager.db.conn.commit()
     
     # Reload premise
     live_premise = manager.premises.get(premise_id)

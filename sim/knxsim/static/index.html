@@ -129,18 +129,18 @@
           >
             🏠 Load Sample
           </button>
-          <!-- Clear All button (Engineer Mode only) -->
+          <!-- Factory Reset button (Engineer Mode only) -->
           <button
-            class="btn btn-clear-all"
+            class="btn btn-factory-reset"
             x-show="$store.app.engineerMode"
             @click="$store.modal.confirm(
-              'Clear All',
-              'This will delete ALL devices, floors, and rooms. Continue?',
-              async () => { await $store.app.clearAll(); }
+              'Factory Reset',
+              'This will delete ALL devices, floors, and rooms, and show the welcome screen. Continue?',
+              async () => { await $store.app.factoryReset(); }
             )"
-            title="Delete all devices, floors, and rooms"
+            title="Reset to initial state and show welcome screen"
           >
-            🗑️ Clear All
+            🔄 Factory Reset
           </button>
         </div>
       </header>

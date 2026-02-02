@@ -745,9 +745,8 @@ export function initStores() {
       try {
         const result = await API.resetToSample(this.currentPremiseId);
         console.log("Reset to sample:", result);
-        // Reload all data
-        this.devices = await API.getDevices(this.currentPremiseId);
-        await this.loadTopology();
+        // Reload all data - floors, devices, and topology
+        await this.selectPremise(this.currentPremiseId);
         this.selectedDeviceId = null;
         // Mark setup as complete locally
         const premise = this.premises.find((p) => p.id === this.currentPremiseId);
@@ -771,18 +770,19 @@ export function initStores() {
       }
     },
 
-    async clearAll() {
+    async factoryReset() {
       if (!this.currentPremiseId) return;
       try {
-        const result = await API.clearAll(this.currentPremiseId);
-        console.log("Clear all:", result);
+        const result = await API.factoryReset(this.currentPremiseId);
+        console.log("Factory reset:", result);
         // Reload all data
-        this.devices = await API.getDevices(this.currentPremiseId);
-        await this.loadTopology();
+        await this.selectPremise(this.currentPremiseId);
+        // Refresh premises to get updated setup_complete
+        this.premises = await API.getPremises();
         this.selectedDeviceId = null;
       } catch (err) {
-        console.error("Failed to clear all:", err);
-        alert("Failed to clear: " + err.message);
+        console.error("Failed to factory reset:", err);
+        alert("Failed to reset: " + err.message);
         throw err;
       }
     },
