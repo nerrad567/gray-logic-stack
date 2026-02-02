@@ -737,6 +737,25 @@ export function initStores() {
       }
     },
 
+    /**
+     * Reset premise to sample devices from config.yaml
+     */
+    async resetToSample() {
+      if (!this.currentPremiseId) return;
+      try {
+        const result = await API.resetToSample(this.currentPremiseId);
+        console.log("Reset to sample:", result);
+        // Reload all data
+        await this.loadDevices();
+        await this.loadTopology();
+        this.selectedDeviceId = null;
+      } catch (err) {
+        console.error("Failed to reset to sample:", err);
+        alert("Failed to reset: " + err.message);
+        throw err;
+      }
+    },
+
     async assignDeviceToRoom(deviceId, roomId) {
       if (!this.currentPremiseId) return;
       try {

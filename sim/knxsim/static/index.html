@@ -116,6 +116,19 @@
               </a>
             </div>
           </div>
+          <!-- Reset Sample button (Engineer Mode only) -->
+          <button
+            class="btn btn-reset-sample"
+            x-show="$store.app.engineerMode"
+            @click="$store.modal.confirm(
+              'Reset to Sample Devices',
+              'This will delete all devices and reload the sample set from config. Continue?',
+              async () => { await $store.app.resetToSample(); }
+            )"
+            title="Reset premise to sample devices"
+          >
+            🔄 Reset Sample
+          </button>
         </div>
       </header>
 

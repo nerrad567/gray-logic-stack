@@ -61,6 +61,12 @@ export const API = {
         });
     },
 
+    async resetToSample(premiseId) {
+        return request(`/premises/${premiseId}/reset-sample`, {
+            method: 'POST',
+        });
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Devices
     // ─────────────────────────────────────────────────────────────

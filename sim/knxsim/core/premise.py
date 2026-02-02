@@ -21,14 +21,48 @@ from scenarios.periodic import ScenarioRunner
 
 logger = logging.getLogger("knxsim.premise")
 
+# Base device types
 DEVICE_TYPES = {
     "light_switch": LightSwitch,
     "light_dimmer": LightDimmer,
     "blind": Blind,
     "sensor": Sensor,
     "presence": PresenceSensor,
+    "thermostat": Sensor,  # Thermostat uses sensor-like behavior
     "template_device": TemplateDevice,
 }
+
+# Multi-channel device types mapped to appropriate base classes
+# The multi-channel behavior is handled at DB/API level; runtime uses base class
+MULTI_CHANNEL_DEVICE_TYPES = {
+    # Switch actuators (2/4/8/12/16/24-fold)
+    "switch_actuator_2fold": LightSwitch,
+    "switch_actuator_4fold": LightSwitch,
+    "switch_actuator_8fold": LightSwitch,
+    "switch_actuator_12fold": LightSwitch,
+    "switch_actuator_16fold": LightSwitch,
+    "switch_actuator_24fold": LightSwitch,
+    # Dimmer actuators (1/2/4-fold)
+    "dimmer_actuator_1fold": LightDimmer,
+    "dimmer_actuator_2fold": LightDimmer,
+    "dimmer_actuator_4fold": LightDimmer,
+    # Blind/shutter actuators (2/4/8-fold)
+    "blind_actuator_2fold": Blind,
+    "blind_actuator_4fold": Blind,
+    "blind_actuator_8fold": Blind,
+    # Push button interfaces (2/4/6/8-fold)
+    "push_button_2fold": TemplateDevice,
+    "push_button_4fold": TemplateDevice,
+    "push_button_6fold": TemplateDevice,
+    "push_button_8fold": TemplateDevice,
+    # Binary inputs (4/8/16-fold)
+    "binary_input_4fold": Sensor,
+    "binary_input_8fold": Sensor,
+    "binary_input_16fold": Sensor,
+}
+
+# Merge multi-channel types into main lookup
+DEVICE_TYPES.update(MULTI_CHANNEL_DEVICE_TYPES)
 
 
 class Premise:

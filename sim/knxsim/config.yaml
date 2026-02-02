@@ -1,18 +1,20 @@
 # KNXSim Default Configuration
 # =============================
-# Sample premise for learning KNX addressing and testing.
-# 
-# GA Structure follows industry standard 3-level addressing:
-#   Main Group (1-31): Function type
-#   Middle Group (0-7): Location/floor (0 = Ground Floor)
-#   Sub Group (0-255): Specific object
+# Realistic sample premise demonstrating KNX device types.
+# Based on real-world products from MDT, ABB, Gira, Theben.
 #
-# Standard Main Groups:
-#   1 = Lighting
-#   2 = Blinds
-#   3 = HVAC
-#   4 = Sensors
-#   5 = Scenes
+# GA Structure: Standard 3-level (Main=Function, Middle=Floor, Sub=Object)
+#   1/x/x = Lighting
+#   2/x/x = Blinds/Shutters
+#   3/x/x = HVAC
+#   4/x/x = Sensors
+#   5/x/x = Scenes
+#
+# Topology: Area 1, Lines organized by function
+#   1.1.x = Actuators (switch, dimmer, blind)
+#   1.2.x = Wall controls (push buttons)
+#   1.3.x = Sensors
+#   1.4.x = HVAC controllers
 
 gateway:
   individual_address: "1.0.0"
@@ -20,144 +22,251 @@ gateway:
 
 devices:
   # ============================================
-  # LIGHTING (Main Group 1)
-  # Actuators on Line 1.1.x
+  # SWITCH ACTUATORS (Line 1.1.x)
+  # Based on: MDT AKS-0416.03 / ABB SA/S 4.16.1
   # ============================================
 
-  # Dimmer - Living Room ceiling light
-  - id: "living-room-dimmer"
-    type: "light_dimmer"
+  # 4-fold Switch Actuator - 4 independent 16A relay outputs
+  # Real device: MDT AKS-0416.03 or ABB SA/S 4.16.1
+  # Channels A-D each control one lighting circuit
+  - id: "switch-actuator-4ch"
+    type: "switch_actuator_4fold"
     individual_address: "1.1.1"
     group_addresses:
-      switch: "1/0/1"           # Lighting / Ground Floor / Object 1
-      switch_status: "1/0/2"
-      brightness: "1/0/3"
-      brightness_status: "1/0/4"
-    initial:
-      "on": false
-      brightness: 0
+      # Channel A - Living Room Main Light
+      channel_a_switch: "1/0/1"
+      channel_a_switch_status: "1/0/2"
+      # Channel B - Kitchen Light
+      channel_b_switch: "1/0/10"
+      channel_b_switch_status: "1/0/11"
+      # Channel C - Hallway Light
+      channel_c_switch: "1/0/20"
+      channel_c_switch_status: "1/0/21"
+      # Channel D - Spare/Outdoor
+      channel_d_switch: "1/0/30"
+      channel_d_switch_status: "1/0/31"
 
-  # Switch - Kitchen light
-  - id: "kitchen-light"
-    type: "light_switch"
+  # ============================================
+  # DIMMING ACTUATORS (Line 1.1.x)
+  # Based on: MDT AKD-0401.02 / ABB UD/S 4.210.2
+  # ============================================
+
+  # 2-fold Dimmer - LED/Universal dimmer
+  # Real device: MDT AKD-0201.02 (2x 250W)
+  - id: "dimmer-actuator-2ch"
+    type: "dimmer_actuator_2fold"
     individual_address: "1.1.2"
     group_addresses:
-      switch: "1/0/10"          # Lighting / Ground Floor / Object 10
-      switch_status: "1/0/11"
-    initial:
-      "on": false
+      # Channel A - Living Room Ceiling (dimmable)
+      channel_a_switch: "1/0/40"
+      channel_a_switch_status: "1/0/41"
+      channel_a_brightness: "1/0/42"
+      channel_a_brightness_status: "1/0/43"
+      # Channel B - Dining Area (dimmable)
+      channel_b_switch: "1/0/50"
+      channel_b_switch_status: "1/0/51"
+      channel_b_brightness: "1/0/52"
+      channel_b_brightness_status: "1/0/53"
 
-  # Switch - Hallway light
-  - id: "hallway-light"
-    type: "light_switch"
+  # ============================================
+  # BLIND/SHUTTER ACTUATORS (Line 1.1.x)
+  # Based on: MDT JAL-0410.02 / ABB JRA/S 4.230.5.1
+  # ============================================
+
+  # 2-fold Blind Actuator - with slat control
+  # Real device: MDT JAL-0210.02 (2 channels, AC 230V motors)
+  - id: "blind-actuator-2ch"
+    type: "blind_actuator_2fold"
     individual_address: "1.1.3"
     group_addresses:
-      switch: "1/0/20"          # Lighting / Ground Floor / Object 20
-      switch_status: "1/0/21"
-    initial:
-      "on": false
+      # Channel A - Living Room Window
+      channel_a_move: "2/0/1"
+      channel_a_stop: "2/0/2"
+      channel_a_position: "2/0/3"
+      channel_a_position_status: "2/0/4"
+      # Channel B - Kitchen Window
+      channel_b_move: "2/0/10"
+      channel_b_stop: "2/0/11"
+      channel_b_position: "2/0/12"
+      channel_b_position_status: "2/0/13"
 
   # ============================================
-  # BLINDS (Main Group 2)
-  # Actuators on Line 1.1.x
+  # PUSH BUTTON INTERFACES (Line 1.2.x)
+  # Based on: MDT BE-04001.02 / ABB US/U 4.2
   # ============================================
 
-  # Blind - Living room window
-  - id: "living-room-blind"
-    type: "blind"
-    individual_address: "1.1.4"
-    group_addresses:
-      position: "2/0/1"         # Blinds / Ground Floor / Object 1
-      position_status: "2/0/2"
-      slat: "2/0/3"
-      slat_status: "2/0/4"
-    initial:
-      position: 0
-      tilt: 0
-
-  # ============================================
-  # WALL CONTROLS (Input devices)
-  # On Line 1.2.x
-  # ============================================
-
-  # 2-button wall switch - Living room entry
-  # Button 1: Living room light, Button 2: Blind
-  - id: "living-room-switch"
-    type: "template_device"
-    template: "push_button_2"
+  # 4-fold Push Button - Living Room Entry
+  # Real device: MDT BE-04001.02 (4 button inputs)
+  - id: "pushbutton-living-4ch"
+    type: "push_button_4fold"
     individual_address: "1.2.1"
     group_addresses:
-      button_1: "1/0/1"         # Same GA as living-room-dimmer switch (links them)
-      button_2: "2/0/1"         # Same GA as living-room-blind position
-      led_1: "1/0/2"            # Feedback from dimmer status
-      led_2: "2/0/2"            # Feedback from blind status
-    initial:
-      button_1: false
-      button_2: false
+      # Button 1 - Living room main light
+      button_1: "1/0/1"
+      # Button 2 - Living room dimmer
+      button_2: "1/0/40"
+      # Button 3 - Living room blind
+      button_3: "2/0/3"
+      # Button 4 - All off scene
+      button_4: "5/0/1"
 
-  # 2-button wall switch - Kitchen
-  - id: "kitchen-switch"
-    type: "template_device"
-    template: "push_button_2"
+  # 2-fold Push Button - Kitchen
+  # Real device: MDT BE-02001.02 (2 button inputs)
+  - id: "pushbutton-kitchen-2ch"
+    type: "push_button_2fold"
     individual_address: "1.2.2"
     group_addresses:
-      button_1: "1/0/10"        # Kitchen light
-      button_2: "1/0/1"         # Also controls living room (multi-location)
-      led_1: "1/0/11"
-      led_2: "1/0/2"
-    initial:
-      button_1: false
-      button_2: false
+      # Button 1 - Kitchen light (switch actuator Ch B)
+      button_1: "1/0/10"
+      # Button 2 - Kitchen blind
+      button_2: "2/0/12"
+
+  # 2-fold Push Button - Hallway (secondary control)
+  - id: "pushbutton-hallway-2ch"
+    type: "push_button_2fold"
+    individual_address: "1.2.3"
+    group_addresses:
+      # Button 1 - Hallway light
+      button_1: "1/0/20"
+      # Button 2 - Living room light (multi-location control)
+      button_2: "1/0/1"
 
   # ============================================
-  # SENSORS (Main Group 4)
-  # On Line 1.3.x
+  # BINARY INPUTS (Line 1.2.x)
+  # Based on: MDT BE-08000.02 / ABB US/U 8.2
   # ============================================
 
-  # Temperature sensor - Living room
-  - id: "temperature-sensor"
+  # 4-fold Binary Input - Window/door contacts
+  # Real device: MDT BE-04000.02 (4 potential-free inputs)
+  - id: "binary-input-4ch"
+    type: "binary_input_4fold"
+    individual_address: "1.2.4"
+    group_addresses:
+      # Input 1 - Living room window contact
+      channel_a_state: "4/0/20"
+      # Input 2 - Kitchen window contact
+      channel_b_state: "4/0/21"
+      # Input 3 - Front door contact
+      channel_c_state: "4/0/22"
+      # Input 4 - Spare
+      channel_d_state: "4/0/23"
+
+  # ============================================
+  # SENSORS (Line 1.3.x)
+  # ============================================
+
+  # Temperature Sensor - Living Room
+  # Real device: MDT SCN-TS1UP.G2 or Theben AMUN 716
+  - id: "temp-sensor-living"
     type: "sensor"
     individual_address: "1.3.1"
     group_addresses:
-      temperature: "4/0/1"      # Sensors / Ground Floor / Object 1
+      temperature: "4/0/1"
     initial:
       temperature: 21.5
 
-  # Presence detector - Living room
-  - id: "presence-detector"
-    type: "presence"
+  # Temperature Sensor - Kitchen
+  - id: "temp-sensor-kitchen"
+    type: "sensor"
     individual_address: "1.3.2"
     group_addresses:
-      presence: "4/0/10"        # Sensors / Ground Floor / Object 10
+      temperature: "4/0/2"
+    initial:
+      temperature: 22.0
+
+  # Presence Detector - Living Room
+  # Real device: MDT SCN-P360D4.03 / ABB 6131/xx
+  - id: "presence-living"
+    type: "presence"
+    individual_address: "1.3.3"
+    group_addresses:
+      presence: "4/0/10"
       lux: "4/0/11"
     initial:
       presence: false
-      lux: 150.0
+      lux: 250.0
+
+  # Presence Detector - Hallway
+  - id: "presence-hallway"
+    type: "presence"
+    individual_address: "1.3.4"
+    group_addresses:
+      presence: "4/0/12"
+      lux: "4/0/13"
+    initial:
+      presence: false
+      lux: 100.0
+
+  # ============================================
+  # HVAC CONTROLLERS (Line 1.4.x)
+  # Based on: MDT SCN-RT1UP.G2 / Theben RAMSES 718
+  # ============================================
+
+  # Room Thermostat - Living Room
+  # Real device: MDT SCN-RT1UP.G2 or Theben RAMSES 718 P
+  - id: "thermostat-living"
+    type: "thermostat"
+    individual_address: "1.4.1"
+    group_addresses:
+      setpoint: "3/0/1"
+      setpoint_status: "3/0/2"
+      temperature: "4/0/1"          # Listens to living room temp sensor
+      mode: "3/0/10"                 # HVAC mode (comfort/standby/eco/protection)
+      mode_status: "3/0/11"
+      heating: "3/0/20"              # Heating valve output
+    initial:
+      setpoint: 21.0
+      mode: 1                        # Comfort mode
+      temperature: 21.5
 
 # ============================================
-# SCENARIOS (Automatic value simulation)
+# SCENARIOS (Simulated sensor behavior)
 # ============================================
 scenarios:
-  # Temperature varies in a sine wave pattern
-  - device_id: "temperature-sensor"
+  # Living room temperature - natural variation
+  - device_id: "temp-sensor-living"
     field: "temperature"
     type: "sine_wave"
     params:
       center: 21.5
-      amplitude: 2.0
-      period_minutes: 30
-      interval_seconds: 10
+      amplitude: 1.5
+      period_minutes: 45
+      interval_seconds: 15
 
-  # Presence detector simulates occupancy patterns
-  - device_id: "presence-detector"
+  # Kitchen temperature - slightly warmer
+  - device_id: "temp-sensor-kitchen"
+    field: "temperature"
+    type: "sine_wave"
+    params:
+      center: 22.0
+      amplitude: 1.0
+      period_minutes: 30
+      interval_seconds: 15
+
+  # Living room presence - realistic occupancy pattern
+  - device_id: "presence-living"
     field: "presence"
     type: "presence_pattern"
     params:
-      occupied_min_seconds: 15
-      occupied_max_seconds: 90
-      empty_min_seconds: 5
-      empty_max_seconds: 20
-      long_absence_chance: 0.1
-      long_absence_max_seconds: 60
+      occupied_min_seconds: 30
+      occupied_max_seconds: 180
+      empty_min_seconds: 10
+      empty_max_seconds: 60
+      long_absence_chance: 0.15
+      long_absence_max_seconds: 120
       lux_occupied: 350.0
-      lux_empty: 80.0
+      lux_empty: 150.0
+
+  # Hallway presence - brief occupancy (passing through)
+  - device_id: "presence-hallway"
+    field: "presence"
+    type: "presence_pattern"
+    params:
+      occupied_min_seconds: 5
+      occupied_max_seconds: 30
+      empty_min_seconds: 30
+      empty_max_seconds: 120
+      long_absence_chance: 0.3
+      long_absence_max_seconds: 180
+      lux_occupied: 200.0
+      lux_empty: 50.0
