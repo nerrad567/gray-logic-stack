@@ -1,111 +1,145 @@
+# KNXSim Default Configuration
+# =============================
+# Sample premise for learning KNX addressing and testing.
+# 
+# GA Structure follows industry standard 3-level addressing:
+#   Main Group (1-31): Function type
+#   Middle Group (0-7): Location/floor (0 = Ground Floor)
+#   Sub Group (0-255): Specific object
+#
+# Standard Main Groups:
+#   1 = Lighting
+#   2 = Blinds
+#   3 = HVAC
+#   4 = Sensors
+#   5 = Scenes
+
 gateway:
   individual_address: "1.0.0"
   client_address: "1.0.255"
 
 devices:
   # ============================================
-  # WALL SWITCHES (Input Devices)
+  # LIGHTING (Main Group 1)
+  # Actuators on Line 1.1.x
   # ============================================
 
-  # 2-button wall switch by the living room door
-  # Button 1 controls the ceiling light (GA 1/1/0)
-  # Button 2 controls the blinds (GA 2/1/0)
-  - id: "living-room-wall-switch"
-    type: "template_device"
-    template: "push_button_2"
-    individual_address: "1.2.1"
-    group_addresses:
-      button_1: "1/1/0" # Same GA as living-room-ceiling-light switch_cmd
-      button_2: "2/1/0" # Same GA as living-room-blinds position_cmd
-      led_1: "1/1/1" # Feedback from light status
-      led_2: "2/1/1" # Feedback from blind status
-    initial:
-      button_1: false
-      button_2: false
-      led_1: false
-      led_2: false
-
-  # Single switch by kitchen entrance
-  - id: "kitchen-wall-switch"
-    type: "template_device"
-    template: "push_button_2"
-    individual_address: "1.2.2"
-    group_addresses:
-      button_1: "1/2/0" # Same GA as kitchen-pendant-light switch_cmd
-      button_2: "1/1/0" # Also controls living room light (multi-location control)
-      led_1: "1/2/1" # Feedback from kitchen light
-      led_2: "1/1/1" # Feedback from living room light
-    initial:
-      button_1: false
-      button_2: false
-      led_1: false
-      led_2: false
-
-  # ============================================
-  # LIGHTING (Output Devices / Actuators)
-  # ============================================
-
-  - id: "living-room-ceiling-light"
+  # Dimmer - Living Room ceiling light
+  - id: "living-room-dimmer"
     type: "light_dimmer"
     individual_address: "1.1.1"
     group_addresses:
-      switch_cmd: "1/1/0"
-      switch_status: "1/1/1"
-      brightness_cmd: "1/1/2"
-      brightness_status: "1/1/3"
+      switch: "1/0/1"           # Lighting / Ground Floor / Object 1
+      switch_status: "1/0/2"
+      brightness: "1/0/3"
+      brightness_status: "1/0/4"
     initial:
       "on": false
       brightness: 0
 
-  - id: "kitchen-pendant-light"
+  # Switch - Kitchen light
+  - id: "kitchen-light"
     type: "light_switch"
     individual_address: "1.1.2"
     group_addresses:
-      switch_cmd: "1/2/0"
-      switch_status: "1/2/1"
+      switch: "1/0/10"          # Lighting / Ground Floor / Object 10
+      switch_status: "1/0/11"
+    initial:
+      "on": false
+
+  # Switch - Hallway light
+  - id: "hallway-light"
+    type: "light_switch"
+    individual_address: "1.1.3"
+    group_addresses:
+      switch: "1/0/20"          # Lighting / Ground Floor / Object 20
+      switch_status: "1/0/21"
     initial:
       "on": false
 
   # ============================================
-  # BLINDS / SHADING (Output Devices)
+  # BLINDS (Main Group 2)
+  # Actuators on Line 1.1.x
   # ============================================
 
-  - id: "living-room-blinds"
+  # Blind - Living room window
+  - id: "living-room-blind"
     type: "blind"
-    individual_address: "1.1.3"
+    individual_address: "1.1.4"
     group_addresses:
-      position_cmd: "2/1/0"
-      position_status: "2/1/1"
-      slat_cmd: "2/1/2"
-      slat_status: "2/1/3"
+      position: "2/0/1"         # Blinds / Ground Floor / Object 1
+      position_status: "2/0/2"
+      slat: "2/0/3"
+      slat_status: "2/0/4"
     initial:
       position: 0
       tilt: 0
 
   # ============================================
-  # SENSORS (Input Devices)
+  # WALL CONTROLS (Input devices)
+  # On Line 1.2.x
   # ============================================
 
-  - id: "living-room-temperature"
-    type: "sensor"
-    individual_address: "1.1.4"
+  # 2-button wall switch - Living room entry
+  # Button 1: Living room light, Button 2: Blind
+  - id: "living-room-switch"
+    type: "template_device"
+    template: "push_button_2"
+    individual_address: "1.2.1"
     group_addresses:
-      temperature: "4/1/0"
+      button_1: "1/0/1"         # Same GA as living-room-dimmer switch (links them)
+      button_2: "2/0/1"         # Same GA as living-room-blind position
+      led_1: "1/0/2"            # Feedback from dimmer status
+      led_2: "2/0/2"            # Feedback from blind status
+    initial:
+      button_1: false
+      button_2: false
+
+  # 2-button wall switch - Kitchen
+  - id: "kitchen-switch"
+    type: "template_device"
+    template: "push_button_2"
+    individual_address: "1.2.2"
+    group_addresses:
+      button_1: "1/0/10"        # Kitchen light
+      button_2: "1/0/1"         # Also controls living room (multi-location)
+      led_1: "1/0/11"
+      led_2: "1/0/2"
+    initial:
+      button_1: false
+      button_2: false
+
+  # ============================================
+  # SENSORS (Main Group 4)
+  # On Line 1.3.x
+  # ============================================
+
+  # Temperature sensor - Living room
+  - id: "temperature-sensor"
+    type: "sensor"
+    individual_address: "1.3.1"
+    group_addresses:
+      temperature: "4/0/1"      # Sensors / Ground Floor / Object 1
     initial:
       temperature: 21.5
 
-  - id: "living-room-presence"
+  # Presence detector - Living room
+  - id: "presence-detector"
     type: "presence"
-    individual_address: "1.1.5"
+    individual_address: "1.3.2"
     group_addresses:
-      presence: "4/1/10"
-      lux: "4/1/11"
+      presence: "4/0/10"        # Sensors / Ground Floor / Object 10
+      lux: "4/0/11"
     initial:
       presence: false
       lux: 150.0
 
+# ============================================
+# SCENARIOS (Automatic value simulation)
+# ============================================
 scenarios:
-  - device_id: "living-room-temperature"
+  # Temperature varies in a sine wave pattern
+  - device_id: "temperature-sensor"
     field: "temperature"
     type: "sine_wave"
     params:
@@ -114,7 +148,8 @@ scenarios:
       period_minutes: 30
       interval_seconds: 10
 
-  - device_id: "living-room-presence"
+  # Presence detector simulates occupancy patterns
+  - device_id: "presence-detector"
     field: "presence"
     type: "presence_pattern"
     params:
