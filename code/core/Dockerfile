@@ -31,8 +31,11 @@ RUN go mod download && go mod verify
 # Copy source code
 COPY . .
 
-# Build static binary with embedded version info
-RUN CGO_ENABLED=0 GOOS=linux go build \
+# Build binary with CGO enabled (required for go-sqlite3)
+RUN apt-get update && apt-get install -y --no-install-recommends gcc libc6-dev && \
+    rm -rf /var/lib/apt/lists/*
+    
+RUN CGO_ENABLED=1 GOOS=linux go build \
     -ldflags="-w -s \
         -X main.version=${VERSION} \
         -X main.commit=${COMMIT} \
@@ -72,6 +75,7 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     usbutils \
     libusb-1.0-0 \
     libev4 \
+    libsqlite3-0 \
     && rm -rf /var/lib/apt/lists/* \
     && rm -rf /var/cache/apt/*
 

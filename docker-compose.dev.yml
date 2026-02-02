@@ -58,7 +58,7 @@ services:
   graylogic:
     build:
       context: ./code/core
-      dockerfile: docker/graylogic/Dockerfile
+      dockerfile: Dockerfile  # Multi-stage build with Go compiler
     container_name: graylogic-core
     ports:
       - "8090:8090"
