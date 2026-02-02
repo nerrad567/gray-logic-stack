@@ -99,7 +99,7 @@ class WebSocketHub:
         except RuntimeError as e:
             logger.error("push_telegram: RuntimeError: %s", e)
 
-    def push_state_change(self, premise_id: str, device_id: str, state: dict):
+    def push_state_change(self, premise_id: str, device_id: str, state: dict, channels: list = None):
         """Thread-safe: push a state change event from the KNX handler thread."""
         if not self._loop:
             return
@@ -111,6 +111,8 @@ class WebSocketHub:
             "device_id": device_id,
             "state": state,
         }
+        if channels is not None:
+            data["channels"] = channels
         try:
             # Broadcast to state channel (for dedicated state subscribers)
             asyncio.run_coroutine_threadsafe(

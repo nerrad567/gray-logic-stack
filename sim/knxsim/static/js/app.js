@@ -100,7 +100,7 @@ class WebSocketManager {
 
   _handleMessage(data) {
     if (data.type === "state_change") {
-      Alpine.store("app").updateDeviceState(data.device_id, data.state);
+      Alpine.store("app").updateDeviceState(data.device_id, data.state, data.channels);
     }
   }
 

@@ -1464,6 +1464,55 @@ class Database:
             )
             self.conn.commit()
 
+    def update_channel_state_by_ga(self, device_id: str, ga: int, state_updates: dict):
+        """Update a channel's state based on which GA was written to.
+        
+        Finds the channel whose group_objects contain the given GA,
+        then updates that channel's state.
+        
+        Args:
+            device_id: Device ID
+            ga: Group address (as integer) that was written to
+            state_updates: Dict of state keys to update
+        """
+        device = self.get_device(device_id)
+        if not device or not device.get("channels"):
+            return
+        
+        channels = device["channels"]
+        ga_str = self._format_ga(ga)
+        
+        # Find which channel has this GA
+        target_channel = None
+        for channel in channels:
+            for go_name, go_data in channel.get("group_objects", {}).items():
+                if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
+                    target_channel = channel
+                    break
+            if target_channel:
+                break
+        
+        if not target_channel:
+            return
+        
+        # Update the channel's state
+        channel_state = target_channel.get("state", {})
+        channel_state.update(state_updates)
+        target_channel["state"] = channel_state
+        
+        self.conn.execute(
+            "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
+            (json.dumps(channels), _now(), device_id),
+        )
+        self.conn.commit()
+    
+    def _format_ga(self, ga: int) -> str:
+        """Convert GA integer to 3-level string format."""
+        main = (ga >> 11) & 0x1F
+        middle = (ga >> 8) & 0x07
+        sub = ga & 0xFF
+        return f"{main}/{middle}/{sub}"
+
     def delete_device(self, device_id: str) -> bool:
         cur = self.conn.execute("DELETE FROM devices WHERE id = ?", (device_id,))
         self.conn.commit()

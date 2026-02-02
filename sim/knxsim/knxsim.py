@@ -222,12 +222,28 @@ def main():
         if entry:
             ws_hub.push_telegram(premise_id, entry[0])
 
-    def on_state_change(premise_id, device_id, state):
-        """Called when a device state changes."""
-        # Persist state to DB
+    def on_state_change(premise_id, device_id, state, ga=None):
+        """Called when a device state changes.
+        
+        Args:
+            premise_id: The premise ID
+            device_id: The device ID
+            state: The device state dict
+            ga: Optional GA that triggered the change (for channel state updates)
+        """
+        # Persist device-level state to DB
         db.update_device_state(device_id, state)
-        # Broadcast to WebSocket subscribers
-        ws_hub.push_state_change(premise_id, device_id, state)
+        
+        # If GA is provided, try to update channel state for multi-channel devices
+        if ga is not None:
+            db.update_channel_state_by_ga(device_id, ga, state)
+        
+        # Get updated device with channels for broadcast
+        device = db.get_device(device_id)
+        channels = device.get("channels") if device else None
+        
+        # Broadcast to WebSocket subscribers (include channels for UI)
+        ws_hub.push_state_change(premise_id, device_id, state, channels=channels)
 
     # Load device templates for template_device support in config
     from templates.loader import TemplateLoader

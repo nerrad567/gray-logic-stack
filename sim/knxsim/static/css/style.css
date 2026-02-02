@@ -3327,3 +3327,26 @@ select:focus {
 .btn-factory-reset:hover {
   background: rgba(249, 115, 22, 0.1);
 }
+
+/* ─────────────────────────────────────────────────────────────
+   Channel LED Indicators
+   ───────────────────────────────────────────────────────────── */
+
+.channel-led {
+  display: inline-block;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  margin: 0 var(--spacing-xs);
+  transition: all 0.2s ease;
+}
+
+.channel-led.led-on {
+  background: var(--accent-green, #22c55e);
+  box-shadow: 0 0 6px var(--accent-green, #22c55e);
+}
+
+.channel-led.led-off {
+  background: var(--bg-tertiary, #374151);
+  border: 1px solid var(--border-primary, #4b5563);
+}

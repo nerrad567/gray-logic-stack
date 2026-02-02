@@ -184,9 +184,14 @@ class Premise:
             # Dispatch to ALL devices listening on this GA (real KNX behavior)
             for device in devices:
                 result = device.on_group_write(dst_ga, payload)
-                # Notify state change
+                # Notify state change (include GA for channel state updates)
                 if self._on_state_change:
-                    self._on_state_change(self.id, device.device_id, dict(device.state))
+                    self._on_state_change(
+                        self.id, 
+                        device.device_id, 
+                        dict(device.state),
+                        dst_ga,  # Include GA that triggered the change
+                    )
                 # Collect responses
                 if result:
                     if isinstance(result, bytes):

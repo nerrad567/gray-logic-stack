@@ -706,6 +706,15 @@
                           <div class="channel-header" @click="expanded = !expanded">
                             <span class="channel-expand-icon" x-text="expanded ? '▼' : '▶'"></span>
                             <span class="channel-id" x-text="'[' + channel.id + ']'"></span>
+                            <!-- Channel LED indicator -->
+                            <span 
+                              class="channel-led"
+                              :class="{
+                                'led-on': channel.state?.on === true,
+                                'led-off': channel.state?.on === false || channel.state?.on === undefined
+                              }"
+                              :title="channel.state?.on ? 'ON' : 'OFF'"
+                            ></span>
                             <span class="channel-name" x-text="channel.name"></span>
                             <span 
                               class="channel-ga-count" 

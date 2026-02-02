@@ -838,10 +838,14 @@ export function initStores() {
     // Actions — State Updates (from WebSocket)
     // ─────────────────────────────────────────────────────────
 
-    updateDeviceState(deviceId, state) {
+    updateDeviceState(deviceId, state, channels = null) {
       const device = this.devices.find((d) => d.id === deviceId);
       if (device) {
         device.state = state;
+        // Update channel states if provided
+        if (channels) {
+          device.channels = channels;
+        }
       }
     },
 
