@@ -2140,16 +2140,6 @@ select:focus {
   background: rgba(63, 185, 80, 0.1);
 }
 
-.btn-reset-sample {
-  background: var(--bg-tertiary);
-  border-color: var(--accent-orange);
-  color: var(--accent-orange);
-}
-
-.btn-reset-sample:hover {
-  background: rgba(210, 153, 34, 0.1);
-}
-
 .export-menu {
   position: absolute;
   top: 100%;

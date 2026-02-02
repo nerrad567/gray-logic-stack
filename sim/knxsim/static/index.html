@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=19" />
+    <link rel="stylesheet" href="css/style.css?v=20" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -116,19 +116,6 @@
               </a>
             </div>
           </div>
-          <!-- Reset Sample button (Engineer Mode only) -->
-          <button
-            class="btn btn-reset-sample"
-            x-show="$store.app.engineerMode"
-            @click="$store.modal.confirm(
-              'Load Sample Installation',
-              'This will delete all current devices/floors and load the sample installation. Continue?',
-              async () => { await $store.app.resetToSample(); }
-            )"
-            title="Load sample installation with floors, rooms, and devices"
-          >
-            🏠 Load Sample
-          </button>
           <!-- Factory Reset button (Engineer Mode only) -->
           <button
             class="btn btn-factory-reset"
