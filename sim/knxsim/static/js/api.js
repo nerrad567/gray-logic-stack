@@ -355,8 +355,8 @@ export const API = {
         });
     },
 
-    async createDefaultGroups(premiseId, layout = 'residential') {
-        return request(`/premises/${premiseId}/groups/create-defaults?layout=${layout}`, {
+    async createDefaultGroups(premiseId) {
+        return request(`/premises/${premiseId}/groups/create-defaults`, {
             method: 'POST',
         });
     },

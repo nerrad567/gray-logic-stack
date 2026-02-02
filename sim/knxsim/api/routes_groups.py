@@ -265,56 +265,27 @@ def get_next_sub_address(
 # Default GA Structure
 # ==============================================================================
 
-# Layout templates
-GA_LAYOUTS = {
-    "residential": {
-        "name": "Residential / Intuitive",
-        "description": "Function-based main groups (Lighting, Blinds, HVAC), floor-based middle groups",
-        "main_groups": [
-            {"group_number": 1, "name": "Lighting", "description": "Switch and dimming"},
-            {"group_number": 2, "name": "Blinds", "description": "Position and slat control"},
-            {"group_number": 3, "name": "HVAC", "description": "Heating, ventilation, cooling"},
-            {"group_number": 4, "name": "Sensors", "description": "Temperature, presence, brightness"},
-            {"group_number": 5, "name": "Scenes", "description": "Scene recall and storage"},
-        ],
-        "middle_groups_from": "floors",  # Create middle groups from floors
-    },
-    "small_commercial": {
-        "name": "Small/Medium Commercial",
-        "description": "Location-based main groups (per floor), function-based middle groups",
-        "main_groups_from": "floors",  # Create main groups from floors
-        "middle_groups": [
-            {"group_number": 0, "name": "Lighting", "description": "Switch and dimming"},
-            {"group_number": 1, "name": "Blinds", "description": "Position and slat control"},
-            {"group_number": 2, "name": "HVAC", "description": "Heating, ventilation, cooling"},
-            {"group_number": 3, "name": "Sensors", "description": "Temperature, presence, brightness"},
-            {"group_number": 4, "name": "Scenes", "description": "Scene recall and storage"},
-        ],
-    },
-}
+# Standard 3-Level GA Structure (Industry Standard)
+# Main Groups: Function type (what it does)
+# Middle Groups: Location (where it is)
+# Sub Groups: Specific object
 
-
-@router.get("/premises/{premise_id}/groups/layouts")
-def get_available_layouts(premise_id: str):
-    """Get available GA layout templates."""
-    db = router.app.state.manager.db
-    premise = db.get_premise(premise_id)
-    if not premise:
-        raise HTTPException(status_code=404, detail="Premise not found")
-
-    return {
-        "layouts": [
-            {"id": key, "name": val["name"], "description": val["description"]}
-            for key, val in GA_LAYOUTS.items()
-        ]
-    }
+STANDARD_MAIN_GROUPS = [
+    {"group_number": 1, "name": "Lighting", "description": "Switch and dimming control"},
+    {"group_number": 2, "name": "Blinds", "description": "Position and slat control"},
+    {"group_number": 3, "name": "HVAC", "description": "Heating, ventilation, cooling"},
+    {"group_number": 4, "name": "Sensors", "description": "Temperature, presence, brightness"},
+    {"group_number": 5, "name": "Scenes", "description": "Scene recall and storage"},
+    {"group_number": 6, "name": "Audio/Video", "description": "Media and entertainment"},
+    {"group_number": 7, "name": "Security", "description": "Alarms and access control"},
+]
 
 
 @router.delete("/premises/{premise_id}/groups/all", status_code=204)
 def delete_all_groups(premise_id: str):
     """Delete all main groups (and their middle groups) for a premise.
     
-    Use this to reset the GA structure and start fresh with a different layout.
+    Use this to reset the GA structure and start fresh.
     Note: This does NOT affect device group_addresses - those remain unchanged.
     """
     db = router.app.state.manager.db
@@ -333,102 +304,65 @@ def delete_all_groups(premise_id: str):
 @router.post("/premises/{premise_id}/groups/create-defaults")
 def create_default_structure(
     premise_id: str,
-    layout: str = Query("residential", description="Layout template: residential, small_commercial"),
+    layout: str = Query("standard", description="Layout template (ignored, standard only)"),
 ):
-    """Create a default GA structure based on common KNX patterns.
+    """Create a standard 3-level GA structure.
     
-    Layout options:
-    - residential: Function-based main groups, floor-based middle groups (default)
-    - small_commercial: Location-based main groups (per floor), function-based middle groups
+    Structure follows the industry standard:
+    - Main Groups (1-7): Function types (Lighting, Blinds, HVAC, etc.)
+    - Middle Groups (0-7): Location/floors (auto-created from premise floors)
+    - Sub Groups: Individual addresses assigned per device
+    
+    Main Group 0 is reserved and not created.
     """
     db = router.app.state.manager.db
     premise = db.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
 
-    if layout not in GA_LAYOUTS:
-        raise HTTPException(status_code=400, detail=f"Unknown layout: {layout}. Options: {list(GA_LAYOUTS.keys())}")
-
-    template = GA_LAYOUTS[layout]
     floors = db.list_floors(premise_id)
     created_main_count = 0
     created_middle_count = 0
 
-    # Standard KNX group layout - avoiding reserved addresses:
-    # - Main Group 0: Reserved for central/system functions
-    # - Main Groups 1-13: Application groups (user-defined)
-    # - Main Group 14-15: Often reserved for diagnostics/system
+    # Create standard main groups (by function)
+    main_groups = []
+    for mg_data in STANDARD_MAIN_GROUPS:
+        existing = db.get_main_group_by_number(premise_id, mg_data["group_number"])
+        if not existing:
+            mg = db.create_main_group(premise_id, mg_data)
+            main_groups.append(mg)
+            created_main_count += 1
+        else:
+            main_groups.append(existing)
 
-    if template.get("main_groups"):
-        # Fixed main groups (residential layout)
-        main_groups = []
-        for mg_data in template["main_groups"]:
-            existing = db.get_main_group_by_number(premise_id, mg_data["group_number"])
+    # Create middle groups from floors (by location)
+    for mg in main_groups:
+        if floors:
+            for i, floor in enumerate(floors):
+                if i > 7:  # Max 8 middle groups (0-7)
+                    break
+                existing = db.get_middle_group_by_number(mg["id"], i)
+                if not existing:
+                    db.create_middle_group(mg["id"], {
+                        "group_number": i,
+                        "name": floor["name"],
+                        "floor_id": floor["id"],
+                    })
+                    created_middle_count += 1
+        else:
+            # No floors exist - create a default "Common" middle group
+            existing = db.get_middle_group_by_number(mg["id"], 0)
             if not existing:
-                mg = db.create_main_group(premise_id, mg_data)
-                main_groups.append(mg)
-                created_main_count += 1
-            else:
-                main_groups.append(existing)
-
-        # Create middle groups from floors
-        if template.get("middle_groups_from") == "floors":
-            for mg in main_groups:
-                for i, floor in enumerate(floors):
-                    if i > 7:  # Max 8 middle groups (0-7)
-                        break
-                    existing = db.get_middle_group_by_number(mg["id"], i)
-                    if not existing:
-                        db.create_middle_group(mg["id"], {
-                            "group_number": i,
-                            "name": floor["name"],
-                            "floor_id": floor["id"],
-                        })
-                        created_middle_count += 1
-
-    elif template.get("main_groups_from") == "floors":
-        # Main groups from floors (small_commercial layout)
-        main_groups = []
-        for i, floor in enumerate(floors):
-            if i > 12:  # Leave room for system groups (14-15), start at 1
-                break
-            group_number = i + 1  # Start at 1, not 0
-            existing = db.get_main_group_by_number(premise_id, group_number)
-            if not existing:
-                mg = db.create_main_group(premise_id, {
-                    "group_number": group_number,
-                    "name": floor["name"],
-                    "description": f"All functions for {floor['name']}",
+                db.create_middle_group(mg["id"], {
+                    "group_number": 0,
+                    "name": "Common",
+                    "description": "Default location group",
                 })
-                main_groups.append(mg)
-                created_main_count += 1
-            else:
-                main_groups.append(existing)
-
-        # Create fixed middle groups for functions
-        if template.get("middle_groups"):
-            for mg in main_groups:
-                # Find the floor for this main group (if any)
-                floor_id = None
-                for floor in floors:
-                    if floor["name"] == mg["name"]:
-                        floor_id = floor["id"]
-                        break
-
-                for mid_data in template["middle_groups"]:
-                    existing = db.get_middle_group_by_number(mg["id"], mid_data["group_number"])
-                    if not existing:
-                        db.create_middle_group(mg["id"], {
-                            "group_number": mid_data["group_number"],
-                            "name": mid_data["name"],
-                            "description": mid_data.get("description"),
-                            "floor_id": floor_id,  # Link all middle groups to the floor
-                        })
-                        created_middle_count += 1
+                created_middle_count += 1
 
     return {
-        "layout": layout,
-        "layout_name": template["name"],
+        "layout": "standard",
+        "layout_name": "Standard 3-Level (Function/Location/Object)",
         "main_groups_created": created_main_count,
         "middle_groups_created": created_middle_count,
         "structure": db.get_group_address_tree(premise_id),

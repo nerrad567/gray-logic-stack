@@ -369,27 +369,11 @@
               <div class="dropdown" x-data="{ open: false }" x-show="$store.groups.mainGroups.length === 0">
                 <button
                   class="btn btn-primary"
-                  @click="open = !open"
-                  @click.away="open = false"
+                  @click="$store.groups.createDefaults($store.app.currentPremiseId)"
+                  title="Creates standard structure: Main Groups by function, Middle Groups by floor"
                 >
-                  🔧 Create Default Structure ▾
+                  🔧 Create Standard Structure
                 </button>
-                <div class="dropdown-menu" x-show="open" x-transition>
-                  <button
-                    class="dropdown-item"
-                    @click="$store.groups.createDefaults($store.app.currentPremiseId, 'residential'); open = false"
-                  >
-                    <strong>Residential / Intuitive</strong>
-                    <small>Function-based: Lighting, Blinds, HVAC...</small>
-                  </button>
-                  <button
-                    class="dropdown-item"
-                    @click="$store.groups.createDefaults($store.app.currentPremiseId, 'small_commercial'); open = false"
-                  >
-                    <strong>Small/Medium Commercial</strong>
-                    <small>Location-based: Floor 1, Floor 2...</small>
-                  </button>
-                </div>
               </div>
               <button
                 class="btn btn-primary"
@@ -1187,7 +1171,7 @@
         </div>
         <div class="help-nav">
           <button class="help-nav-btn" :class="{ active: activeSection === 0 }" @click="activeSection = 0">GA Structure</button>
-          <button class="help-nav-btn" :class="{ active: activeSection === 1 }" @click="activeSection = 1">Layout Patterns</button>
+          <button class="help-nav-btn" :class="{ active: activeSection === 1 }" @click="activeSection = 1">Standard Structure</button>
           <button class="help-nav-btn" :class="{ active: activeSection === 2 }" @click="activeSection = 2">Device Templates</button>
           <button class="help-nav-btn" :class="{ active: activeSection === 3 }" @click="activeSection = 3">Flags (CRWTUI)</button>
           <button class="help-nav-btn" :class="{ active: activeSection === 4 }" @click="activeSection = 4">Individual Address</button>
@@ -1232,91 +1216,69 @@
               <tr><td><code>0/0/0</code></td><td>Broadcast to all</td><td>Special system address - never use for normal objects</td></tr>
             </table>
 
-            <h4>Choosing Your Structure</h4>
+            <h4>Standard Structure</h4>
             <p><strong>Before you start:</strong> Decide on your GA structure and document it. Changing later is painful.</p>
+            <p>The industry standard is <strong>function-based</strong> organization, which works for any installation size:</p>
             <ul>
-              <li><strong>Residential:</strong> Function-based main groups work well (Lighting=1, Blinds=2, etc.)</li>
-              <li><strong>Commercial:</strong> Location-based main groups scale better for large buildings</li>
-              <li><strong>Mixed:</strong> Some use function for main, location for middle, then object type for sub</li>
+              <li><strong>Main Group:</strong> Function type (Lighting=1, Blinds=2, HVAC=3, etc.)</li>
+              <li><strong>Middle Group:</strong> Location/floor (Ground=0, First=1, etc.)</li>
+              <li><strong>Sub Group:</strong> Specific object (sequential within each main/middle)</li>
             </ul>
           </div>
 
-          <!-- Layout Patterns -->
+          <!-- Standard GA Structure -->
           <div class="help-section" x-show="activeSection === 1">
-            <h3>Common GA Layout Patterns</h3>
+            <h3>Standard 3-Level GA Structure</h3>
 
-            <h4>Pattern 1: Residential / Function-Based</h4>
-            <p><strong>Best for:</strong> Houses, apartments, small offices</p>
-            <p><strong>Structure:</strong> Main = Function type, Middle = Floor/Zone, Sub = Object</p>
+            <h4>Overview</h4>
+            <p>The professional standard for KNX group addressing follows a <strong>function-first</strong> hierarchy:</p>
+            <ul>
+              <li><strong>Main Group (1-31):</strong> What it does (Lighting, Blinds, HVAC...)</li>
+              <li><strong>Middle Group (0-7):</strong> Where it is (Ground Floor, First Floor...)</li>
+              <li><strong>Sub Group (0-255):</strong> Specific object/function</li>
+            </ul>
+            <p><em>Note: Main Group 0 is reserved for central/system functions.</em></p>
+
+            <h4>Standard Main Groups</h4>
             <pre class="help-code">MAIN GROUPS (by function):
-1/x/x  Lighting
-2/x/x  Blinds & Shutters
-3/x/x  HVAC (Heating, Ventilation, Cooling)
-4/x/x  Sensors (Temperature, Presence, etc.)
-5/x/x  Scenes & Central Functions
-6/x/x  Security & Alarms
-7/x/x  Energy Management
+1/x/x  Lighting         (switches, dimmers)
+2/x/x  Blinds           (position, slat control)
+3/x/x  HVAC             (heating, ventilation, cooling)
+4/x/x  Sensors          (temperature, presence, etc.)
+5/x/x  Scenes           (scene recall, central commands)
+6/x/x  Audio/Video      (media control)
+7/x/x  Security         (alarms, access)
 
-MIDDLE GROUPS (by floor):
-x/0/x  Ground Floor
+RESERVED:
+0/x/x  Central/System   (avoid for normal devices)</pre>
+
+            <h4>Middle Groups by Location</h4>
+            <pre class="help-code">MIDDLE GROUPS (by floor):
+x/0/x  Ground Floor / Common
 x/1/x  First Floor
 x/2/x  Second Floor
 x/3/x  Basement
 x/4/x  Garden / Exterior
+...</pre>
 
-EXAMPLE - Living Room Dimmer:
-1/0/10  Switch (On/Off command)
+            <h4>Example: Living Room Dimmer</h4>
+            <pre class="help-code">1/0/10  Switch (On/Off command)
 1/0/11  Switch Status (feedback)
 1/0/12  Brightness (0-100%)
-1/0/13  Brightness Status (feedback)</pre>
-            <p><strong>Pros:</strong> Intuitive, easy to find functions, good for visualization</p>
-            <p><strong>Cons:</strong> Doesn't scale well beyond ~3 floors</p>
+1/0/13  Brightness Status (feedback)
 
-            <h4>Pattern 2: Commercial / Location-Based</h4>
-            <p><strong>Best for:</strong> Office buildings, hotels, large commercial spaces</p>
-            <p><strong>Structure:</strong> Main = Floor/Building, Middle = Function, Sub = Object</p>
-            <pre class="help-code">MAIN GROUPS (by floor/zone):
-1/x/x  Ground Floor
-2/x/x  First Floor
-3/x/x  Second Floor
-...
-10/x/x  Basement
-11/x/x  Roof / Plant Room
+Reading the address "1/0/12":
+ 1  → Lighting (Main = function)
+ 0  → Ground Floor (Middle = location)
+ 12 → Brightness object (Sub = specific)</pre>
 
-MIDDLE GROUPS (by function):
-x/0/x  Lighting
-x/1/x  Blinds
-x/2/x  HVAC
-x/3/x  Presence/Sensors
-x/4/x  Scenes
-
-EXAMPLE - Office 201 Light:
-2/0/10  Switch (On/Off)
-2/0/11  Switch Status
-2/0/12  Brightness
-2/0/13  Brightness Status</pre>
-            <p><strong>Pros:</strong> Scales to many floors, easy to isolate by zone</p>
-            <p><strong>Cons:</strong> Less intuitive for small projects</p>
-
-            <h4>Pattern 3: Large Commercial / Building-Based</h4>
-            <p><strong>Best for:</strong> Campus, multiple buildings, very large projects</p>
-            <pre class="help-code">MAIN GROUPS (by building):
-1/x/x  Building A
-2/x/x  Building B
-3/x/x  Building C
-...
-
-MIDDLE GROUPS (by floor within building):
-x/0/x  Ground Floor
-x/1/x  First Floor
-...
-
-SUB GROUPS encode function + room:
-x/x/0-49    Lighting
-x/x/50-99   Blinds
-x/x/100-149 HVAC
-x/x/150-199 Sensors
-x/x/200-255 Scenes/Other</pre>
+            <h4>Why This Structure?</h4>
+            <ul>
+              <li>✅ Intuitive — easy to find all lighting functions together</li>
+              <li>✅ Scalable — works from single room to multi-building</li>
+              <li>✅ ETS-compatible — matches professional tooling conventions</li>
+              <li>✅ Visualization-friendly — group by function for control panels</li>
+            </ul>
 
             <h4>Sub-Address Conventions</h4>
             <p>Within each main/middle group, organize sub-addresses consistently:</p>

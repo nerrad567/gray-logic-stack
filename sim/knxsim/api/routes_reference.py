@@ -104,58 +104,61 @@ GA_STRUCTURE_GUIDE = {
     "bits": "5/3/8 (main 0-31, middle 0-7, sub 0-255)",
     "total_addresses": 65536,
     "description": (
-        "KNX group addresses use a three-level hierarchy. The structure helps "
-        "organize your installation logically. Common conventions vary by region "
-        "and project size."
+        "KNX group addresses use a three-level hierarchy (Main/Middle/Sub). "
+        "The industry standard organizes by function at the top level, "
+        "making it easy to manage and scale installations of any size."
     ),
-    "conventions": [
-        {
-            "name": "Function-based (recommended for small-medium)",
-            "description": "Main = function type, Middle = floor/zone, Sub = device instance",
-            "example": {
-                "1/x/x": "Lighting",
-                "2/x/x": "Blinds/Shutters",
-                "3/x/x": "HVAC",
-                "4/x/x": "Sensors",
-                "5/x/x": "Scenes",
+    "structure": {
+        "main_group": {
+            "range": "0-31",
+            "purpose": "Function type (what it does)",
+            "examples": {
+                "1": "Lighting",
+                "2": "Blinds/Shutters",
+                "3": "HVAC/Climate",
+                "4": "Sensors",
+                "5": "Scenes",
+                "6": "Audio/Video",
+                "7": "Security",
             },
-            "example_addresses": [
-                {"ga": "1/0/1", "meaning": "Lighting, Ground floor, Switch 1"},
-                {"ga": "1/0/2", "meaning": "Lighting, Ground floor, Dimmer 1 brightness"},
-                {"ga": "1/1/1", "meaning": "Lighting, First floor, Switch 1"},
-                {"ga": "2/0/1", "meaning": "Blinds, Ground floor, Position 1"},
-                {"ga": "4/1/0", "meaning": "Sensors, First floor, Temperature"},
-            ],
-        },
-        {
-            "name": "Room-based (intuitive for residential)",
-            "description": "Main = floor, Middle = room, Sub = function",
-            "example": {
-                "0/x/x": "Ground floor",
-                "1/x/x": "First floor",
-                "2/x/x": "Second floor",
-            },
-            "example_addresses": [
-                {"ga": "0/1/1", "meaning": "Ground floor, Living room, Light switch"},
-                {"ga": "0/1/2", "meaning": "Ground floor, Living room, Light dim"},
-                {"ga": "0/2/1", "meaning": "Ground floor, Kitchen, Light switch"},
-                {"ga": "1/1/1", "meaning": "First floor, Bedroom 1, Light switch"},
-            ],
-        },
-        {
-            "name": "Building-based (large commercial)",
-            "description": "Main = building/wing, Middle = floor, Sub = device/function",
-            "example": {
-                "0-9": "Building A",
-                "10-19": "Building B",
+            "reserved": {
+                "0": "Reserved (special functions, broadcast)",
             },
         },
+        "middle_group": {
+            "range": "0-7",
+            "purpose": "Location (where it is)",
+            "examples": {
+                "0": "Ground Floor / Common",
+                "1": "First Floor",
+                "2": "Second Floor",
+                "3": "Basement",
+                "4": "Exterior",
+            },
+        },
+        "sub_group": {
+            "range": "0-255",
+            "purpose": "Specific object/function",
+            "note": "Sequential numbering within each main/middle combination",
+        },
+    },
+    "example_addresses": [
+        {"ga": "1/0/1", "meaning": "Lighting → Ground Floor → Switch 1"},
+        {"ga": "1/0/2", "meaning": "Lighting → Ground Floor → Switch 1 Status"},
+        {"ga": "1/0/3", "meaning": "Lighting → Ground Floor → Dimmer 1 Brightness"},
+        {"ga": "1/1/1", "meaning": "Lighting → First Floor → Switch 1"},
+        {"ga": "2/0/1", "meaning": "Blinds → Ground Floor → Position 1"},
+        {"ga": "2/0/2", "meaning": "Blinds → Ground Floor → Position 1 Status"},
+        {"ga": "3/0/1", "meaning": "HVAC → Ground Floor → Temperature Setpoint"},
+        {"ga": "4/0/1", "meaning": "Sensors → Ground Floor → Temperature Reading"},
+        {"ga": "5/0/1", "meaning": "Scenes → Ground Floor → Scene Recall"},
     ],
     "tips": [
-        "Keep status/feedback GAs separate from command GAs (e.g., 1/0/1 for switch, 1/0/101 for status)",
+        "Main Group 0 is reserved — start your functions at 1",
+        "Keep command and status GAs together (e.g., x/y/1 for command, x/y/2 for status)",
         "Reserve address ranges for future expansion",
         "Document your addressing scheme — future you will thank present you",
-        "Consider ETS import/export compatibility if using real KNX hardware",
+        "This structure works for any installation size, from single room to multi-building",
     ],
 }
 
