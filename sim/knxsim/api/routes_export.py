@@ -147,17 +147,46 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
             room_to_location_id[room.get("id")] = room_id
 
     # === Group Addresses ===
+    # Build 3-level hierarchy: Domain > Floor > Room
+    # This allows the parser to extract room info from the GroupRange path
     group_addresses = ET.SubElement(installation, "GroupAddresses")
     group_ranges = ET.SubElement(group_addresses, "GroupRanges")
 
-    # Organize GAs by main group (first level)
-    ga_by_main = {}
+    # Map main groups to domain names
+    MAIN_GROUP_DOMAINS = {
+        "1": "Lighting",
+        "2": "Shutters",
+        "3": "Climate",
+        "4": "Sensors",
+        "5": "Scenes",
+        "6": "Status",
+    }
+
+    # Build room lookup from floors
+    room_id_to_info = {}
+    for floor in floors:
+        floor_name = floor.get("name", floor.get("id", "Floor"))
+        for room in floor.get("rooms", []):
+            room_id_to_info[room.get("id")] = {
+                "name": room.get("name", room.get("id", "Room")),
+                "floor": floor_name,
+            }
+
+    # Organize GAs by: main_group > floor > room
+    # Structure: {main: {floor: {room: [ga_info, ...]}}}
+    ga_hierarchy = {}
     ga_id_map = {}  # Maps GA string to XML ID
 
     for device in devices:
         device_id = device.get("id", "device")
         device_name = device.get("name") or _id_to_display_name(device_id)
         device_type = device.get("type", "")
+        device_room_id = device.get("room_id")
+
+        # Get floor and room info
+        room_info = room_id_to_info.get(device_room_id, {})
+        floor_name = room_info.get("floor", "Unassigned")
+        room_name = room_info.get("name", "Unassigned")
 
         for ga_name, ga_data in device.get("group_addresses", {}).items():
             # Handle both old format (string) and new format (dict with ga, dpt, flags)
@@ -170,40 +199,52 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
             
             if ga_str and "/" in ga_str:
                 main_group = ga_str.split("/")[0]
-                if main_group not in ga_by_main:
-                    ga_by_main[main_group] = {}
 
-                # Use device ID + GA name as unique key
-                ga_key = f"{device_id}_{ga_name}"
-                # Create human-readable function name from ga_name
+                # Initialize hierarchy levels
+                if main_group not in ga_hierarchy:
+                    ga_hierarchy[main_group] = {}
+                if floor_name not in ga_hierarchy[main_group]:
+                    ga_hierarchy[main_group][floor_name] = {}
+                if room_name not in ga_hierarchy[main_group][floor_name]:
+                    ga_hierarchy[main_group][floor_name][room_name] = []
+
                 function_name = _ga_name_to_function(ga_name)
-                ga_by_main[main_group][ga_key] = {
+                ga_hierarchy[main_group][floor_name][room_name].append({
                     "address": ga_str,
                     "name": f"{device_name} : {function_name}",
                     "device_id": device_id,
                     "dpt": ga_dpt or _guess_dpt(device_type, ga_name),
-                }
+                })
 
-    # Create GroupRange elements
-    for main_group, gas in sorted(ga_by_main.items()):
+    # Create GroupRange elements with 3-level hierarchy
+    for main_group, floors_data in sorted(ga_hierarchy.items()):
+        domain_name = MAIN_GROUP_DOMAINS.get(main_group, f"Group {main_group}")
         main_range = ET.SubElement(group_ranges, "GroupRange")
         main_range.set("Id", _make_id("GR"))
-        main_range.set("Name", f"Main Group {main_group}")
+        main_range.set("Name", domain_name)
         main_range.set("RangeStart", str(int(main_group) << 11))
         main_range.set("RangeEnd", str(((int(main_group) + 1) << 11) - 1))
 
-        for _ga_key, ga_info in gas.items():
-            ga_elem = ET.SubElement(main_range, "GroupAddress")
-            ga_id = _make_id("GA")
-            ga_elem.set("Id", ga_id)
-            # Use 3-level format (1/2/3) for Address - this is what ETS uses
-            # and what Gray Logic Core parser expects
-            ga_elem.set("Address", ga_info["address"])
-            ga_elem.set("Name", ga_info["name"])
-            if ga_info.get("dpt"):
-                ga_elem.set("DatapointType", f"DPST-{ga_info['dpt'].replace('.', '-')}")
+        for floor_name, rooms_data in sorted(floors_data.items()):
+            floor_range = ET.SubElement(main_range, "GroupRange")
+            floor_range.set("Id", _make_id("GR"))
+            floor_range.set("Name", floor_name)
 
-            ga_id_map[ga_info["address"]] = ga_id
+            for room_name, gas in sorted(rooms_data.items()):
+                room_range = ET.SubElement(floor_range, "GroupRange")
+                room_range.set("Id", _make_id("GR"))
+                room_range.set("Name", room_name)
+
+                for ga_info in gas:
+                    ga_elem = ET.SubElement(room_range, "GroupAddress")
+                    ga_id = _make_id("GA")
+                    ga_elem.set("Id", ga_id)
+                    ga_elem.set("Address", ga_info["address"])
+                    ga_elem.set("Name", ga_info["name"])
+                    if ga_info.get("dpt"):
+                        ga_elem.set("DatapointType", f"DPST-{ga_info['dpt'].replace('.', '-')}")
+
+                    ga_id_map[ga_info["address"]] = ga_id
 
     # === Trades (Functions) - Maps GAs to rooms ===
     trades = ET.SubElement(installation, "Trades")
