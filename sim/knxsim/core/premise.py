@@ -225,9 +225,9 @@ class Premise:
             # Call the device's GroupWrite handler
             result = device.on_group_write(ga, payload)
 
-            # Notify state change
+            # Notify state change (include GA for channel state updates)
             if self._on_state_change:
-                self._on_state_change(self.id, device.device_id, dict(device.state))
+                self._on_state_change(self.id, device.device_id, dict(device.state), ga)
 
             # If device returned a response (status telegram), send it
             if result and self.server:

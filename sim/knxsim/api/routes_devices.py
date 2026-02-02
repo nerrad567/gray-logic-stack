@@ -335,6 +335,8 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
                 payload=payload,
             )
             premise._send_telegram_with_hook(cemi)
+            # Also dispatch to local devices (simulate KNX bus behavior)
+            premise._dispatch_telegram(ga, payload)
             telegrams_sent.append(ga_name)
 
     # Update runtime device state as well (for consistency)
