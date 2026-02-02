@@ -722,11 +722,13 @@ select:focus {
 /* Device Panel (Engineer Mode) */
 .device-panel {
   width: var(--panel-width);
+  max-width: 400px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
   overflow: hidden;
+  max-height: calc(100vh - var(--header-height) - var(--floor-nav-height) - 50px);
 }
 
 .device-panel.hidden {
@@ -1303,9 +1305,43 @@ select:focus {
   border-bottom: 1px solid var(--border-secondary);
 }
 
+.inspector-title {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+}
+
 .inspector-header h3 {
   font-size: 13px;
   font-weight: 500;
+}
+
+.btn-collapse {
+  background: none;
+  border: none;
+  color: var(--text-secondary);
+  cursor: pointer;
+  padding: 2px 6px;
+  font-size: 10px;
+  border-radius: 4px;
+  transition: all 0.15s;
+}
+
+.btn-collapse:hover {
+  background: var(--bg-hover);
+  color: var(--text-primary);
+}
+
+.telegram-inspector.collapsed {
+  min-height: auto;
+}
+
+.telegram-inspector.collapsed .telegram-resize-handle {
+  display: none;
+}
+
+.telegram-inspector.collapsed .inspector-header {
+  border-bottom: none;
 }
 
 .inspector-controls {

@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=14" />
+    <link rel="stylesheet" href="css/style.css?v=15" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -1215,12 +1215,22 @@
       <section
         class="telegram-inspector"
         x-data="telegramResizer()"
-        :style="{ height: height + 'px' }"
+        :class="{ 'collapsed': collapsed }"
+        :style="{ height: displayHeight + 'px' }"
       >
-        <div class="telegram-resize-handle" @mousedown="startResize"></div>
+        <div class="telegram-resize-handle" @mousedown="startResize" :class="{ 'disabled': collapsed }"></div>
         <div class="inspector-header">
-          <h3>Telegram Inspector</h3>
-          <div class="inspector-controls">
+          <div class="inspector-title">
+            <button 
+              class="btn-collapse" 
+              @click="toggleCollapse()"
+              :title="collapsed ? 'Expand' : 'Collapse'"
+            >
+              <span x-text="collapsed ? '▲' : '▼'"></span>
+            </button>
+            <h3>Telegram Inspector</h3>
+          </div>
+          <div class="inspector-controls" x-show="!collapsed">
             <label for="telegram-filter" class="visually-hidden"
               >Filter telegrams</label
             >
@@ -1253,7 +1263,7 @@
             ></button>
           </div>
         </div>
-        <div class="telegram-feed">
+        <div class="telegram-feed" x-show="!collapsed">
           <!-- Column headers -->
           <div class="telegram-header">
             <span>Time</span>
@@ -3556,12 +3566,29 @@ STRATEGY 3: By Room Type (Commercial)
         return {
           height:
             parseInt(localStorage.getItem("telegramInspectorHeight")) || 200,
+          collapsed: localStorage.getItem("telegramInspectorCollapsed") === "true",
           minHeight: 100,
           maxHeight: window.innerHeight * 0.7,
           startY: 0,
           startHeight: 0,
+          savedHeight: parseInt(localStorage.getItem("telegramInspectorHeight")) || 200,
+
+          get displayHeight() {
+            return this.collapsed ? 36 : this.height;
+          },
+
+          toggleCollapse() {
+            this.collapsed = !this.collapsed;
+            localStorage.setItem("telegramInspectorCollapsed", this.collapsed.toString());
+            if (!this.collapsed) {
+              // Restore previous height when expanding
+              this.height = this.savedHeight;
+            }
+          },
 
           startResize(e) {
+            if (this.collapsed) return; // Don't resize when collapsed
+            
             this.startY = e.clientY;
             this.startHeight = this.height;
 
@@ -3572,6 +3599,7 @@ STRATEGY 3: By Room Type (Commercial)
                 Math.max(this.minHeight, this.startHeight + delta),
               );
               this.height = newHeight;
+              this.savedHeight = newHeight;
             };
 
             const onMouseUp = () => {
