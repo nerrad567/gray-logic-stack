@@ -68,7 +68,7 @@ CREATE TABLE IF NOT EXISTS rooms (
 );
 
 -- Devices with optional topology and building placement
--- Note: line_id and device_number are added via migration for existing DBs
+-- Note: line_id, device_number, channels added via migration for existing DBs
 CREATE TABLE IF NOT EXISTS devices (
     id TEXT PRIMARY KEY,
     premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
@@ -79,6 +79,7 @@ CREATE TABLE IF NOT EXISTS devices (
     state JSON NOT NULL DEFAULT '{}',
     initial_state JSON NOT NULL DEFAULT '{}',
     config JSON,
+    channels JSON,
     created_at TEXT NOT NULL,
     updated_at TEXT NOT NULL
 );
@@ -139,6 +140,90 @@ def _now() -> str:
     return datetime.now(UTC).isoformat()
 
 
+def _guess_dpt_for_ga(device_type: str, ga_name: str) -> str:
+    """Guess DPT based on device type and GA function name."""
+    ga_lower = ga_name.lower()
+
+    # Switch/status commands
+    if "switch" in ga_lower or "on_off" in ga_lower:
+        return "1.001"
+    if "move" in ga_lower:
+        return "1.008"
+    if "stop" in ga_lower:
+        return "1.017"
+    if "presence" in ga_lower or "occupancy" in ga_lower:
+        return "1.018"
+
+    # Percentage values
+    if "brightness" in ga_lower or "position" in ga_lower or "slat" in ga_lower:
+        return "5.001"
+
+    # Dimming
+    if "dim" in ga_lower:
+        return "3.007"
+
+    # Temperature
+    if "temp" in ga_lower or "setpoint" in ga_lower:
+        return "9.001"
+
+    # Humidity
+    if "humidity" in ga_lower:
+        return "9.007"
+
+    # Lux
+    if "lux" in ga_lower or "light_level" in ga_lower:
+        return "9.004"
+
+    # HVAC mode
+    if "mode" in ga_lower and ("hvac" in device_type.lower() or "thermostat" in device_type.lower()):
+        return "20.102"
+
+    # Default to switch for unknown
+    return "1.001"
+
+
+def _guess_flags_for_ga(ga_name: str) -> str:
+    """Guess communication flags based on GA function name."""
+    ga_lower = ga_name.lower()
+
+    # Status objects are typically read + transmit
+    if "status" in ga_lower:
+        return "CRT"
+
+    # Command objects are typically write + update
+    if any(cmd in ga_lower for cmd in ["switch", "brightness", "position", "move", "stop", "setpoint", "mode"]):
+        return "CWU"
+
+    # Sensor outputs are read + transmit
+    if any(sensor in ga_lower for sensor in ["temperature", "humidity", "lux", "presence", "co2"]):
+        return "CRT"
+
+    # Default to write
+    return "CW"
+
+
+def _default_channel_name(device_type: str) -> str:
+    """Generate default channel name based on device type."""
+    type_lower = device_type.lower()
+
+    if "light" in type_lower or "dimmer" in type_lower:
+        return "Light Output"
+    if "blind" in type_lower or "shutter" in type_lower:
+        return "Blind Output"
+    if "switch" in type_lower and "actuator" in type_lower:
+        return "Switch Output"
+    if "sensor" in type_lower or "presence" in type_lower:
+        return "Sensor"
+    if "thermostat" in type_lower:
+        return "Thermostat"
+    if "button" in type_lower:
+        return "Button"
+    if "input" in type_lower:
+        return "Input"
+
+    return "Channel A"
+
+
 class Database:
     """Synchronous SQLite database for simulator persistence."""
 
@@ -185,6 +270,17 @@ class Database:
 
             # Migrate existing devices: parse their individual_address to create topology
             self._migrate_devices_to_topology()
+
+        # Check if channels column exists in devices (channel support migration)
+        cursor = self.conn.execute("PRAGMA table_info(devices)")
+        device_columns = [row[1] for row in cursor.fetchall()]
+
+        if "channels" not in device_columns:
+            logger.info("Applying migration: adding channels column to devices")
+            self.conn.execute("ALTER TABLE devices ADD COLUMN channels JSON")
+            self.conn.commit()
+            # Migrate existing devices to single-channel format
+            self._migrate_devices_to_channels()
 
     def close(self):
         if self._conn:
@@ -273,6 +369,75 @@ class Database:
 
             self.conn.commit()
             logger.info("Migration: linked %d devices to topology in premise %s", len(devices), premise_id)
+
+    def _migrate_devices_to_channels(self):
+        """Migrate existing devices to channel-based structure.
+
+        Converts flat group_addresses and state into a single channel.
+        This preserves backward compatibility while enabling multi-channel devices.
+        """
+        # Get all devices that don't have channels set
+        devices = self.conn.execute(
+            "SELECT id, type, group_addresses, state, initial_state FROM devices WHERE channels IS NULL"
+        ).fetchall()
+
+        migrated = 0
+        for device in devices:
+            device_id = device["id"]
+            device_type = device["type"]
+
+            # Parse existing JSON fields
+            group_addresses = device["group_addresses"]
+            if isinstance(group_addresses, str):
+                group_addresses = json.loads(group_addresses)
+
+            state = device["state"]
+            if isinstance(state, str):
+                state = json.loads(state)
+
+            initial_state = device["initial_state"]
+            if isinstance(initial_state, str):
+                initial_state = json.loads(initial_state)
+
+            # Convert flat group_addresses to group_objects format
+            # Old format: {"switch": "1/0/1", "brightness": "1/0/2"}
+            # New format: {"switch": {"ga": "1/0/1", "dpt": "1.001", "flags": "CW"}}
+            group_objects = {}
+            for ga_name, ga_value in (group_addresses or {}).items():
+                if isinstance(ga_value, str):
+                    # Simple string GA - convert to object
+                    group_objects[ga_name] = {
+                        "ga": ga_value,
+                        "dpt": _guess_dpt_for_ga(device_type, ga_name),
+                        "flags": _guess_flags_for_ga(ga_name),
+                    }
+                elif isinstance(ga_value, dict):
+                    # Already in object format (might have been manually set)
+                    group_objects[ga_name] = ga_value
+                # Skip None/invalid values
+
+            # Create single channel
+            channel = {
+                "id": "A",
+                "name": _default_channel_name(device_type),
+                "group_objects": group_objects,
+                "state": state or {},
+                "initial_state": initial_state or {},
+                "parameters": {},
+            }
+
+            channels = [channel]
+
+            # Update device
+            self.conn.execute(
+                "UPDATE devices SET channels = ? WHERE id = ?",
+                (json.dumps(channels), device_id),
+            )
+            migrated += 1
+
+        if migrated > 0:
+            self.conn.commit()
+            logger.info("Migration: converted %d devices to channel format", migrated)
 
     # ------------------------------------------------------------------
     # Premises
@@ -888,10 +1053,39 @@ class Database:
             if topology:
                 line_id, device_number = topology
 
+        # Handle channels: if provided, use them; otherwise create default channel
+        channels = data.get("channels")
+        if channels is None:
+            # Create default single channel from legacy fields
+            group_addresses = data.get("group_addresses", {})
+            state = data.get("state", data.get("initial_state", {}))
+            initial_state = data.get("initial_state", {})
+
+            # Convert group_addresses to group_objects format
+            group_objects = {}
+            for ga_name, ga_value in group_addresses.items():
+                if isinstance(ga_value, str):
+                    group_objects[ga_name] = {
+                        "ga": ga_value,
+                        "dpt": _guess_dpt_for_ga(data["type"], ga_name),
+                        "flags": _guess_flags_for_ga(ga_name),
+                    }
+                elif isinstance(ga_value, dict):
+                    group_objects[ga_name] = ga_value
+
+            channels = [{
+                "id": "A",
+                "name": _default_channel_name(data["type"]),
+                "group_objects": group_objects,
+                "state": state,
+                "initial_state": initial_state,
+                "parameters": {},
+            }]
+
         self.conn.execute(
             """INSERT INTO devices (id, premise_id, line_id, device_number, room_id, type, individual_address,
-               group_addresses, state, initial_state, config, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               group_addresses, state, initial_state, config, channels, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data["id"],
                 premise_id,
@@ -904,6 +1098,7 @@ class Database:
                 json.dumps(data.get("state", data.get("initial_state", {}))),
                 json.dumps(data.get("initial_state", {})),
                 json.dumps(data.get("config")) if data.get("config") else None,
+                json.dumps(channels),
                 now,
                 now,
             ),
@@ -933,7 +1128,7 @@ class Database:
                     sets.append("device_number = ?")
                     vals.append(topology[1])
 
-        for json_key in ("group_addresses", "state", "initial_state", "config"):
+        for json_key in ("group_addresses", "state", "initial_state", "config", "channels"):
             if json_key in data:
                 sets.append(f"{json_key} = ?")
                 vals.append(json.dumps(data[json_key]))
@@ -1004,7 +1199,7 @@ def _parse_device_row(row) -> dict:
     if row is None:
         return None
     d = dict(row)
-    for key in ("group_addresses", "state", "initial_state", "config"):
+    for key in ("group_addresses", "state", "initial_state", "config", "channels"):
         if d.get(key) and isinstance(d[key], str):
             d[key] = json.loads(d[key])
     return d

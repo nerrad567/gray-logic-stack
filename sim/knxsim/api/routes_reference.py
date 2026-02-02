@@ -418,9 +418,174 @@ DPT_CATALOG = {
 # Device Type GA Templates
 # ---------------------------------------------------------------------------
 
+# ---------------------------------------------------------------------------
+# Multi-Channel Device Templates
+# ---------------------------------------------------------------------------
+
+MULTI_CHANNEL_TEMPLATES = {
+    "switch_actuator_2fold": {
+        "description": "2-channel switch actuator (e.g., ABB SA/S 2.16.1)",
+        "channel_count": 2,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "switch_actuator_4fold": {
+        "description": "4-channel switch actuator (e.g., ABB SA/S 4.16.1)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "switch_actuator_8fold": {
+        "description": "8-channel switch actuator (e.g., ABB SA/S 8.16.1)",
+        "channel_count": 8,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "dimmer_actuator_2fold": {
+        "description": "2-channel dimmer actuator (e.g., ABB UD/S 2.300.2)",
+        "channel_count": 2,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "On/Off state"},
+                {"name": "brightness", "dpt": "5.001", "flags": "CWU", "description": "Brightness (0-100%)"},
+                {"name": "brightness_status", "dpt": "5.001", "flags": "CRT", "description": "Current brightness"},
+                {"name": "dim", "dpt": "3.007", "flags": "CW", "description": "Relative dimming"},
+            ],
+            "state_fields": {"on": False, "brightness": 0},
+        },
+        "device_parameters": ["min_brightness", "max_brightness", "dim_speed", "power_on_state"],
+    },
+    "dimmer_actuator_4fold": {
+        "description": "4-channel dimmer actuator (e.g., ABB UD/S 4.210.2)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "On/Off state"},
+                {"name": "brightness", "dpt": "5.001", "flags": "CWU", "description": "Brightness (0-100%)"},
+                {"name": "brightness_status", "dpt": "5.001", "flags": "CRT", "description": "Current brightness"},
+                {"name": "dim", "dpt": "3.007", "flags": "CW", "description": "Relative dimming"},
+            ],
+            "state_fields": {"on": False, "brightness": 0},
+        },
+        "device_parameters": ["min_brightness", "max_brightness", "dim_speed", "power_on_state"],
+    },
+    "blind_actuator_2fold": {
+        "description": "2-channel blind/shutter actuator (e.g., ABB JRA/S 2.230.5.1)",
+        "channel_count": 2,
+        "channel_template": {
+            "group_objects": [
+                {"name": "move", "dpt": "1.008", "flags": "CW", "description": "Up/Down command"},
+                {"name": "stop", "dpt": "1.017", "flags": "CW", "description": "Stop movement"},
+                {"name": "position", "dpt": "5.001", "flags": "CWU", "description": "Target position (0-100%)"},
+                {"name": "position_status", "dpt": "5.001", "flags": "CRT", "description": "Current position"},
+            ],
+            "state_fields": {"position": 0, "moving": False},
+        },
+        "device_parameters": ["travel_time_up", "travel_time_down", "reverse_direction"],
+    },
+    "blind_actuator_4fold": {
+        "description": "4-channel blind/shutter actuator (e.g., ABB JRA/S 4.230.5.1)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {"name": "move", "dpt": "1.008", "flags": "CW", "description": "Up/Down command"},
+                {"name": "stop", "dpt": "1.017", "flags": "CW", "description": "Stop movement"},
+                {"name": "position", "dpt": "5.001", "flags": "CWU", "description": "Target position (0-100%)"},
+                {"name": "position_status", "dpt": "5.001", "flags": "CRT", "description": "Current position"},
+            ],
+            "state_fields": {"position": 0, "moving": False},
+        },
+        "device_parameters": ["travel_time_up", "travel_time_down", "reverse_direction"],
+    },
+    "push_button_2fold": {
+        "description": "2-button push button interface (e.g., ABB US/U 2.2)",
+        "channel_count": 2,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
+                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+            ],
+            "state_fields": {"pressed": False},
+        },
+        "device_parameters": ["long_press_time", "led_feedback"],
+    },
+    "push_button_4fold": {
+        "description": "4-button push button interface (e.g., ABB US/U 4.2)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
+                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+            ],
+            "state_fields": {"pressed": False},
+        },
+        "device_parameters": ["long_press_time", "led_feedback"],
+    },
+    "push_button_6fold": {
+        "description": "6-button push button interface (e.g., Gira push button sensor 3)",
+        "channel_count": 6,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
+                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+            ],
+            "state_fields": {"pressed": False},
+        },
+        "device_parameters": ["long_press_time", "led_feedback"],
+    },
+    "binary_input_4fold": {
+        "description": "4-channel binary input (e.g., ABB US/U 4.2)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {"name": "state", "dpt": "1.001", "flags": "CRT", "description": "Input state"},
+                {"name": "counter", "dpt": "12.001", "flags": "CRT", "description": "Pulse counter (optional)"},
+            ],
+            "state_fields": {"active": False},
+        },
+        "device_parameters": ["debounce_time", "invert_input"],
+    },
+    "binary_input_8fold": {
+        "description": "8-channel binary input (e.g., ABB US/U 8.2)",
+        "channel_count": 8,
+        "channel_template": {
+            "group_objects": [
+                {"name": "state", "dpt": "1.001", "flags": "CRT", "description": "Input state"},
+                {"name": "counter", "dpt": "12.001", "flags": "CRT", "description": "Pulse counter (optional)"},
+            ],
+            "state_fields": {"active": False},
+        },
+        "device_parameters": ["debounce_time", "invert_input"],
+    },
+}
+
+# Channel ID labels (A-H for up to 8 channels)
+CHANNEL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"]
+
 DEVICE_GA_TEMPLATES = {
     "light_switch": {
         "description": "Simple on/off light",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "switch", "dpt": "1.001", "flags": "C-W-U-", "description": "On/Off command input"},
             {"name": "switch_status", "dpt": "1.001", "flags": "CR-T--", "description": "Current on/off state"},
@@ -428,6 +593,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "light_dimmer": {
         "description": "Dimmable light",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "switch", "dpt": "1.001", "flags": "C-W-U-", "description": "On/Off command"},
             {"name": "switch_status", "dpt": "1.001", "flags": "CR-T--", "description": "On/Off state"},
@@ -438,6 +604,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "blind": {
         "description": "Blind/shutter",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "move", "dpt": "1.008", "flags": "C-W---", "description": "Up/Down command"},
             {"name": "stop", "dpt": "1.017", "flags": "C-W---", "description": "Stop movement"},
@@ -447,6 +614,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "blind_position_slat": {
         "description": "Blind with slat/tilt control",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "move", "dpt": "1.008", "flags": "C-W---", "description": "Up/Down command"},
             {"name": "stop", "dpt": "1.017", "flags": "C-W---", "description": "Stop movement"},
@@ -458,6 +626,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "sensor": {
         "description": "Temperature/environmental sensor",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "temperature", "dpt": "9.001", "flags": "CR-T--", "description": "Temperature reading"},
             {"name": "humidity", "dpt": "9.007", "flags": "CR-T--", "description": "Humidity reading (optional)"},
@@ -465,6 +634,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "presence": {
         "description": "Presence/motion detector",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "presence", "dpt": "1.018", "flags": "CR-T--", "description": "Occupancy state"},
             {"name": "lux", "dpt": "9.004", "flags": "CR-T--", "description": "Light level (if equipped)"},
@@ -472,6 +642,7 @@ DEVICE_GA_TEMPLATES = {
     },
     "thermostat": {
         "description": "Room thermostat",
+        "channel_count": 1,
         "recommended_gas": [
             {"name": "setpoint", "dpt": "9.001", "flags": "CRW-U-", "description": "Target temperature"},
             {"name": "setpoint_status", "dpt": "9.001", "flags": "CR-T--", "description": "Current setpoint"},
@@ -482,6 +653,9 @@ DEVICE_GA_TEMPLATES = {
         ],
     },
 }
+
+# Merge multi-channel templates into device templates for unified access
+ALL_DEVICE_TEMPLATES = {**DEVICE_GA_TEMPLATES, **MULTI_CHANNEL_TEMPLATES}
 
 
 # ---------------------------------------------------------------------------
@@ -515,17 +689,105 @@ def get_dpt_catalog():
 
 @router.get("/device-templates")
 def get_device_templates():
-    """Get recommended GA configurations by device type."""
-    return DEVICE_GA_TEMPLATES
+    """Get all device templates (single and multi-channel)."""
+    return ALL_DEVICE_TEMPLATES
 
 
 @router.get("/device-templates/{device_type}")
 def get_device_template(device_type: str):
-    """Get recommended GA configuration for a specific device type."""
-    template = DEVICE_GA_TEMPLATES.get(device_type)
+    """Get template for a specific device type."""
+    template = ALL_DEVICE_TEMPLATES.get(device_type)
     if not template:
-        return {"error": f"Unknown device type: {device_type}", "available": list(DEVICE_GA_TEMPLATES.keys())}
+        return {"error": f"Unknown device type: {device_type}", "available": list(ALL_DEVICE_TEMPLATES.keys())}
     return template
+
+
+@router.get("/multi-channel-templates")
+def get_multi_channel_templates():
+    """Get templates for multi-channel devices only."""
+    return MULTI_CHANNEL_TEMPLATES
+
+
+@router.get("/channel-labels")
+def get_channel_labels():
+    """Get standard channel labels (A-H)."""
+    return {"labels": CHANNEL_LABELS}
+
+
+@router.get("/device-templates/{device_type}/channels")
+def get_default_channels(device_type: str):
+    """Generate default channel structure for a device type.
+    
+    Returns ready-to-use channels array that can be assigned to a device.
+    """
+    # Check multi-channel templates first
+    template = MULTI_CHANNEL_TEMPLATES.get(device_type)
+    if template:
+        channel_count = template["channel_count"]
+        channel_template = template["channel_template"]
+        
+        channels = []
+        for i in range(channel_count):
+            label = CHANNEL_LABELS[i] if i < len(CHANNEL_LABELS) else str(i + 1)
+            
+            # Convert group_objects list to dict format
+            group_objects = {}
+            for go in channel_template["group_objects"]:
+                group_objects[go["name"]] = {
+                    "ga": None,  # To be assigned
+                    "dpt": go["dpt"],
+                    "flags": go["flags"],
+                    "description": go.get("description", ""),
+                }
+            
+            channels.append({
+                "id": label,
+                "name": f"Channel {label}",
+                "group_objects": group_objects,
+                "state": dict(channel_template.get("state_fields", {})),
+                "initial_state": dict(channel_template.get("state_fields", {})),
+                "parameters": {},
+            })
+        
+        return {
+            "device_type": device_type,
+            "description": template["description"],
+            "channel_count": channel_count,
+            "channels": channels,
+            "device_parameters": template.get("device_parameters", []),
+        }
+    
+    # Check single-channel templates
+    template = DEVICE_GA_TEMPLATES.get(device_type)
+    if template:
+        # Convert recommended_gas to group_objects format
+        group_objects = {}
+        for ga in template.get("recommended_gas", []):
+            group_objects[ga["name"]] = {
+                "ga": None,
+                "dpt": ga["dpt"],
+                "flags": ga["flags"],
+                "description": ga.get("description", ""),
+            }
+        
+        channels = [{
+            "id": "A",
+            "name": template["description"],
+            "group_objects": group_objects,
+            "state": {},
+            "initial_state": {},
+            "parameters": {},
+        }]
+        
+        return {
+            "device_type": device_type,
+            "description": template["description"],
+            "channel_count": 1,
+            "channels": channels,
+            "device_parameters": [],
+        }
+    
+    return {"error": f"Unknown device type: {device_type}", "available": list(ALL_DEVICE_TEMPLATES.keys())}
 
 
 @router.get("")
@@ -536,5 +798,7 @@ def get_all_reference():
         "ga_structure": GA_STRUCTURE_GUIDE,
         "flags": FLAGS_GUIDE,
         "dpts": DPT_CATALOG,
-        "device_templates": DEVICE_GA_TEMPLATES,
+        "device_templates": ALL_DEVICE_TEMPLATES,
+        "multi_channel_templates": MULTI_CHANNEL_TEMPLATES,
+        "channel_labels": CHANNEL_LABELS,
     }

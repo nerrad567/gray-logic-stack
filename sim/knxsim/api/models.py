@@ -15,7 +15,7 @@ from pydantic import BaseModel, Field
 class GroupAddressInfo(BaseModel):
     """Extended group address info with DPT and flags."""
 
-    ga: str = Field(..., description="Group address (e.g., '1/2/3')")
+    ga: str | None = Field(default=None, description="Group address (e.g., '1/2/3')")
     dpt: str = Field(default="1.001", description="Datapoint type")
     flags: str = Field(default="C-W-U-", description="KNX flags (CRWTUI)")
     description: str = Field(default="", description="Human-readable description")
@@ -23,6 +23,33 @@ class GroupAddressInfo(BaseModel):
 
 # Type alias: GA can be string (legacy) or object (new)
 GroupAddressValue = str | GroupAddressInfo | dict[str, Any]
+
+
+# ---------------------------------------------------------------------------
+# Channels (multi-channel device support)
+# ---------------------------------------------------------------------------
+
+
+class ChannelGroupObject(BaseModel):
+    """Group object within a channel."""
+
+    ga: str | None = Field(default=None, description="Assigned group address")
+    dpt: str = Field(default="1.001", description="Datapoint type")
+    flags: str = Field(default="CW", description="KNX flags")
+    description: str = Field(default="", description="Human-readable description")
+
+
+class Channel(BaseModel):
+    """A single channel within a multi-channel device."""
+
+    id: str = Field(..., description="Channel identifier (A, B, C, etc.)")
+    name: str = Field(..., description="Channel name (e.g., 'Kitchen Light')")
+    group_objects: dict[str, ChannelGroupObject | dict[str, Any]] = Field(
+        default_factory=dict, description="Named group objects with GA assignments"
+    )
+    state: dict[str, Any] = Field(default_factory=dict, description="Current channel state")
+    initial_state: dict[str, Any] = Field(default_factory=dict, description="Initial state on startup")
+    parameters: dict[str, Any] = Field(default_factory=dict, description="Channel-specific parameters")
 
 # ---------------------------------------------------------------------------
 # Premises
@@ -60,6 +87,9 @@ class DeviceCreate(BaseModel):
     individual_address: str = Field(..., min_length=3)
     group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
+    channels: list[Channel | dict[str, Any]] | None = Field(
+        default=None, description="Channel configuration for multi-channel devices"
+    )
     room_id: str | None = None
 
 
@@ -67,6 +97,9 @@ class DeviceUpdate(BaseModel):
     room_id: str | None = None
     individual_address: str | None = None
     group_addresses: dict[str, GroupAddressValue] | None = None
+    channels: list[Channel | dict[str, Any]] | None = Field(
+        default=None, description="Channel configuration update"
+    )
 
 
 class DevicePlacement(BaseModel):
@@ -89,6 +122,11 @@ class DeviceResponse(BaseModel):
     group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     state: dict[str, Any] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
+    channels: list[Channel | dict[str, Any]] | None = Field(
+        default=None, description="Channel configuration for multi-channel devices"
+    )
+    line_id: str | None = Field(default=None, description="Topology line reference")
+    device_number: int | None = Field(default=None, description="Device number on line")
     created_at: str | None = None
     updated_at: str | None = None
 
