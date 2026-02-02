@@ -1545,9 +1545,21 @@ class Database:
             logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
             return
         
-        # Update the channel's state
+        # Normalize state field names for consistency
+        # Runtime devices may use button_1/button_2, but channels use 'pressed'
+        normalized_updates = {}
+        for key, value in state_updates.items():
+            if key.startswith("button_"):
+                # Map button_X to 'pressed' for channel state
+                normalized_updates["pressed"] = value
+            else:
+                normalized_updates[key] = value
+        
+        # Update the channel's state (don't carry over stale button_X keys)
         channel_state = target_channel.get("state", {})
-        channel_state.update(state_updates)
+        # Remove any button_X keys that may have leaked in previously
+        channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
+        channel_state.update(normalized_updates)
         target_channel["state"] = channel_state
         
         logger.debug("Updated channel %s state to %s", target_channel.get("id"), channel_state)
