@@ -1062,6 +1062,13 @@ export function initStores() {
         }
       }
 
+      // Heating actuators (valve position)
+      if (type.includes("heating_actuator") || type === "valve_actuator") {
+        const position = state.position ?? 0;
+        const isOpen = position > 0 || state.on === true;
+        return { indicator: isOpen, value: `${position}%` };
+      }
+
       // Default
       for (const [key, value] of Object.entries(state)) {
         if (typeof value === "boolean") {
@@ -1095,10 +1102,12 @@ export function initStores() {
       if (!device.channels || device.channels.length <= 1) {
         return null;
       }
+      const isHeatingActuator = device.type?.includes("heating_actuator");
       return device.channels.map((ch) => ({
         id: ch.id,
         on: ch.state?.on === true,
         name: ch.name || `Ch ${ch.id}`,
+        position: isHeatingActuator ? (ch.state?.position ?? 0) : null,
       }));
     },
 

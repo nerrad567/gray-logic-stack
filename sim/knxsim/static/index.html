@@ -651,8 +651,8 @@
                           <span 
                             class="channel-led"
                             :class="{ 'on': ch.on }"
-                            :title="ch.name + ': ' + (ch.on ? 'ON' : 'OFF')"
-                            x-text="ch.id"
+                            :title="ch.name + ': ' + (ch.position !== null ? ch.position + '%' : (ch.on ? 'ON' : 'OFF'))"
+                            x-text="ch.position !== null ? ch.position + '%' : ch.id"
                           ></span>
                         </template>
                       </div>
@@ -754,6 +754,13 @@
                                 'led-off': channel.state?.on === false || channel.state?.on === undefined
                               }"
                               :title="channel.state?.on ? 'ON' : 'OFF'"
+                            ></span>
+                            <!-- Valve position for heating actuators -->
+                            <span 
+                              class="channel-position"
+                              x-show="$store.app.selectedDevice.type?.includes('heating_actuator') && channel.state?.position !== undefined"
+                              x-text="(channel.state?.position ?? 0) + '%'"
+                              :class="{ 'position-open': channel.state?.position > 0 }"
                             ></span>
                             <span class="channel-name" x-text="channel.name"></span>
                             <span 
