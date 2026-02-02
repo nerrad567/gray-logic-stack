@@ -342,9 +342,14 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
     # Update runtime device state as well (for consistency)
     device.state[field] = value
 
-    # Trigger state change callback
-    if premise._on_state_change:
-        premise._on_state_change(premise_id, device_id, dict(device.state))
+    # Broadcast state change with updated channels from DB
+    # Don't use the callback (which has no GA context) - fetch fresh from DB
+    db_device = manager.db.get_device(device_id)
+    db_channels = db_device.get("channels") if db_device else None
+    if router.app.state.ws_hub:
+        router.app.state.ws_hub.push_state_change(
+            premise_id, device_id, dict(device.state), channels=db_channels
+        )
 
     return {
         "status": "ok",

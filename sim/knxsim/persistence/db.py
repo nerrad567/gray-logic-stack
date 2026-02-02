@@ -1482,6 +1482,7 @@ class Database:
             channel_id: Channel ID (e.g., "A", "B")
             state_updates: Dict of state keys to update
         """
+        logger.debug("update_channel_state: device=%s ch=%s updates=%s", device_id, channel_id, state_updates)
         device = self.get_device(device_id)
         if not device or not device.get("channels"):
             return
@@ -1495,6 +1496,7 @@ class Database:
                 channel_state.update(state_updates)
                 channel["state"] = channel_state
                 updated = True
+                logger.debug("update_channel_state: ch %s now %s", channel_id, channel_state)
                 break
         
         if updated:
@@ -1527,7 +1529,7 @@ class Database:
         channels = device["channels"]
         ga_str = self._format_ga(ga)
         
-        logger.debug("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
+        logger.info("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
                      device_id, ga, ga_str, state_updates)
         
         # Find which channel has this GA
@@ -1547,11 +1549,17 @@ class Database:
         
         # Normalize state field names for consistency
         # Runtime devices may use button_1/button_2, but channels use 'pressed'
+        # Also handle case where runtime state has both button_X AND pressed (stale)
         normalized_updates = {}
+        has_button_key = any(k.startswith("button_") for k in state_updates)
+        
         for key, value in state_updates.items():
             if key.startswith("button_"):
                 # Map button_X to 'pressed' for channel state
                 normalized_updates["pressed"] = value
+            elif key == "pressed" and has_button_key:
+                # Skip stale 'pressed' value if we have a fresh button_X value
+                pass
             else:
                 normalized_updates[key] = value
         
@@ -1562,7 +1570,7 @@ class Database:
         channel_state.update(normalized_updates)
         target_channel["state"] = channel_state
         
-        logger.debug("Updated channel %s state to %s", target_channel.get("id"), channel_state)
+        logger.info("update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state)
         
         self.conn.execute(
             "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
