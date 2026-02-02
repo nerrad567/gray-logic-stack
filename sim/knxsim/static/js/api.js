@@ -73,6 +73,12 @@ export const API = {
         });
     },
 
+    async clearAll(premiseId) {
+        return request(`/premises/${premiseId}/clear-all`, {
+            method: 'POST',
+        });
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Devices
     // ─────────────────────────────────────────────────────────────

@@ -3317,3 +3317,13 @@ select:focus {
     transform: rotate(360deg);
   }
 }
+
+.btn-clear-all {
+  background: transparent;
+  border: 1px solid var(--accent-red);
+  color: var(--accent-red);
+}
+
+.btn-clear-all:hover {
+  background: rgba(239, 68, 68, 0.1);
+}

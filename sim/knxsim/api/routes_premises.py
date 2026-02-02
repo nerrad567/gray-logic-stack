@@ -136,7 +136,7 @@ def reset_to_sample(premise_id: str):
         floors_created += 1
         
         for room_data in floor_data["rooms"]:
-            manager.db.create_room(premise_id, floor_id, room_data)
+            manager.db.create_room(floor_id, room_data)
             rooms_created += 1
     
     # ─────────────────────────────────────────────────────────────
@@ -238,3 +238,36 @@ def mark_setup_complete(premise_id: str):
     manager.db.mark_premise_setup_complete(premise_id)
     
     return {"status": "ok"}
+
+
+@router.post("/{premise_id}/clear-all")
+def clear_all(premise_id: str):
+    """Delete all devices, floors, and rooms from a premise.
+    
+    Resets to a blank slate but keeps the premise itself.
+    """
+    manager = router.app.state.manager
+    premise = manager.get_premise(premise_id)
+    if not premise:
+        raise HTTPException(status_code=404, detail="Premise not found")
+    
+    # Delete all devices
+    existing_devices = manager.db.list_devices(premise_id)
+    for device in existing_devices:
+        manager.remove_device(premise_id, device["id"])
+    
+    # Delete all floors (cascades to rooms)
+    existing_floors = manager.db.list_floors(premise_id)
+    for floor in existing_floors:
+        manager.db.delete_floor(premise_id, floor["id"])
+    
+    # Reload premise
+    live_premise = manager.premises.get(premise_id)
+    if live_premise:
+        manager._load_premise_from_db(premise_id)
+    
+    return {
+        "status": "ok",
+        "devices_deleted": len(existing_devices),
+        "floors_deleted": len(existing_floors),
+    }

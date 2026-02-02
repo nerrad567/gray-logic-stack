@@ -771,6 +771,22 @@ export function initStores() {
       }
     },
 
+    async clearAll() {
+      if (!this.currentPremiseId) return;
+      try {
+        const result = await API.clearAll(this.currentPremiseId);
+        console.log("Clear all:", result);
+        // Reload all data
+        this.devices = await API.getDevices(this.currentPremiseId);
+        await this.loadTopology();
+        this.selectedDeviceId = null;
+      } catch (err) {
+        console.error("Failed to clear all:", err);
+        alert("Failed to clear: " + err.message);
+        throw err;
+      }
+    },
+
     /**
      * Check if current premise needs setup (show welcome modal)
      */

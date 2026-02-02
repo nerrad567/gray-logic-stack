@@ -121,13 +121,26 @@
             class="btn btn-reset-sample"
             x-show="$store.app.engineerMode"
             @click="$store.modal.confirm(
-              'Reset to Sample Devices',
-              'This will delete all devices and reload the sample set from config. Continue?',
+              'Load Sample Installation',
+              'This will delete all current devices/floors and load the sample installation. Continue?',
               async () => { await $store.app.resetToSample(); }
             )"
-            title="Reset premise to sample devices"
+            title="Load sample installation with floors, rooms, and devices"
           >
-            🔄 Reset Sample
+            🏠 Load Sample
+          </button>
+          <!-- Clear All button (Engineer Mode only) -->
+          <button
+            class="btn btn-clear-all"
+            x-show="$store.app.engineerMode"
+            @click="$store.modal.confirm(
+              'Clear All',
+              'This will delete ALL devices, floors, and rooms. Continue?',
+              async () => { await $store.app.clearAll(); }
+            )"
+            title="Delete all devices, floors, and rooms"
+          >
+            🗑️ Clear All
           </button>
         </div>
       </header>
