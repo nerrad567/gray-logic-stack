@@ -1,0 +1,49 @@
+id: presence_detector_360
+name: Presence Detector 360° Ceiling
+domain: sensors
+description: 360° ceiling-mounted presence detector with constant light control (Theben theMova S360 KNX)
+type: presence_detector
+manufacturer: Theben
+group_addresses:
+  presence:
+    dpt: "1.018"
+    direction: status
+    flags: "CR-T--"
+    description: Presence detected
+  brightness:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Measured brightness (lux)
+  switch_output:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Switch output based on presence + brightness
+  brightness_setpoint:
+    dpt: "9.004"
+    direction: write
+    flags: "C-W-U-"
+    description: Target brightness for constant light control
+  dim_output:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Dimming output for constant light control
+  hvac_presence:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Presence for HVAC (longer timeout)
+  disable:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Disable detector
+initial_state:
+  presence: false
+  brightness: 300
+  switch_output: false
+  brightness_setpoint: 500
+  dim_output: 0
+  hvac_presence: false

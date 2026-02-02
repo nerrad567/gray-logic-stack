@@ -1,0 +1,76 @@
+id: logic_module
+name: Logic Module
+domain: controls
+description: Programmable logic module with AND/OR/timers/scenes (MDT SCN-LOG1.01)
+type: logic_module
+manufacturer: MDT
+group_addresses:
+  input_1:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Logic input 1
+  input_2:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Logic input 2
+  input_3:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Logic input 3
+  input_4:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Logic input 4
+  input_5_analog:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Analog input (comparisons)
+  output_1:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Logic output 1
+  output_2:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Logic output 2
+  output_3:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Logic output 3
+  output_4:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Logic output 4
+  timer_1_start:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W---"
+    description: Start timer 1
+  timer_1_output:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Timer 1 output
+  scene_trigger:
+    dpt: "17.001"
+    direction: write
+    flags: "C-W---"
+    description: Scene trigger input
+initial_state:
+  input_1: false
+  input_2: false
+  input_3: false
+  input_4: false
+  output_1: false
+  output_2: false
+  output_3: false
+  output_4: false

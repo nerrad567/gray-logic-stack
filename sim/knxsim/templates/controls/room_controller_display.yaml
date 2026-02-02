@@ -1,0 +1,84 @@
+id: room_controller_display
+name: Room Controller with Display
+domain: controls
+description: Touch display room controller for HVAC, lighting, and blinds (Theben iON 104 KNX)
+type: room_controller
+manufacturer: Theben
+group_addresses:
+  temperature_actual:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Measured room temperature
+  temperature_setpoint:
+    dpt: "9.001"
+    direction: write
+    flags: "CRWT--"
+    description: Temperature setpoint
+  hvac_mode:
+    dpt: "20.102"
+    direction: write
+    flags: "CRWT--"
+    description: HVAC mode (comfort/standby/economy)
+  hvac_mode_status:
+    dpt: "20.102"
+    direction: status
+    flags: "CR-T--"
+  fan_speed:
+    dpt: "5.001"
+    direction: write
+    flags: "CRWT--"
+    description: Fan speed 0-100%
+  heating_output:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Heating demand output
+  cooling_output:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Cooling demand output
+  light_1:
+    dpt: "1.001"
+    direction: write
+    flags: "CRWT--"
+    description: Light 1 control
+  light_2:
+    dpt: "1.001"
+    direction: write
+    flags: "CRWT--"
+    description: Light 2 control
+  blind_position:
+    dpt: "5.001"
+    direction: write
+    flags: "CRWT--"
+    description: Blind position control
+  scene_recall:
+    dpt: "17.001"
+    direction: write
+    flags: "C-W---"
+    description: Scene recall
+  humidity:
+    dpt: "9.007"
+    direction: status
+    flags: "CR-T--"
+    description: Measured humidity
+  co2:
+    dpt: "9.008"
+    direction: status
+    flags: "CR-T--"
+    description: CO2 level (if equipped)
+  presence:
+    dpt: "1.018"
+    direction: write
+    flags: "C-W-U-"
+    description: Presence input for eco mode
+initial_state:
+  temperature_actual: 21.5
+  temperature_setpoint: 21.0
+  hvac_mode: 1
+  fan_speed: 0
+  heating_output: 0
+  cooling_output: 0
+  humidity: 45.0

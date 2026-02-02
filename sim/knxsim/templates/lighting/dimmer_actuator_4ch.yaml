@@ -1,0 +1,84 @@
+id: dimmer_actuator_4ch
+name: Dimmer Actuator 4-Channel
+domain: lighting
+description: 4-channel universal LED dimmer actuator 200W/ch (MDT AKD-0424V.02)
+type: dimmer_actuator
+manufacturer: MDT
+channels: 4
+group_addresses:
+  ch1_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 On/Off
+  ch1_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch1_brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 brightness 0-100%
+  ch1_brightness_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch1_relative_dim:
+    dpt: "3.007"
+    direction: write
+    flags: "C-W---"
+    description: Channel 1 relative dimming
+  ch2_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch2_brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_brightness_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch3_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch3_brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_brightness_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch4_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_brightness_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch4_brightness_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+initial_state:
+  ch1: { on: false, brightness: 0 }
+  ch2: { on: false, brightness: 0 }
+  ch3: { on: false, brightness: 0 }
+  ch4: { on: false, brightness: 0 }

@@ -1,0 +1,61 @@
+id: ev_charger
+name: EV Charger Interface
+domain: energy
+description: Electric vehicle charging station KNX interface with load management
+type: ev_charger
+group_addresses:
+  charging_enabled:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Enable/disable charging
+  charging_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Charging in progress
+  vehicle_connected:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Vehicle plugged in
+  charge_current_limit:
+    dpt: "9.021"
+    direction: write
+    flags: "C-W-U-"
+    description: Maximum charge current (A)
+  actual_current:
+    dpt: "9.021"
+    direction: status
+    flags: "CR-T--"
+    description: Current charging rate (A)
+  actual_power:
+    dpt: "14.056"
+    direction: status
+    flags: "CR-T--"
+    description: Charging power (W)
+  session_energy:
+    dpt: "13.010"
+    direction: status
+    flags: "CR-T--"
+    description: Energy delivered this session (Wh)
+  total_energy:
+    dpt: "13.010"
+    direction: status
+    flags: "CR-T--"
+    description: Total energy delivered (Wh)
+  error:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Charger error/fault
+initial_state:
+  charging_enabled: true
+  charging_status: false
+  vehicle_connected: false
+  charge_current_limit: 32
+  actual_current: 0
+  actual_power: 0
+  session_energy: 0
+  total_energy: 45600
+  error: false

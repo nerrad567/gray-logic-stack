@@ -1,0 +1,82 @@
+id: heating_actuator_6ch
+name: Heating Actuator 6-Channel
+domain: climate
+description: 6-channel heating valve actuator with PI controller (MDT AKH-0600.02)
+type: heating_actuator
+manufacturer: MDT
+channels: 6
+group_addresses:
+  ch1_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 valve position 0-100%
+  ch1_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch1_setpoint:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 temperature setpoint
+  ch1_actual_temp:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 actual temperature input
+  ch2_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch2_setpoint:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_actual_temp:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch4_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch5_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch5_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch6_valve_cmd:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch6_valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+initial_state:
+  ch1: { valve: 0 }
+  ch2: { valve: 0 }
+  ch3: { valve: 0 }
+  ch4: { valve: 0 }
+  ch5: { valve: 0 }
+  ch6: { valve: 0 }

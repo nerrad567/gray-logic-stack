@@ -1,0 +1,31 @@
+id: power_supply
+name: Bus Power Supply 640mA
+domain: system
+description: KNX bus power supply 30V 640mA with diagnostics (MDT STC-0640.01)
+type: power_supply
+manufacturer: MDT
+group_addresses:
+  bus_voltage:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+    description: Bus voltage (mV, typically 29-30V)
+  bus_current:
+    dpt: "9.021"
+    direction: status
+    flags: "CR-T--"
+    description: Bus current consumption (mA)
+  overload:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Overload warning (>80%)
+  reset:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W---"
+    description: Bus reset trigger
+initial_state:
+  bus_voltage: 29800
+  bus_current: 320
+  overload: false

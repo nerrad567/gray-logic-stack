@@ -1,0 +1,50 @@
+id: multi_sensor
+name: Multi-Sensor (Temp/Humidity/CO2)
+domain: sensors
+description: Combined room sensor for temperature, humidity, and air quality (Elsner Cala KNX)
+type: multi_sensor
+manufacturer: Elsner
+group_addresses:
+  temperature:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Room temperature
+  humidity:
+    dpt: "9.007"
+    direction: status
+    flags: "CR-T--"
+    description: Relative humidity
+  co2:
+    dpt: "9.008"
+    direction: status
+    flags: "CR-T--"
+    description: CO2 concentration (ppm)
+  voc:
+    dpt: "9.008"
+    direction: status
+    flags: "CR-T--"
+    description: VOC air quality
+  dewpoint:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Calculated dew point
+  comfort_index:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Comfort index 0-100%
+  ventilation_demand:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Ventilation required
+initial_state:
+  temperature: 21.5
+  humidity: 45.0
+  co2: 650
+  voc: 100
+  dewpoint: 9.3
+  comfort_index: 75
+  ventilation_demand: false

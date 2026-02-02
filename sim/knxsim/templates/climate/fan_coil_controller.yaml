@@ -1,0 +1,62 @@
+id: fan_coil_controller
+name: Fan Coil Controller
+domain: climate
+description: Fan coil unit controller with heating/cooling and 3-speed fan (Siemens RXB)
+type: fan_coil_controller
+manufacturer: Siemens
+group_addresses:
+  power:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Unit On/Off
+  power_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  mode:
+    dpt: "20.102"
+    direction: write
+    flags: "C-W-U-"
+    description: HVAC mode (auto/heat/cool/fan)
+  mode_status:
+    dpt: "20.102"
+    direction: status
+    flags: "CR-T--"
+  fan_speed:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Fan speed 0-100% or 0/33/66/100 for 3-speed
+  fan_speed_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  setpoint:
+    dpt: "9.001"
+    direction: write
+    flags: "CRWT--"
+    description: Temperature setpoint
+  actual_temp:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Measured room temperature
+  heating_valve:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Heating valve position
+  cooling_valve:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Cooling valve position
+initial_state:
+  power: false
+  mode: 0
+  fan_speed: 0
+  setpoint: 21.0
+  actual_temp: 21.0
+  heating_valve: 0
+  cooling_valve: 0

@@ -1,0 +1,58 @@
+id: dali_gateway
+name: DALI Gateway 64
+domain: lighting
+description: DALI gateway for 64 DALI devices with broadcast and group control (ABB DG/S 64.1.1)
+type: dali_gateway
+manufacturer: ABB
+channels: 64
+group_addresses:
+  broadcast_switch:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Broadcast On/Off all DALI devices
+  broadcast_brightness:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Broadcast brightness 0-100%
+  group_1_switch:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: DALI Group 1 On/Off
+  group_1_brightness:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  group_1_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  group_2_switch:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  group_2_brightness:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  group_2_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  emergency_test:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W---"
+    description: Trigger emergency lighting test
+  error_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: DALI bus error indicator
+initial_state:
+  broadcast: { on: false, brightness: 0 }
+  group_1: { on: false, brightness: 0 }
+  group_2: { on: false, brightness: 0 }
+  error: false

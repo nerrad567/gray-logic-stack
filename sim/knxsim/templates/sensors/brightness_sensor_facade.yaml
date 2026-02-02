@@ -1,0 +1,44 @@
+id: brightness_sensor_facade
+name: Brightness Sensor (Facade)
+domain: sensors
+description: Facade-mounted brightness sensor for blind automation (B.E.G. Luxomat KNX)
+type: brightness_sensor
+manufacturer: B.E.G.
+group_addresses:
+  brightness:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Measured brightness (lux)
+  threshold_1:
+    dpt: "9.004"
+    direction: write
+    flags: "C-W-U-"
+    description: Threshold 1 setting
+  threshold_1_output:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Threshold 1 exceeded
+  threshold_2:
+    dpt: "9.004"
+    direction: write
+    flags: "C-W-U-"
+    description: Threshold 2 setting
+  threshold_2_output:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Threshold 2 exceeded
+  sun_protection:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Sun protection needed (based on threshold)
+initial_state:
+  brightness: 15000
+  threshold_1: 10000
+  threshold_1_output: true
+  threshold_2: 40000
+  threshold_2_output: false
+  sun_protection: true

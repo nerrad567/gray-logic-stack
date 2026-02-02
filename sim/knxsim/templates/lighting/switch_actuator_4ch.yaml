@@ -1,0 +1,53 @@
+id: switch_actuator_4ch
+name: Switch Actuator 4-Channel
+domain: lighting
+description: 4-channel 16A switch actuator for lighting and loads (MDT AKS-0416.03)
+type: switch_actuator
+manufacturer: MDT
+channels: 4
+group_addresses:
+  ch1_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 On/Off command
+  ch1_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 1 On/Off feedback
+  ch2_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 2 On/Off command
+  ch2_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 2 On/Off feedback
+  ch3_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 3 On/Off command
+  ch3_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 3 On/Off feedback
+  ch4_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 4 On/Off command
+  ch4_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 4 On/Off feedback
+initial_state:
+  ch1: false
+  ch2: false
+  ch3: false
+  ch4: false

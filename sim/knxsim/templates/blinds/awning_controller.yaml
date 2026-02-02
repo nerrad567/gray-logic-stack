@@ -1,0 +1,45 @@
+id: awning_controller
+name: Awning Controller
+domain: blinds
+description: Motorized awning controller with wind/rain safety and sun tracking
+type: awning_controller
+group_addresses:
+  move:
+    dpt: "1.008"
+    direction: write
+    flags: "C-W---"
+    description: Extend/Retract (0=retract, 1=extend)
+  stop:
+    dpt: "1.007"
+    direction: write
+    flags: "C-W---"
+    description: Stop movement
+  position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Position 0=retracted, 100=extended
+  position_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  wind_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Wind alarm - forces retract
+  rain_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Rain alarm - forces retract
+  sun_auto:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Enable sun tracking mode
+initial_state:
+  position: 0
+  wind_alarm: false
+  rain_alarm: false
+  sun_auto: false

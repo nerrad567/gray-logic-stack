@@ -1,0 +1,49 @@
+id: shutter_actuator_8ch
+name: Shutter Actuator 8-Channel
+domain: blinds
+description: 8-channel shutter/blind actuator 230V AC (MDT JAL-0810.02)
+type: shutter_actuator
+manufacturer: MDT
+channels: 8
+group_addresses:
+  ch1_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch1_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch1_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch1_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch2_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch2_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch2_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch2_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch3_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch3_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch3_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch3_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch4_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch4_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch4_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch4_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch5_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch5_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch5_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch5_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch6_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch6_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch6_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch6_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch7_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch7_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch7_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch7_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+  ch8_move: { dpt: "1.008", direction: write, flags: "C-W---" }
+  ch8_stop: { dpt: "1.007", direction: write, flags: "C-W---" }
+  ch8_position: { dpt: "5.001", direction: write, flags: "C-W-U-" }
+  ch8_position_status: { dpt: "5.001", direction: status, flags: "CR-T--" }
+initial_state:
+  ch1: { position: 0 }
+  ch2: { position: 0 }
+  ch3: { position: 0 }
+  ch4: { position: 0 }
+  ch5: { position: 0 }
+  ch6: { position: 0 }
+  ch7: { position: 0 }
+  ch8: { position: 0 }

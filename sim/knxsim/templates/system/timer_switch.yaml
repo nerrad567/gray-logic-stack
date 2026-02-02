@@ -1,0 +1,63 @@
+id: timer_switch
+name: Astronomical Timer
+domain: system
+description: KNX timer with astronomical clock, holidays, and scheduling (Theben TR648 KNX)
+type: timer
+manufacturer: Theben
+group_addresses:
+  time:
+    dpt: "10.001"
+    direction: status
+    flags: "CRWT--"
+    description: Current time broadcast
+  date:
+    dpt: "11.001"
+    direction: status
+    flags: "CRWT--"
+    description: Current date broadcast
+  output_1:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Timer channel 1 output
+  output_2:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Timer channel 2 output
+  output_3:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Timer channel 3 output
+  output_4:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Timer channel 4 output
+  sunrise:
+    dpt: "10.001"
+    direction: status
+    flags: "CR-T--"
+    description: Today's sunrise time
+  sunset:
+    dpt: "10.001"
+    direction: status
+    flags: "CR-T--"
+    description: Today's sunset time
+  holiday_mode:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Holiday/vacation mode
+  disable:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Disable timer outputs
+initial_state:
+  output_1: false
+  output_2: false
+  output_3: false
+  output_4: false
+  holiday_mode: false

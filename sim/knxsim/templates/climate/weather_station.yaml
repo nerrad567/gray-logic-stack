@@ -1,0 +1,77 @@
+id: weather_station
+name: Weather Station
+domain: climate
+description: Multi-sensor weather station with sun tracking (Theben LUNA 131 KNX)
+type: weather_station
+manufacturer: Theben
+group_addresses:
+  temperature:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Outdoor temperature
+  brightness_north:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Brightness sensor north (lux)
+  brightness_south:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Brightness sensor south (lux)
+  brightness_east:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Brightness sensor east (lux)
+  brightness_west:
+    dpt: "9.004"
+    direction: status
+    flags: "CR-T--"
+    description: Brightness sensor west (lux)
+  wind_speed:
+    dpt: "9.005"
+    direction: status
+    flags: "CR-T--"
+    description: Wind speed (m/s)
+  wind_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Wind alarm threshold exceeded
+  rain:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Rain detected
+  twilight:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Twilight/dusk detected
+  sun_position_azimuth:
+    dpt: "14.007"
+    direction: status
+    flags: "CR-T--"
+    description: Sun azimuth angle
+  sun_position_elevation:
+    dpt: "14.007"
+    direction: status
+    flags: "CR-T--"
+    description: Sun elevation angle
+  facade_south:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Sun on south facade
+initial_state:
+  temperature: 20.0
+  brightness_north: 500
+  brightness_south: 20000
+  brightness_east: 5000
+  brightness_west: 5000
+  wind_speed: 2.0
+  wind_alarm: false
+  rain: false
+  twilight: false

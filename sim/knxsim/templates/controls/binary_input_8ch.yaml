@@ -1,0 +1,59 @@
+id: binary_input_8ch
+name: Binary Input 8-Channel
+domain: controls
+description: 8-channel binary input for dry contacts and potential-free switches (MDT BE-08000.02)
+type: binary_input
+manufacturer: MDT
+channels: 8
+group_addresses:
+  ch1_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 1 contact state
+  ch1_counter:
+    dpt: "12.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 1 pulse counter
+  ch2_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch2_counter:
+    dpt: "12.001"
+    direction: status
+    flags: "CR-T--"
+  ch3_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch5_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch6_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch7_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch8_state:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+initial_state:
+  ch1: false
+  ch2: false
+  ch3: false
+  ch4: false
+  ch5: false
+  ch6: false
+  ch7: false
+  ch8: false

@@ -1,0 +1,39 @@
+id: glass_push_button_8
+name: Glass Push Button 8-fold
+domain: controls
+description: 8-fold capacitive glass panel with status LEDs and display (MDT BE-GT2TW.02)
+type: push_button
+manufacturer: MDT
+channels: 8
+group_addresses:
+  button_1: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_1_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_2: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_2_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_3: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_3_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_4: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_4_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_5: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_5_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_6: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_6_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_7: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_7_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  button_8: { dpt: "1.001", direction: write, flags: "C--T--" }
+  button_8_led: { dpt: "1.001", direction: status, flags: "C-W-U-" }
+  temperature: { dpt: "9.001", direction: status, flags: "CR-T--" }
+  humidity: { dpt: "9.007", direction: status, flags: "CR-T--" }
+  display_line_1: { dpt: "16.001", direction: status, flags: "C-W-U-", description: "Display text line 1" }
+  display_line_2: { dpt: "16.001", direction: status, flags: "C-W-U-", description: "Display text line 2" }
+initial_state:
+  button_1: false
+  button_2: false
+  button_3: false
+  button_4: false
+  button_5: false
+  button_6: false
+  button_7: false
+  button_8: false
+  temperature: 21.5
+  humidity: 45.0

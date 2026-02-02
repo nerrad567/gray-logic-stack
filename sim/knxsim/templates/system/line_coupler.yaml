@@ -1,0 +1,50 @@
+id: line_coupler
+name: Line/Area Coupler
+domain: system
+description: KNX line or area coupler with filtering (MDT SCN-LK001.03)
+type: line_coupler
+manufacturer: MDT
+group_addresses:
+  telegram_count_main:
+    dpt: "12.001"
+    direction: status
+    flags: "CR-T--"
+    description: Telegrams from main line
+  telegram_count_sub:
+    dpt: "12.001"
+    direction: status
+    flags: "CR-T--"
+    description: Telegrams from sub line
+  filtered_count:
+    dpt: "12.001"
+    direction: status
+    flags: "CR-T--"
+    description: Filtered/blocked telegrams
+  bus_voltage_main:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+    description: Main line bus voltage
+  bus_voltage_sub:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+    description: Sub line bus voltage
+  error_main:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Main line error
+  error_sub:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Sub line error
+initial_state:
+  telegram_count_main: 0
+  telegram_count_sub: 0
+  filtered_count: 0
+  bus_voltage_main: 29500
+  bus_voltage_sub: 29600
+  error_main: false
+  error_sub: false

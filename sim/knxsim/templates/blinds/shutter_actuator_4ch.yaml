@@ -1,0 +1,89 @@
+id: shutter_actuator_4ch
+name: Shutter Actuator 4-Channel
+domain: blinds
+description: 4-channel shutter/blind actuator with position control (MDT JAL-0410.02)
+type: shutter_actuator
+manufacturer: MDT
+channels: 4
+group_addresses:
+  ch1_move:
+    dpt: "1.008"
+    direction: write
+    flags: "C-W---"
+    description: Channel 1 Up/Down (0=up, 1=down)
+  ch1_stop:
+    dpt: "1.007"
+    direction: write
+    flags: "C-W---"
+    description: Channel 1 Stop/Step
+  ch1_position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 position 0-100%
+  ch1_position_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch1_slat:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 slat angle
+  ch1_slat_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch2_move:
+    dpt: "1.008"
+    direction: write
+    flags: "C-W---"
+  ch2_stop:
+    dpt: "1.007"
+    direction: write
+    flags: "C-W---"
+  ch2_position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_position_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch3_move:
+    dpt: "1.008"
+    direction: write
+    flags: "C-W---"
+  ch3_stop:
+    dpt: "1.007"
+    direction: write
+    flags: "C-W---"
+  ch3_position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_position_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_move:
+    dpt: "1.008"
+    direction: write
+    flags: "C-W---"
+  ch4_stop:
+    dpt: "1.007"
+    direction: write
+    flags: "C-W---"
+  ch4_position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+  ch4_position_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+initial_state:
+  ch1: { position: 0, slat: 0 }
+  ch2: { position: 0 }
+  ch3: { position: 0 }
+  ch4: { position: 0 }

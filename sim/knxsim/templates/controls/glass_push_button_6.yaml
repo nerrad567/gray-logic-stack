@@ -1,0 +1,76 @@
+id: glass_push_button_6
+name: Glass Push Button 6-fold
+domain: controls
+description: 6-fold glass push button with RGB status LEDs and temperature sensor (MDT BE-GT2TW.02)
+type: push_button
+manufacturer: MDT
+channels: 6
+group_addresses:
+  button_1:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+    description: Button 1 press
+  button_1_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+    description: Button 1 LED status input
+  button_2:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+  button_2_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+  button_3:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+  button_3_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+  button_4:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+  button_4_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+  button_5:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+  button_5_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+  button_6:
+    dpt: "1.001"
+    direction: write
+    flags: "C--T--"
+  button_6_led:
+    dpt: "1.001"
+    direction: status
+    flags: "C-W-U-"
+  temperature:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Built-in temperature sensor
+  proximity:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Proximity detection (hand near)
+initial_state:
+  button_1: false
+  button_2: false
+  button_3: false
+  button_4: false
+  button_5: false
+  button_6: false
+  temperature: 21.5

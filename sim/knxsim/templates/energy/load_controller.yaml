@@ -1,0 +1,55 @@
+id: load_controller
+name: Load Shedding Controller
+domain: energy
+description: Power load management controller with priority-based shedding (Schneider MTN6725)
+type: load_controller
+manufacturer: Schneider
+group_addresses:
+  power_limit:
+    dpt: "14.056"
+    direction: write
+    flags: "C-W-U-"
+    description: Maximum power limit (W)
+  current_power:
+    dpt: "14.056"
+    direction: status
+    flags: "C-W-U-"
+    description: Current total power input
+  overload:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Power limit exceeded
+  load_1_enable:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Priority 1 load enabled
+  load_2_enable:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Priority 2 load enabled
+  load_3_enable:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Priority 3 load enabled
+  load_4_enable:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+    description: Priority 4 load (lowest) enabled
+  manual_override:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Disable load shedding
+initial_state:
+  power_limit: 10000
+  current_power: 5500
+  overload: false
+  load_1_enable: true
+  load_2_enable: true
+  load_3_enable: true
+  load_4_enable: true

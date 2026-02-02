@@ -1734,7 +1734,7 @@ select:focus {
 }
 
 .modal-large {
-  max-width: 720px;
+  max-width: 900px;
 }
 
 .modal-small {
@@ -2003,15 +2003,16 @@ select:focus {
 
 .template-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
   gap: var(--spacing-md);
-  max-height: 400px;
+  max-height: 500px;
   overflow-y: auto;
+  padding: var(--spacing-xs);
 }
 
 .template-card {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: var(--spacing-md);
   padding: var(--spacing-md);
   background: var(--bg-tertiary);
@@ -2019,44 +2020,57 @@ select:focus {
   border-radius: 8px;
   cursor: pointer;
   transition: all 0.15s;
+  min-height: 72px;
 }
 
 .template-card:hover {
   border-color: var(--accent-blue);
   background: var(--bg-hover);
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.3);
 }
 
 .template-icon {
   font-size: 24px;
-  width: 40px;
-  height: 40px;
+  width: 44px;
+  height: 44px;
   display: flex;
   align-items: center;
   justify-content: center;
   background: var(--bg-primary);
   border-radius: 8px;
+  flex-shrink: 0;
 }
 
 .template-info {
   flex: 1;
   min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
 }
 
 .template-name {
-  font-size: 13px;
+  font-size: 14px;
   font-weight: 500;
   color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  line-height: 1.3;
 }
 
 .template-desc {
-  font-size: 11px;
-  color: var(--text-muted);
-  white-space: nowrap;
+  font-size: 12px;
+  color: var(--text-secondary);
+  line-height: 1.4;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
   overflow: hidden;
-  text-overflow: ellipsis;
+}
+
+.template-meta {
+  font-size: 10px;
+  color: var(--text-muted);
+  margin-top: 2px;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────

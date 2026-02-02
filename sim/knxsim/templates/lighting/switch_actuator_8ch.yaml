@@ -1,0 +1,81 @@
+id: switch_actuator_8ch
+name: Switch Actuator 8-Channel
+domain: lighting
+description: 8-channel 16A switch actuator for larger installations (MDT AKS-0816.03)
+type: switch_actuator
+manufacturer: MDT
+channels: 8
+group_addresses:
+  ch1_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch1_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch2_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch2_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch3_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch3_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch4_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch4_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch5_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch5_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch6_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch6_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch7_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch7_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  ch8_switch_cmd:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+  ch8_switch_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+initial_state:
+  ch1: false
+  ch2: false
+  ch3: false
+  ch4: false
+  ch5: false
+  ch6: false
+  ch7: false
+  ch8: false

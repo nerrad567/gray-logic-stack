@@ -1,0 +1,45 @@
+id: switch_actuator_12ch
+name: Switch Actuator 12-Channel
+domain: lighting
+description: 12-channel 16A switch actuator for commercial applications (MDT AKS-1216.03)
+type: switch_actuator
+manufacturer: MDT
+channels: 12
+group_addresses:
+  ch1_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch1_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch2_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch2_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch3_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch3_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch4_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch4_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch5_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch5_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch6_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch6_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch7_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch7_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch8_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch8_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch9_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch9_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch10_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch10_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch11_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch11_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+  ch12_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }
+  ch12_status: { dpt: "1.001", direction: status, flags: "CR-T--" }
+initial_state:
+  ch1: false
+  ch2: false
+  ch3: false
+  ch4: false
+  ch5: false
+  ch6: false
+  ch7: false
+  ch8: false
+  ch9: false
+  ch10: false
+  ch11: false
+  ch12: false

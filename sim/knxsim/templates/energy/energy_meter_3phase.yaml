@@ -1,0 +1,92 @@
+id: energy_meter_3phase
+name: Energy Meter 3-Phase
+domain: energy
+description: 3-phase MID energy meter with power/current/voltage monitoring (ABB EQmatic KNX)
+type: energy_meter
+manufacturer: ABB
+group_addresses:
+  total_power:
+    dpt: "14.056"
+    direction: status
+    flags: "CR-T--"
+    description: Total active power (W)
+  total_energy:
+    dpt: "13.010"
+    direction: status
+    flags: "CR-T--"
+    description: Total active energy (Wh)
+  l1_power:
+    dpt: "14.056"
+    direction: status
+    flags: "CR-T--"
+    description: Phase L1 power
+  l1_voltage:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+    description: Phase L1 voltage
+  l1_current:
+    dpt: "9.021"
+    direction: status
+    flags: "CR-T--"
+    description: Phase L1 current
+  l2_power:
+    dpt: "14.056"
+    direction: status
+    flags: "CR-T--"
+    description: Phase L2 power
+  l2_voltage:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+  l2_current:
+    dpt: "9.021"
+    direction: status
+    flags: "CR-T--"
+  l3_power:
+    dpt: "14.056"
+    direction: status
+    flags: "CR-T--"
+    description: Phase L3 power
+  l3_voltage:
+    dpt: "9.020"
+    direction: status
+    flags: "CR-T--"
+  l3_current:
+    dpt: "9.021"
+    direction: status
+    flags: "CR-T--"
+  power_factor:
+    dpt: "9.006"
+    direction: status
+    flags: "CR-T--"
+    description: Power factor
+  frequency:
+    dpt: "9.026"
+    direction: status
+    flags: "CR-T--"
+    description: Grid frequency
+  tariff_counter_1:
+    dpt: "13.010"
+    direction: status
+    flags: "CR-T--"
+    description: Tariff 1 energy counter
+  tariff_counter_2:
+    dpt: "13.010"
+    direction: status
+    flags: "CR-T--"
+    description: Tariff 2 energy counter
+initial_state:
+  total_power: 1850.5
+  total_energy: 125430
+  l1_power: 620.0
+  l1_voltage: 230.5
+  l1_current: 2.7
+  l2_power: 615.0
+  l2_voltage: 231.0
+  l2_current: 2.66
+  l3_power: 615.5
+  l3_voltage: 230.8
+  l3_current: 2.67
+  power_factor: 0.98
+  frequency: 50.02

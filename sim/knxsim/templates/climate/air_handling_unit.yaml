@@ -1,0 +1,78 @@
+id: air_handling_unit
+name: Air Handling Unit (AHU)
+domain: climate
+description: Central AHU controller with supply/extract fans and heat recovery
+type: ahu_controller
+group_addresses:
+  power:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: AHU On/Off
+  power_status:
+    dpt: "1.001"
+    direction: status
+    flags: "CR-T--"
+  mode:
+    dpt: "20.102"
+    direction: write
+    flags: "C-W-U-"
+    description: Operating mode
+  supply_fan_speed:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Supply fan speed 0-100%
+  supply_fan_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  extract_fan_speed:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Extract fan speed 0-100%
+  extract_fan_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+  supply_temp:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Supply air temperature
+  extract_temp:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Extract air temperature
+  outdoor_temp:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Outdoor air temperature
+  heat_recovery:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Heat recovery wheel/exchanger position
+  filter_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Filter dirty alarm
+  frost_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Frost protection alarm
+initial_state:
+  power: false
+  supply_fan_speed: 0
+  extract_fan_speed: 0
+  supply_temp: 21.0
+  extract_temp: 22.0
+  outdoor_temp: 10.0
+  heat_recovery: 0
+  filter_alarm: false
+  frost_alarm: false
