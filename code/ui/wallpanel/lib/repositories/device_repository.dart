@@ -57,6 +57,15 @@ class DeviceRepository {
     );
   }
 
+  /// Set thermostat setpoint temperature.
+  Future<CommandResponse> setSetpoint(String deviceId, double setpoint) async {
+    return _apiClient.setDeviceState(
+      deviceId,
+      command: 'set_setpoint',
+      parameters: {'setpoint': setpoint},
+    );
+  }
+
   /// Send a generic command with parameters.
   Future<CommandResponse> sendCommand(
     String deviceId, {

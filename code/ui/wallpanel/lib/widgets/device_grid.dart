@@ -5,6 +5,7 @@ import 'blind_tile.dart';
 import 'dimmer_tile.dart';
 import 'sensor_tile.dart';
 import 'switch_tile.dart';
+import 'thermostat_tile.dart';
 
 /// Responsive grid that routes each device to the correct tile widget
 /// based on its type and capabilities.
@@ -59,6 +60,9 @@ class DeviceGrid extends StatelessWidget {
     // ValueKey ensures stable positions during state-driven rebuilds.
     if (device.domain == 'sensor') {
       return SensorTile(key: ValueKey(device.id), device: device);
+    }
+    if (device.domain == 'climate' || device.type.contains('thermostat')) {
+      return ThermostatTile(key: ValueKey(device.id), device: device);
     }
     if (device.domain == 'blinds') {
       return BlindTile(key: ValueKey(device.id), device: device);

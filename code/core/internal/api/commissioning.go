@@ -7,9 +7,11 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"strings"
 
 	"github.com/nerrad567/gray-logic-core/internal/commissioning/etsimport"
 	"github.com/nerrad567/gray-logic-core/internal/device"
+	"github.com/nerrad567/gray-logic-core/internal/location"
 )
 
 // handleETSParse parses an uploaded ETS project file (.knxproj, .xml, or .csv)
@@ -112,6 +114,9 @@ type ETSImportRequest struct {
 	// Devices to import, potentially modified by user during preview.
 	Devices []ETSDeviceImport `json:"devices"`
 
+	// Locations from the parse response (for auto-creation).
+	Locations []etsimport.Location `json:"locations,omitempty"`
+
 	// Options for import behaviour.
 	Options ETSImportOptions `json:"options,omitempty"`
 }
@@ -168,6 +173,10 @@ type ETSImportOptions struct {
 
 	// DryRun validates the import without committing changes.
 	DryRun bool `json:"dry_run,omitempty"`
+
+	// CreateLocations auto-creates areas and rooms from ETS hierarchy.
+	// Defaults to true if not specified.
+	CreateLocations *bool `json:"create_locations,omitempty"`
 }
 
 // ETSImportResponse is the response from a successful import.
@@ -183,6 +192,12 @@ type ETSImportResponse struct {
 
 	// Skipped is the count of skipped devices.
 	Skipped int `json:"skipped"`
+
+	// AreasCreated is the count of areas auto-created from ETS hierarchy.
+	AreasCreated int `json:"areas_created,omitempty"`
+
+	// RoomsCreated is the count of rooms auto-created from ETS hierarchy.
+	RoomsCreated int `json:"rooms_created,omitempty"`
 
 	// Errors are per-device errors that occurred during import.
 	Errors []ETSImportError `json:"errors,omitempty"`
@@ -250,12 +265,184 @@ func (s *Server) processETSImport(ctx context.Context, req *ETSImportRequest) ET
 		ImportID: req.ImportID,
 	}
 
+	// Auto-create locations from ETS hierarchy (default: true)
+	createLocations := req.Options.CreateLocations == nil || *req.Options.CreateLocations
+	if createLocations && len(req.Locations) > 0 && s.locationRepo != nil {
+		s.createLocationsFromETS(ctx, req.Locations, &response)
+	}
+
 	for i := range req.Devices {
 		devImport := &req.Devices[i]
 		s.processETSDevice(ctx, devImport, &req.Options, &response)
 	}
 
 	return response
+}
+
+// createLocationsFromETS creates areas and rooms from ETS location hierarchy.
+func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimport.Location, response *ETSImportResponse) {
+	// Get the site ID from config (required for areas)
+	siteID := s.getSiteID()
+
+	// First pass: create areas (buildings, floors)
+	areaIDMap := make(map[string]string) // ETS location ID -> created area ID
+	for _, loc := range locations {
+		if loc.Type == "building" || loc.Type == "floor" || loc.Type == "wing" {
+			// Check if area already exists
+			if loc.SuggestedAreaID != "" {
+				if _, err := s.locationRepo.GetArea(ctx, loc.SuggestedAreaID); err == nil {
+					areaIDMap[loc.ID] = loc.SuggestedAreaID
+					continue // Already exists
+				}
+			}
+
+			areaID := loc.SuggestedAreaID
+			if areaID == "" {
+				areaID = loc.ID
+			}
+
+			area := &location.Area{
+				ID:     areaID,
+				SiteID: siteID,
+				Name:   loc.Name,
+				Slug:   slugify(loc.Name),
+				Type:   loc.Type,
+			}
+
+			if err := s.locationRepo.CreateArea(ctx, area); err != nil {
+				s.logger.Warn("failed to create area from ETS",
+					"area_id", areaID,
+					"name", loc.Name,
+					"error", err,
+				)
+				continue
+			}
+
+			areaIDMap[loc.ID] = areaID
+			response.AreasCreated++
+			s.logger.Info("created area from ETS hierarchy",
+				"area_id", areaID,
+				"name", loc.Name,
+				"type", loc.Type,
+			)
+		}
+	}
+
+	// Second pass: create rooms
+	for _, loc := range locations {
+		if loc.Type == "room" || loc.Type == "space" {
+			// Check if room already exists
+			if loc.SuggestedRoomID != "" {
+				if _, err := s.locationRepo.GetRoom(ctx, loc.SuggestedRoomID); err == nil {
+					continue // Already exists
+				}
+			}
+
+			roomID := loc.SuggestedRoomID
+			if roomID == "" {
+				roomID = loc.ID
+			}
+
+			// Find the parent area ID
+			areaID := ""
+			if loc.ParentID != "" {
+				if mappedAreaID, ok := areaIDMap[loc.ParentID]; ok {
+					areaID = mappedAreaID
+				}
+			}
+			if areaID == "" && loc.SuggestedAreaID != "" {
+				areaID = loc.SuggestedAreaID
+			}
+			if areaID == "" {
+				// No parent area - create a default area
+				areaID = "default"
+				if _, err := s.locationRepo.GetArea(ctx, areaID); err != nil {
+					defaultArea := &location.Area{
+						ID:     areaID,
+						SiteID: siteID,
+						Name:   "Default",
+						Slug:   "default",
+						Type:   "floor",
+					}
+					if err := s.locationRepo.CreateArea(ctx, defaultArea); err == nil {
+						response.AreasCreated++
+					}
+				}
+			}
+
+			room := &location.Room{
+				ID:     roomID,
+				AreaID: areaID,
+				Name:   loc.Name,
+				Slug:   slugify(loc.Name),
+				Type:   inferRoomType(loc.Name),
+			}
+
+			if err := s.locationRepo.CreateRoom(ctx, room); err != nil {
+				s.logger.Warn("failed to create room from ETS",
+					"room_id", roomID,
+					"name", loc.Name,
+					"error", err,
+				)
+				continue
+			}
+
+			response.RoomsCreated++
+			s.logger.Info("created room from ETS hierarchy",
+				"room_id", roomID,
+				"area_id", areaID,
+				"name", loc.Name,
+			)
+		}
+	}
+}
+
+// getSiteID returns the configured site ID.
+func (s *Server) getSiteID() string {
+	// Default site ID if not configured
+	return "site-1"
+}
+
+// inferRoomType guesses the room type from its name.
+func inferRoomType(name string) string {
+	nameLower := strings.ToLower(name)
+	switch {
+	case strings.Contains(nameLower, "bedroom"):
+		return "bedroom"
+	case strings.Contains(nameLower, "bathroom") || strings.Contains(nameLower, "wc") || strings.Contains(nameLower, "toilet"):
+		return "bathroom"
+	case strings.Contains(nameLower, "kitchen"):
+		return "kitchen"
+	case strings.Contains(nameLower, "living") || strings.Contains(nameLower, "lounge"):
+		return "living"
+	case strings.Contains(nameLower, "dining"):
+		return "dining"
+	case strings.Contains(nameLower, "hall") || strings.Contains(nameLower, "corridor"):
+		return "hallway"
+	case strings.Contains(nameLower, "office") || strings.Contains(nameLower, "study"):
+		return "office"
+	case strings.Contains(nameLower, "garage"):
+		return "garage"
+	case strings.Contains(nameLower, "utility") || strings.Contains(nameLower, "laundry"):
+		return "utility"
+	default:
+		return "other"
+	}
+}
+
+// slugify converts a name to a URL-safe slug.
+func slugify(name string) string {
+	// Simple slugification: lowercase, replace spaces with hyphens
+	slug := strings.ToLower(name)
+	slug = strings.ReplaceAll(slug, " ", "-")
+	// Remove non-alphanumeric characters except hyphens
+	var result strings.Builder
+	for _, r := range slug {
+		if (r >= 'a' && r <= 'z') || (r >= '0' && r <= '9') || r == '-' {
+			result.WriteRune(r)
+		}
+	}
+	return result.String()
 }
 
 // processETSDevice handles importing a single device.
@@ -309,6 +496,28 @@ func (s *Server) handleExistingDevice(ctx context.Context, devImport *ETSDeviceI
 		return
 	}
 
+	// Clear room_id if room doesn't exist
+	if devImport.RoomID != "" && s.locationRepo != nil {
+		if _, err := s.locationRepo.GetRoom(ctx, devImport.RoomID); err != nil {
+			s.logger.Warn("clearing invalid room_id for device update",
+				"device_id", devImport.ID,
+				"room_id", devImport.RoomID,
+			)
+			devImport.RoomID = ""
+		}
+	}
+
+	// Clear area_id if area doesn't exist
+	if devImport.AreaID != "" && s.locationRepo != nil {
+		if _, err := s.locationRepo.GetArea(ctx, devImport.AreaID); err != nil {
+			s.logger.Warn("clearing invalid area_id for device update",
+				"device_id", devImport.ID,
+				"area_id", devImport.AreaID,
+			)
+			devImport.AreaID = ""
+		}
+	}
+
 	dev := s.buildDeviceFromImport(*devImport)
 	if err := s.registry.UpdateDevice(ctx, dev); err != nil {
 		response.Errors = append(response.Errors, ETSImportError{
@@ -326,6 +535,30 @@ func (s *Server) createNewDevice(ctx context.Context, devImport *ETSDeviceImport
 	if opts.DryRun {
 		response.Created++
 		return
+	}
+
+	// Clear room_id if room doesn't exist (may not have been in ETS hierarchy)
+	if devImport.RoomID != "" && s.locationRepo != nil {
+		if _, err := s.locationRepo.GetRoom(ctx, devImport.RoomID); err != nil {
+			s.logger.Warn("clearing invalid room_id for device",
+				"device_id", devImport.ID,
+				"room_id", devImport.RoomID,
+				"reason", "room does not exist",
+			)
+			devImport.RoomID = ""
+		}
+	}
+
+	// Clear area_id if area doesn't exist
+	if devImport.AreaID != "" && s.locationRepo != nil {
+		if _, err := s.locationRepo.GetArea(ctx, devImport.AreaID); err != nil {
+			s.logger.Warn("clearing invalid area_id for device",
+				"device_id", devImport.ID,
+				"area_id", devImport.AreaID,
+				"reason", "area does not exist",
+			)
+			devImport.AreaID = ""
+		}
 	}
 
 	dev := s.buildDeviceFromImport(*devImport)

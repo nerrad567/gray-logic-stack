@@ -143,6 +143,25 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
     }
   }
 
+  /// Set thermostat setpoint with pending confirmation pattern.
+  Future<void> setSetpoint(String deviceId, double setpoint) async {
+    final devices = state.valueOrNull;
+    if (devices == null) return;
+
+    final index = devices.indexWhere((d) => d.id == deviceId);
+    if (index == -1) return;
+
+    _pending.markPending(deviceId);
+    _startTimeoutTimer(deviceId);
+
+    try {
+      await _deviceRepo.setSetpoint(deviceId, setpoint);
+    } catch (_) {
+      _cancelTimeoutTimer(deviceId);
+      _pending.clearPending(deviceId);
+    }
+  }
+
   /// Listen to WebSocket events for real-time device state updates.
   void _listenToWebSocket() {
     final wsService = _ref.read(webSocketServiceProvider);
