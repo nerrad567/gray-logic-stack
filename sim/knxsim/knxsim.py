@@ -231,14 +231,22 @@ def main():
             state: The device state dict
             ga: Optional GA that triggered the change (for channel state updates)
         """
-        # Persist device-level state to DB
-        db.update_device_state(device_id, state)
+        # Get device to check if it's multi-channel
+        device = db.get_device(device_id)
+        channels = device.get("channels") if device else None
+        is_multi_channel = channels and len(channels) > 1
         
-        # If GA is provided, try to update channel state for multi-channel devices
-        if ga is not None:
-            db.update_channel_state_by_ga(device_id, ga, state)
+        if is_multi_channel:
+            if ga is not None:
+                # Multi-channel device with specific GA: update ONLY that channel
+                db.update_channel_state_by_ga(device_id, ga, state)
+            # else: Skip update for multi-channel devices without GA
+            # (The channel was already updated via the GA-routed callback)
+        else:
+            # Single-channel device: update device state normally
+            db.update_device_state(device_id, state)
         
-        # Get updated device with channels for broadcast
+        # Re-fetch to get updated channels for broadcast
         device = db.get_device(device_id)
         channels = device.get("channels") if device else None
         

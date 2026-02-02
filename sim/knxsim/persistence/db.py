@@ -1521,10 +1521,14 @@ class Database:
         """
         device = self.get_device(device_id)
         if not device or not device.get("channels"):
+            logger.debug("update_channel_state_by_ga: no device/channels for %s", device_id)
             return
         
         channels = device["channels"]
         ga_str = self._format_ga(ga)
+        
+        logger.debug("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
+                     device_id, ga, ga_str, state_updates)
         
         # Find which channel has this GA
         target_channel = None
@@ -1532,17 +1536,21 @@ class Database:
             for go_name, go_data in channel.get("group_objects", {}).items():
                 if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
                     target_channel = channel
+                    logger.debug("Found target channel: %s (via %s)", channel.get("id"), go_name)
                     break
             if target_channel:
                 break
         
         if not target_channel:
+            logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
             return
         
         # Update the channel's state
         channel_state = target_channel.get("state", {})
         channel_state.update(state_updates)
         target_channel["state"] = channel_state
+        
+        logger.debug("Updated channel %s state to %s", target_channel.get("id"), channel_state)
         
         self.conn.execute(
             "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
