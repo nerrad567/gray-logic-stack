@@ -884,10 +884,31 @@
                 <!-- Current State -->
                 <div class="detail-section">
                   <h4>Current State</h4>
-                  <pre
-                    class="state-display"
-                    x-text="JSON.stringify($store.app.selectedDevice.state || {}, null, 2)"
-                  ></pre>
+                  
+                  <!-- Multi-channel: show per-channel state -->
+                  <template x-if="$store.app.selectedDevice.channels && $store.app.selectedDevice.channels.length > 1">
+                    <div class="channel-states">
+                      <template x-for="channel in $store.app.selectedDevice.channels" :key="channel.id">
+                        <div class="channel-state-row">
+                          <span 
+                            class="channel-state-badge"
+                            :class="{ 'on': channel.state?.on || channel.state?.pressed }"
+                            x-text="channel.id"
+                          ></span>
+                          <span class="channel-state-name" x-text="channel.name"></span>
+                          <code class="channel-state-json" x-text="JSON.stringify(channel.state || {})"></code>
+                        </div>
+                      </template>
+                    </div>
+                  </template>
+                  
+                  <!-- Single-channel: show flat state -->
+                  <template x-if="!$store.app.selectedDevice.channels || $store.app.selectedDevice.channels.length <= 1">
+                    <pre
+                      class="state-display"
+                      x-text="JSON.stringify($store.app.selectedDevice.state || {}, null, 2)"
+                    ></pre>
+                  </template>
                 </div>
 
                 <!-- Controls -->
