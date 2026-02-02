@@ -1075,6 +1075,50 @@ export function initStores() {
       return { indicator: null, value: "-" };
     },
 
+    /**
+     * Check if device is a multi-channel actuator
+     */
+    isMultiChannelActuator(device) {
+      const type = device.type || "";
+      return (
+        type.includes("actuator") &&
+        device.channels &&
+        device.channels.length > 1
+      );
+    },
+
+    /**
+     * Get channel status display for multi-channel actuators
+     * Returns array of {id, on} for each channel
+     */
+    getChannelStatusList(device) {
+      if (!device.channels || device.channels.length <= 1) {
+        return null;
+      }
+      return device.channels.map((ch) => ({
+        id: ch.id,
+        on: ch.state?.on === true,
+        name: ch.name || `Ch ${ch.id}`,
+      }));
+    },
+
+    /**
+     * Get summary text for multi-channel actuator (e.g., "2/6 ON")
+     */
+    getMultiChannelSummary(device) {
+      if (!device.channels || device.channels.length <= 1) {
+        return null;
+      }
+      const onCount = device.channels.filter((ch) => ch.state?.on === true).length;
+      const total = device.channels.length;
+      return {
+        onCount,
+        total,
+        text: onCount > 0 ? `${onCount}/${total}` : "OFF",
+        hasAnyOn: onCount > 0,
+      };
+    },
+
     getRoomStatusSummary(devices, loads = []) {
       let lightsOn = 0;
       let hasPresence = false;

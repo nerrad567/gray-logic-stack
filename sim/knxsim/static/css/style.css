@@ -441,6 +441,43 @@ select:focus {
 }
 
 /* ─────────────────────────────────────────────────────────────
+   Multi-Channel Actuator Indicators
+   ───────────────────────────────────────────────────────────── */
+
+.device-tile.multi-channel {
+  min-height: 60px;
+}
+
+.channel-indicators {
+  display: flex;
+  gap: 3px;
+  flex-wrap: wrap;
+  margin-top: 4px;
+}
+
+.channel-led {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  font-size: 10px;
+  font-weight: 600;
+  border-radius: 3px;
+  background: var(--bg-secondary);
+  color: var(--text-tertiary);
+  border: 1px solid var(--border-primary);
+  transition: all 0.15s ease;
+}
+
+.channel-led.on {
+  background: var(--status-on);
+  color: white;
+  border-color: var(--status-on);
+  box-shadow: 0 0 6px rgba(63, 185, 80, 0.4);
+}
+
+/* ─────────────────────────────────────────────────────────────
    Load Tiles (Physical equipment controlled by actuators)
    ───────────────────────────────────────────────────────────── */
 

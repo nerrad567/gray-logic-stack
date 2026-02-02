@@ -636,7 +636,11 @@
                 <template x-for="device in room.devices" :key="device.id">
                   <div
                     class="device-tile"
-                    :class="{ 'selected': device.id === $store.app.selectedDeviceId, 'dragging': $store.app.draggingDeviceId === device.id }"
+                    :class="{ 
+                      'selected': device.id === $store.app.selectedDeviceId, 
+                      'dragging': $store.app.draggingDeviceId === device.id,
+                      'multi-channel': $store.app.isMultiChannelActuator(device)
+                    }"
                     :draggable="$store.app.engineerMode"
                     @click="$store.app.selectDevice(device.id)"
                     @dragstart="$store.app.engineerMode && $store.app.startDragDevice($event, device.id)"
@@ -652,20 +656,38 @@
                         x-text="$store.app.formatDeviceName(device.id)"
                       ></span>
                     </div>
-                    <div class="device-state">
-                      <template
-                        x-if="$store.app.getStateDisplay(device).indicator !== null"
-                      >
+                    
+                    <!-- Multi-channel actuator: show channel indicators -->
+                    <template x-if="$store.app.isMultiChannelActuator(device)">
+                      <div class="channel-indicators">
+                        <template x-for="ch in $store.app.getChannelStatusList(device)" :key="ch.id">
+                          <span 
+                            class="channel-led"
+                            :class="{ 'on': ch.on }"
+                            :title="ch.name + ': ' + (ch.on ? 'ON' : 'OFF')"
+                            x-text="ch.id"
+                          ></span>
+                        </template>
+                      </div>
+                    </template>
+                    
+                    <!-- Single channel / other devices: show simple state -->
+                    <template x-if="!$store.app.isMultiChannelActuator(device)">
+                      <div class="device-state">
+                        <template
+                          x-if="$store.app.getStateDisplay(device).indicator !== null"
+                        >
+                          <span
+                            class="state-indicator"
+                            :class="{ 'on': $store.app.getStateDisplay(device).indicator }"
+                          ></span>
+                        </template>
                         <span
-                          class="state-indicator"
-                          :class="{ 'on': $store.app.getStateDisplay(device).indicator }"
+                          class="state-value"
+                          x-text="$store.app.getStateDisplay(device).value"
                         ></span>
-                      </template>
-                      <span
-                        class="state-value"
-                        x-text="$store.app.getStateDisplay(device).value"
-                      ></span>
-                    </div>
+                      </div>
+                    </template>
                   </div>
                 </template>
               </div>
