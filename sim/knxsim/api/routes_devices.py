@@ -276,15 +276,22 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
     value = body.value
     telegrams_sent = []
 
-    # Map command to state field
-    field_map = {
-        "switch": "on",
-        "brightness": "brightness",
-        "position": "position",
-        "slat": "tilt",
-        "state": "active",
-    }
-    field = field_map.get(command, command)
+    # Map command to state field (depends on device type)
+    device_type = db_device.get("type", "")
+    is_push_button = "push_button" in device_type or "pushbutton" in device_type
+    
+    if is_push_button and command == "switch":
+        # Push buttons use 'pressed' state, not 'on'
+        field = "pressed"
+    else:
+        field_map = {
+            "switch": "on",
+            "brightness": "brightness",
+            "position": "position",
+            "slat": "tilt",
+            "state": "active",
+        }
+        field = field_map.get(command, command)
 
     # Update channel state in DB
     manager.db.update_channel_state(device_id, channel_id, {field: value})

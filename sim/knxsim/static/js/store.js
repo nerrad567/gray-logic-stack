@@ -469,9 +469,34 @@ export function initStores() {
     async sendChannelCommand(deviceId, channelId, command, value) {
       if (!this.currentPremiseId) return;
       try {
-        // For now, we send to the device and the backend will route to the channel
-        // In future, we could add a channel-specific endpoint
         await API.sendChannelCommand(this.currentPremiseId, deviceId, channelId, command, value);
+        
+        // Update local channel state immediately for responsive UI
+        const device = this.devices.find((d) => d.id === deviceId);
+        if (device && device.channels) {
+          const channel = device.channels.find((c) => c.id === channelId);
+          if (channel) {
+            if (!channel.state) channel.state = {};
+            // Map command to state field
+            const fieldMap = {
+              switch: "on",
+              brightness: "brightness",
+              position: "position",
+              slat: "tilt",
+              state: "active",
+            };
+            // For push buttons, 'switch' command maps to 'pressed' state
+            if (device.type?.includes("push_button") || device.type?.includes("pushbutton")) {
+              if (command === "switch") {
+                channel.state.pressed = value;
+              } else {
+                channel.state[fieldMap[command] || command] = value;
+              }
+            } else {
+              channel.state[fieldMap[command] || command] = value;
+            }
+          }
+        }
       } catch (err) {
         console.error("Channel command failed:", err);
       }
