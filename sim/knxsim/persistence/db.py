@@ -244,11 +244,52 @@ MULTI_CHANNEL_TEMPLATES = {
         ],
         "state_fields": {"on": False},
     },
+    "switch_actuator_6fold": {
+        "channel_count": 6,
+        "group_objects": [
+            {"name": "switch", "dpt": "1.001", "flags": "CWU"},
+            {"name": "switch_status", "dpt": "1.001", "flags": "CRT"},
+        ],
+        "state_fields": {"on": False},
+    },
     "switch_actuator_8fold": {
         "channel_count": 8,
         "group_objects": [
             {"name": "switch", "dpt": "1.001", "flags": "CWU"},
             {"name": "switch_status", "dpt": "1.001", "flags": "CRT"},
+        ],
+        "state_fields": {"on": False},
+    },
+    # Heating actuators (valve control for UFH manifolds)
+    "heating_actuator_2fold": {
+        "channel_count": 2,
+        "group_objects": [
+            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+        ],
+        "state_fields": {"on": False},
+    },
+    "heating_actuator_4fold": {
+        "channel_count": 4,
+        "group_objects": [
+            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+        ],
+        "state_fields": {"on": False},
+    },
+    "heating_actuator_6fold": {
+        "channel_count": 6,
+        "group_objects": [
+            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+        ],
+        "state_fields": {"on": False},
+    },
+    "heating_actuator_8fold": {
+        "channel_count": 8,
+        "group_objects": [
+            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
         ],
         "state_fields": {"on": False},
     },

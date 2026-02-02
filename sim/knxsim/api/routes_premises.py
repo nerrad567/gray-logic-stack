@@ -116,19 +116,18 @@ def reset_to_sample(premise_id: str):
     
     # Device-to-room mapping based on device ID patterns
     # Format: substring in device_id -> room_id
-    # Actuators go to Distribution Board (they're DIN-rail mounted)
-    DEVICE_ROOM_MAP = {
-        # Room-specific devices (sensors, controls)
-        "living": "living-room",
-        "kitchen": "kitchen",
-        "hallway": "hallway",
-        "bedroom": "bedroom",
-        "bathroom": "bathroom",
-        "dining": "living-room",  # Dining is often part of living area
+    # Order matters: more specific patterns should come first
+    DEVICE_ROOM_MAP = [
         # Centralized equipment (actuators in distribution board)
-        "actuator": "distribution-board",
-        "binary-input": "distribution-board",
-    }
+        ("actuator", "distribution-board"),
+        ("binary-input", "distribution-board"),
+        # Room-specific devices (sensors, controls, switches)
+        ("living", "living-room"),
+        ("kitchen", "kitchen"),
+        ("hallway", "hallway"),
+        ("bedroom", "bedroom"),
+        ("bathroom", "bathroom"),
+    ]
     
     floors_created = 0
     rooms_created = 0
@@ -150,19 +149,12 @@ def reset_to_sample(premise_id: str):
     # ─────────────────────────────────────────────────────────────
     
     def guess_room_for_device(device_id: str, group_addresses: dict) -> str | None:
-        """Guess which room a device belongs to based on its ID or GA names."""
-        # Check device ID
+        """Guess which room a device belongs to based on its ID."""
         device_id_lower = device_id.lower()
-        for pattern, room_id in DEVICE_ROOM_MAP.items():
+        # Check patterns in order (more specific first)
+        for pattern, room_id in DEVICE_ROOM_MAP:
             if pattern in device_id_lower:
                 return room_id
-        
-        # Check GA names (e.g., "channel_a_switch" might have comment "Living Room")
-        ga_str = str(group_addresses).lower()
-        for pattern, room_id in DEVICE_ROOM_MAP.items():
-            if pattern in ga_str:
-                return room_id
-        
         # Default: unassigned
         return None
     

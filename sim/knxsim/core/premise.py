@@ -38,10 +38,16 @@ MULTI_CHANNEL_DEVICE_TYPES = {
     # Switch actuators (2/4/8/12/16/24-fold)
     "switch_actuator_2fold": LightSwitch,
     "switch_actuator_4fold": LightSwitch,
+    "switch_actuator_6fold": LightSwitch,
     "switch_actuator_8fold": LightSwitch,
     "switch_actuator_12fold": LightSwitch,
     "switch_actuator_16fold": LightSwitch,
     "switch_actuator_24fold": LightSwitch,
+    # Heating actuators (valve control for UFH manifolds)
+    "heating_actuator_2fold": LightSwitch,  # Uses on/off like switch
+    "heating_actuator_4fold": LightSwitch,
+    "heating_actuator_6fold": LightSwitch,
+    "heating_actuator_8fold": LightSwitch,
     # Dimmer actuators (1/2/4-fold)
     "dimmer_actuator_1fold": LightDimmer,
     "dimmer_actuator_2fold": LightDimmer,
