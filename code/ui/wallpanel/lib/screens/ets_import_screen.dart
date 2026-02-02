@@ -712,28 +712,55 @@ class _DevicePreviewTile extends ConsumerWidget {
                 ),
                 const SizedBox(height: 12),
 
-                // Room dropdown
-                DropdownButtonFormField<String?>(
-                  initialValue: device.selectedRoomId,
-                  decoration: const InputDecoration(
-                    labelText: 'Room',
-                    border: OutlineInputBorder(),
-                    isDense: true,
-                  ),
-                  items: [
-                    const DropdownMenuItem(
-                      value: null,
-                      child: Text('No room'),
+                // Room dropdown - include suggested room if not in existing rooms
+                Builder(builder: (context) {
+                  // Build room options: existing rooms + suggested room if different
+                  final roomOptions = <DropdownMenuItem<String?>>[];
+                  
+                  // Add "No room" option
+                  roomOptions.add(const DropdownMenuItem(
+                    value: null,
+                    child: Text('No room'),
+                  ));
+                  
+                  // Add existing rooms from the system
+                  final existingIds = <String>{};
+                  for (final room in rooms) {
+                    existingIds.add(room.id);
+                    roomOptions.add(DropdownMenuItem(
+                      value: room.id,
+                      child: Text(room.name),
+                    ));
+                  }
+                  
+                  // Add suggested room if it's not already in the list
+                  if (device.suggestedRoom != null && 
+                      device.suggestedRoom!.isNotEmpty &&
+                      !existingIds.contains(device.suggestedRoom)) {
+                    // Format the suggested room nicely (slug to title case)
+                    final displayName = device.suggestedRoom!
+                        .split('-')
+                        .map((w) => w.isNotEmpty ? '${w[0].toUpperCase()}${w.substring(1)}' : '')
+                        .join(' ');
+                    roomOptions.add(DropdownMenuItem(
+                      value: device.suggestedRoom,
+                      child: Text('$displayName (suggested)'),
+                    ));
+                  }
+                  
+                  return DropdownButtonFormField<String?>(
+                    value: device.selectedRoomId,
+                    decoration: const InputDecoration(
+                      labelText: 'Room',
+                      border: OutlineInputBorder(),
+                      isDense: true,
                     ),
-                    ...rooms.map((room) => DropdownMenuItem(
-                          value: room.id,
-                          child: Text(room.name),
-                        )),
-                  ],
-                  onChanged: (selectedValue) {
-                    ref.read(etsImportProvider.notifier).updateDeviceRoom(index, selectedValue);
-                  },
-                ),
+                    items: roomOptions,
+                    onChanged: (selectedValue) {
+                      ref.read(etsImportProvider.notifier).updateDeviceRoom(index, selectedValue);
+                    },
+                  );
+                }),
                 const SizedBox(height: 16),
 
                 // Address list
