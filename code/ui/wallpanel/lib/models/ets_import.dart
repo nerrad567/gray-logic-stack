@@ -95,16 +95,21 @@ class ETSDetectedDevice {
         editedName = editedName ?? suggestedName;
 
   factory ETSDetectedDevice.fromJson(Map<String, dynamic> json) {
+    final suggestedRoom = json['suggested_room'] as String?;
+    final suggestedArea = json['suggested_area'] as String?;
     return ETSDetectedDevice(
       suggestedId: json['suggested_id'] as String,
       suggestedName: json['suggested_name'] as String,
       detectedType: json['detected_type'] as String,
       confidence: (json['confidence'] as num).toDouble(),
       suggestedDomain: json['suggested_domain'] as String,
-      suggestedRoom: json['suggested_room'] as String?,
-      suggestedArea: json['suggested_area'] as String?,
+      suggestedRoom: suggestedRoom,
+      suggestedArea: suggestedArea,
       sourceLocation: (json['source_location'] as String?) ?? '',
       addresses: _parseAddresses(json['addresses']),
+      // Pre-populate selections from suggestions
+      selectedRoomId: suggestedRoom,
+      selectedAreaId: suggestedArea,
     );
   }
 
