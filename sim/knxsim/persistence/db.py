@@ -428,9 +428,17 @@ def _generate_channels_from_template(device_type: str, group_addresses: dict = N
                         ga = group_addresses[key_pattern]
                         break
             
+            # Handle extended GA format: {"ga": "1/2/3", "dpt": "5.001"}
+            if isinstance(ga, dict):
+                ga_str = ga.get("ga")
+                dpt = ga.get("dpt", go["dpt"])
+            else:
+                ga_str = ga
+                dpt = go["dpt"]
+            
             group_objects[go["name"]] = {
-                "ga": ga,
-                "dpt": go["dpt"],
+                "ga": ga_str,
+                "dpt": dpt,
                 "flags": go["flags"],
             }
         
