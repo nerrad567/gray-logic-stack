@@ -399,4 +399,44 @@ export const API = {
     async getNextSubAddress(premiseId, main, middle) {
         return request(`/premises/${premiseId}/groups/next-sub?main=${main}&middle=${middle}`);
     },
+
+    // ─────────────────────────────────────────────────────────────
+    // Loads (Physical equipment controlled by actuators)
+    // ─────────────────────────────────────────────────────────────
+
+    async getLoads(premiseId) {
+        return request(`/premises/${premiseId}/loads`);
+    },
+
+    async getLoad(premiseId, loadId) {
+        return request(`/premises/${premiseId}/loads/${loadId}`);
+    },
+
+    async getLoadsByRoom(premiseId, roomId) {
+        return request(`/premises/${premiseId}/loads/by-room/${roomId}`);
+    },
+
+    async getOrphanedLoads(premiseId) {
+        return request(`/premises/${premiseId}/loads/orphaned`);
+    },
+
+    async createLoad(premiseId, data) {
+        return request(`/premises/${premiseId}/loads`, {
+            method: 'POST',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async updateLoad(premiseId, loadId, data) {
+        return request(`/premises/${premiseId}/loads/${loadId}`, {
+            method: 'PATCH',
+            body: JSON.stringify(data),
+        });
+    },
+
+    async deleteLoad(premiseId, loadId) {
+        return request(`/premises/${premiseId}/loads/${loadId}`, {
+            method: 'DELETE',
+        });
+    },
 };

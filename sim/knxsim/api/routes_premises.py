@@ -79,6 +79,11 @@ def reset_to_sample(premise_id: str):
     if "devices" not in config:
         raise HTTPException(status_code=500, detail="No devices found in config.yaml")
     
+    # Delete existing loads first (before devices, since loads reference devices)
+    existing_loads = manager.db.list_loads(premise_id)
+    for load in existing_loads:
+        manager.db.delete_load(load["id"])
+    
     # Delete existing devices
     existing_devices = manager.db.list_devices(premise_id)
     for device in existing_devices:
@@ -206,6 +211,45 @@ def reset_to_sample(premise_id: str):
         except Exception:
             pass  # May already exist
     
+    # ─────────────────────────────────────────────────────────────
+    # Create loads (physical equipment controlled by actuators)
+    # ─────────────────────────────────────────────────────────────
+    
+    # Load-to-room mapping based on load ID patterns
+    LOAD_ROOM_MAP = [
+        ("-living", "living-room"),
+        ("-kitchen", "kitchen"),
+        ("-hallway", "hallway"),
+        ("-bedroom", "bedroom"),
+        ("-bathroom", "bathroom"),
+    ]
+    
+    def guess_room_for_load(load_id: str) -> str | None:
+        """Guess which room a load belongs to based on its ID."""
+        load_id_lower = load_id.lower()
+        for pattern, room_id in LOAD_ROOM_MAP:
+            if pattern in load_id_lower:
+                return room_id
+        return None
+    
+    loads_created = 0
+    for load_config in config.get("loads", []):
+        load_data = {
+            "id": load_config["id"],
+            "name": load_config["name"],
+            "type": load_config["type"],
+            "icon": load_config.get("icon"),
+            "actuator_device_id": load_config.get("actuator_device_id"),
+            "actuator_channel_id": load_config.get("actuator_channel_id"),
+            "room_id": guess_room_for_load(load_config["id"]),
+        }
+        
+        try:
+            manager.db.create_load(premise_id, load_data)
+            loads_created += 1
+        except Exception as e:
+            print(f"Warning: Failed to create load {load_config['id']}: {e}")
+    
     # Reload premise to pick up new devices
     if live_premise:
         manager._load_premise_from_db(premise_id)
@@ -219,6 +263,8 @@ def reset_to_sample(premise_id: str):
         "rooms_created": rooms_created,
         "devices_deleted": len(existing_devices),
         "devices_created": devices_created,
+        "loads_deleted": len(existing_loads),
+        "loads_created": loads_created,
         "scenarios_created": scenarios_created,
     }
 
@@ -243,13 +289,18 @@ def mark_setup_complete(premise_id: str):
 def factory_reset(premise_id: str):
     """Factory reset — delete everything and show welcome modal again.
     
-    Clears all devices, floors, rooms, and sets setup_complete=false
+    Clears all loads, devices, floors, rooms, and sets setup_complete=false
     so the user sees the welcome modal to choose their setup.
     """
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
+    
+    # Delete all loads first (they reference devices)
+    existing_loads = manager.db.list_loads(premise_id)
+    for load in existing_loads:
+        manager.db.delete_load(load["id"])
     
     # Delete all devices
     existing_devices = manager.db.list_devices(premise_id)
@@ -276,6 +327,7 @@ def factory_reset(premise_id: str):
     
     return {
         "status": "ok",
+        "loads_deleted": len(existing_loads),
         "devices_deleted": len(existing_devices),
         "floors_deleted": len(existing_floors),
     }

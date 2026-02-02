@@ -122,12 +122,31 @@ CREATE TABLE IF NOT EXISTS middle_groups (
     UNIQUE(main_group_id, group_number)
 );
 
+-- Loads: Physical equipment controlled by actuator channels (lights, motors, valves, etc.)
+-- These are NOT KNX devices - they have no individual address or bus presence.
+-- Their state is derived from the linked actuator channel.
+CREATE TABLE IF NOT EXISTS loads (
+    id TEXT PRIMARY KEY,
+    premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
+    room_id TEXT REFERENCES rooms(id) ON DELETE SET NULL,
+    name TEXT NOT NULL,
+    type TEXT NOT NULL,  -- light, motor, valve, fan, heater, speaker, etc.
+    icon TEXT,           -- optional custom icon/emoji
+    actuator_device_id TEXT REFERENCES devices(id) ON DELETE SET NULL,
+    actuator_channel_id TEXT,  -- channel ID within the actuator (A, B, C, etc.)
+    created_at TEXT NOT NULL,
+    updated_at TEXT NOT NULL
+);
+
 -- Index for topology queries (line_id index created in migration after column exists)
 CREATE INDEX IF NOT EXISTS idx_lines_area ON lines(area_id);
 CREATE INDEX IF NOT EXISTS idx_areas_premise ON areas(premise_id);
 CREATE INDEX IF NOT EXISTS idx_main_groups_premise ON main_groups(premise_id);
 CREATE INDEX IF NOT EXISTS idx_middle_groups_main ON middle_groups(main_group_id);
 CREATE INDEX IF NOT EXISTS idx_middle_groups_floor ON middle_groups(floor_id);
+CREATE INDEX IF NOT EXISTS idx_loads_premise ON loads(premise_id);
+CREATE INDEX IF NOT EXISTS idx_loads_room ON loads(room_id);
+CREATE INDEX IF NOT EXISTS idx_loads_actuator ON loads(actuator_device_id);
 """
 
 # Migrations for existing databases
@@ -495,6 +514,31 @@ class Database:
             self.conn.execute(
                 "ALTER TABLE premises ADD COLUMN setup_complete INTEGER NOT NULL DEFAULT 1"
             )
+            self.conn.commit()
+
+        # Check if loads table exists (physical equipment controlled by actuators)
+        cursor = self.conn.execute(
+            "SELECT name FROM sqlite_master WHERE type='table' AND name='loads'"
+        )
+        if not cursor.fetchone():
+            logger.info("Applying migration: creating loads table")
+            self.conn.executescript("""
+                CREATE TABLE IF NOT EXISTS loads (
+                    id TEXT PRIMARY KEY,
+                    premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
+                    room_id TEXT REFERENCES rooms(id) ON DELETE SET NULL,
+                    name TEXT NOT NULL,
+                    type TEXT NOT NULL,
+                    icon TEXT,
+                    actuator_device_id TEXT REFERENCES devices(id) ON DELETE SET NULL,
+                    actuator_channel_id TEXT,
+                    created_at TEXT NOT NULL,
+                    updated_at TEXT NOT NULL
+                );
+                CREATE INDEX IF NOT EXISTS idx_loads_premise ON loads(premise_id);
+                CREATE INDEX IF NOT EXISTS idx_loads_room ON loads(room_id);
+                CREATE INDEX IF NOT EXISTS idx_loads_actuator ON loads(actuator_device_id);
+            """)
             self.conn.commit()
 
     def close(self):
@@ -1556,6 +1600,145 @@ class Database:
         cur = self.conn.execute("DELETE FROM scenarios WHERE id = ?", (scenario_id,))
         self.conn.commit()
         return cur.rowcount > 0
+
+    # ------------------------------------------------------------------
+    # Loads (Physical equipment controlled by actuator channels)
+    # ------------------------------------------------------------------
+
+    def list_loads(self, premise_id: str) -> list[dict]:
+        """List all loads in a premise with their linked actuator info."""
+        rows = self.conn.execute(
+            """SELECT l.*, 
+                      d.type as actuator_type,
+                      d.individual_address as actuator_address
+               FROM loads l
+               LEFT JOIN devices d ON l.actuator_device_id = d.id
+               WHERE l.premise_id = ?
+               ORDER BY l.name""",
+            (premise_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_loads_by_room(self, room_id: str) -> list[dict]:
+        """List all loads in a specific room."""
+        rows = self.conn.execute(
+            """SELECT l.*, 
+                      d.type as actuator_type,
+                      d.individual_address as actuator_address
+               FROM loads l
+               LEFT JOIN devices d ON l.actuator_device_id = d.id
+               WHERE l.room_id = ?
+               ORDER BY l.name""",
+            (room_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def get_load(self, load_id: str) -> dict | None:
+        """Get a single load by ID with actuator info."""
+        row = self.conn.execute(
+            """SELECT l.*, 
+                      d.type as actuator_type,
+                      d.individual_address as actuator_address
+               FROM loads l
+               LEFT JOIN devices d ON l.actuator_device_id = d.id
+               WHERE l.id = ?""",
+            (load_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def get_load_state(self, load_id: str) -> dict | None:
+        """Get a load's current state by reading its linked actuator channel.
+        
+        Returns the channel's state dict, or None if load or link not found.
+        """
+        load = self.get_load(load_id)
+        if not load or not load.get("actuator_device_id") or not load.get("actuator_channel_id"):
+            return None
+        
+        device = self.get_device(load["actuator_device_id"])
+        if not device or not device.get("channels"):
+            return None
+        
+        for channel in device["channels"]:
+            if channel.get("id") == load["actuator_channel_id"]:
+                return channel.get("state", {})
+        
+        return None
+
+    def create_load(self, premise_id: str, data: dict) -> dict:
+        """Create a new load (physical equipment)."""
+        now = _now()
+        load_id = data.get("id") or f"load-{data['name'].lower().replace(' ', '-')}"
+        
+        self.conn.execute(
+            """INSERT INTO loads (id, premise_id, room_id, name, type, icon,
+                                  actuator_device_id, actuator_channel_id, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+            (
+                load_id,
+                premise_id,
+                data.get("room_id"),
+                data["name"],
+                data["type"],
+                data.get("icon"),
+                data.get("actuator_device_id"),
+                data.get("actuator_channel_id"),
+                now,
+                now,
+            ),
+        )
+        self.conn.commit()
+        return self.get_load(load_id)
+
+    def update_load(self, load_id: str, data: dict) -> dict | None:
+        """Update a load's properties."""
+        sets = []
+        vals = []
+        now = _now()
+        
+        for key in ("room_id", "name", "type", "icon", "actuator_device_id", "actuator_channel_id"):
+            if key in data:
+                sets.append(f"{key} = ?")
+                vals.append(data[key])
+        
+        if not sets:
+            return self.get_load(load_id)
+        
+        sets.append("updated_at = ?")
+        vals.append(now)
+        vals.append(load_id)
+        
+        self.conn.execute(f"UPDATE loads SET {', '.join(sets)} WHERE id = ?", vals)
+        self.conn.commit()
+        return self.get_load(load_id)
+
+    def delete_load(self, load_id: str) -> bool:
+        """Delete a load."""
+        cur = self.conn.execute("DELETE FROM loads WHERE id = ?", (load_id,))
+        self.conn.commit()
+        return cur.rowcount > 0
+
+    def list_orphaned_loads(self, premise_id: str) -> list[dict]:
+        """List loads whose actuator has been deleted or channel no longer exists."""
+        rows = self.conn.execute(
+            """SELECT l.* FROM loads l
+               WHERE l.premise_id = ?
+               AND (l.actuator_device_id IS NULL 
+                    OR l.actuator_device_id NOT IN (SELECT id FROM devices))
+               ORDER BY l.name""",
+            (premise_id,),
+        ).fetchall()
+        return [dict(r) for r in rows]
+
+    def list_loads_by_actuator_channel(self, device_id: str, channel_id: str) -> list[dict]:
+        """List all loads connected to a specific actuator channel."""
+        rows = self.conn.execute(
+            """SELECT * FROM loads
+               WHERE actuator_device_id = ? AND actuator_channel_id = ?
+               ORDER BY name""",
+            (device_id, channel_id),
+        ).fetchall()
+        return [dict(r) for r in rows]
 
 
 def _parse_device_row(row) -> dict:

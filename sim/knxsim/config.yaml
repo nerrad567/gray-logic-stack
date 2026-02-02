@@ -1,8 +1,13 @@
 # KNXSim Default Configuration
 # =============================
 # Realistic sample home demonstrating KNX installation patterns.
-# Each room has: light, wall switch, temperature sensor, presence detector.
+# Each room has: physical load (light), wall switch, temperature sensor, presence detector.
 # Actuators are centralized in Distribution Board (as in real installations).
+#
+# KEY CONCEPT: Devices vs Loads
+# - DEVICES are KNX bus participants (actuators, sensors, buttons) with individual addresses
+# - LOADS are dumb equipment (lights, motors, valves) controlled BY actuator channels
+# Loads have NO individual address - they're just 230V equipment wired to relay outputs.
 #
 # GA Structure: Standard 3-level (Main=Function, Middle=Floor, Sub=Object)
 #   1/x/x = Lighting
@@ -82,16 +87,6 @@ devices:
   # LIVING ROOM DEVICES
   # ============================================
 
-  # Light Fixture - Living Room (230V load connected to actuator Ch A)
-  - id: "light-living"
-    type: "light_switch"
-    individual_address: "1.5.1"
-    group_addresses:
-      switch: "1/0/1"          # Same GA as actuator Ch A
-      switch_status: "1/0/2"
-    initial:
-      on: false
-
   # Push Button - Living Room
   # Button 1 controls living room light (same GA as actuator Ch A)
   - id: "switch-living"
@@ -127,16 +122,6 @@ devices:
   # KITCHEN DEVICES
   # ============================================
 
-  # Light Fixture - Kitchen (230V load connected to actuator Ch B)
-  - id: "light-kitchen"
-    type: "light_switch"
-    individual_address: "1.5.2"
-    group_addresses:
-      switch: "1/0/10"
-      switch_status: "1/0/11"
-    initial:
-      on: false
-
   # Push Button - Kitchen
   - id: "switch-kitchen"
     type: "push_button_2fold"
@@ -170,16 +155,6 @@ devices:
   # ============================================
   # HALLWAY DEVICES
   # ============================================
-
-  # Light Fixture - Hallway (230V load connected to actuator Ch C)
-  - id: "light-hallway"
-    type: "light_switch"
-    individual_address: "1.5.3"
-    group_addresses:
-      switch: "1/0/20"
-      switch_status: "1/0/21"
-    initial:
-      on: false
 
   # Push Button - Hallway
   - id: "switch-hallway"
@@ -215,16 +190,6 @@ devices:
   # BEDROOM DEVICES
   # ============================================
 
-  # Light Fixture - Bedroom (230V load connected to actuator Ch D)
-  - id: "light-bedroom"
-    type: "light_switch"
-    individual_address: "1.5.4"
-    group_addresses:
-      switch: "1/0/30"
-      switch_status: "1/0/31"
-    initial:
-      on: false
-
   # Push Button - Bedroom
   - id: "switch-bedroom"
     type: "push_button_2fold"
@@ -258,16 +223,6 @@ devices:
   # ============================================
   # BATHROOM DEVICES
   # ============================================
-
-  # Light Fixture - Bathroom (230V load connected to actuator Ch E)
-  - id: "light-bathroom"
-    type: "light_switch"
-    individual_address: "1.5.5"
-    group_addresses:
-      switch: "1/0/40"
-      switch_status: "1/0/41"
-    initial:
-      on: false
 
   # Push Button - Bathroom
   - id: "switch-bathroom"
@@ -367,3 +322,82 @@ scenarios:
       occupied_max_seconds: 30
       empty_min_seconds: 60
       empty_max_seconds: 300
+
+# ============================================
+# LOADS (Physical equipment - NOT KNX devices)
+# ============================================
+# Loads are dumb 230V equipment controlled by actuator channels.
+# They have NO individual address - their state comes from the actuator.
+# room_id is set during sample generation based on name pattern.
+loads:
+  # Lights controlled by the 6-fold switch actuator
+  - id: "load-light-living"
+    name: "Living Room Light"
+    type: "light"
+    icon: "💡"
+    actuator_device_id: "light-actuator-6ch"
+    actuator_channel_id: "A"
+
+  - id: "load-light-kitchen"
+    name: "Kitchen Light"
+    type: "light"
+    icon: "💡"
+    actuator_device_id: "light-actuator-6ch"
+    actuator_channel_id: "B"
+
+  - id: "load-light-hallway"
+    name: "Hallway Light"
+    type: "light"
+    icon: "💡"
+    actuator_device_id: "light-actuator-6ch"
+    actuator_channel_id: "C"
+
+  - id: "load-light-bedroom"
+    name: "Bedroom Light"
+    type: "light"
+    icon: "💡"
+    actuator_device_id: "light-actuator-6ch"
+    actuator_channel_id: "D"
+
+  - id: "load-light-bathroom"
+    name: "Bathroom Light"
+    type: "light"
+    icon: "💡"
+    actuator_device_id: "light-actuator-6ch"
+    actuator_channel_id: "E"
+
+  # UFH zone valves controlled by the 6-fold heating actuator
+  - id: "load-ufh-living"
+    name: "Living Room UFH Valve"
+    type: "valve"
+    icon: "🔥"
+    actuator_device_id: "heating-actuator-6ch"
+    actuator_channel_id: "A"
+
+  - id: "load-ufh-kitchen"
+    name: "Kitchen UFH Valve"
+    type: "valve"
+    icon: "🔥"
+    actuator_device_id: "heating-actuator-6ch"
+    actuator_channel_id: "B"
+
+  - id: "load-ufh-hallway"
+    name: "Hallway UFH Valve"
+    type: "valve"
+    icon: "🔥"
+    actuator_device_id: "heating-actuator-6ch"
+    actuator_channel_id: "C"
+
+  - id: "load-ufh-bedroom"
+    name: "Bedroom UFH Valve"
+    type: "valve"
+    icon: "🔥"
+    actuator_device_id: "heating-actuator-6ch"
+    actuator_channel_id: "D"
+
+  - id: "load-ufh-bathroom"
+    name: "Bathroom UFH Valve"
+    type: "valve"
+    icon: "🔥"
+    actuator_device_id: "heating-actuator-6ch"
+    actuator_channel_id: "E"

@@ -64,6 +64,7 @@ export function initStores() {
     floors: [],
     currentFloorId: null,
     devices: [],
+    loads: [],  // Physical equipment controlled by actuators (lights, motors, valves)
     templates: [],
     templateDomains: [],
 
@@ -121,8 +122,10 @@ export function initStores() {
 
     get roomsWithDevices() {
       const devices = this.filteredDevices;
+      const loads = this.filteredLoads;
       const roomMap = new Map();
-      const unassigned = [];
+      const unassignedDevices = [];
+      const unassignedLoads = [];
 
       // First, add ALL rooms from the current floor (even empty ones)
       if (this.currentFloor && this.currentFloor.rooms) {
@@ -132,11 +135,12 @@ export function initStores() {
             name: room.name,
             room_type: room.room_type || "other",
             devices: [],
+            loads: [],
           });
         }
       }
 
-      // Then assign devices to their rooms
+      // Assign devices to their rooms
       devices.forEach((device) => {
         if (device.room_id) {
           if (roomMap.has(device.room_id)) {
@@ -148,26 +152,63 @@ export function initStores() {
               name: device.room_id,
               room_type: "other",
               devices: [device],
+              loads: [],
             });
           }
         } else {
-          unassigned.push(device);
+          unassignedDevices.push(device);
+        }
+      });
+
+      // Assign loads to their rooms
+      loads.forEach((load) => {
+        if (load.room_id) {
+          if (roomMap.has(load.room_id)) {
+            roomMap.get(load.room_id).loads.push(load);
+          } else {
+            // Load assigned to room not on this floor - still show it
+            if (!roomMap.has(load.room_id)) {
+              roomMap.set(load.room_id, {
+                id: load.room_id,
+                name: load.room_id,
+                room_type: "other",
+                devices: [],
+                loads: [load],
+              });
+            } else {
+              roomMap.get(load.room_id).loads.push(load);
+            }
+          }
+        } else {
+          unassignedLoads.push(load);
         }
       });
 
       const rooms = Array.from(roomMap.values());
 
-      // Add unassigned devices as pseudo-room
-      if (unassigned.length > 0) {
+      // Add unassigned items as pseudo-room
+      if (unassignedDevices.length > 0 || unassignedLoads.length > 0) {
         rooms.push({
           id: "_unassigned",
           name: "Unassigned",
           room_type: "other",
-          devices: unassigned,
+          devices: unassignedDevices,
+          loads: unassignedLoads,
         });
       }
 
       return rooms;
+    },
+
+    get filteredLoads() {
+      if (!this.currentFloor || !this.currentFloor.rooms) {
+        return this.loads;
+      }
+      const roomIds = this.currentFloor.rooms.map((r) => r.id);
+      // Include loads assigned to rooms on this floor OR unassigned loads
+      return this.loads.filter(
+        (l) => !l.room_id || roomIds.includes(l.room_id),
+      );
     },
 
     // ─────────────────────────────────────────────────────────
@@ -190,13 +231,15 @@ export function initStores() {
       this.currentPremiseId = premiseId;
 
       try {
-        const [floors, devices] = await Promise.all([
+        const [floors, devices, loads] = await Promise.all([
           API.getFloors(premiseId),
           API.getDevices(premiseId),
+          API.getLoads(premiseId),
         ]);
 
         this.floors = floors;
         this.devices = devices;
+        this.loads = loads;
 
         // Select first floor or clear
         if (this.floors.length > 0) {
@@ -575,6 +618,103 @@ export function initStores() {
     },
 
     // ─────────────────────────────────────────────────────────
+    // Load Helpers (Physical equipment controlled by actuators)
+    // ─────────────────────────────────────────────────────────
+
+    /**
+     * Get a load's state by reading from its linked actuator channel
+     */
+    getLoadState(load) {
+      if (!load.actuator_device_id || !load.actuator_channel_id) {
+        return null;
+      }
+      
+      const device = this.devices.find(d => d.id === load.actuator_device_id);
+      if (!device || !device.channels) {
+        return null;
+      }
+      
+      const channel = device.channels.find(c => c.id === load.actuator_channel_id);
+      return channel ? channel.state : null;
+    },
+
+    /**
+     * Check if a load is "on" (based on its actuator channel state)
+     */
+    isLoadOn(load) {
+      const state = this.getLoadState(load);
+      if (!state) return false;
+      return state.on === true;
+    },
+
+    /**
+     * Get load icon (uses load.icon if set, otherwise defaults by type)
+     */
+    getLoadIcon(load) {
+      if (load.icon) return load.icon;
+      const typeIcons = {
+        light: "💡",
+        valve: "🔥",
+        motor: "⚙️",
+        fan: "🌀",
+        heater: "🔥",
+        speaker: "🔊",
+        pump: "💧",
+      };
+      return typeIcons[load.type] || "🔌";
+    },
+
+    /**
+     * Get display info for a load's actuator link
+     */
+    getLoadActuatorInfo(load) {
+      if (!load.actuator_device_id) {
+        return { linked: false, text: "Not linked" };
+      }
+      
+      const device = this.devices.find(d => d.id === load.actuator_device_id);
+      if (!device) {
+        return { linked: false, text: "⚠️ Actuator missing" };
+      }
+      
+      return {
+        linked: true,
+        text: `${device.id} Ch ${load.actuator_channel_id}`,
+        device: device,
+        channelId: load.actuator_channel_id,
+      };
+    },
+
+    /**
+     * Control a load by sending command to its actuator channel
+     */
+    async controlLoad(loadId, command, value) {
+      const load = this.loads.find(l => l.id === loadId);
+      if (!load || !load.actuator_device_id || !load.actuator_channel_id) {
+        console.error("Load not linked to actuator:", loadId);
+        return;
+      }
+      
+      await this.sendChannelCommand(
+        load.actuator_device_id,
+        load.actuator_channel_id,
+        command,
+        value
+      );
+    },
+
+    /**
+     * Toggle a load on/off
+     */
+    async toggleLoad(loadId) {
+      const load = this.loads.find(l => l.id === loadId);
+      if (!load) return;
+      
+      const isOn = this.isLoadOn(load);
+      await this.controlLoad(loadId, "switch", !isOn);
+    },
+
+    // ─────────────────────────────────────────────────────────
     // Actions — Floor CRUD
     // ─────────────────────────────────────────────────────────
 
@@ -935,11 +1075,19 @@ export function initStores() {
       return { indicator: null, value: "-" };
     },
 
-    getRoomStatusSummary(devices) {
+    getRoomStatusSummary(devices, loads = []) {
       let lightsOn = 0;
       let hasPresence = false;
       let temp = null;
 
+      // Count lights from loads (physical fixtures)
+      loads.forEach((load) => {
+        if (load.type === "light" && this.isLoadOn(load)) {
+          lightsOn++;
+        }
+      });
+
+      // Also check device states (for legacy light_switch devices or presence/temp)
       devices.forEach((d) => {
         const state = d.state || {};
         if (d.type.startsWith("light_") && state.on) lightsOn++;

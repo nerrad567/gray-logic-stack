@@ -575,7 +575,7 @@
                 <div class="room-header-right">
                   <span
                     class="room-status"
-                    x-text="$store.app.getRoomStatusSummary(room.devices)"
+                    x-text="$store.app.getRoomStatusSummary(room.devices, room.loads || [])"
                   ></span>
                   <!-- Room edit/delete (Engineer Mode, not for unassigned) -->
                   <template
@@ -601,7 +601,38 @@
                 </div>
               </div>
               <div class="room-devices">
-                <!-- Device tiles -->
+                <!-- Load tiles (physical equipment: lights, valves, motors) -->
+                <template x-for="load in room.loads || []" :key="load.id">
+                  <div
+                    class="device-tile load-tile"
+                    :class="{ 'load-on': $store.app.isLoadOn(load), 'load-orphan': !$store.app.getLoadActuatorInfo(load).linked }"
+                    @click="$store.app.toggleLoad(load.id)"
+                    :title="$store.app.getLoadActuatorInfo(load).text"
+                  >
+                    <div class="device-info">
+                      <span
+                        class="device-icon"
+                        x-text="$store.app.getLoadIcon(load)"
+                      ></span>
+                      <span class="device-name" x-text="load.name"></span>
+                    </div>
+                    <div class="device-state">
+                      <span
+                        class="state-indicator"
+                        :class="{ 'on': $store.app.isLoadOn(load) }"
+                      ></span>
+                      <span
+                        class="state-value"
+                        x-text="$store.app.isLoadOn(load) ? 'ON' : 'OFF'"
+                      ></span>
+                    </div>
+                    <div class="load-link-indicator" x-show="$store.app.engineerMode">
+                      <small x-text="'→ ' + $store.app.getLoadActuatorInfo(load).text"></small>
+                    </div>
+                  </div>
+                </template>
+
+                <!-- Device tiles (KNX bus devices) -->
                 <template x-for="device in room.devices" :key="device.id">
                   <div
                     class="device-tile"
@@ -1271,6 +1302,10 @@
         <div class="stat">
           <span class="stat-label">Devices:</span>
           <span class="stat-value" x-text="$store.app.devices.length"></span>
+        </div>
+        <div class="stat">
+          <span class="stat-label">Loads:</span>
+          <span class="stat-value" x-text="$store.app.loads.length"></span>
         </div>
         <div class="stat">
           <span class="stat-label">Telegrams/s:</span>

@@ -15,6 +15,7 @@ from .routes_devices import router as devices_router
 from .routes_export import router as export_router
 from .routes_floors import router as floors_router
 from .routes_groups import router as groups_router
+from .routes_loads import router as loads_router
 from .routes_premises import router as premises_router
 from .routes_reference import router as reference_router
 from .routes_telegrams import router as telegrams_router
@@ -59,6 +60,7 @@ def create_app(
     app.include_router(devices_router)
     app.include_router(floors_router)
     app.include_router(groups_router)
+    app.include_router(loads_router)
     app.include_router(telegrams_router)
     app.include_router(templates_router)
     app.include_router(export_router)
@@ -71,6 +73,7 @@ def create_app(
     devices_router.app = app
     floors_router.app = app
     groups_router.app = app
+    loads_router.app = app
     telegrams_router.app = app
     templates_router.app = app
     export_router.app = app
@@ -103,5 +106,5 @@ def create_app(
         app.mount("/ui", StaticFiles(directory=static_dir, html=True), name="ui")
         logger.info("Static UI mounted at /ui from %s", static_dir)
 
-    logger.info("FastAPI app created with %d routers", 10)
+    logger.info("FastAPI app created with %d routers", 11)
     return app
