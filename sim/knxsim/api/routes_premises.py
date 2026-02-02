@@ -87,7 +87,7 @@ def reset_to_sample(premise_id: str):
     # Delete existing floors (cascades to rooms)
     existing_floors = manager.db.list_floors(premise_id)
     for floor in existing_floors:
-        manager.db.delete_floor(premise_id, floor["id"])
+        manager.db.delete_floor(floor["id"])
     
     # ─────────────────────────────────────────────────────────────
     # Create sample topology
@@ -259,7 +259,7 @@ def clear_all(premise_id: str):
     # Delete all floors (cascades to rooms)
     existing_floors = manager.db.list_floors(premise_id)
     for floor in existing_floors:
-        manager.db.delete_floor(premise_id, floor["id"])
+        manager.db.delete_floor(floor["id"])
     
     # Reload premise
     live_premise = manager.premises.get(premise_id)
