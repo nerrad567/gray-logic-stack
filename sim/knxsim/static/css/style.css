@@ -289,7 +289,6 @@ select:focus {
   display: flex;
   overflow: hidden;
   min-height: 0; /* Allow flex shrinking for proper overflow */
-  position: relative;
 }
 
 /* Room Grid */
@@ -723,17 +722,15 @@ select:focus {
 
 /* Device Panel (Engineer Mode) */
 .device-panel {
-  position: absolute;
-  top: 0;
-  right: 0;
-  bottom: 0;
   width: var(--panel-width);
   max-width: 400px;
   background: var(--bg-secondary);
   border-left: 1px solid var(--border-primary);
   display: flex;
   flex-direction: column;
-  z-index: 100;
+  flex-shrink: 0;
+  overflow-y: auto;
+  max-height: 100%;
 }
 
 .device-panel.hidden {
@@ -756,9 +753,10 @@ select:focus {
 }
 
 .panel-content {
-  flex: 1;
+  flex: 1 1 0;
   overflow-y: auto;
   padding: var(--spacing-md);
+  min-height: 0;
 }
 
 .detail-section {
