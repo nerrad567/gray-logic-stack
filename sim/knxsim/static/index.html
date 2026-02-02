@@ -801,6 +801,91 @@
                 <div class="detail-section">
                   <h4>Controls</h4>
                   <div class="controls" x-data="deviceControls()">
+                    
+                    <!-- Multi-channel controls (when device has multiple channels) -->
+                    <template x-if="$store.app.selectedDevice.channels && $store.app.selectedDevice.channels.length > 1">
+                      <div class="channel-controls">
+                        <template x-for="(channel, idx) in $store.app.selectedDevice.channels" :key="channel.id">
+                          <div class="channel-control-card">
+                            <div class="channel-control-header">
+                              <span class="channel-badge" x-text="'[' + channel.id + ']'"></span>
+                              <span class="channel-ctrl-name" x-text="channel.name"></span>
+                            </div>
+                            <div class="channel-control-body">
+                              <!-- On/Off toggle if channel has 'on' state -->
+                              <template x-if="'on' in (channel.state || {})">
+                                <div class="control-row">
+                                  <span class="control-label">Power</span>
+                                  <button
+                                    class="toggle-btn"
+                                    :class="{ 'on': channel.state?.on }"
+                                    @click="$store.app.sendChannelCommand($store.app.selectedDeviceId, channel.id, 'switch', !channel.state?.on)"
+                                  >
+                                    <span x-text="channel.state?.on ? 'ON' : 'OFF'"></span>
+                                  </button>
+                                </div>
+                              </template>
+                              <!-- Brightness slider if channel has 'brightness' state -->
+                              <template x-if="'brightness' in (channel.state || {})">
+                                <div class="control-row">
+                                  <span class="control-label">Brightness</span>
+                                  <div class="slider-control">
+                                    <input type="range" class="slider" min="0" max="100"
+                                      :value="channel.state?.brightness ?? 0"
+                                      @change="$store.app.sendChannelCommand($store.app.selectedDeviceId, channel.id, 'brightness', parseInt($event.target.value))"
+                                    />
+                                    <span class="slider-value" x-text="(channel.state?.brightness ?? 0) + '%'"></span>
+                                  </div>
+                                </div>
+                              </template>
+                              <!-- Position slider if channel has 'position' state -->
+                              <template x-if="'position' in (channel.state || {})">
+                                <div class="control-row">
+                                  <span class="control-label">Position</span>
+                                  <div class="slider-control">
+                                    <input type="range" class="slider" min="0" max="100"
+                                      :value="channel.state?.position ?? 0"
+                                      @change="$store.app.sendChannelCommand($store.app.selectedDeviceId, channel.id, 'position', parseInt($event.target.value))"
+                                    />
+                                    <span class="slider-value" x-text="(channel.state?.position ?? 0) + '%'"></span>
+                                  </div>
+                                </div>
+                              </template>
+                              <!-- Button toggle if channel has 'pressed' state -->
+                              <template x-if="'pressed' in (channel.state || {})">
+                                <div class="control-row">
+                                  <span class="control-label">Button</span>
+                                  <button
+                                    class="toggle-btn push-btn-ctrl"
+                                    :class="{ 'on': channel.state?.pressed }"
+                                    @click="$store.app.sendChannelCommand($store.app.selectedDeviceId, channel.id, 'switch', !channel.state?.pressed)"
+                                  >
+                                    <span x-text="channel.state?.pressed ? 'PRESSED' : 'IDLE'"></span>
+                                  </button>
+                                </div>
+                              </template>
+                              <!-- Binary input state if channel has 'active' state -->
+                              <template x-if="'active' in (channel.state || {})">
+                                <div class="control-row">
+                                  <span class="control-label">Input</span>
+                                  <button
+                                    class="toggle-btn"
+                                    :class="{ 'on': channel.state?.active }"
+                                    @click="$store.app.sendChannelCommand($store.app.selectedDeviceId, channel.id, 'state', !channel.state?.active)"
+                                  >
+                                    <span x-text="channel.state?.active ? 'ACTIVE' : 'INACTIVE'"></span>
+                                  </button>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+
+                    <!-- Single-channel / legacy controls (based on device type) -->
+                    <template x-if="!$store.app.selectedDevice.channels || $store.app.selectedDevice.channels.length <= 1">
+                      <div>
                     <!-- Light controls -->
                     <template
                       x-if="$store.app.selectedDevice.type.startsWith('light_')"
@@ -981,6 +1066,10 @@
                         </p>
                       </div>
                     </template>
+                      </div>
+                    </template>
+                    <!-- End single-channel controls -->
+
                   </div>
                 </div>
 

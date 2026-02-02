@@ -244,3 +244,104 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
         "value": value,
         "telegrams_sent": telegrams_sent,
     }
+
+
+@router.post("/{device_id}/channels/{channel_id}/command", status_code=200)
+def send_channel_command(premise_id: str, device_id: str, channel_id: str, body: DeviceCommand):
+    """Send a command to a specific channel of a multi-channel device.
+    
+    Similar to send_command but targets a specific channel's group objects.
+    The channel_id should match a channel's 'id' field (e.g., "A", "B").
+    """
+    manager = router.app.state.manager
+    premise = manager.premises.get(premise_id)
+    if not premise:
+        raise HTTPException(status_code=404, detail="Premise not found or not running")
+
+    device = premise.devices.get(device_id)
+    if not device:
+        raise HTTPException(status_code=404, detail="Device not found")
+
+    # Get the device from DB to access channels
+    db_device = manager.get_device(device_id)
+    if not db_device:
+        raise HTTPException(status_code=404, detail="Device not found in database")
+
+    channels = db_device.get("channels", [])
+    channel = next((c for c in channels if c.get("id") == channel_id), None)
+    if not channel:
+        raise HTTPException(status_code=404, detail=f"Channel {channel_id} not found")
+
+    command = body.command.lower()
+    value = body.value
+    telegrams_sent = []
+
+    # Map command to state field
+    field_map = {
+        "switch": "on",
+        "brightness": "brightness",
+        "position": "position",
+        "slat": "tilt",
+        "state": "active",
+    }
+    field = field_map.get(command, command)
+
+    # Update channel state in DB
+    manager.db.update_channel_state(device_id, channel_id, {field: value})
+
+    # Find the GA for this command in the channel's group_objects
+    group_objects = channel.get("group_objects", {})
+    
+    # Look for matching group object (command or command_status)
+    ga_name = None
+    ga_str = None
+    for go_name, go_data in group_objects.items():
+        if go_name == command or go_name.replace("_status", "") == command:
+            if isinstance(go_data, dict) and go_data.get("ga"):
+                ga_name = go_name
+                ga_str = go_data["ga"]
+                break
+
+    # Send telegram if we found a GA
+    if ga_str and premise.server:
+        from devices.base import encode_dpt1, encode_dpt5, encode_dpt9
+        from knxip import frames, constants as C
+
+        # Parse GA
+        ga = frames.parse_group_address(ga_str)
+
+        # Encode value based on command type
+        if command in ("switch", "state"):
+            payload = encode_dpt1(bool(value))
+        elif command in ("brightness", "position", "slat"):
+            payload = encode_dpt5(int(value))
+        else:
+            payload = None
+
+        if payload is not None:
+            # Build and send telegram
+            cemi = frames.encode_cemi(
+                msg_code=0x29,  # L_Data.ind
+                src=device.individual_address,
+                dst=ga,
+                apci=C.APCI_GROUP_WRITE,
+                payload=payload,
+            )
+            premise._send_telegram_with_hook(cemi)
+            telegrams_sent.append(ga_name)
+
+    # Update runtime device state as well (for consistency)
+    device.state[field] = value
+
+    # Trigger state change callback
+    if premise._on_state_change:
+        premise._on_state_change(premise_id, device_id, dict(device.state))
+
+    return {
+        "status": "ok",
+        "device_id": device_id,
+        "channel_id": channel_id,
+        "command": command,
+        "value": value,
+        "telegrams_sent": telegrams_sent,
+    }

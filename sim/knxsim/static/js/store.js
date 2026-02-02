@@ -464,6 +464,20 @@ export function initStores() {
     },
 
     /**
+     * Send command to a specific channel of a multi-channel device
+     */
+    async sendChannelCommand(deviceId, channelId, command, value) {
+      if (!this.currentPremiseId) return;
+      try {
+        // For now, we send to the device and the backend will route to the channel
+        // In future, we could add a channel-specific endpoint
+        await API.sendChannelCommand(this.currentPremiseId, deviceId, channelId, command, value);
+      } catch (err) {
+        console.error("Channel command failed:", err);
+      }
+    },
+
+    /**
      * Toggle a device on/off (inverts current state)
      */
     async toggleDevice(deviceId, command, currentState) {

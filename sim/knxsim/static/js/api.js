@@ -111,6 +111,16 @@ export const API = {
         });
     },
 
+    /**
+     * Send a command to a specific channel of a device.
+     */
+    async sendChannelCommand(premiseId, deviceId, channelId, command, value) {
+        return request(`/premises/${premiseId}/devices/${deviceId}/channels/${channelId}/command`, {
+            method: 'POST',
+            body: JSON.stringify({ command, value }),
+        });
+    },
+
     // ─────────────────────────────────────────────────────────────
     // Floors & Rooms
     // ─────────────────────────────────────────────────────────────

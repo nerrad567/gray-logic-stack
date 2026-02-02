@@ -901,6 +901,69 @@ select:focus {
   border-radius: 3px;
 }
 
+/* Channel Controls (for multi-channel devices) */
+.channel-controls {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.channel-control-card {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  overflow: hidden;
+}
+
+.channel-control-header {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-xs) var(--spacing-sm);
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-secondary);
+}
+
+.channel-badge {
+  font-family: var(--font-mono);
+  font-size: 10px;
+  font-weight: 600;
+  color: var(--accent-purple);
+  background: var(--bg-tertiary);
+  padding: 1px 4px;
+  border-radius: 2px;
+}
+
+.channel-ctrl-name {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-primary);
+}
+
+.channel-control-body {
+  padding: var(--spacing-sm);
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-xs);
+}
+
+.channel-control-body .control-row {
+  gap: var(--spacing-sm);
+}
+
+.channel-control-body .control-label {
+  font-size: 11px;
+  min-width: 60px;
+}
+
+.channel-control-body .slider-control {
+  flex: 1;
+}
+
+.channel-control-body .slider {
+  width: 100%;
+}
+
 /* Controls */
 .controls {
   display: flex;
