@@ -205,10 +205,57 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
         "scene": ("scene", None),
         "presence": ("presence", "presence"),
         "lux": ("lux", "lux"),
+        # Temperature commands for sensors/thermostats
+        "temperature": ("temperature", "temperature"),
+        "current_temperature": ("current_temperature", "current_temperature"),
+        "actual_temperature": ("current_temperature", "actual_temperature"),
     }
 
     mapping = field_map.get(command, (command, None))
     field, status_ga_name = mapping
+
+    # For thermostats, route through on_group_write to trigger PID calculation
+    from devices.thermostat import Thermostat
+    if isinstance(device, Thermostat) and command in ("temperature", "current_temperature", "actual_temperature", "setpoint"):
+        # Find the GA for this command
+        ga_name = command if command in device.group_addresses else None
+        # Try aliases
+        if ga_name is None:
+            for alias in ("actual_temperature", "current_temperature", "temperature"):
+                if alias in device.group_addresses:
+                    ga_name = alias
+                    break
+        if ga_name is None and command == "setpoint" and "setpoint" in device.group_addresses:
+            ga_name = "setpoint"
+        
+        if ga_name:
+            ga = device.group_addresses[ga_name]
+            payload = encode_dpt9(float(value))
+            # Route through device's on_group_write to trigger PID
+            responses = device.on_group_write(ga, payload)
+            # Send any response telegrams (e.g., heating_output update)
+            if responses and premise.server:
+                if isinstance(responses, bytes):
+                    responses = [responses]
+                for resp in responses:
+                    premise._send_telegram_with_hook(resp)
+                    # Also dispatch to local devices on the same GA
+                    decoded = frames.decode_cemi(resp)
+                    if decoded:
+                        premise._dispatch_telegram(decoded["dst"], decoded["payload"])
+                        telegrams_sent.append(f"ga_{decoded['dst']}")
+            
+            # Trigger state change callback
+            if premise._on_state_change:
+                premise._on_state_change(premise_id, device_id, dict(device.state))
+            
+            return {
+                "status": "ok",
+                "device_id": device_id,
+                "command": command,
+                "value": value,
+                "telegrams_sent": telegrams_sent,
+            }
 
     # Update device state
     device.state[field] = value
@@ -222,7 +269,7 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
                 payload = encode_dpt1(bool(value))
             elif command in ("brightness", "position", "slat"):
                 payload = encode_dpt5(int(value))
-            elif command in ("lux", "setpoint"):
+            elif command in ("lux", "setpoint", "temperature", "current_temperature", "actual_temperature"):
                 payload = encode_dpt9(float(value))
             else:
                 payload = None

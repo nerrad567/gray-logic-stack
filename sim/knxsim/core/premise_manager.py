@@ -158,6 +158,9 @@ class PremiseManager:
             if dev.get("state") and dev["state"] != dev.get("initial_state", {}):
                 device_obj = premise.devices[dev["id"]]
                 device_obj.state.update(dev["state"])
+                # Recalculate derived values (e.g., thermostat PID output)
+                if hasattr(device_obj, "recalculate_pid"):
+                    device_obj.recalculate_pid()
 
         # Register premise before starting so callbacks can resolve devices
         self.premises[premise_id] = premise

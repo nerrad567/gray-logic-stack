@@ -49,6 +49,7 @@ services:
       - ./sim/knxsim/persistence:/app/persistence  # Dev: Python code
       - ./sim/knxsim/api:/app/api  # Dev: Python API code
       - ./sim/knxsim/core:/app/core  # Dev: Python core code
+      - ./sim/knxsim/devices:/app/devices  # Dev: Python device classes
     networks:
       - graylogic
 

@@ -15,6 +15,8 @@ from devices.light_switch import LightSwitch
 from devices.presence import PresenceSensor
 from devices.sensor import Sensor
 from devices.template_device import TemplateDevice
+from devices.thermostat import Thermostat
+from devices.valve_actuator import ValveActuator
 from knxip import frames
 from knxip.server import KNXIPServer
 from scenarios.periodic import ScenarioRunner
@@ -28,7 +30,8 @@ DEVICE_TYPES = {
     "blind": Blind,
     "sensor": Sensor,
     "presence": PresenceSensor,
-    "thermostat": Sensor,  # Thermostat uses sensor-like behavior
+    "thermostat": Thermostat,  # Smart thermostat with internal PID
+    "valve_actuator": ValveActuator,  # For heating/cooling valves (binary or %)
     "template_device": TemplateDevice,
 }
 
@@ -44,10 +47,11 @@ MULTI_CHANNEL_DEVICE_TYPES = {
     "switch_actuator_16fold": LightSwitch,
     "switch_actuator_24fold": LightSwitch,
     # Heating actuators (valve control for UFH manifolds)
-    "heating_actuator_2fold": LightSwitch,  # Uses on/off like switch
-    "heating_actuator_4fold": LightSwitch,
-    "heating_actuator_6fold": LightSwitch,
-    "heating_actuator_8fold": LightSwitch,
+    # ValveActuator accepts both binary (thermal) and percentage (modulating) input
+    "heating_actuator_2fold": ValveActuator,
+    "heating_actuator_4fold": ValveActuator,
+    "heating_actuator_6fold": ValveActuator,
+    "heating_actuator_8fold": ValveActuator,
     # Dimmer actuators (1/2/4-fold)
     "dimmer_actuator_1fold": LightDimmer,
     "dimmer_actuator_2fold": LightDimmer,
