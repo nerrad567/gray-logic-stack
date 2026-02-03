@@ -214,6 +214,7 @@ const (
 	DeviceTypeTemperatureSensor DeviceType = "temperature_sensor"
 	DeviceTypeHumiditySensor    DeviceType = "humidity_sensor"
 	DeviceTypeHVACUnit          DeviceType = "hvac_unit"
+	DeviceTypeHeatingActuator   DeviceType = "heating_actuator"
 	DeviceTypeValveActuator     DeviceType = "valve_actuator"
 	DeviceTypeFCU               DeviceType = "fcu"
 	DeviceTypeVAVBox            DeviceType = "vav_box"
@@ -306,7 +307,7 @@ func AllDeviceTypes() []DeviceType {
 		DeviceTypeLightRGB, DeviceTypeLightRGBW, DeviceTypeDALIBallast, DeviceTypeDALIGateway,
 		// Climate
 		DeviceTypeThermostat, DeviceTypeTemperatureSensor, DeviceTypeHumiditySensor,
-		DeviceTypeHVACUnit, DeviceTypeValveActuator, DeviceTypeFCU, DeviceTypeVAVBox, DeviceTypeAHU,
+		DeviceTypeHVACUnit, DeviceTypeHeatingActuator, DeviceTypeValveActuator, DeviceTypeFCU, DeviceTypeVAVBox, DeviceTypeAHU,
 		// Blinds
 		DeviceTypeBlindSwitch, DeviceTypeBlindPosition, DeviceTypeBlindTilt,
 		// Sensors

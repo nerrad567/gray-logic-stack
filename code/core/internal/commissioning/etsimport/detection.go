@@ -255,6 +255,48 @@ func DefaultDetectionRules() []DetectionRule {
 			},
 		},
 
+		// Thermostat (must be before heating_actuator — a device with
+		// temperature GAs + valve GA is a thermostat, not a heating actuator)
+		{
+			Name:          "thermostat",
+			Domain:        "climate",
+			MinConfidence: 0.85,
+			RequiredDPTs: []DPTRequirement{
+				{
+					DPT:          "9.001",
+					Function:     "temperature",
+					NameContains: []string{"temp", "actual", "ist"},
+					Flags:        []string{"read", "transmit"},
+				},
+				{
+					DPT:          "9.001",
+					Function:     "setpoint",
+					NameContains: []string{"setpoint", "target", "soll", "set"},
+					Flags:        []string{"write", "read"},
+				},
+			},
+			OptionalDPTs: []DPTRequirement{
+				{
+					DPT:          "5.001",
+					Function:     "heating_output",
+					NameContains: []string{"heating", "valve", "output", "stellgröße"},
+					Flags:        []string{"write"},
+				},
+				{
+					DPT:          "1.001",
+					Function:     "heating",
+					NameContains: []string{"heat", "heiz"},
+					Flags:        []string{"read", "transmit"},
+				},
+				{
+					DPT:          "1.001",
+					Function:     "cooling",
+					NameContains: []string{"cool", "kühl"},
+					Flags:        []string{"read", "transmit"},
+				},
+			},
+		},
+
 		// Heating/valve actuator (must be before blind rules to prevent
 		// valve DPT 5.001 GAs matching blind_tilt via name-fallback path)
 		{
@@ -491,41 +533,6 @@ func DefaultDetectionRules() []DetectionRule {
 					DPT:          "9.004",
 					Function:     "lux",
 					NameContains: []string{"lux", "brightness", "helligkeit", "light level"},
-					Flags:        []string{"read", "transmit"},
-				},
-			},
-		},
-
-		// Thermostat
-		{
-			Name:          "thermostat",
-			Domain:        "climate",
-			MinConfidence: 0.85,
-			RequiredDPTs: []DPTRequirement{
-				{
-					DPT:          "9.001",
-					Function:     "temperature",
-					NameContains: []string{"temp", "actual", "ist"},
-					Flags:        []string{"read", "transmit"},
-				},
-				{
-					DPT:          "9.001",
-					Function:     "setpoint",
-					NameContains: []string{"setpoint", "target", "soll", "set"},
-					Flags:        []string{"write", "read"},
-				},
-			},
-			OptionalDPTs: []DPTRequirement{
-				{
-					DPT:          "1.001",
-					Function:     "heating",
-					NameContains: []string{"heat", "heiz"},
-					Flags:        []string{"read", "transmit"},
-				},
-				{
-					DPT:          "1.001",
-					Function:     "cooling",
-					NameContains: []string{"cool", "kühl"},
 					Flags:        []string{"read", "transmit"},
 				},
 			},
