@@ -241,6 +241,22 @@ func TestParseXML(t *testing.T) {
 	if !found {
 		t.Error("Expected location hierarchy to be extracted")
 	}
+
+	// Check that Location objects were created from hierarchy
+	if len(result.Locations) == 0 {
+		t.Error("Expected locations to be extracted from XML hierarchy")
+	}
+	// "Lighting" is a domain name and should be filtered out;
+	// "Kitchen" should appear as a room
+	hasKitchen := false
+	for _, loc := range result.Locations {
+		if loc.ID == "kitchen" && loc.Type == "room" {
+			hasKitchen = true
+		}
+	}
+	if !hasKitchen {
+		t.Errorf("Expected kitchen room in locations, got %v", result.Locations)
+	}
 }
 
 func TestParseKNXProj(t *testing.T) {
@@ -512,5 +528,179 @@ func TestParseFileTooLarge(t *testing.T) {
 	_, err := parser.ParseBytes(data, "large.knxproj")
 	if !errors.Is(err, ErrFileTooLarge) {
 		t.Errorf("Expected ErrFileTooLarge, got %v", err)
+	}
+}
+
+// ─── extractLocations Tests ────────────────────────────────────────
+
+func TestExtractLocations_DomainFirst(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{
+		UnmappedAddresses: []GroupAddress{
+			{Address: "1/0/0", Name: "Kitchen Light", Location: "Lighting > Kitchen"},
+			{Address: "1/0/1", Name: "Living Room Light", Location: "Lighting > Living Room"},
+			{Address: "2/0/0", Name: "Kitchen Temp", Location: "HVAC > Kitchen"},
+		},
+	}
+
+	parser.extractLocations(result)
+
+	// "Lighting" and "HVAC" are domains — should be filtered out
+	// "Kitchen" and "Living Room" should appear as rooms
+	// "Kitchen" appears under both domains — should be deduplicated
+	rooms := 0
+	for _, loc := range result.Locations {
+		if loc.Type == "room" {
+			rooms++
+		}
+	}
+	if rooms != 2 {
+		t.Errorf("Expected 2 rooms, got %d: %+v", rooms, result.Locations)
+	}
+
+	// Kitchen should be deduplicated
+	kitchenCount := 0
+	for _, loc := range result.Locations {
+		if loc.ID == "kitchen" {
+			kitchenCount++
+		}
+	}
+	if kitchenCount != 1 {
+		t.Errorf("Expected 1 kitchen location, got %d", kitchenCount)
+	}
+}
+
+func TestExtractLocations_LocationFirst(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{
+		UnmappedAddresses: []GroupAddress{
+			{Address: "1/0/0", Name: "Light", Location: "Ground Floor > Living Room"},
+			{Address: "1/0/1", Name: "Light", Location: "Ground Floor > Kitchen"},
+			{Address: "2/0/0", Name: "Light", Location: "First Floor > Bedroom"},
+		},
+	}
+
+	parser.extractLocations(result)
+
+	// "Ground Floor" and "First Floor" are non-leaf = areas (floors)
+	// "Living Room", "Kitchen", "Bedroom" are leaves = rooms
+	areas := 0
+	rooms := 0
+	for _, loc := range result.Locations {
+		switch loc.Type {
+		case "floor":
+			areas++
+		case "room":
+			rooms++
+		}
+	}
+	if areas != 2 {
+		t.Errorf("Expected 2 areas, got %d: %+v", areas, result.Locations)
+	}
+	if rooms != 3 {
+		t.Errorf("Expected 3 rooms, got %d: %+v", rooms, result.Locations)
+	}
+
+	// Areas should come before rooms in sorted output
+	firstRoomIdx := -1
+	lastAreaIdx := -1
+	for i, loc := range result.Locations {
+		if loc.Type == "floor" {
+			lastAreaIdx = i
+		}
+		if loc.Type == "room" && firstRoomIdx == -1 {
+			firstRoomIdx = i
+		}
+	}
+	if lastAreaIdx > firstRoomIdx && firstRoomIdx >= 0 {
+		t.Error("Expected areas to be sorted before rooms")
+	}
+}
+
+func TestExtractLocations_ThreeLevel(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{
+		UnmappedAddresses: []GroupAddress{
+			{Address: "1/0/0", Name: "Light", Location: "Lighting > Ground Floor > Kitchen"},
+			{Address: "1/0/1", Name: "Light", Location: "Lighting > Ground Floor > Living Room"},
+		},
+	}
+
+	parser.extractLocations(result)
+
+	// "Lighting" is a domain — filtered out
+	// "Ground Floor" is an intermediate node — area/floor
+	// "Kitchen" and "Living Room" are leaves — rooms
+	areas := 0
+	rooms := 0
+	for _, loc := range result.Locations {
+		switch loc.Type {
+		case "floor":
+			areas++
+		case "room":
+			rooms++
+		}
+	}
+	if areas != 1 {
+		t.Errorf("Expected 1 area, got %d: %+v", areas, result.Locations)
+	}
+	if rooms != 2 {
+		t.Errorf("Expected 2 rooms, got %d: %+v", rooms, result.Locations)
+	}
+
+	// Check parent-child relationship: rooms should have Ground Floor as parent
+	for _, loc := range result.Locations {
+		if loc.Type == "room" {
+			if loc.ParentID != "ground-floor" {
+				t.Errorf("Room %q has ParentID %q, want %q", loc.ID, loc.ParentID, "ground-floor")
+			}
+			if loc.SuggestedAreaID != "ground-floor" {
+				t.Errorf("Room %q has SuggestedAreaID %q, want %q", loc.ID, loc.SuggestedAreaID, "ground-floor")
+			}
+		}
+	}
+}
+
+func TestExtractLocations_Empty(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{}
+	parser.extractLocations(result)
+	if len(result.Locations) != 0 {
+		t.Errorf("Expected 0 locations for empty input, got %d", len(result.Locations))
+	}
+}
+
+func TestExtractLocations_NoLocationPaths(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{
+		UnmappedAddresses: []GroupAddress{
+			{Address: "1/0/0", Name: "Light"}, // No Location field
+		},
+	}
+	parser.extractLocations(result)
+	if len(result.Locations) != 0 {
+		t.Errorf("Expected 0 locations when no paths, got %d", len(result.Locations))
+	}
+}
+
+func TestExtractLocations_FromDeviceSourceLocation(t *testing.T) {
+	parser := NewParser()
+	result := &ParseResult{
+		Devices: []DetectedDevice{
+			{SuggestedID: "dev-1", SourceLocation: "Lighting > Bathroom"},
+			{SuggestedID: "dev-2", SourceLocation: "Lighting > Hallway"},
+		},
+	}
+
+	parser.extractLocations(result)
+
+	rooms := 0
+	for _, loc := range result.Locations {
+		if loc.Type == "room" {
+			rooms++
+		}
+	}
+	if rooms != 2 {
+		t.Errorf("Expected 2 rooms from device SourceLocation, got %d", rooms)
 	}
 }

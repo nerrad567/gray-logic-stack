@@ -144,6 +144,12 @@ type ETSDeviceImport struct {
 	// AreaID is the area to assign the device to (optional).
 	AreaID string `json:"area_id,omitempty"`
 
+	// SuggestedRoom is the parser-suggested room slug (used for auto-mapping).
+	SuggestedRoom string `json:"suggested_room,omitempty"`
+
+	// SuggestedArea is the parser-suggested area slug (used for auto-mapping).
+	SuggestedArea string `json:"suggested_area,omitempty"`
+
 	// Addresses are the KNX group addresses for this device.
 	Addresses []ETSAddressImport `json:"addresses"`
 }
@@ -271,12 +277,46 @@ func (s *Server) processETSImport(ctx context.Context, req *ETSImportRequest) ET
 		s.createLocationsFromETS(ctx, req.Locations, &response)
 	}
 
+	// Auto-map SuggestedRoom/SuggestedArea to RoomID/AreaID
+	// for devices that don't already have explicit assignments
+	s.autoMapDeviceLocations(ctx, req)
+
 	for i := range req.Devices {
 		devImport := &req.Devices[i]
 		s.processETSDevice(ctx, devImport, &req.Options, &response)
 	}
 
 	return response
+}
+
+// autoMapDeviceLocations maps SuggestedRoom/SuggestedArea to RoomID/AreaID
+// for devices that don't already have explicit room/area assignments.
+// This runs AFTER createLocationsFromETS so the rooms/areas exist in the DB.
+func (s *Server) autoMapDeviceLocations(ctx context.Context, req *ETSImportRequest) {
+	if s.locationRepo == nil {
+		return
+	}
+
+	for i := range req.Devices {
+		dev := &req.Devices[i]
+		if !dev.Import {
+			continue
+		}
+
+		// Auto-map area if not already set
+		if dev.AreaID == "" && dev.SuggestedArea != "" {
+			if _, err := s.locationRepo.GetArea(ctx, dev.SuggestedArea); err == nil {
+				dev.AreaID = dev.SuggestedArea
+			}
+		}
+
+		// Auto-map room if not already set
+		if dev.RoomID == "" && dev.SuggestedRoom != "" {
+			if _, err := s.locationRepo.GetRoom(ctx, dev.SuggestedRoom); err == nil {
+				dev.RoomID = dev.SuggestedRoom
+			}
+		}
+	}
 }
 
 // createLocationsFromETS creates areas and rooms from ETS location hierarchy.

@@ -11,6 +11,7 @@ import (
 	"io"
 	"path/filepath"
 	"regexp"
+	"sort"
 	"strings"
 	"time"
 	"unicode"
@@ -111,6 +112,9 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 
 	// Run device detection
 	p.detectDevices(result)
+
+	// Extract building locations from hierarchy paths
+	p.extractLocations(result)
 
 	// Calculate statistics
 	p.calculateStatistics(result)
@@ -252,9 +256,6 @@ func (p *Parser) parseGroupAddressesXML(data []byte, result *ParseResult) error 
 	if len(result.UnmappedAddresses) == 0 {
 		return ErrNoGroupAddresses
 	}
-
-	// Extract locations from hierarchy
-	p.extractLocations(doc.Ranges, "", result)
 
 	return nil
 }
@@ -445,13 +446,136 @@ func (p *Parser) parseCSV(data []byte, result *ParseResult) error {
 	return nil
 }
 
-// extractLocations is a placeholder for building location hierarchy from ETS group ranges.
-// The actual extraction happens during address parsing where we capture the hierarchy path.
-func (p *Parser) extractLocations(_ any, _ string, _ *ParseResult) {
-	// ETS hierarchy often follows: Domain > Floor > Room pattern
-	// Location extraction is handled inline during address parsing
-	// where we set the Location field from the GroupRange hierarchy.
-	// Future enhancement: build structured Location records here.
+// locationNode is an internal tree node used to build the location hierarchy.
+type locationNode struct {
+	name     string
+	children map[string]*locationNode
+	hasGAs   bool // true if GAs exist directly under this node
+}
+
+// domainNames contains common ETS top-level functional groupings (EN + DE)
+// that represent logical domains, not physical locations. These are skipped
+// when building the location hierarchy.
+var domainNames = map[string]bool{
+	"lighting": true, "beleuchtung": true, "licht": true,
+	"blinds": true, "jalousie": true, "jalousien": true,
+	"shutter": true, "shutters": true, "rolladen": true,
+	"hvac": true, "climate": true, "klima": true,
+	"heating": true, "heizung": true, "cooling": true,
+	"sensors": true, "sensoren": true,
+	"scenes": true, "szenen": true,
+	"security": true, "sicherheit": true,
+	"energy": true, "energie": true,
+	"audio": true, "video": true, "media": true,
+}
+
+// extractLocations builds structured Location objects from the hierarchy paths
+// already captured on each GroupAddress and DetectedDevice during parsing.
+// It deduplicates by slug, filters out domain-level names, and classifies
+// nodes as areas (floors) or rooms based on tree position.
+func (p *Parser) extractLocations(result *ParseResult) {
+	// 1. Collect all unique location paths
+	pathSet := make(map[string]bool)
+	for _, ga := range result.UnmappedAddresses {
+		if ga.Location != "" {
+			pathSet[ga.Location] = true
+		}
+	}
+	for _, dev := range result.Devices {
+		if dev.SourceLocation != "" {
+			pathSet[dev.SourceLocation] = true
+		}
+		for _, addr := range dev.Addresses {
+			if addr.Description != "" {
+				// Description doesn't carry location — skip
+				continue
+			}
+		}
+	}
+
+	if len(pathSet) == 0 {
+		return
+	}
+
+	// 2. Build a tree from path segments
+	root := &locationNode{children: make(map[string]*locationNode)}
+
+	for path := range pathSet {
+		parts := strings.Split(path, " > ")
+		node := root
+		for i, part := range parts {
+			if _, ok := node.children[part]; !ok {
+				node.children[part] = &locationNode{
+					name:     part,
+					children: make(map[string]*locationNode),
+				}
+			}
+			child := node.children[part]
+			// Last segment = has GAs directly under it
+			if i == len(parts)-1 {
+				child.hasGAs = true
+			}
+			node = child
+		}
+	}
+
+	// 3. Walk the tree, classify nodes, skip domain names
+	seen := make(map[string]bool) // dedup by slug
+
+	var walk func(node *locationNode, parentID string, depth int)
+	walk = func(node *locationNode, parentID string, depth int) {
+		for _, child := range node.children {
+			slug := generateSlug(child.name)
+
+			// Skip domain-like names at the top level
+			if depth == 0 && domainNames[strings.ToLower(child.name)] {
+				// Still recurse to find physical location nodes underneath
+				walk(child, parentID, depth+1)
+				continue
+			}
+
+			// Skip if already seen (dedup across domains)
+			if seen[slug] {
+				walk(child, slug, depth+1)
+				continue
+			}
+			seen[slug] = true
+
+			loc := Location{
+				ID:       slug,
+				Name:     child.name,
+				ParentID: parentID,
+			}
+
+			if child.hasGAs && len(child.children) == 0 {
+				// Leaf node with GAs = room
+				loc.Type = "room"
+				loc.SuggestedRoomID = slug
+				if parentID != "" {
+					loc.SuggestedAreaID = parentID
+				}
+			} else {
+				// Non-leaf or intermediate node = area/floor
+				loc.Type = "floor"
+				loc.SuggestedAreaID = slug
+			}
+
+			result.Locations = append(result.Locations, loc)
+			walk(child, slug, depth+1)
+		}
+	}
+
+	walk(root, "", 0)
+
+	// 4. Sort: areas before rooms so createLocationsFromETS can create parents first
+	sort.SliceStable(result.Locations, func(i, j int) bool {
+		iIsArea := result.Locations[i].Type != "room" && result.Locations[i].Type != "space"
+		jIsArea := result.Locations[j].Type != "room" && result.Locations[j].Type != "space"
+		if iIsArea != jIsArea {
+			return iIsArea
+		}
+		return false
+	})
 }
 
 // detectDevices groups addresses into logical devices using detection rules.
