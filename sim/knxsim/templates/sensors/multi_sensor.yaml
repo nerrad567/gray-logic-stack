@@ -3,7 +3,12 @@ name: Multi-Sensor (Temp/Humidity/CO2)
 domain: sensors
 description: Combined room sensor for temperature, humidity, and air quality (Elsner Cala KNX)
 type: multi_sensor
-manufacturer: Elsner
+manufacturer:
+  id: "M-0069"
+  name: "Elsner"
+  product_model: "Cala KNX TH"
+  application_program: "Multi-Sensor Temp/Humidity/CO2"
+  hardware_type: "flush"
 group_addresses:
   temperature:
     dpt: "9.001"

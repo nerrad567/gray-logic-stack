@@ -53,51 +53,51 @@ def delete_premise(premise_id: str):
 @router.post("/{premise_id}/reset-sample")
 def reset_to_sample(premise_id: str):
     """Reset premise to sample installation from config.yaml.
-    
+
     This will:
     1. Delete all existing devices, floors, and rooms
     2. Create sample topology (floors and rooms)
     3. Create sample devices and assign them to appropriate rooms
     4. Mark the premise as setup_complete
-    
+
     Useful for starting fresh or restoring the default learning environment.
     """
     import yaml
-    
+
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
-    
+
     # Load config
     try:
         with open("/app/config.yaml") as f:
             config = yaml.safe_load(f)
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"Failed to load config: {e}")
-    
+
     if "devices" not in config:
         raise HTTPException(status_code=500, detail="No devices found in config.yaml")
-    
+
     # Delete existing loads first (before devices, since loads reference devices)
     existing_loads = manager.db.list_loads(premise_id)
     for load in existing_loads:
         manager.db.delete_load(load["id"])
-    
+
     # Delete existing devices
     existing_devices = manager.db.list_devices(premise_id)
     for device in existing_devices:
         manager.remove_device(premise_id, device["id"])
-    
+
     # Delete existing floors (cascades to rooms)
     existing_floors = manager.db.list_floors(premise_id)
     for floor in existing_floors:
         manager.db.delete_floor(floor["id"])
-    
+
     # ─────────────────────────────────────────────────────────────
     # Create sample topology
     # ─────────────────────────────────────────────────────────────
-    
+
     SAMPLE_TOPOLOGY = {
         "ground": {
             "name": "Ground Floor",
@@ -118,7 +118,7 @@ def reset_to_sample(premise_id: str):
             ],
         },
     }
-    
+
     # Device-to-room mapping based on device ID patterns
     # Format: substring in device_id -> room_id
     # Order matters: more specific patterns should come first
@@ -134,26 +134,29 @@ def reset_to_sample(premise_id: str):
         ("-bedroom", "bedroom"),
         ("-bathroom", "bathroom"),
     ]
-    
+
     floors_created = 0
     rooms_created = 0
-    
+
     for floor_id, floor_data in SAMPLE_TOPOLOGY.items():
-        manager.db.create_floor(premise_id, {
-            "id": floor_id,
-            "name": floor_data["name"],
-            "sort_order": floor_data["sort_order"],
-        })
+        manager.db.create_floor(
+            premise_id,
+            {
+                "id": floor_id,
+                "name": floor_data["name"],
+                "sort_order": floor_data["sort_order"],
+            },
+        )
         floors_created += 1
-        
+
         for room_data in floor_data["rooms"]:
             manager.db.create_room(floor_id, room_data)
             rooms_created += 1
-    
+
     # ─────────────────────────────────────────────────────────────
     # Create sample devices
     # ─────────────────────────────────────────────────────────────
-    
+
     def guess_room_for_device(device_id: str, group_addresses: dict) -> str | None:
         """Guess which room a device belongs to based on its ID."""
         device_id_lower = device_id.lower()
@@ -163,7 +166,7 @@ def reset_to_sample(premise_id: str):
                 return room_id
         # Default: unassigned
         return None
-    
+
     devices_created = 0
     for dev_config in config.get("devices", []):
         device_data = {
@@ -177,44 +180,60 @@ def reset_to_sample(premise_id: str):
                 dev_config.get("group_addresses", {}),
             ),
         }
-        
+
         # Handle template devices
         if dev_config.get("template"):
             device_data["config"] = {"template": dev_config["template"]}
-        
+
+        # Inject manufacturer metadata from matching template (if available)
+        loader = router.app.state.template_loader
+        template = loader.get_template(dev_config["type"])
+        if template and template.manufacturer_name:
+            config = device_data.get("config") or {}
+            config["template_id"] = template.id
+            config["manufacturer_id"] = template.manufacturer_id
+            config["manufacturer_name"] = template.manufacturer_name
+            config["product_model"] = template.product_model
+            config["application_program"] = template.application_program
+            config["hardware_type"] = template.hardware_type
+            device_data["config"] = config
+
         try:
             manager.add_device(premise_id, device_data)
             devices_created += 1
         except Exception as e:
             print(f"Warning: Failed to create device {dev_config['id']}: {e}")
-    
+
     # ─────────────────────────────────────────────────────────────
     # Reload scenarios
     # ─────────────────────────────────────────────────────────────
-    
+
     scenarios_created = 0
     live_premise = manager.premises.get(premise_id)
     if live_premise and live_premise.scenario_runner:
         live_premise.scenario_runner.stop()
         live_premise.scenario_runner = None
-    
+
     for scenario_config in config.get("scenarios", []):
         try:
-            manager.db.create_scenario(premise_id, {
-                "id": f"scenario-{scenario_config['device_id']}-{scenario_config['field']}",
-                "device_id": scenario_config["device_id"],
-                "field": scenario_config["field"],
-                "type": scenario_config["type"],
-                "params": scenario_config.get("params", {}),
-            })
+            manager.db.create_scenario(
+                premise_id,
+                {
+                    "id": f"scenario-{scenario_config['device_id']}-{scenario_config['field']}",
+                    "device_id": scenario_config["device_id"],
+                    "field": scenario_config["field"],
+                    "type": scenario_config["type"],
+                    "params": scenario_config.get("params", {}),
+                },
+            )
             scenarios_created += 1
         except Exception:
             pass  # May already exist
-    
+
     # ─────────────────────────────────────────────────────────────
     # Create loads (physical equipment controlled by actuators)
     # ─────────────────────────────────────────────────────────────
-    
+
     # Load-to-room mapping based on load ID patterns
     LOAD_ROOM_MAP = [
         ("-living", "living-room"),
@@ -223,7 +242,7 @@ def reset_to_sample(premise_id: str):
         ("-bedroom", "bedroom"),
         ("-bathroom", "bathroom"),
     ]
-    
+
     def guess_room_for_load(load_id: str) -> str | None:
         """Guess which room a load belongs to based on its ID."""
         load_id_lower = load_id.lower()
@@ -231,7 +250,7 @@ def reset_to_sample(premise_id: str):
             if pattern in load_id_lower:
                 return room_id
         return None
-    
+
     loads_created = 0
     for load_config in config.get("loads", []):
         load_data = {
@@ -243,13 +262,13 @@ def reset_to_sample(premise_id: str):
             "actuator_channel_id": load_config.get("actuator_channel_id"),
             "room_id": guess_room_for_load(load_config["id"]),
         }
-        
+
         try:
             manager.db.create_load(premise_id, load_data)
             loads_created += 1
         except Exception as e:
             print(f"Warning: Failed to create load {load_config['id']}: {e}")
-    
+
     # Reload premise to pick up new devices and scenarios
     if live_premise:
         # Stop the old premise first (to free the UDP port)
@@ -258,10 +277,10 @@ def reset_to_sample(premise_id: str):
         del manager.premises[premise_id]
     # Load and start fresh
     manager._load_premise_from_db(premise_id)
-    
+
     # Mark setup as complete
     manager.db.mark_premise_setup_complete(premise_id)
-    
+
     return {
         "status": "ok",
         "floors_created": floors_created,
@@ -277,23 +296,23 @@ def reset_to_sample(premise_id: str):
 @router.post("/{premise_id}/mark-setup-complete")
 def mark_setup_complete(premise_id: str):
     """Mark premise setup as complete (user chose to start empty).
-    
+
     Called when user dismisses the welcome modal without loading samples.
     """
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
-    
+
     manager.db.mark_premise_setup_complete(premise_id)
-    
+
     return {"status": "ok"}
 
 
 @router.post("/{premise_id}/factory-reset")
 def factory_reset(premise_id: str):
     """Factory reset — delete everything and show welcome modal again.
-    
+
     Clears all loads, devices, floors, rooms, and sets setup_complete=false
     so the user sees the welcome modal to choose their setup.
     """
@@ -301,22 +320,22 @@ def factory_reset(premise_id: str):
     premise = manager.get_premise(premise_id)
     if not premise:
         raise HTTPException(status_code=404, detail="Premise not found")
-    
+
     # Delete all loads first (they reference devices)
     existing_loads = manager.db.list_loads(premise_id)
     for load in existing_loads:
         manager.db.delete_load(load["id"])
-    
+
     # Delete all devices
     existing_devices = manager.db.list_devices(premise_id)
     for device in existing_devices:
         manager.remove_device(premise_id, device["id"])
-    
+
     # Delete all floors (cascades to rooms)
     existing_floors = manager.db.list_floors(premise_id)
     for floor in existing_floors:
         manager.db.delete_floor(floor["id"])
-    
+
     # Reset setup_complete to show welcome modal
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     manager.db.conn.execute(
@@ -324,12 +343,12 @@ def factory_reset(premise_id: str):
         (now, premise_id),
     )
     manager.db.conn.commit()
-    
+
     # Reload premise
     live_premise = manager.premises.get(premise_id)
     if live_premise:
         manager._load_premise_from_db(premise_id)
-    
+
     return {
         "status": "ok",
         "loads_deleted": len(existing_loads),

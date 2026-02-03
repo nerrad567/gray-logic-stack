@@ -287,3 +287,4 @@ test-results/
 *.pprof
 cpu.out
 mem.out
+*.knxproj

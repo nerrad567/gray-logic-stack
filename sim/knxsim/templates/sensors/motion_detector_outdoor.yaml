@@ -3,7 +3,12 @@ name: Motion Detector Outdoor
 domain: sensors
 description: Outdoor PIR motion detector IP55 with twilight sensor (Steinel IS3360 KNX)
 type: motion_detector
-manufacturer: Steinel
+manufacturer:
+  id: "M-0078"
+  name: "Steinel"
+  product_model: "IS 3360 MX Highbay KNX"
+  application_program: "Motion Detector Outdoor IP55"
+  hardware_type: "surface"
 group_addresses:
   motion:
     dpt: "1.001"

@@ -3,7 +3,12 @@ name: Presence Detector 360° Ceiling
 domain: sensors
 description: 360° ceiling-mounted presence detector with constant light control (Theben theMova S360 KNX)
 type: presence_detector
-manufacturer: Theben
+manufacturer:
+  id: "M-0064"
+  name: "Theben"
+  product_model: "theMova S360 KNX"
+  application_program: "Presence Detector 360 Ceiling"
+  hardware_type: "flush"
 group_addresses:
   presence:
     dpt: "1.018"

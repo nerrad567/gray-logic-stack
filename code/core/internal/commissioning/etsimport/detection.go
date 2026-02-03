@@ -540,6 +540,92 @@ func DefaultDetectionRules() []DetectionRule {
 	}
 }
 
+// functionTypeToDeviceType maps an ETS Function Type to a GLCore device type.
+// Returns (deviceType, domain, confidence). Returns empty strings if unknown.
+func functionTypeToDeviceType(funcType, comment string) (string, string, float64) {
+	switch funcType {
+	case "SwitchableLight":
+		return "light_switch", "lighting", 0.99
+	case "DimmableLight":
+		return "light_dimmer", "lighting", 0.99
+	case "Sunblind":
+		return "blind_position", "blinds", 0.95
+	case "HeatingRadiator":
+		return "thermostat", "climate", 0.99
+	case "HeatingFloor":
+		return "heating_actuator", "climate", 0.99
+	case "HeatingContinuousVariable":
+		return "heating_actuator", "climate", 0.99
+	case "HeatingSwitchingVariable":
+		return "heating_actuator", "climate", 0.99
+	}
+
+	// Custom → check Comment for KNXSim template ID hint
+	if funcType == "Custom" && comment != "" {
+		return commentToDeviceType(comment)
+	}
+	return "", "", 0
+}
+
+// commentToDeviceType maps KNXSim template IDs (carried in Function Comment
+// attribute) to GLCore device types. This enables Tier 1 classification for
+// device types that have no standard ETS Function Type.
+func commentToDeviceType(comment string) (string, string, float64) {
+	known := map[string][2]string{
+		// Sensors
+		"presence_detector":        {"presence_sensor", "sensor"},
+		"presence_detector_360":    {"presence_sensor", "sensor"},
+		"motion_detector_outdoor":  {"presence_sensor", "sensor"},
+		"temperature_sensor":       {"temperature_sensor", "sensor"},
+		"humidity_sensor":          {"humidity_sensor", "sensor"},
+		"co2_sensor":               {"co2_sensor", "sensor"},
+		"lux_sensor":               {"light_sensor", "sensor"},
+		"multi_sensor":             {"multi_sensor", "sensor"},
+		"brightness_sensor_facade": {"light_sensor", "sensor"},
+		"wind_sensor":              {"wind_sensor", "sensor"},
+		"weather_station":          {"weather_station", "sensor"},
+		// Energy
+		"energy_meter":        {"energy_meter", "energy"},
+		"energy_meter_3phase": {"energy_meter", "energy"},
+		"solar_inverter":      {"solar_inverter", "energy"},
+		"ev_charger":          {"ev_charger", "energy"},
+		"load_controller":     {"load_controller", "energy"},
+		// Controls
+		"scene_controller":        {"scene_controller", "controls"},
+		"push_button_2":           {"push_button", "controls"},
+		"push_button_4":           {"push_button", "controls"},
+		"glass_push_button_6":     {"push_button", "controls"},
+		"glass_push_button_8":     {"push_button", "controls"},
+		"binary_input":            {"binary_input", "controls"},
+		"binary_input_8ch":        {"binary_input", "controls"},
+		"room_controller_display": {"room_controller", "controls"},
+		"logic_module":            {"logic_module", "controls"},
+		// Climate (non-standard types)
+		"fan_coil_controller": {"fan_coil", "climate"},
+		"air_handling_unit":   {"air_handling_unit", "climate"},
+		"hvac_unit":           {"hvac_unit", "climate"},
+		// System
+		"ip_router":    {"ip_router", "system"},
+		"line_coupler": {"line_coupler", "system"},
+		"power_supply": {"power_supply", "system"},
+		"timer_switch": {"timer_switch", "system"},
+		// Lighting actuators (multi-channel)
+		"switch_actuator_4ch":  {"light_switch", "lighting"},
+		"switch_actuator_8ch":  {"light_switch", "lighting"},
+		"switch_actuator_12ch": {"light_switch", "lighting"},
+		"dimmer_actuator_4ch":  {"light_dimmer", "lighting"},
+		"dali_gateway":         {"dali_gateway", "lighting"},
+		// Blind actuators (multi-channel)
+		"shutter_actuator_4ch": {"blind_position", "blinds"},
+		"shutter_actuator_8ch": {"blind_position", "blinds"},
+		"awning_controller":    {"blind_position", "blinds"},
+	}
+	if t, ok := known[comment]; ok {
+		return t[0], t[1], 0.98
+	}
+	return "", "", 0
+}
+
 // Helper functions
 
 func matchesDPT(actual, pattern string) bool {

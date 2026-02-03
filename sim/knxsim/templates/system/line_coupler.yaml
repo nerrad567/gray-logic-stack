@@ -3,7 +3,12 @@ name: Line/Area Coupler
 domain: system
 description: KNX line or area coupler with filtering (MDT SCN-LK001.03)
 type: line_coupler
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-LK001.03"
+  application_program: "Line/Area Coupler"
+  hardware_type: "MDRC"
 group_addresses:
   telegram_count_main:
     dpt: "12.001"

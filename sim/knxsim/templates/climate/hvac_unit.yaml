@@ -2,6 +2,13 @@ id: hvac_unit
 name: HVAC Unit Controller
 domain: climate
 description: Fan coil unit or HVAC controller with fan speed and valve control
+
+manufacturer:
+  id: "M-0050"
+  name: "Siemens"
+  product_model: "RXB39.65/FC-13"
+  application_program: "HVAC Fan Coil Controller"
+  hardware_type: "MDRC"
 group_addresses:
   on_off_cmd:
     dpt: "1.001"

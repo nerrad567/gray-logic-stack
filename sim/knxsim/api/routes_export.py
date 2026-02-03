@@ -248,7 +248,96 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
 
                     ga_id_map[ga_info["address"]] = ga_id
 
-    # === Trades (Functions) - Maps GAs to rooms ===
+    # === Topology (Devices with manufacturer metadata) ===
+    # Collect unique manufacturers and build device instances
+    manufacturers = {}  # {mfr_id: {name, products: {hw_id: {name, app_id, app_name}}}}
+    device_counter = 0
+
+    topology = ET.SubElement(installation, "Topology")
+    area = ET.SubElement(topology, "Area")
+    area.set("Id", _make_id("A"))
+    area.set("Address", "1")
+    area.set("Name", "Backbone")
+    line = ET.SubElement(area, "Line")
+    line.set("Id", _make_id("L"))
+    line.set("Address", "1")
+    line.set("Name", "Main Line")
+
+    for device in devices:
+        config = device.get("config") or {}
+        mfr_id = config.get("manufacturer_id", "")
+        mfr_name = config.get("manufacturer_name", "")
+        product_model = config.get("product_model", "")
+        app_program = config.get("application_program", "")
+        ind_addr = device.get("individual_address", "")
+
+        if not mfr_id:
+            # No manufacturer metadata — skip topology entry
+            continue
+
+        device_counter += 1
+        dev_xml_id = f"D-{device_counter:04d}"
+        hw_id = f"{mfr_id}_H-{device_counter:04d}"
+        app_id = f"{mfr_id}_A-{device_counter:04d}"
+        product_ref_id = f"{hw_id}-HP-0001"
+
+        # Track manufacturer for ManufacturerData section
+        if mfr_id not in manufacturers:
+            manufacturers[mfr_id] = {
+                "name": mfr_name,
+                "products": {},
+            }
+        manufacturers[mfr_id]["products"][hw_id] = {
+            "model": product_model,
+            "product_ref_id": product_ref_id,
+            "app_id": app_id,
+            "app_name": app_program,
+        }
+
+        # DeviceInstance element
+        dev_inst = ET.SubElement(line, "DeviceInstance")
+        dev_inst.set("Id", dev_xml_id)
+        dev_inst.set("Name", config.get("application_program", device.get("id", "")))
+        if ind_addr:
+            dev_inst.set("IndividualAddress", ind_addr)
+        dev_inst.set("ProductRefId", product_ref_id)
+        dev_inst.set("ApplicationProgramRef", app_id)
+
+        # ComObjectInstanceRefs — link device to its group addresses
+        com_refs = ET.SubElement(dev_inst, "ComObjectInstanceRefs")
+        co_counter = 0
+        for ga_name, ga_data in device.get("group_addresses", {}).items():
+            ga_str = ga_data.get("ga", "") if isinstance(ga_data, dict) else ga_data
+            ga_dpt = ga_data.get("dpt", "") if isinstance(ga_data, dict) else ""
+            if ga_str and ga_str in ga_id_map:
+                co_counter += 1
+                co_ref = ET.SubElement(com_refs, "ComObjectInstanceRef")
+                co_ref.set("RefId", f"{dev_xml_id}-CO-{co_counter:03d}")
+                if ga_dpt:
+                    co_ref.set("DatapointType", f"DPST-{ga_dpt.replace('.', '-')}")
+                connectors = ET.SubElement(co_ref, "Connectors")
+                send = ET.SubElement(connectors, "Send")
+                send.set("GroupAddressRefId", ga_id_map[ga_str])
+
+    # === ManufacturerData ===
+    if manufacturers:
+        mfr_data = ET.SubElement(root, "ManufacturerData")
+        for mfr_id, mfr_info in sorted(manufacturers.items()):
+            mfr_elem = ET.SubElement(mfr_data, "Manufacturer")
+            mfr_elem.set("Id", mfr_id)
+            mfr_elem.set("Name", mfr_info["name"])
+            for hw_id, hw_info in mfr_info["products"].items():
+                hw_elem = ET.SubElement(mfr_elem, "Hardware")
+                hw_elem.set("Id", hw_id)
+                hw_elem.set("Name", hw_info["model"])
+                product_elem = ET.SubElement(hw_elem, "Product")
+                product_elem.set("Id", hw_info["product_ref_id"])
+                app_elem = ET.SubElement(mfr_elem, "ApplicationProgram")
+                app_elem.set("Id", hw_info["app_id"])
+                app_elem.set("Name", hw_info["app_name"])
+                app_elem.set("ApplicationVersion", "1")
+
+    # === Trades (Functions) - Maps GAs to rooms with ETS Function Types ===
     trades = ET.SubElement(installation, "Trades")
 
     for device in devices:
@@ -256,18 +345,25 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
         if not room_id or room_id not in room_to_location_id:
             continue
 
+        device_id = device.get("id", "Device")
+        device_name = device.get("name") or _id_to_display_name(device_id)
+        config = device.get("config") or {}
+        template_id = config.get("template_id", device.get("type", ""))
+
         # Create a Function for each device
         trade = ET.SubElement(trades, "Trade")
         trade.set("Id", _make_id("T"))
-        trade.set("Name", device.get("id", "Device"))
+        trade.set("Name", device_name)
 
-        # Function type based on device type
-        func_type = _device_type_to_function_type(device.get("type", ""))
+        # Standard ETS Function Type
+        func_type, comment = _device_type_to_function_type(template_id)
 
         func = ET.SubElement(trade, "Function")
         func.set("Id", _make_id("F"))
-        func.set("Name", device.get("id", "Device"))
+        func.set("Name", device_name)
         func.set("Type", func_type)
+        if comment:
+            func.set("Comment", comment)
 
         # Link to location
         loc_ref = ET.SubElement(func, "LocationReference")
@@ -347,19 +443,42 @@ def _guess_dpt(device_type: str, ga_name: str) -> str:
     return type_defaults.get(device_type, "1.001")
 
 
-def _device_type_to_function_type(device_type: str) -> str:
-    """Map device type to ETS Function type."""
-    mapping = {
-        "light_switch": "FT-1",  # Switchable Light
-        "light_dimmer": "FT-2",  # Dimmable Light
-        "light_rgb": "FT-3",  # RGB Light
-        "blind": "FT-4",  # Sun Protection
-        "blind_position": "FT-4",
-        "sensor": "FT-6",  # Sensor
-        "presence": "FT-6",
-        "thermostat": "FT-5",  # HVAC
+def _device_type_to_function_type(device_type: str) -> tuple[str, str]:
+    """Map device type to standard ETS Function Type and Comment.
+
+    Returns (function_type, comment) tuple. Standard ETS types include
+    SwitchableLight, DimmableLight, Sunblind, HeatingRadiator, etc.
+    Non-standard types use 'Custom' with a Comment carrying the template ID.
+    """
+    standard = {
+        # Lighting
+        "light_switch": "SwitchableLight",
+        "switch_actuator_4ch": "SwitchableLight",
+        "switch_actuator_8ch": "SwitchableLight",
+        "switch_actuator_12ch": "SwitchableLight",
+        "light_dimmer": "DimmableLight",
+        "dimmer_actuator_4ch": "DimmableLight",
+        "light_rgb": "DimmableLight",
+        "light_colour_temp": "DimmableLight",
+        "dali_gateway": "DimmableLight",
+        # Blinds
+        "blind_position": "Sunblind",
+        "blind_position_slat": "Sunblind",
+        "shutter_actuator_4ch": "Sunblind",
+        "shutter_actuator_8ch": "Sunblind",
+        "awning_controller": "Sunblind",
+        # Climate
+        "thermostat": "HeatingRadiator",
+        "heating_actuator_6ch": "HeatingFloor",
+        "fan_coil_controller": "HeatingContinuousVariable",
+        "hvac_unit": "HeatingContinuousVariable",
+        "air_handling_unit": "HeatingContinuousVariable",
     }
-    return mapping.get(device_type, "FT-0")  # FT-0 = Custom
+    if device_type in standard:
+        return standard[device_type], ""
+
+    # Everything else → Custom with template ID as comment hint
+    return "Custom", device_type
 
 
 @router.get("/knxproj")

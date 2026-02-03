@@ -2,6 +2,13 @@ id: light_switch
 name: Switched Light
 domain: lighting
 description: Simple on/off light actuator (KNX switching actuator)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "SA/S 8.16.6.1"
+  application_program: "Switch Actuator 8-fold 16A"
+  hardware_type: "MDRC"
 group_addresses:
   switch_cmd:
     dpt: "1.001"

@@ -3,7 +3,12 @@ name: Switch Actuator 4-Channel
 domain: lighting
 description: 4-channel 16A switch actuator for lighting and loads (MDT AKS-0416.03)
 type: switch_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKS-0416.03"
+  application_program: "Switch Actuator 4-fold 16A"
+  hardware_type: "MDRC"
 channels: 4
 group_addresses:
   ch1_switch_cmd:

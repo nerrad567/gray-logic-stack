@@ -3,7 +3,12 @@ name: Load Shedding Controller
 domain: energy
 description: Power load management controller with priority-based shedding (Schneider MTN6725)
 type: load_controller
-manufacturer: Schneider
+manufacturer:
+  id: "M-0052"
+  name: "Schneider Electric"
+  product_model: "MTN6725"
+  application_program: "Load Shedding Controller"
+  hardware_type: "MDRC"
 group_addresses:
   power_limit:
     dpt: "14.056"

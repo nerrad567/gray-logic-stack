@@ -3,7 +3,12 @@ name: Heating Actuator 6-Channel
 domain: climate
 description: 6-channel heating valve actuator with PI controller (MDT AKH-0600.02)
 type: heating_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKH-0600.02"
+  application_program: "Heating Actuator 6-fold"
+  hardware_type: "MDRC"
 channels: 6
 group_addresses:
   ch1_valve_cmd:

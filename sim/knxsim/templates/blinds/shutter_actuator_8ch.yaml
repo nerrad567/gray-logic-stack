@@ -3,7 +3,12 @@ name: Shutter Actuator 8-Channel
 domain: blinds
 description: 8-channel shutter/blind actuator 230V AC (MDT JAL-0810.02)
 type: shutter_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "JAL-0810.02"
+  application_program: "Shutter Actuator 8-fold"
+  hardware_type: "MDRC"
 channels: 8
 group_addresses:
   ch1_move: { dpt: "1.008", direction: write, flags: "C-W---" }

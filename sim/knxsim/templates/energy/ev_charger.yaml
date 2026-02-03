@@ -2,6 +2,13 @@ id: ev_charger
 name: EV Charger Interface
 domain: energy
 description: Electric vehicle charging station KNX interface with load management
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "EVS-KNX"
+  application_program: "EV Charger Interface"
+  hardware_type: "MDRC"
 type: ev_charger
 group_addresses:
   charging_enabled:

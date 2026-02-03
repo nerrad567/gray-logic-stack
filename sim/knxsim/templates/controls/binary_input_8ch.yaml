@@ -3,7 +3,12 @@ name: Binary Input 8-Channel
 domain: controls
 description: 8-channel binary input for dry contacts and potential-free switches (MDT BE-08000.02)
 type: binary_input
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "BE-08000.02"
+  application_program: "Binary Input 8-fold"
+  hardware_type: "MDRC"
 channels: 8
 group_addresses:
   ch1_state:

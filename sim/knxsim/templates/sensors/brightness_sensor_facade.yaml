@@ -3,7 +3,12 @@ name: Brightness Sensor (Facade)
 domain: sensors
 description: Facade-mounted brightness sensor for blind automation (B.E.G. Luxomat KNX)
 type: brightness_sensor
-manufacturer: B.E.G.
+manufacturer:
+  id: "M-0079"
+  name: "B.E.G."
+  product_model: "Luxomat KNX"
+  application_program: "Facade Brightness Sensor"
+  hardware_type: "surface"
 group_addresses:
   brightness:
     dpt: "9.004"

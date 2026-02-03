@@ -3,7 +3,12 @@ name: Bus Power Supply 640mA
 domain: system
 description: KNX bus power supply 30V 640mA with diagnostics (MDT STC-0640.01)
 type: power_supply
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "STC-0640.01"
+  application_program: "Bus Power Supply 640mA"
+  hardware_type: "MDRC"
 group_addresses:
   bus_voltage:
     dpt: "9.020"

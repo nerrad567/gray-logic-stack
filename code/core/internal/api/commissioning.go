@@ -152,6 +152,18 @@ type ETSDeviceImport struct {
 
 	// Addresses are the KNX group addresses for this device.
 	Addresses []ETSAddressImport `json:"addresses"`
+
+	// Manufacturer is the device manufacturer (from ETS Topology).
+	Manufacturer string `json:"manufacturer,omitempty"`
+
+	// ProductModel is the hardware product model (from ETS Topology).
+	ProductModel string `json:"product_model,omitempty"`
+
+	// ApplicationProgram is the KNX application program name.
+	ApplicationProgram string `json:"application_program,omitempty"`
+
+	// IndividualAddress is the KNX individual address (e.g., "1.1.10").
+	IndividualAddress string `json:"individual_address,omitempty"`
 }
 
 // ETSAddressImport represents a group address mapping for import.
@@ -633,6 +645,14 @@ func (s *Server) buildDeviceFromImport(imp ETSDeviceImport) *device.Device {
 		dev.AreaID = &imp.AreaID
 	}
 
+	// Populate manufacturer metadata (columns already exist in DB)
+	if imp.Manufacturer != "" {
+		dev.Manufacturer = &imp.Manufacturer
+	}
+	if imp.ProductModel != "" {
+		dev.Model = &imp.ProductModel
+	}
+
 	// Build addresses map for KNX protocol - stored in Address field
 	// KNX validation requires a top-level "group_address" key
 	addresses := make(device.Address)
@@ -658,6 +678,15 @@ func (s *Server) buildDeviceFromImport(imp ETSDeviceImport) *device.Device {
 		addresses["group_address"] = primaryGA
 	}
 
+	// Store application program and individual address in address map
+	// (protocol-specific metadata, not top-level columns)
+	if imp.ApplicationProgram != "" {
+		addresses["application_program"] = imp.ApplicationProgram
+	}
+	if imp.IndividualAddress != "" {
+		addresses["individual_address"] = imp.IndividualAddress
+	}
+
 	dev.Address = addresses
 
 	// Derive capabilities from addresses
@@ -672,17 +701,20 @@ func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capa
 
 	for _, addr := range addresses {
 		switch addr.Function {
-		case "switch", "switch_status":
+		case "switch", "switch_status", "on_off":
 			caps[device.CapOnOff] = true
 		case "brightness", "brightness_status":
 			caps[device.CapDim] = true
-		case "position", "position_status":
+		case "colour_temp", "colour_temp_status":
+			caps[device.CapColorTemp] = true
+		case "rgb", "rgb_status", "rgbw":
+			caps[device.CapColorRGB] = true
+		case "position", "position_status", "move", "stop":
 			caps[device.CapPosition] = true
 		case "slat", "slat_status", "tilt":
 			caps[device.CapTilt] = true
-		case "move", "stop":
-			// Move/stop are implicit in position capability for blinds
-			caps[device.CapPosition] = true
+		case "fan_speed", "fan_speed_status", "speed":
+			caps[device.CapSpeed] = true
 		case "temperature":
 			caps[device.CapTemperatureRead] = true
 		case "setpoint":
@@ -691,8 +723,22 @@ func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capa
 			caps[device.CapHumidityRead] = true
 		case "lux":
 			caps[device.CapLightLevelRead] = true
-		case "presence":
+		case "presence", "motion":
 			caps[device.CapPresenceDetect] = true
+		case "co2":
+			caps[device.CapCO2Read] = true
+		case "contact", "open_close":
+			caps[device.CapContactState] = true
+		case "total_energy", "active_energy", "active_energy_kwh":
+			caps[device.CapEnergyRead] = true
+		case "power":
+			caps[device.CapPowerRead] = true
+		case "voltage":
+			caps[device.CapVoltageRead] = true
+		case "current":
+			caps[device.CapCurrentRead] = true
+		case "hvac_mode":
+			caps[device.CapModeSelect] = true
 		}
 	}
 

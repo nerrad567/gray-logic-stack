@@ -2,6 +2,13 @@ id: push_button_4
 name: 4-Button Panel
 domain: controls
 description: Wall-mounted 4-gang push button panel
+
+manufacturer:
+  id: "M-0025"
+  name: "Gira"
+  product_model: "5134 00"
+  application_program: "Push Button 4-fold"
+  hardware_type: "flush"
 group_addresses:
   button_1:
     dpt: "1.001"

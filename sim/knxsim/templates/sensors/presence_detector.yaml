@@ -2,6 +2,13 @@ id: presence_detector
 name: Presence Detector
 domain: sensors
 description: PIR presence detector with lux measurement
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "6131/50-500"
+  application_program: "Presence Detector Mini"
+  hardware_type: "flush"
 group_addresses:
   presence:
     dpt: "1.018"

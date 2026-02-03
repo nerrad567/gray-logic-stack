@@ -2,6 +2,13 @@ id: binary_input
 name: Binary Input (4-channel)
 domain: controls
 description: 4-channel binary input module (dry contacts)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "BE/S 4.20.2.1"
+  application_program: "Binary Input 4-fold"
+  hardware_type: "MDRC"
 group_addresses:
   channel_1:
     dpt: "1.001"

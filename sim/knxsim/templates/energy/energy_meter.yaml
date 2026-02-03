@@ -2,6 +2,13 @@ id: energy_meter
 name: Energy Meter
 domain: energy
 description: KNX energy meter with power, voltage, current, and accumulated energy
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "EM/S 3.16.1"
+  application_program: "Energy Module 3-phase 16A"
+  hardware_type: "MDRC"
 group_addresses:
   power:
     dpt: "14.056"

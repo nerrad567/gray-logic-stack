@@ -2,6 +2,13 @@ id: light_dimmer
 name: Dimmable Light
 domain: lighting
 description: KNX dimming actuator with on/off and brightness control
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "UD/S 4.315.2.1"
+  application_program: "Dimming Actuator 4-fold 315W"
+  hardware_type: "MDRC"
 group_addresses:
   switch_cmd:
     dpt: "1.001"

@@ -2,6 +2,13 @@ id: scene_controller
 name: Scene Controller
 domain: controls
 description: KNX scene actuator (recall/learn scenes)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "US/U 4.2"
+  application_program: "Universal Interface 4-fold"
+  hardware_type: "MDRC"
 group_addresses:
   scene_cmd:
     dpt: "18.001"

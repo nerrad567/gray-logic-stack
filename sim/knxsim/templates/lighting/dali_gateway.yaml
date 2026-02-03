@@ -3,7 +3,12 @@ name: DALI Gateway 64
 domain: lighting
 description: DALI gateway for 64 DALI devices with broadcast and group control (ABB DG/S 64.1.1)
 type: dali_gateway
-manufacturer: ABB
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "DG/S 64.1.1"
+  application_program: "DALI Gateway 64-fold"
+  hardware_type: "MDRC"
 channels: 64
 group_addresses:
   broadcast_switch:

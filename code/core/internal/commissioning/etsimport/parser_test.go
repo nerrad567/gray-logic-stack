@@ -837,3 +837,422 @@ func TestStandaloneLuxSensorStillWorks(t *testing.T) {
 		t.Errorf("DetectedType = %q, want %q", device.DetectedType, testTypeLightSensor)
 	}
 }
+
+// ─── Tier 1: Function Type Mapping Tests ───────────────────────────
+
+func TestFunctionTypeMapping_SwitchableLight(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("SwitchableLight", "")
+	if devType != "light_switch" {
+		t.Errorf("devType = %q, want %q", devType, "light_switch")
+	}
+	if domain != "lighting" {
+		t.Errorf("domain = %q, want %q", domain, "lighting")
+	}
+	if confidence != 0.99 {
+		t.Errorf("confidence = %v, want 0.99", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_DimmableLight(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("DimmableLight", "")
+	if devType != "light_dimmer" {
+		t.Errorf("devType = %q, want %q", devType, "light_dimmer")
+	}
+	if domain != "lighting" {
+		t.Errorf("domain = %q, want %q", domain, "lighting")
+	}
+	if confidence != 0.99 {
+		t.Errorf("confidence = %v, want 0.99", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_Sunblind(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("Sunblind", "")
+	if devType != "blind_position" {
+		t.Errorf("devType = %q, want %q", devType, "blind_position")
+	}
+	if domain != "blinds" {
+		t.Errorf("domain = %q, want %q", domain, "blinds")
+	}
+	if confidence != 0.95 {
+		t.Errorf("confidence = %v, want 0.95", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_HeatingRadiator(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("HeatingRadiator", "")
+	if devType != "thermostat" {
+		t.Errorf("devType = %q, want %q", devType, "thermostat")
+	}
+	if domain != "climate" {
+		t.Errorf("domain = %q, want %q", domain, "climate")
+	}
+	if confidence != 0.99 {
+		t.Errorf("confidence = %v, want 0.99", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_HeatingFloor(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("HeatingFloor", "")
+	if devType != "heating_actuator" {
+		t.Errorf("devType = %q, want %q", devType, "heating_actuator")
+	}
+	if domain != "climate" {
+		t.Errorf("domain = %q, want %q", domain, "climate")
+	}
+	if confidence != 0.99 {
+		t.Errorf("confidence = %v, want 0.99", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_CustomWithComment(t *testing.T) {
+	devType, domain, confidence := functionTypeToDeviceType("Custom", "presence_detector")
+	if devType != "presence_sensor" {
+		t.Errorf("devType = %q, want %q", devType, "presence_sensor")
+	}
+	if domain != "sensor" {
+		t.Errorf("domain = %q, want %q", domain, "sensor")
+	}
+	if confidence != 0.98 {
+		t.Errorf("confidence = %v, want 0.98", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_CustomUnknown(t *testing.T) {
+	devType, _, confidence := functionTypeToDeviceType("Custom", "")
+	if devType != "" {
+		t.Errorf("devType = %q, want empty for unknown Custom", devType)
+	}
+	if confidence != 0 {
+		t.Errorf("confidence = %v, want 0", confidence)
+	}
+}
+
+func TestFunctionTypeMapping_UnknownType(t *testing.T) {
+	devType, _, confidence := functionTypeToDeviceType("SomethingNew", "")
+	if devType != "" {
+		t.Errorf("devType = %q, want empty for unknown type", devType)
+	}
+	if confidence != 0 {
+		t.Errorf("confidence = %v, want 0", confidence)
+	}
+}
+
+func TestCommentToDeviceType_AllCategories(t *testing.T) {
+	tests := []struct {
+		comment    string
+		wantType   string
+		wantDomain string
+	}{
+		// Sensors
+		{"temperature_sensor", "temperature_sensor", "sensor"},
+		{"humidity_sensor", "humidity_sensor", "sensor"},
+		{"co2_sensor", "co2_sensor", "sensor"},
+		{"weather_station", "weather_station", "sensor"},
+		// Energy
+		{"energy_meter", "energy_meter", "energy"},
+		{"solar_inverter", "solar_inverter", "energy"},
+		{"ev_charger", "ev_charger", "energy"},
+		// Controls
+		{"scene_controller", "scene_controller", "controls"},
+		{"push_button_4", "push_button", "controls"},
+		{"binary_input", "binary_input", "controls"},
+		// System
+		{"ip_router", "ip_router", "system"},
+		{"power_supply", "power_supply", "system"},
+		// Lighting actuators
+		{"switch_actuator_8ch", "light_switch", "lighting"},
+		{"dimmer_actuator_4ch", "light_dimmer", "lighting"},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.comment, func(t *testing.T) {
+			devType, domain, confidence := commentToDeviceType(tt.comment)
+			if devType != tt.wantType {
+				t.Errorf("devType = %q, want %q", devType, tt.wantType)
+			}
+			if domain != tt.wantDomain {
+				t.Errorf("domain = %q, want %q", domain, tt.wantDomain)
+			}
+			if confidence != 0.98 {
+				t.Errorf("confidence = %v, want 0.98", confidence)
+			}
+		})
+	}
+}
+
+// ─── Tier 1 Integration: Full .knxproj with Functions ──────────────
+
+func TestParseKNXProjWithFunctions(t *testing.T) {
+	// Build a .knxproj ZIP with 0.xml containing Topology, ManufacturerData,
+	// GroupAddresses, and Trades (Functions) — mimicking KNXSim export.
+	projectXML := `<?xml version="1.0" encoding="utf-8"?>
+<KNX xmlns="http://knx.org/xml/project/21" CreatedBy="KNXSim">
+  <Project Id="P-TEST" Name="Test Project">
+    <ProjectInformation Name="Test Project"/>
+    <Installations>
+      <Installation Name="Test" InstallationId="0">
+        <GroupAddresses>
+          <GroupRanges>
+            <GroupRange Id="GR-1" Name="Lighting">
+              <GroupRange Id="GR-2" Name="Ground Floor">
+                <GroupRange Id="GR-3" Name="Kitchen">
+                  <GroupAddress Id="GA-001" Address="1/0/1" Name="Kitchen Light : Switch" DatapointType="DPST-1-1"/>
+                  <GroupAddress Id="GA-002" Address="1/0/2" Name="Kitchen Light : Brightness" DatapointType="DPST-5-1"/>
+                  <GroupAddress Id="GA-003" Address="1/0/3" Name="Kitchen Light : Switch Status" DatapointType="DPST-1-1"/>
+                </GroupRange>
+              </GroupRange>
+            </GroupRange>
+            <GroupRange Id="GR-4" Name="Climate">
+              <GroupRange Id="GR-5" Name="Ground Floor">
+                <GroupRange Id="GR-6" Name="Kitchen">
+                  <GroupAddress Id="GA-004" Address="3/0/1" Name="Kitchen Thermostat : Temperature" DatapointType="DPST-9-1"/>
+                  <GroupAddress Id="GA-005" Address="3/0/2" Name="Kitchen Thermostat : Setpoint" DatapointType="DPST-9-1"/>
+                </GroupRange>
+              </GroupRange>
+            </GroupRange>
+            <GroupRange Id="GR-7" Name="Sensors">
+              <GroupRange Id="GR-8" Name="Ground Floor">
+                <GroupRange Id="GR-9" Name="Kitchen">
+                  <GroupAddress Id="GA-006" Address="4/0/1" Name="Kitchen Presence : Presence" DatapointType="DPST-1-18"/>
+                </GroupRange>
+              </GroupRange>
+            </GroupRange>
+          </GroupRanges>
+        </GroupAddresses>
+        <Topology>
+          <Area Id="A-1" Address="1" Name="Backbone">
+            <Line Id="L-1" Address="1" Name="Main Line">
+              <DeviceInstance Id="D-0001" Name="Dimming Actuator 4-fold"
+                IndividualAddress="1.1.1"
+                ProductRefId="M-0083_H-0001-HP-0001"
+                ApplicationProgramRef="M-0083_A-0001">
+                <ComObjectInstanceRefs>
+                  <ComObjectInstanceRef RefId="D-0001-CO-001" DatapointType="DPST-1-1">
+                    <Connectors><Send GroupAddressRefId="GA-001"/></Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="D-0001-CO-002" DatapointType="DPST-5-1">
+                    <Connectors><Send GroupAddressRefId="GA-002"/></Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="D-0001-CO-003" DatapointType="DPST-1-1">
+                    <Connectors><Send GroupAddressRefId="GA-003"/></Connectors>
+                  </ComObjectInstanceRef>
+                </ComObjectInstanceRefs>
+              </DeviceInstance>
+              <DeviceInstance Id="D-0002" Name="Room Thermostat"
+                IndividualAddress="1.1.2"
+                ProductRefId="M-0083_H-0002-HP-0001"
+                ApplicationProgramRef="M-0083_A-0002">
+                <ComObjectInstanceRefs>
+                  <ComObjectInstanceRef RefId="D-0002-CO-001" DatapointType="DPST-9-1">
+                    <Connectors><Send GroupAddressRefId="GA-004"/></Connectors>
+                  </ComObjectInstanceRef>
+                  <ComObjectInstanceRef RefId="D-0002-CO-002" DatapointType="DPST-9-1">
+                    <Connectors><Send GroupAddressRefId="GA-005"/></Connectors>
+                  </ComObjectInstanceRef>
+                </ComObjectInstanceRefs>
+              </DeviceInstance>
+            </Line>
+          </Area>
+        </Topology>
+        <Trades>
+          <Trade Id="T-1" Name="Kitchen Light">
+            <Function Id="F-1" Name="Kitchen Light" Type="DimmableLight">
+              <GroupAddressRefs>
+                <GroupAddressRef RefId="GA-001" Name="switch"/>
+                <GroupAddressRef RefId="GA-002" Name="brightness"/>
+                <GroupAddressRef RefId="GA-003" Name="switch_status"/>
+              </GroupAddressRefs>
+            </Function>
+          </Trade>
+          <Trade Id="T-2" Name="Kitchen Thermostat">
+            <Function Id="F-2" Name="Kitchen Thermostat" Type="HeatingRadiator">
+              <GroupAddressRefs>
+                <GroupAddressRef RefId="GA-004" Name="temperature"/>
+                <GroupAddressRef RefId="GA-005" Name="setpoint"/>
+              </GroupAddressRefs>
+            </Function>
+          </Trade>
+          <Trade Id="T-3" Name="Kitchen Presence">
+            <Function Id="F-3" Name="Kitchen Presence" Type="Custom" Comment="presence_detector">
+              <GroupAddressRefs>
+                <GroupAddressRef RefId="GA-006" Name="presence"/>
+              </GroupAddressRefs>
+            </Function>
+          </Trade>
+        </Trades>
+      </Installation>
+    </Installations>
+  </Project>
+  <ManufacturerData>
+    <Manufacturer Id="M-0083" Name="ABB">
+      <Hardware Id="M-0083_H-0001" Name="UD/S 4.315.2.1"/>
+      <Hardware Id="M-0083_H-0002" Name="RTC"/>
+      <ApplicationProgram Id="M-0083_A-0001" Name="Dimming Actuator 4-fold" ApplicationVersion="1"/>
+      <ApplicationProgram Id="M-0083_A-0002" Name="Room Thermostat Controller" ApplicationVersion="1"/>
+    </Manufacturer>
+  </ManufacturerData>
+</KNX>`
+
+	// Create a .knxproj ZIP containing this XML as 0.xml
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+	f, err := w.Create("P-TEST/0.xml")
+	if err != nil {
+		t.Fatalf("Failed to create zip entry: %v", err)
+	}
+	if _, err := f.Write([]byte(projectXML)); err != nil {
+		t.Fatalf("Failed to write zip content: %v", err)
+	}
+	if err := w.Close(); err != nil {
+		t.Fatalf("Failed to close zip: %v", err)
+	}
+
+	parser := NewParser()
+	result, err := parser.ParseBytes(buf.Bytes(), "test.knxproj")
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	// Should have 3 Tier 1 devices
+	if len(result.Devices) < 3 {
+		t.Fatalf("Expected at least 3 devices, got %d", len(result.Devices))
+	}
+
+	// Verify each device type and confidence
+	devicesByType := make(map[string]*DetectedDevice)
+	for i := range result.Devices {
+		dev := &result.Devices[i]
+		devicesByType[dev.DetectedType] = dev
+	}
+
+	// Dimmer
+	if dimmer, ok := devicesByType["light_dimmer"]; ok {
+		if dimmer.Confidence != 0.99 {
+			t.Errorf("Dimmer confidence = %v, want 0.99", dimmer.Confidence)
+		}
+		if dimmer.FunctionType != "DimmableLight" {
+			t.Errorf("Dimmer FunctionType = %q, want %q", dimmer.FunctionType, "DimmableLight")
+		}
+		if len(dimmer.Addresses) != 3 {
+			t.Errorf("Dimmer addresses = %d, want 3", len(dimmer.Addresses))
+		}
+		if dimmer.Manufacturer != "ABB" {
+			t.Errorf("Dimmer Manufacturer = %q, want %q", dimmer.Manufacturer, "ABB")
+		}
+		if dimmer.ProductModel != "UD/S 4.315.2.1" {
+			t.Errorf("Dimmer ProductModel = %q, want %q", dimmer.ProductModel, "UD/S 4.315.2.1")
+		}
+		if dimmer.ApplicationProgram != "Dimming Actuator 4-fold" {
+			t.Errorf("Dimmer ApplicationProgram = %q, want %q", dimmer.ApplicationProgram, "Dimming Actuator 4-fold")
+		}
+		if dimmer.IndividualAddress != "1.1.1" {
+			t.Errorf("Dimmer IndividualAddress = %q, want %q", dimmer.IndividualAddress, "1.1.1")
+		}
+	} else {
+		t.Error("Expected light_dimmer in Tier 1 results")
+	}
+
+	// Thermostat
+	if therm, ok := devicesByType["thermostat"]; ok {
+		if therm.Confidence != 0.99 {
+			t.Errorf("Thermostat confidence = %v, want 0.99", therm.Confidence)
+		}
+		if therm.FunctionType != "HeatingRadiator" {
+			t.Errorf("Thermostat FunctionType = %q, want %q", therm.FunctionType, "HeatingRadiator")
+		}
+	} else {
+		t.Error("Expected thermostat in Tier 1 results")
+	}
+
+	// Presence sensor (Custom + comment)
+	if pres, ok := devicesByType["presence_sensor"]; ok {
+		if pres.Confidence != 0.98 {
+			t.Errorf("Presence confidence = %v, want 0.98", pres.Confidence)
+		}
+		if pres.FunctionType != "Custom" {
+			t.Errorf("Presence FunctionType = %q, want %q", pres.FunctionType, "Custom")
+		}
+	} else {
+		t.Error("Expected presence_sensor in Tier 1 results")
+	}
+
+	// All GAs should be consumed — no unmapped addresses
+	if len(result.UnmappedAddresses) != 0 {
+		t.Errorf("Expected 0 unmapped addresses, got %d: %v",
+			len(result.UnmappedAddresses), result.UnmappedAddresses)
+	}
+}
+
+func TestParseKNXProjFallbackTier2(t *testing.T) {
+	// A .knxproj with GroupAddresses but NO Trades/Functions.
+	// Tier 2 (DPT-based detection) should still work.
+	var buf bytes.Buffer
+	w := zip.NewWriter(&buf)
+
+	gaXML := `<?xml version="1.0" encoding="utf-8"?>
+<GroupAddresses>
+  <GroupRange Name="Lighting" Address="1">
+    <GroupAddress Id="GA-1" Address="1/1/0" Name="Hall Light Switch" DatapointType="DPST-1-1"/>
+    <GroupAddress Id="GA-2" Address="1/1/1" Name="Hall Light Brightness" DatapointType="DPST-5-1"/>
+  </GroupRange>
+</GroupAddresses>`
+
+	f, _ := w.Create("P-TEST/GroupAddresses.xml")
+	f.Write([]byte(gaXML))
+	w.Close()
+
+	parser := NewParser()
+	result, err := parser.ParseBytes(buf.Bytes(), "test.knxproj")
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	// Should detect a dimmer via Tier 2
+	foundDimmer := false
+	for _, dev := range result.Devices {
+		if dev.DetectedType == testTypeLightDimmer {
+			foundDimmer = true
+			// Tier 2 should NOT have FunctionType set
+			if dev.FunctionType != "" {
+				t.Errorf("Tier 2 device should not have FunctionType, got %q", dev.FunctionType)
+			}
+			// Tier 2 should NOT have manufacturer metadata
+			if dev.Manufacturer != "" {
+				t.Errorf("Tier 2 device should not have Manufacturer, got %q", dev.Manufacturer)
+			}
+		}
+	}
+	if !foundDimmer {
+		t.Error("Expected Tier 2 to detect a dimmer from GroupAddresses")
+	}
+}
+
+func TestParseCSVStillWorks(t *testing.T) {
+	// CSV format has no XML metadata — should use Tier 2 only.
+	csv := `"Address","Name","DatapointType"
+"1/0/0","Office Light Switch","DPST-1-1"
+"1/0/1","Office Light Brightness","DPST-5-1"
+`
+
+	parser := NewParser()
+	result, err := parser.ParseBytes([]byte(csv), "test.csv")
+	if err != nil {
+		t.Fatalf("ParseBytes failed: %v", err)
+	}
+
+	if result.Format != "csv" {
+		t.Errorf("Format = %q, want %q", result.Format, "csv")
+	}
+
+	// Should detect a dimmer via Tier 2
+	foundDimmer := false
+	for _, dev := range result.Devices {
+		if dev.DetectedType == testTypeLightDimmer {
+			foundDimmer = true
+		}
+	}
+	if !foundDimmer {
+		t.Error("Expected Tier 2 to detect a dimmer from CSV")
+	}
+}

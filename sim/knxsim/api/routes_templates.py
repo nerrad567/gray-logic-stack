@@ -123,6 +123,19 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
     merged_gas = _merge_ga_with_template(body.group_addresses, template.group_addresses)
 
     # Create device using the template_device type
+    config = {
+        "template_id": template.id,
+        "template_def": template.group_addresses,
+    }
+
+    # Inject manufacturer metadata for .knxproj export
+    if template.manufacturer_name:
+        config["manufacturer_id"] = template.manufacturer_id
+        config["manufacturer_name"] = template.manufacturer_name
+        config["product_model"] = template.product_model
+        config["application_program"] = template.application_program
+        config["hardware_type"] = template.hardware_type
+
     device_data = {
         "id": body.device_id,
         "type": "template_device",
@@ -130,10 +143,7 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
         "group_addresses": merged_gas,
         "initial_state": dict(template.initial_state),
         "room_id": body.room_id,
-        "config": {
-            "template_id": template.id,
-            "template_def": template.group_addresses,
-        },
+        "config": config,
     }
 
     result = manager.add_device(premise_id, device_data)

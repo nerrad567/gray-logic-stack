@@ -3,7 +3,12 @@ name: Energy Meter 3-Phase
 domain: energy
 description: 3-phase MID energy meter with power/current/voltage monitoring (ABB EQmatic KNX)
 type: energy_meter
-manufacturer: ABB
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "EM/S 3.16.1"
+  application_program: "Energy Module 3-phase MID"
+  hardware_type: "MDRC"
 group_addresses:
   total_power:
     dpt: "14.056"

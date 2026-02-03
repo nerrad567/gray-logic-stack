@@ -3,7 +3,12 @@ name: Switch Actuator 12-Channel
 domain: lighting
 description: 12-channel 16A switch actuator for commercial applications (MDT AKS-1216.03)
 type: switch_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKS-1216.03"
+  application_program: "Switch Actuator 12-fold 16A"
+  hardware_type: "MDRC"
 channels: 12
 group_addresses:
   ch1_switch: { dpt: "1.001", direction: write, flags: "C-W-U-" }

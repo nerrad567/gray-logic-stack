@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 26 - Flutter Dependency Upgrade & Riverpod v3 Migration)
-**Current milestone:** Year 1 Foundation Complete + Dev Environment Operational
+**Last session:** 2026-02-03 (Session 27 - KNX Device Classification Pipeline Upgrade)
+**Current milestone:** Year 1 Foundation Complete + Commissioning Pipeline Upgraded
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -24,6 +24,7 @@
 - KNXSim Phase 2.8 Topology Restructure ✅ Phase 1 complete (Areas/Lines schema, API, Reference data, UI)
 - KNXSim Phase 2.9 Thermostats ✅ (PID control, valve actuators, thermal simulation)
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation)
+- ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - Admin Interface ✅ (metrics, devices, import, discovery tabs)
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
 - Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
@@ -765,6 +766,55 @@ Switched to native Go development with containerised support services. Go core n
 
 **Files Modified**: 16 Dart/config files + Makefile + .gitignore
 **Commits**: 3
+
+---
+
+### Session 27: 2026-02-03 — KNX Device Classification Pipeline Upgrade
+
+**Goal:** Pass device metadata (manufacturer, model, application program, ETS Function Types) through the entire pipeline — templates → export → parse → import → DB
+
+**Step 1 (prior session)**: Added `manufacturer:` blocks to all 47 YAML templates with realistic KNX manufacturer data (ABB, MDT, Siemens, Gira, Elsner, Theben).
+
+**Step 2 — Thread metadata through KNXSim runtime**:
+- `loader.py`: Parse `manufacturer:` block in `DeviceTemplate.__init__()` with legacy flat-format fallback
+- `routes_templates.py`: Inject manufacturer metadata into device config dict on `/from-template` API
+- `routes_premises.py`: Template lookup for `config.yaml` devices on `reset-sample`
+
+**Step 3 — Upgrade .knxproj export** (`routes_export.py`):
+- Added `<Topology>` section with `<DeviceInstance>` (IndividualAddress, ProductRefId, ApplicationProgramRef, ComObjectInstanceRefs)
+- Added `<ManufacturerData>` section (Manufacturer, Hardware, Product, ApplicationProgram)
+- Replaced `FT-*` codes with standard ETS Function Types (SwitchableLight, DimmableLight, Sunblind, etc.)
+- Added Comment attribute for Custom function types carrying template ID
+
+**Step 4 — Upgrade GLCore parser** (`parser.go`):
+- Added XML structs for DeviceInstance, Function, Manufacturer, etc.
+- Added `extractFunctionDevices()` for Tier 1 classification from Functions/Topology/ManufacturerData
+- Added `removeConsumedGAs()` and `buildGAIDToAddrMap()` helpers
+- Refactored `parseKNXProj` → `parseKNXProjWithXML` returning raw XML for multi-pass parsing
+- Updated `ParseBytes()`: Tier 1 runs first, consumed GAs filtered before Tier 2
+
+**Step 5 — Upgrade GLCore import** (`commissioning.go`):
+- Added metadata fields to `ETSDeviceImport`: Manufacturer, ProductModel, ApplicationProgram, IndividualAddress
+- `buildDeviceFromImport()` populates dev.Manufacturer, dev.Model, address map entries
+- Expanded `deriveCapabilitiesFromAddresses()` from ~10 to 27 function→capability mappings
+
+**Step 6 — Function Type mapping** (`detection.go`):
+- `functionTypeToDeviceType()`: 7 standard ETS types → GLCore types (0.95–0.99 confidence)
+- `commentToDeviceType()`: 40+ KNXSim template IDs → GLCore types (0.98 confidence)
+
+**Step 7 — New device types** (`types.go`):
+- Added 12 types: scene_controller, push_button, binary_input, room_controller, logic_module, ip_router, line_coupler, power_supply, timer_switch, load_controller, multi_sensor, wind_sensor
+
+**Step 8 — DB migration**: NOT needed — `application_program` stored in `address` JSON map; `manufacturer`/`model` columns already exist.
+
+**Step 9 — Tests** (`parser_test.go`):
+- 8 unit tests for `functionTypeToDeviceType`
+- Table-driven `commentToDeviceType` test (14 subtests)
+- Full integration test with Topology + ManufacturerData + Functions XML
+- Tier 2 fallback + CSV regression tests
+- All 15 Go packages pass, golangci-lint clean
+
+**Files Modified**: 57 files (47 YAML templates + 7 Go files + 3 Python files)
 
 ---
 

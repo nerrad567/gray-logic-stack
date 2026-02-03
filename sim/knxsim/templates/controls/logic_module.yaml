@@ -3,7 +3,12 @@ name: Logic Module
 domain: controls
 description: Programmable logic module with AND/OR/timers/scenes (MDT SCN-LOG1.01)
 type: logic_module
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-LOG1.01"
+  application_program: "Logic Module"
+  hardware_type: "MDRC"
 group_addresses:
   input_1:
     dpt: "1.001"

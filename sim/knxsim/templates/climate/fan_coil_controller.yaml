@@ -3,7 +3,12 @@ name: Fan Coil Controller
 domain: climate
 description: Fan coil unit controller with heating/cooling and 3-speed fan (Siemens RXB)
 type: fan_coil_controller
-manufacturer: Siemens
+manufacturer:
+  id: "M-0050"
+  name: "Siemens"
+  product_model: "RDG200KN"
+  application_program: "Fan Coil Controller"
+  hardware_type: "flush"
 group_addresses:
   power:
     dpt: "1.001"

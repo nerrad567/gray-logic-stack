@@ -2,6 +2,13 @@ id: light_rgb
 name: RGB Light
 domain: lighting
 description: Full colour RGB light with individual channel control
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKD-0424R2.02"
+  application_program: "LED Controller 4-ch RGBW"
+  hardware_type: "MDRC"
 group_addresses:
   switch_cmd:
     dpt: "1.001"

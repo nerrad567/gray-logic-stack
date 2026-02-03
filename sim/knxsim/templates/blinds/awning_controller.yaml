@@ -2,6 +2,13 @@ id: awning_controller
 name: Awning Controller
 domain: blinds
 description: Motorized awning controller with wind/rain safety and sun tracking
+
+manufacturer:
+  id: "M-0064"
+  name: "Theben"
+  product_model: "JME 4 T KNX"
+  application_program: "Awning Actuator with Wind Safety"
+  hardware_type: "MDRC"
 type: awning_controller
 group_addresses:
   move:

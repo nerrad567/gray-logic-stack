@@ -4,6 +4,89 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.18 – KNX Device Classification — Full Pipeline Upgrade (2026-02-03)
+
+**Focus: Two-tier device classification with ETS Function Types + manufacturer metadata through the entire pipeline**
+
+KNXSim knew exactly what each device was (manufacturer, model, application program) but exported bare-bones .knxproj files with only group addresses. GLCore then guessed device types from DPT patterns. This release passes real metadata through the entire pipeline: YAML templates → KNXSim runtime → .knxproj export → GLCore parser → GLCore import → database.
+
+### Added
+
+- **Manufacturer metadata on all 47 YAML templates** (`sim/knxsim/templates/**/*.yaml`):
+  - Realistic manufacturer data: ABB, MDT, Siemens, Gira, Elsner, Theben
+  - Fields: `manufacturer.id` (M-number), `name`, `product_model`, `application_program`, `hardware_type`
+  - Covers all device categories: lighting, blinds, climate, sensors, energy, controls, system
+
+- **Tier 1 Function Type classification** (`code/core/internal/commissioning/etsimport/`):
+  - `functionTypeToDeviceType()` — Maps 7 standard ETS Function Types to GLCore device types (0.95–0.99 confidence)
+  - `commentToDeviceType()` — Maps 40+ KNXSim template IDs via Comment attribute (0.98 confidence)
+  - Tier 1 runs before existing Tier 2 (DPT pattern matching) — consumed GAs are filtered out
+  - Standard types: `SwitchableLight`, `DimmableLight`, `Sunblind`, `HeatingRadiator`, `HeatingFloor`, `HeatingContinuousVariable`, `HeatingSwitchingVariable`
+  - Custom types use `Type="Custom" Comment="presence_detector"` pattern
+
+- **ETS-standard .knxproj export sections** (`sim/knxsim/api/routes_export.py`):
+  - `<Topology>` with `<DeviceInstance>` elements: IndividualAddress, ProductRefId, ApplicationProgramRef, ComObjectInstanceRefs
+  - `<ManufacturerData>` with `<Manufacturer>`, `<Hardware>`, `<Product>`, `<ApplicationProgram>`
+  - Standard ETS Function Types on `<Function>` elements (replaces `FT-*` codes)
+  - Comment attribute for Custom function types carrying template ID
+
+- **Metadata fields on DetectedDevice** (`types.go`):
+  - `manufacturer`, `product_model`, `application_program`, `individual_address`, `function_type`
+
+- **12 new device types** (`code/core/internal/device/types.go`):
+  - KNX Controls: `scene_controller`, `push_button`, `binary_input`, `room_controller`, `logic_module`
+  - KNX System: `ip_router`, `line_coupler`, `power_supply`, `timer_switch`, `load_controller`
+  - Additional Sensors: `multi_sensor`, `wind_sensor`
+
+- **14 new parser tests** (`parser_test.go`):
+  - 8 unit tests for `functionTypeToDeviceType` mapping
+  - Table-driven test for `commentToDeviceType` (14 subtests)
+  - Full integration test with Topology + ManufacturerData + Functions XML
+  - Tier 2 fallback regression test + CSV regression test
+
+- **Expanded capability derivation** (`commissioning.go`):
+  - 27 function→capability mappings (up from ~10): colour_temp, rgb, fan_speed, co2, contact, energy, power, voltage, current, hvac_mode, etc.
+
+### Changed
+
+- **KNXSim template loader** (`loader.py`): Parses `manufacturer:` block with legacy flat-format fallback
+- **KNXSim device creation** (`routes_templates.py`, `routes_premises.py`): Injects manufacturer metadata into device config dict
+- **KNXSim export** (`routes_export.py`): `_device_type_to_function_type()` returns `tuple[str, str]` (function_type, comment)
+- **GLCore parser** (`parser.go`): Runs Tier 1 extraction before Tier 2; refactored `parseKNXProj` → `parseKNXProjWithXML`
+- **GLCore import** (`commissioning.go`): `buildDeviceFromImport()` populates manufacturer, model, app_program, individual_address
+
+### Architecture
+
+```
+KNXSim Template YAML        GLCore DB
+(manufacturer, model,   →   (manufacturer, model,
+ application_program)        application_program,
+        │                    individual_address)
+        ▼                           ▲
+   .knxproj Export              Import
+   ┌─────────────────┐    ┌─────────────────┐
+   │ <DeviceInstance> │    │ Tier 1: FuncType │
+   │ <ManufacturerData│───▶│ Tier 2: DPT rules│
+   │ <Function Type>  │    │ (fallback only)  │
+   └─────────────────┘    └─────────────────┘
+```
+
+### Files Modified
+
+- `sim/knxsim/templates/**/*.yaml` (47 files) — Manufacturer metadata blocks
+- `sim/knxsim/templates/loader.py` — Parse manufacturer metadata
+- `sim/knxsim/api/routes_templates.py` — Inject metadata into device config
+- `sim/knxsim/api/routes_premises.py` — Template lookup for config.yaml devices
+- `sim/knxsim/api/routes_export.py` — Topology, ManufacturerData, standard Function Types
+- `code/core/internal/commissioning/etsimport/parser.go` — Tier 1 extraction, XML structs
+- `code/core/internal/commissioning/etsimport/types.go` — 5 metadata fields on DetectedDevice
+- `code/core/internal/commissioning/etsimport/detection.go` — functionTypeToDeviceType(), commentToDeviceType()
+- `code/core/internal/commissioning/etsimport/parser_test.go` — 14 new tests
+- `code/core/internal/api/commissioning.go` — Import metadata, expanded capabilities
+- `code/core/internal/device/types.go` — 12 new device types
+
+---
+
 ## 1.0.17 – Flutter Dependency Upgrade & Riverpod v3 Migration (2026-02-03)
 
 **Focus: Upgrade all outdated Flutter deps, migrate Riverpod v2→v3, fix all pre-existing test failures**

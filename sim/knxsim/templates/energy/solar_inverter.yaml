@@ -2,6 +2,13 @@ id: solar_inverter
 name: Solar Inverter
 domain: energy
 description: PV solar inverter with generation power and daily yield
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "PVI-KNX"
+  application_program: "Solar Inverter Interface"
+  hardware_type: "MDRC"
 group_addresses:
   generation_power:
     dpt: "14.056"

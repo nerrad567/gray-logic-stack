@@ -3,7 +3,12 @@ name: KNX IP Router
 domain: system
 description: KNX/IP router for backbone connection and remote access (ABB IPR/S 3.1.1)
 type: ip_router
-manufacturer: ABB
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "IPR/S 3.5.1"
+  application_program: "IP Router Secure"
+  hardware_type: "MDRC"
 group_addresses:
   telegram_count:
     dpt: "12.001"

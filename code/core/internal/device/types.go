@@ -290,6 +290,30 @@ const (
 	DeviceTypeProjector   DeviceType = "projector"
 )
 
+// KNX controls device types.
+const (
+	DeviceTypeSceneController DeviceType = "scene_controller"
+	DeviceTypePushButton      DeviceType = "push_button"
+	DeviceTypeBinaryInput     DeviceType = "binary_input"
+	DeviceTypeRoomController  DeviceType = "room_controller"
+	DeviceTypeLogicModule     DeviceType = "logic_module"
+)
+
+// KNX system/infrastructure device types.
+const (
+	DeviceTypeIPRouter       DeviceType = "ip_router"
+	DeviceTypeLineCoupler    DeviceType = "line_coupler"
+	DeviceTypePowerSupply    DeviceType = "power_supply"
+	DeviceTypeTimerSwitch    DeviceType = "timer_switch"
+	DeviceTypeLoadController DeviceType = "load_controller"
+)
+
+// Additional sensor types.
+const (
+	DeviceTypeMultiSensor DeviceType = "multi_sensor"
+	DeviceTypeWindSensor  DeviceType = "wind_sensor"
+)
+
 // Other device types.
 const (
 	DeviceTypeGateway        DeviceType = "gateway"
@@ -329,6 +353,14 @@ func AllDeviceTypes() []DeviceType {
 		// Audio/Video
 		DeviceTypeAudioZone, DeviceTypeAudioMatrix, DeviceTypeVideoMatrix,
 		DeviceTypeDisplay, DeviceTypeProjector,
+		// KNX Controls
+		DeviceTypeSceneController, DeviceTypePushButton, DeviceTypeBinaryInput,
+		DeviceTypeRoomController, DeviceTypeLogicModule,
+		// KNX System/Infrastructure
+		DeviceTypeIPRouter, DeviceTypeLineCoupler, DeviceTypePowerSupply,
+		DeviceTypeTimerSwitch, DeviceTypeLoadController,
+		// Additional Sensors
+		DeviceTypeMultiSensor, DeviceTypeWindSensor,
 		// Other
 		DeviceTypeGateway, DeviceTypeIrrigation, DeviceTypePoolPump,
 		DeviceTypePoolHeater, DeviceTypeWeatherStation,

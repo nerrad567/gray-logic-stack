@@ -74,17 +74,24 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 	ext := strings.ToLower(filepath.Ext(filename))
 	// Debug logging - will be visible in server logs
 	fmt.Printf("[DEBUG] ParseBytes: filename=%q, ext=%q, dataLen=%d\n", filename, ext, len(data))
+
+	// projectXMLData stores the raw 0.xml bytes for Tier 1 extraction
+	var projectXMLData []byte
+
 	switch ext {
 	case ".knxproj":
-		if err := p.parseKNXProj(data, result); err != nil {
+		xmlData, err := p.parseKNXProjWithXML(data, result)
+		if err != nil {
 			return nil, err
 		}
+		projectXMLData = xmlData
 		result.Format = formatKNXProj
 
 	case ".xml":
 		if err := p.parseXML(data, result); err != nil {
 			return nil, err
 		}
+		projectXMLData = data
 		result.Format = formatXML
 
 	case ".csv":
@@ -96,21 +103,38 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 	default:
 		// Try to detect format from content
 		if isZipFile(data) {
-			if err := p.parseKNXProj(data, result); err != nil {
+			xmlData, err := p.parseKNXProjWithXML(data, result)
+			if err != nil {
 				return nil, err
 			}
+			projectXMLData = xmlData
 			result.Format = formatKNXProj
 		} else if isXMLFile(data) {
 			if err := p.parseXML(data, result); err != nil {
 				return nil, err
 			}
+			projectXMLData = data
 			result.Format = formatXML
 		} else {
 			return nil, ErrInvalidFile
 		}
 	}
 
-	// Run device detection
+	// Tier 1: Function-based classification (requires project XML with
+	// Topology, ManufacturerData, and Trades sections)
+	var consumedGAIDs map[string]bool
+	if projectXMLData != nil && len(result.UnmappedAddresses) > 0 {
+		consumedGAIDs = p.extractFunctionDevices(projectXMLData, result)
+		if len(consumedGAIDs) > 0 {
+			// Remove consumed GAs so Tier 2 doesn't re-detect them.
+			// Build GA ID→Address map by re-parsing GA IDs.
+			gaIDToAddr := p.buildGAIDToAddrMap(projectXMLData)
+			result.UnmappedAddresses = removeConsumedGAs(
+				result.UnmappedAddresses, consumedGAIDs, gaIDToAddr)
+		}
+	}
+
+	// Tier 2: DPT-based device detection on remaining unmapped GAs
 	p.detectDevices(result)
 
 	// Extract building locations from hierarchy paths
@@ -124,9 +148,16 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 
 // parseKNXProj extracts and parses a .knxproj ZIP archive.
 func (p *Parser) parseKNXProj(data []byte, result *ParseResult) error {
+	_, err := p.parseKNXProjWithXML(data, result)
+	return err
+}
+
+// parseKNXProjWithXML extracts and parses a .knxproj ZIP archive, returning
+// the raw project XML (0.xml) for use by Tier 1 function extraction.
+func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, error) {
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
-		return fmt.Errorf("%w: %w", ErrCorruptArchive, err)
+		return nil, fmt.Errorf("%w: %w", ErrCorruptArchive, err)
 	}
 
 	var groupAddressesXML []byte
@@ -148,21 +179,21 @@ func (p *Parser) parseKNXProj(data []byte, result *ParseResult) error {
 		case name == "groupaddresses.xml" || strings.HasSuffix(strings.ToLower(file.Name), "/groupaddresses.xml"):
 			content, err := readZipFile(file)
 			if err != nil {
-				return fmt.Errorf("reading GroupAddresses.xml: %w", err)
+				return nil, fmt.Errorf("reading GroupAddresses.xml: %w", err)
 			}
 			groupAddressesXML = content
 
 		case name == "0.xml" && projectXML == nil:
 			content, err := readZipFile(file)
 			if err != nil {
-				return fmt.Errorf("reading project XML: %w", err)
+				return nil, fmt.Errorf("reading project XML: %w", err)
 			}
 			projectXML = content
 
 		case name == "project.xml":
 			content, err := readZipFile(file)
 			if err != nil {
-				return fmt.Errorf("reading project.xml: %w", err)
+				return nil, fmt.Errorf("reading project.xml: %w", err)
 			}
 			// Try to extract ETS version
 			result.ETSVersion = extractETSVersion(content)
@@ -176,14 +207,18 @@ func (p *Parser) parseKNXProj(data []byte, result *ParseResult) error {
 			err := p.parseProjectXML(projectXML, result)
 			if err != nil {
 				fmt.Printf("[DEBUG] parseProjectXML failed: %v\n", err)
+				return nil, err
 			}
-			return err
+			return projectXML, nil
 		}
 		fmt.Printf("[DEBUG] No GroupAddresses.xml and no 0.xml found\n")
-		return ErrNoGroupAddresses
+		return nil, ErrNoGroupAddresses
 	}
 
-	return p.parseGroupAddressesXML(groupAddressesXML, result)
+	if err := p.parseGroupAddressesXML(groupAddressesXML, result); err != nil {
+		return nil, err
+	}
+	return projectXML, nil
 }
 
 // parseGroupAddressesXML parses the GroupAddresses.xml file from ETS.
@@ -322,6 +357,338 @@ func (p *Parser) parseProjectXML(data []byte, result *ParseResult) error {
 	}
 
 	return nil
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// Tier 1: Function-based device classification from ETS metadata
+// ─────────────────────────────────────────────────────────────────────────────
+
+// XML structures for ETS Topology, ManufacturerData, and Functions.
+
+type xmlDeviceInstance struct {
+	ID                    string            `xml:"Id,attr"`
+	Name                  string            `xml:"Name,attr"`
+	IndividualAddress     string            `xml:"IndividualAddress,attr"`
+	ProductRefId          string            `xml:"ProductRefId,attr"`
+	ApplicationProgramRef string            `xml:"ApplicationProgramRef,attr"`
+	ComObjectRefs         []xmlComObjectRef `xml:"ComObjectInstanceRefs>ComObjectInstanceRef"`
+}
+
+type xmlComObjectRef struct {
+	RefID string         `xml:"RefId,attr"`
+	DPT   string         `xml:"DatapointType,attr"`
+	Send  []xmlConnector `xml:"Connectors>Send"`
+}
+
+type xmlConnector struct {
+	GARefID string `xml:"GroupAddressRefId,attr"`
+}
+
+type xmlFunction struct {
+	ID      string      `xml:"Id,attr"`
+	Name    string      `xml:"Name,attr"`
+	Type    string      `xml:"Type,attr"`
+	Comment string      `xml:"Comment,attr"`
+	GARefs  []xmlGARef  `xml:"GroupAddressRefs>GroupAddressRef"`
+	LocRef  []xmlLocRef `xml:"LocationReference"`
+}
+
+type xmlGARef struct {
+	RefID string `xml:"RefId,attr"`
+	Name  string `xml:"Name,attr"`
+}
+
+type xmlLocRef struct {
+	RefID string `xml:"RefId,attr"`
+}
+
+type xmlManufacturer struct {
+	ID          string          `xml:"Id,attr"`
+	Name        string          `xml:"Name,attr"`
+	AppPrograms []xmlAppProgram `xml:"ApplicationProgram"`
+	Hardware    []xmlHardware   `xml:"Hardware"`
+}
+
+type xmlAppProgram struct {
+	ID   string `xml:"Id,attr"`
+	Name string `xml:"Name,attr"`
+}
+
+type xmlHardware struct {
+	ID   string `xml:"Id,attr"`
+	Name string `xml:"Name,attr"`
+}
+
+type xmlTrade struct {
+	Functions []xmlFunction `xml:"Function"`
+}
+
+// xmlProjectFull extends the basic project parse to include Topology,
+// ManufacturerData, and Trades (Functions).
+type xmlProjectFull struct {
+	XMLName       xml.Name            `xml:"KNX"`
+	Manufacturers []xmlManufacturer   `xml:"ManufacturerData>Manufacturer"`
+	Devices       []xmlDeviceInstance `xml:"Project>Installations>Installation>Topology>Area>Line>DeviceInstance"`
+	Trades        []xmlTrade          `xml:"Project>Installations>Installation>Trades>Trade"`
+}
+
+// extractFunctionDevices performs Tier 1 classification: it parses Functions
+// (from the Trades section), Topology (DeviceInstances), and ManufacturerData,
+// then maps ETS Function Types directly to GLCore device types.
+//
+// It returns the set of GA IDs that were consumed by Tier 1 devices, so
+// Tier 2 (DPT-based detection) can skip them.
+func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[string]bool {
+	var doc xmlProjectFull
+	if err := xml.Unmarshal(data, &doc); err != nil {
+		fmt.Printf("[DEBUG] extractFunctionDevices: unmarshal failed: %v\n", err)
+		return nil
+	}
+
+	if len(doc.Trades) == 0 {
+		fmt.Printf("[DEBUG] extractFunctionDevices: no Trades/Functions found\n")
+		return nil
+	}
+
+	// Build lookup maps
+	// GA ID → GroupAddress (from already-parsed unmapped addresses)
+	gaByID := make(map[string]*GroupAddress)
+	gaByAddr := make(map[string]*GroupAddress)
+	for i := range result.UnmappedAddresses {
+		ga := &result.UnmappedAddresses[i]
+		gaByAddr[ga.Address] = ga
+	}
+
+	// We need the GA XML IDs. Re-parse just the GA section to get ID→Address mapping.
+	type xmlGAEntry struct {
+		ID      string `xml:"Id,attr"`
+		Address string `xml:"Address,attr"`
+		Name    string `xml:"Name,attr"`
+		DPT     string `xml:"DatapointType,attr"`
+	}
+	type xmlGARangeEntry struct {
+		Addresses []xmlGAEntry      `xml:"GroupAddress"`
+		Ranges    []xmlGARangeEntry `xml:"GroupRange"`
+	}
+	type xmlGAProject struct {
+		XMLName xml.Name          `xml:"KNX"`
+		Ranges  []xmlGARangeEntry `xml:"Project>Installations>Installation>GroupAddresses>GroupRanges>GroupRange"`
+	}
+
+	var gaDoc xmlGAProject
+	if err := xml.Unmarshal(data, &gaDoc); err == nil {
+		var walkRanges func(ranges []xmlGARangeEntry)
+		walkRanges = func(ranges []xmlGARangeEntry) {
+			for _, r := range ranges {
+				for _, ga := range r.Addresses {
+					addr := normaliseGA(ga.Address)
+					if existing, ok := gaByAddr[addr]; ok {
+						gaByID[ga.ID] = existing
+					}
+				}
+				walkRanges(r.Ranges)
+			}
+		}
+		walkRanges(gaDoc.Ranges)
+	}
+
+	// Manufacturer ID → name
+	mfrNames := make(map[string]string)
+	for _, mfr := range doc.Manufacturers {
+		mfrNames[mfr.ID] = mfr.Name
+	}
+
+	// App program ID → name
+	appNames := make(map[string]string)
+	for _, mfr := range doc.Manufacturers {
+		for _, app := range mfr.AppPrograms {
+			appNames[app.ID] = app.Name
+		}
+	}
+
+	// Hardware ID → model name
+	hwNames := make(map[string]string)
+	for _, mfr := range doc.Manufacturers {
+		for _, hw := range mfr.Hardware {
+			hwNames[hw.ID] = hw.Name
+		}
+	}
+
+	// Device ID → DeviceInstance (for linking topology metadata to functions)
+	deviceByID := make(map[string]*xmlDeviceInstance)
+	for i := range doc.Devices {
+		deviceByID[doc.Devices[i].ID] = &doc.Devices[i]
+	}
+
+	// Build GA→DeviceInstance map via ComObjectRefs
+	gaRefToDevice := make(map[string]*xmlDeviceInstance)
+	for i := range doc.Devices {
+		dev := &doc.Devices[i]
+		for _, co := range dev.ComObjectRefs {
+			for _, send := range co.Send {
+				gaRefToDevice[send.GARefID] = dev
+			}
+		}
+	}
+
+	// Process Functions from Trades
+	consumedGAIDs := make(map[string]bool)
+	tier1Count := 0
+
+	for _, trade := range doc.Trades {
+		for _, fn := range trade.Functions {
+			deviceType, domain, confidence := functionTypeToDeviceType(fn.Type, fn.Comment)
+			if deviceType == "" {
+				continue // Unknown function type — skip
+			}
+
+			// Resolve GroupAddressRefs → actual GA data
+			var addresses []DeviceAddress
+			var sourceLocation string
+			for _, gaRef := range fn.GARefs {
+				ga, ok := gaByID[gaRef.RefID]
+				if !ok {
+					continue
+				}
+				funcName := gaRef.Name
+				if funcName == "" {
+					funcName = inferFunctionFromName(ga.Name)
+					if funcName == "" {
+						funcName = inferFunctionFromDPTValue(ga.DPT)
+					}
+				}
+				addresses = append(addresses, DeviceAddress{
+					GA:                ga.Address,
+					Name:              ga.Name,
+					DPT:               ga.DPT,
+					SuggestedFunction: funcName,
+					SuggestedFlags:    inferFlags(ga.DPT, ga.Name),
+					Description:       ga.Description,
+				})
+				if sourceLocation == "" {
+					sourceLocation = ga.Location
+				}
+				consumedGAIDs[gaRef.RefID] = true
+			}
+
+			if len(addresses) == 0 {
+				continue // No resolvable GAs — skip
+			}
+
+			// Try to find linked DeviceInstance for metadata
+			var manufacturer, productModel, appProgram, indAddr string
+			for _, gaRef := range fn.GARefs {
+				if dev, ok := gaRefToDevice[gaRef.RefID]; ok {
+					indAddr = dev.IndividualAddress
+					// Extract manufacturer from ProductRefId prefix (e.g., "M-0083_H-0001-HP-0001")
+					if parts := strings.SplitN(dev.ProductRefId, "_", 2); len(parts) > 0 {
+						manufacturer = mfrNames[parts[0]]
+					}
+					// Extract hardware model from ProductRefId
+					hwID := ""
+					if idx := strings.Index(dev.ProductRefId, "-HP-"); idx > 0 {
+						hwID = dev.ProductRefId[:idx]
+					}
+					if hwID != "" {
+						productModel = hwNames[hwID]
+					}
+					appProgram = appNames[dev.ApplicationProgramRef]
+					break
+				}
+			}
+
+			device := DetectedDevice{
+				SuggestedID:        generateSlug(fn.Name),
+				SuggestedName:      cleanName(fn.Name),
+				DetectedType:       deviceType,
+				Confidence:         confidence,
+				SuggestedDomain:    domain,
+				Addresses:          addresses,
+				SourceLocation:     sourceLocation,
+				Manufacturer:       manufacturer,
+				ProductModel:       productModel,
+				ApplicationProgram: appProgram,
+				IndividualAddress:  indAddr,
+				FunctionType:       fn.Type,
+			}
+
+			if sourceLocation != "" {
+				device.SuggestedRoom = extractRoomFromLocation(sourceLocation)
+				device.SuggestedArea = extractAreaFromLocation(sourceLocation)
+			}
+
+			result.Devices = append(result.Devices, device)
+			tier1Count++
+		}
+	}
+
+	fmt.Printf("[DEBUG] extractFunctionDevices: Tier 1 classified %d devices, consumed %d GA refs\n",
+		tier1Count, len(consumedGAIDs))
+
+	if len(consumedGAIDs) == 0 {
+		return nil
+	}
+	return consumedGAIDs
+}
+
+// removeConsumedGAs filters out group addresses that were already consumed
+// by Tier 1 (function-based) classification.
+func removeConsumedGAs(addresses []GroupAddress, consumedIDs map[string]bool, gaIDToAddr map[string]string) []GroupAddress {
+	if len(consumedIDs) == 0 {
+		return addresses
+	}
+
+	// Build set of consumed GA addresses
+	consumedAddrs := make(map[string]bool)
+	for gaID := range consumedIDs {
+		if addr, ok := gaIDToAddr[gaID]; ok {
+			consumedAddrs[addr] = true
+		}
+	}
+
+	var remaining []GroupAddress
+	for _, ga := range addresses {
+		if !consumedAddrs[ga.Address] {
+			remaining = append(remaining, ga)
+		}
+	}
+	return remaining
+}
+
+// buildGAIDToAddrMap parses the project XML to build a map from GA XML IDs
+// to normalised GA address strings. Used to correlate consumed GA IDs from
+// Tier 1 with actual addresses in the unmapped pool.
+func (p *Parser) buildGAIDToAddrMap(data []byte) map[string]string {
+	type xmlGAE struct {
+		ID      string `xml:"Id,attr"`
+		Address string `xml:"Address,attr"`
+	}
+	type xmlGRE struct {
+		Addresses []xmlGAE `xml:"GroupAddress"`
+		Ranges    []xmlGRE `xml:"GroupRange"`
+	}
+	type xmlDoc struct {
+		XMLName xml.Name `xml:"KNX"`
+		Ranges  []xmlGRE `xml:"Project>Installations>Installation>GroupAddresses>GroupRanges>GroupRange"`
+	}
+
+	var doc xmlDoc
+	if err := xml.Unmarshal(data, &doc); err != nil {
+		return nil
+	}
+
+	result := make(map[string]string)
+	var walk func(ranges []xmlGRE)
+	walk = func(ranges []xmlGRE) {
+		for _, r := range ranges {
+			for _, ga := range r.Addresses {
+				result[ga.ID] = normaliseGA(ga.Address)
+			}
+			walk(r.Ranges)
+		}
+	}
+	walk(doc.Ranges)
+	return result
 }
 
 // parseGenericXML attempts to parse any XML with group address-like content.

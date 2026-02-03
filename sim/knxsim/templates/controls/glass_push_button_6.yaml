@@ -3,7 +3,12 @@ name: Glass Push Button 6-fold
 domain: controls
 description: 6-fold glass push button with RGB status LEDs and temperature sensor (MDT BE-GT2TW.02)
 type: push_button
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "BE-GT2TW.02"
+  application_program: "Glass Push Button 6-fold"
+  hardware_type: "flush"
 channels: 6
 group_addresses:
   button_1:

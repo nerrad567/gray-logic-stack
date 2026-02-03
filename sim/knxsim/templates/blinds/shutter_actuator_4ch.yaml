@@ -3,7 +3,12 @@ name: Shutter Actuator 4-Channel
 domain: blinds
 description: 4-channel shutter/blind actuator with position control (MDT JAL-0410.02)
 type: shutter_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "JAL-0410.02"
+  application_program: "Shutter Actuator 4-fold"
+  hardware_type: "MDRC"
 channels: 4
 group_addresses:
   ch1_move:

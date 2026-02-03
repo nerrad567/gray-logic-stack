@@ -2,6 +2,13 @@ id: temperature_sensor
 name: Temperature Sensor
 domain: sensors
 description: KNX temperature sensor (DPT 9.001)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "TS/S"
+  application_program: "Temperature Sensor"
+  hardware_type: "flush"
 group_addresses:
   temperature:
     dpt: "9.001"

@@ -2,6 +2,13 @@ id: lux_sensor
 name: Lux Sensor
 domain: sensors
 description: Ambient light sensor (DPT 9.004)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "LF/U 2.1"
+  application_program: "Light Sensor"
+  hardware_type: "surface"
 group_addresses:
   lux:
     dpt: "9.004"

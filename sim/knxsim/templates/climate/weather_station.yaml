@@ -3,7 +3,12 @@ name: Weather Station
 domain: climate
 description: Multi-sensor weather station with sun tracking (Theben LUNA 131 KNX)
 type: weather_station
-manufacturer: Theben
+manufacturer:
+  id: "M-0064"
+  name: "Theben"
+  product_model: "LUNA 131 S KNX"
+  application_program: "Weather Station"
+  hardware_type: "surface"
 group_addresses:
   temperature:
     dpt: "9.001"

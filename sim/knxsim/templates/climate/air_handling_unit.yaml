@@ -2,6 +2,13 @@ id: air_handling_unit
 name: Air Handling Unit (AHU)
 domain: climate
 description: Central AHU controller with supply/extract fans and heat recovery
+
+manufacturer:
+  id: "M-0050"
+  name: "Siemens"
+  product_model: "PXC001-E.D"
+  application_program: "AHU Controller"
+  hardware_type: "MDRC"
 type: ahu_controller
 group_addresses:
   power:

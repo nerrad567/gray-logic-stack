@@ -62,8 +62,24 @@ class DeviceTemplate:
         self.scenarios = data.get("scenarios", [])
         self.file_path = file_path
 
+        # Manufacturer metadata (from structured manufacturer: block)
+        mfr = data.get("manufacturer", {})
+        if isinstance(mfr, str):
+            # Legacy flat format: manufacturer: "ABB"
+            self.manufacturer_id = ""
+            self.manufacturer_name = mfr
+            self.product_model = ""
+            self.application_program = ""
+            self.hardware_type = ""
+        else:
+            self.manufacturer_id = mfr.get("id", "")
+            self.manufacturer_name = mfr.get("name", "")
+            self.product_model = mfr.get("product_model", "")
+            self.application_program = mfr.get("application_program", "")
+            self.hardware_type = mfr.get("hardware_type", "")
+
     def to_dict(self) -> dict:
-        return {
+        d = {
             "id": self.id,
             "name": self.name,
             "domain": self.domain,
@@ -72,6 +88,16 @@ class DeviceTemplate:
             "initial_state": self.initial_state,
             "scenarios": self.scenarios,
         }
+        # Include manufacturer metadata when present
+        if self.manufacturer_name:
+            d["manufacturer"] = {
+                "id": self.manufacturer_id,
+                "name": self.manufacturer_name,
+                "product_model": self.product_model,
+                "application_program": self.application_program,
+                "hardware_type": self.hardware_type,
+            }
+        return d
 
     def get_required_gas(self) -> list[str]:
         """Return list of GA slot names that must be provided."""
@@ -146,9 +172,7 @@ class TemplateLoader:
         templates = self._templates.values()
         if domain:
             templates = [t for t in templates if t.domain == domain]
-        return [
-            t.to_dict() for t in sorted(templates, key=lambda t: (t.domain, t.name))
-        ]
+        return [t.to_dict() for t in sorted(templates, key=lambda t: (t.domain, t.name))]
 
     def list_domains(self) -> list[str]:
         """List all available domains."""

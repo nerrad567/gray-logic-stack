@@ -3,7 +3,12 @@ name: Switch Actuator 8-Channel
 domain: lighting
 description: 8-channel 16A switch actuator for larger installations (MDT AKS-0816.03)
 type: switch_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKS-0816.03"
+  application_program: "Switch Actuator 8-fold 16A"
+  hardware_type: "MDRC"
 channels: 8
 group_addresses:
   ch1_switch_cmd:

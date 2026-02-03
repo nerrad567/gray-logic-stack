@@ -2,6 +2,13 @@ id: blind_position_slat
 name: Blind (Position + Slat)
 domain: blinds
 description: Venetian blind with both position and slat angle control
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "JAL-0810.02"
+  application_program: "Shutter Actuator 8-fold"
+  hardware_type: "MDRC"
 group_addresses:
   move_cmd:
     dpt: "1.008"

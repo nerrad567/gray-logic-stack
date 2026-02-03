@@ -2,6 +2,13 @@ id: push_button_2
 name: 2-Button Panel
 domain: controls
 description: Wall-mounted 2-gang push button (rocker)
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "SBR/U 6.0.1"
+  application_program: "Push Button 2-fold"
+  hardware_type: "flush"
 group_addresses:
   button_1:
     dpt: "1.001"

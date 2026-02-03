@@ -3,7 +3,12 @@ name: Astronomical Timer
 domain: system
 description: KNX timer with astronomical clock, holidays, and scheduling (Theben TR648 KNX)
 type: timer
-manufacturer: Theben
+manufacturer:
+  id: "M-0064"
+  name: "Theben"
+  product_model: "TR 648 top3 KNX"
+  application_program: "Astronomical Timer 4-ch"
+  hardware_type: "MDRC"
 group_addresses:
   time:
     dpt: "10.001"

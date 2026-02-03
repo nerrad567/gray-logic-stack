@@ -2,6 +2,13 @@ id: co2_sensor
 name: CO2 Sensor
 domain: sensors
 description: Air quality CO2 sensor (DPT 9.008)
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-CO2MGS.02"
+  application_program: "CO2 Sensor"
+  hardware_type: "flush"
 group_addresses:
   co2:
     dpt: "9.008"

@@ -2,6 +2,13 @@ id: thermostat
 name: Room Thermostat
 domain: climate
 description: KNX room thermostat with setpoint and current temperature
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "RTC"
+  application_program: "Room Thermostat Controller"
+  hardware_type: "flush"
 group_addresses:
   current_temp:
     dpt: "9.001"

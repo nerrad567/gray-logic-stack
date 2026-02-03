@@ -2,6 +2,13 @@ id: blind_position
 name: Blind (Position)
 domain: blinds
 description: Blind/shutter actuator with position control
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "JRA/S 4.230.5.1"
+  application_program: "Blind Actuator 4-fold 230V"
+  hardware_type: "MDRC"
 group_addresses:
   move_cmd:
     dpt: "1.008"

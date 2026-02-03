@@ -74,6 +74,21 @@ type DetectedDevice struct {
 
 	// SourceLocation is the ETS hierarchy path (for reference).
 	SourceLocation string `json:"source_location,omitempty"`
+
+	// Manufacturer is the device manufacturer name (from ETS Topology).
+	Manufacturer string `json:"manufacturer,omitempty"`
+
+	// ProductModel is the hardware product model (from ETS Topology).
+	ProductModel string `json:"product_model,omitempty"`
+
+	// ApplicationProgram is the KNX application program name (from ETS Topology).
+	ApplicationProgram string `json:"application_program,omitempty"`
+
+	// IndividualAddress is the KNX individual address (from ETS Topology).
+	IndividualAddress string `json:"individual_address,omitempty"`
+
+	// FunctionType is the ETS Function Type that classified this device (Tier 1).
+	FunctionType string `json:"function_type,omitempty"`
 }
 
 // DeviceAddress represents a single group address mapping for a device.

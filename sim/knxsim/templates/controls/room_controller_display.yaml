@@ -3,7 +3,12 @@ name: Room Controller with Display
 domain: controls
 description: Touch display room controller for HVAC, lighting, and blinds (Theben iON 104 KNX)
 type: room_controller
-manufacturer: Theben
+manufacturer:
+  id: "M-0064"
+  name: "Theben"
+  product_model: "iON 104 KNX"
+  application_program: "Room Controller Display"
+  hardware_type: "flush"
 group_addresses:
   temperature_actual:
     dpt: "9.001"

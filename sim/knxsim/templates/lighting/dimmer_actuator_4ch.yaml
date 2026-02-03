@@ -3,7 +3,12 @@ name: Dimmer Actuator 4-Channel
 domain: lighting
 description: 4-channel universal LED dimmer actuator 200W/ch (MDT AKD-0424V.02)
 type: dimmer_actuator
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AKD-0424V.02"
+  application_program: "Dimmer Actuator 4-fold 200W"
+  hardware_type: "MDRC"
 channels: 4
 group_addresses:
   ch1_switch_cmd:

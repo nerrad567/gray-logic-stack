@@ -3,7 +3,12 @@ name: Glass Push Button 8-fold
 domain: controls
 description: 8-fold capacitive glass panel with status LEDs and display (MDT BE-GT2TW.02)
 type: push_button
-manufacturer: MDT
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "BE-GT2TW.02"
+  application_program: "Glass Push Button 8-fold"
+  hardware_type: "flush"
 channels: 8
 group_addresses:
   button_1: { dpt: "1.001", direction: write, flags: "C--T--" }
