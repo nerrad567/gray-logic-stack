@@ -86,7 +86,7 @@ void main() {
       expect(state.hasError, true);
     });
 
-    test('toggleDevice performs optimistic update', () async {
+    test('toggleDevice marks device as pending and sends command', () async {
       final devices = [_makeDevice('d1', on: false)];
       when(() => mockRepo.getDevicesByRoom('room'))
           .thenAnswer((_) async => devices);
@@ -97,14 +97,19 @@ void main() {
       final notifier = container.read(roomDevicesProvider.notifier);
       await notifier.loadDevices('room');
 
-      // Toggle — should optimistically flip to ON immediately
+      // Toggle — sends command, marks pending (does NOT change state)
       unawaited(notifier.toggleDevice('d1'));
 
       // Allow microtask to complete
       await Future.delayed(Duration.zero);
 
+      // Device state unchanged — waiting for WebSocket confirmation
       final state = container.read(roomDevicesProvider);
-      expect(state.value![0].isOn, true);
+      expect(state.value![0].isOn, false);
+
+      // But device should be marked as pending
+      final pending = container.read(pendingDevicesProvider);
+      expect(pending.contains('d1'), true);
     });
 
     test('toggleDevice rolls back on API error', () async {
@@ -123,7 +128,7 @@ void main() {
       expect(state.value![0].isOn, true);
     });
 
-    test('setLevel performs optimistic update', () async {
+    test('setLevel marks device as pending and sends command', () async {
       final devices = [_makeDevice('d1', on: true, level: 50)];
       when(() => mockRepo.getDevicesByRoom('room'))
           .thenAnswer((_) async => devices);
@@ -136,8 +141,13 @@ void main() {
       unawaited(notifier.setLevel('d1', 80));
       await Future.delayed(Duration.zero);
 
+      // Level unchanged — waiting for WebSocket confirmation
       final state = container.read(roomDevicesProvider);
-      expect(state.value![0].level, 80);
+      expect(state.value![0].level, 50);
+
+      // But device should be marked as pending
+      final pending = container.read(pendingDevicesProvider);
+      expect(pending.contains('d1'), true);
     });
 
     test('setLevel rolls back on API error', () async {

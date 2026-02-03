@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 
 import '../models/scene.dart';
 import '../repositories/scene_repository.dart';
@@ -13,19 +14,18 @@ final sceneRepositoryProvider = Provider<SceneRepository>((ref) {
 
 /// Provides the list of scenes for the configured room.
 final roomScenesProvider =
-    StateNotifierProvider<RoomScenesNotifier, AsyncValue<List<Scene>>>((ref) {
-  return RoomScenesNotifier(ref);
-});
+    NotifierProvider<RoomScenesNotifier, AsyncValue<List<Scene>>>(
+  RoomScenesNotifier.new,
+);
 
 /// Tracks which scene is currently being activated (for UI feedback).
 final activeSceneIdProvider = StateProvider<String?>((ref) => null);
 
-class RoomScenesNotifier extends StateNotifier<AsyncValue<List<Scene>>> {
-  final Ref _ref;
+class RoomScenesNotifier extends Notifier<AsyncValue<List<Scene>>> {
+  @override
+  AsyncValue<List<Scene>> build() => const AsyncValue.loading();
 
-  RoomScenesNotifier(this._ref) : super(const AsyncValue.loading());
-
-  SceneRepository get _sceneRepo => _ref.read(sceneRepositoryProvider);
+  SceneRepository get _sceneRepo => ref.read(sceneRepositoryProvider);
 
   /// Load scenes for a room from the API.
   Future<void> loadScenes(String roomId) async {
@@ -43,15 +43,15 @@ class RoomScenesNotifier extends StateNotifier<AsyncValue<List<Scene>>> {
   /// Activate a scene with visual feedback.
   Future<void> activateScene(String sceneId) async {
     // Set active indicator
-    _ref.read(activeSceneIdProvider.notifier).state = sceneId;
+    ref.read(activeSceneIdProvider.notifier).state = sceneId;
 
     try {
       await _sceneRepo.activate(sceneId);
     } finally {
       // Clear active indicator after a brief delay (animation time)
       Future.delayed(const Duration(milliseconds: 800), () {
-        if (mounted) {
-          _ref.read(activeSceneIdProvider.notifier).state = null;
+        if (ref.mounted) {
+          ref.read(activeSceneIdProvider.notifier).state = null;
         }
       });
     }

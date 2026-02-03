@@ -17,12 +17,13 @@ final deviceRepositoryProvider = Provider<DeviceRepository>((ref) {
 /// Tracks which devices are currently in a "pending" state (waiting for
 /// bridge/WebSocket confirmation). Widgets use this to show a loading indicator.
 final pendingDevicesProvider =
-    StateNotifierProvider<PendingDevicesNotifier, Set<String>>((ref) {
-  return PendingDevicesNotifier();
-});
+    NotifierProvider<PendingDevicesNotifier, Set<String>>(
+  PendingDevicesNotifier.new,
+);
 
-class PendingDevicesNotifier extends StateNotifier<Set<String>> {
-  PendingDevicesNotifier() : super({});
+class PendingDevicesNotifier extends Notifier<Set<String>> {
+  @override
+  Set<String> build() => {};
 
   void markPending(String deviceId) {
     state = {...state, deviceId};
@@ -38,21 +39,31 @@ class PendingDevicesNotifier extends StateNotifier<Set<String>> {
 /// Provides the list of devices for the configured room.
 /// Listens to WebSocket events for real-time state updates.
 final roomDevicesProvider =
-    StateNotifierProvider<RoomDevicesNotifier, AsyncValue<List<Device>>>((ref) {
-  return RoomDevicesNotifier(ref);
-});
+    NotifierProvider<RoomDevicesNotifier, AsyncValue<List<Device>>>(
+  RoomDevicesNotifier.new,
+);
 
-class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
-  final Ref _ref;
+class RoomDevicesNotifier extends Notifier<AsyncValue<List<Device>>> {
   StreamSubscription<WSInMessage>? _wsSubscription;
   final Map<String, Timer> _timeoutTimers = {};
 
-  RoomDevicesNotifier(this._ref) : super(const AsyncValue.loading()) {
+  @override
+  AsyncValue<List<Device>> build() {
     _listenToWebSocket();
+
+    ref.onDispose(() {
+      _wsSubscription?.cancel();
+      for (final timer in _timeoutTimers.values) {
+        timer.cancel();
+      }
+      _timeoutTimers.clear();
+    });
+
+    return const AsyncValue.loading();
   }
 
-  DeviceRepository get _deviceRepo => _ref.read(deviceRepositoryProvider);
-  PendingDevicesNotifier get _pending => _ref.read(pendingDevicesProvider.notifier);
+  DeviceRepository get _deviceRepo => ref.read(deviceRepositoryProvider);
+  PendingDevicesNotifier get _pending => ref.read(pendingDevicesProvider.notifier);
 
   /// Load devices for a room from the API.
   /// Use '__all__' to load all devices regardless of room assignment.
@@ -76,7 +87,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   /// Instead of flipping state immediately, marks device as "pending" and
   /// waits for WebSocket confirmation from the backend/bridge.
   Future<void> toggleDevice(String deviceId) async {
-    final devices = state.valueOrNull;
+    final devices = state.value;
     if (devices == null) return;
 
     final index = devices.indexWhere((d) => d.id == deviceId);
@@ -103,7 +114,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   /// Set blind position with pending confirmation pattern.
   Future<void> setPosition(String deviceId, int position) async {
-    final devices = state.valueOrNull;
+    final devices = state.value;
     if (devices == null) return;
 
     final index = devices.indexWhere((d) => d.id == deviceId);
@@ -122,7 +133,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   /// Set brightness level with pending confirmation pattern.
   Future<void> setLevel(String deviceId, int level) async {
-    final devices = state.valueOrNull;
+    final devices = state.value;
     if (devices == null) return;
 
     final index = devices.indexWhere((d) => d.id == deviceId);
@@ -145,7 +156,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   /// Set thermostat setpoint with pending confirmation pattern.
   Future<void> setSetpoint(String deviceId, double setpoint) async {
-    final devices = state.valueOrNull;
+    final devices = state.value;
     if (devices == null) return;
 
     final index = devices.indexWhere((d) => d.id == deviceId);
@@ -164,7 +175,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   /// Listen to WebSocket events for real-time device state updates.
   void _listenToWebSocket() {
-    final wsService = _ref.read(webSocketServiceProvider);
+    final wsService = ref.read(webSocketServiceProvider);
     _wsSubscription = wsService.events.listen((msg) {
       if (msg.isDeviceStateChanged) {
         final event = DeviceStateEvent.fromPayload(msg.payload);
@@ -180,7 +191,7 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
 
   /// Update a device's state in the local list.
   void _updateDeviceState(String deviceId, Map<String, dynamic> newState) {
-    final devices = state.valueOrNull;
+    final devices = state.value;
     if (devices == null) return;
 
     final updated = devices.map((d) {
@@ -212,14 +223,5 @@ class RoomDevicesNotifier extends StateNotifier<AsyncValue<List<Device>>> {
   void _cancelTimeoutTimer(String deviceId) {
     _timeoutTimers[deviceId]?.cancel();
     _timeoutTimers.remove(deviceId);
-  }
-
-  @override
-  void dispose() {
-    _wsSubscription?.cancel();
-    for (final timer in _timeoutTimers.values) {
-      timer.cancel();
-    }
-    super.dispose();
   }
 }

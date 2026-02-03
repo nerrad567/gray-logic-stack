@@ -82,7 +82,7 @@ cd code/core && make build
 # 3c. Build Flutter wall panel (if flutter is available)
 #     Skip gracefully if Flutter is not installed
 if command -v flutter &>/dev/null; then
-  cd code/ui/wallpanel && flutter pub get && flutter build web --base-href="/panel/"
+  cd code/ui/wallpanel && flutter pub get && flutter build web --release --base-href="/panel/" --no-tree-shake-icons
   cp -r build/web ../../core/internal/panel/web
   echo "Flutter panel built and deployed"
 else

@@ -34,7 +34,7 @@ class _RoomViewState extends ConsumerState<RoomView> {
   Widget build(BuildContext context) {
     final devicesAsync = ref.watch(roomDevicesProvider);
     final scenesAsync = ref.watch(roomScenesProvider);
-    final locationData = ref.watch(locationDataProvider).valueOrNull;
+    final locationData = ref.watch(locationDataProvider).value;
 
     // Resolve room name from location data
     final String roomName;
@@ -101,7 +101,7 @@ class _RoomViewState extends ConsumerState<RoomView> {
         ),
 
         // Scene bar (bottom)
-        if (scenesAsync.valueOrNull?.isNotEmpty ?? false)
+        if (scenesAsync.value?.isNotEmpty ?? false)
           const Padding(
             padding: EdgeInsets.only(bottom: 16),
             child: SceneBar(),

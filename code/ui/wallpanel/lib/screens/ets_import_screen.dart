@@ -644,7 +644,7 @@ class _DevicePreviewTile extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final locationData = ref.watch(locationDataProvider);
-    final rooms = locationData.valueOrNull?.rooms ?? [];
+    final rooms = locationData.value?.rooms ?? [];
 
     return Card(
       margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
@@ -716,13 +716,13 @@ class _DevicePreviewTile extends ConsumerWidget {
                 Builder(builder: (context) {
                   // Build room options: existing rooms + suggested room if different
                   final roomOptions = <DropdownMenuItem<String?>>[];
-                  
+
                   // Add "No room" option
                   roomOptions.add(const DropdownMenuItem(
                     value: null,
                     child: Text('No room'),
                   ));
-                  
+
                   // Add existing rooms from the system
                   final existingIds = <String>{};
                   for (final room in rooms) {
@@ -732,9 +732,9 @@ class _DevicePreviewTile extends ConsumerWidget {
                       child: Text(room.name),
                     ));
                   }
-                  
+
                   // Add suggested room if it's not already in the list
-                  if (device.suggestedRoom != null && 
+                  if (device.suggestedRoom != null &&
                       device.suggestedRoom!.isNotEmpty &&
                       !existingIds.contains(device.suggestedRoom)) {
                     // Format the suggested room nicely (slug to title case)
@@ -747,7 +747,7 @@ class _DevicePreviewTile extends ConsumerWidget {
                       child: Text('$displayName (suggested)'),
                     ));
                   }
-                  
+
                   return DropdownButtonFormField<String?>(
                     value: device.selectedRoomId,
                     decoration: const InputDecoration(

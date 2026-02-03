@@ -48,6 +48,7 @@ PKG_DIR := ./pkg/...
 # Declaring them prevents Make from confusing them with filenames.
 
 .PHONY: help build run clean test test-coverage lint fmt vet tidy vendor check all dev \
+       build-panel build-panel-dev build-all \
        dev-services dev-services-down dev-run dev-run-quick \
        docker-build docker-up docker-down
 
@@ -77,6 +78,15 @@ build-panel:
 	rm -rf internal/panel/web
 	cp -r ../ui/wallpanel/build/web internal/panel/web
 	@echo "Panel build complete (ready for go:embed)"
+
+## build-panel-dev: Quick Flutter web build (skips icon tree shaking for speed)
+build-panel-dev:
+	@echo "Building Flutter wall panel (dev — fast)..."
+	cd ../ui/wallpanel && flutter build web --release --base-href="/panel/" --no-tree-shake-icons
+	@echo "Copying web build to embed directory..."
+	rm -rf internal/panel/web
+	cp -r ../ui/wallpanel/build/web internal/panel/web
+	@echo "Panel dev build complete"
 
 ## build-all: Build panel + Go binary (single production binary)
 build-all: build-panel build

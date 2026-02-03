@@ -68,17 +68,16 @@ class ETSImportState {
 
 /// Provider for ETS import state management.
 final etsImportProvider =
-    StateNotifierProvider<ETSImportNotifier, ETSImportState>((ref) {
-  return ETSImportNotifier(ref);
-});
+    NotifierProvider<ETSImportNotifier, ETSImportState>(
+  ETSImportNotifier.new,
+);
 
 /// Manages the ETS import flow: upload -> parse -> preview -> import.
-class ETSImportNotifier extends StateNotifier<ETSImportState> {
-  final Ref _ref;
+class ETSImportNotifier extends Notifier<ETSImportState> {
+  @override
+  ETSImportState build() => const ETSImportState();
 
-  ETSImportNotifier(this._ref) : super(const ETSImportState());
-
-  ApiClient get _apiClient => _ref.read(apiClientProvider);
+  ApiClient get _apiClient => ref.read(apiClientProvider);
 
   /// Upload and parse an ETS project file.
   Future<void> uploadAndParse(List<int> fileBytes, String filename) async {

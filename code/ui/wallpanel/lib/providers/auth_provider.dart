@@ -25,18 +25,17 @@ final authRepositoryProvider = Provider<AuthRepository>((ref) {
 });
 
 /// Manages authentication state.
-final authProvider = StateNotifierProvider<AuthNotifier, AuthState>((ref) {
-  return AuthNotifier(ref);
-});
+final authProvider = NotifierProvider<AuthNotifier, AuthState>(
+  AuthNotifier.new,
+);
 
-class AuthNotifier extends StateNotifier<AuthState> {
-  final Ref _ref;
+class AuthNotifier extends Notifier<AuthState> {
+  @override
+  AuthState build() => const AuthState();
 
-  AuthNotifier(this._ref) : super(const AuthState());
-
-  AuthRepository get _authRepo => _ref.read(authRepositoryProvider);
-  ApiClient get _apiClient => _ref.read(apiClientProvider);
-  TokenStorage get _tokenStorage => _ref.read(tokenStorageProvider);
+  AuthRepository get _authRepo => ref.read(authRepositoryProvider);
+  ApiClient get _apiClient => ref.read(apiClientProvider);
+  TokenStorage get _tokenStorage => ref.read(tokenStorageProvider);
 
   /// Attempt to restore a previous session from stored token.
   Future<void> restoreSession() async {

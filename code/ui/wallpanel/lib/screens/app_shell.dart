@@ -95,7 +95,7 @@ class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
     final apiClient = ref.read(apiClientProvider);
     final deviceResponse = await apiClient.getDevices();
     final hasDevices = deviceResponse.count > 0;
-    final locationData = ref.read(locationDataProvider).valueOrNull;
+    final locationData = ref.read(locationDataProvider).value;
 
     if (!hasDevices) {
       // No devices configured - show onboarding

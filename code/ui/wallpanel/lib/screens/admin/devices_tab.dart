@@ -415,7 +415,7 @@ class _EditDeviceSheetState extends ConsumerState<_EditDeviceSheet> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final locationData = ref.watch(locationDataProvider);
-    final rooms = locationData.valueOrNull?.rooms ?? [];
+    final rooms = locationData.value?.rooms ?? [];
 
     return Padding(
       padding: EdgeInsets.only(

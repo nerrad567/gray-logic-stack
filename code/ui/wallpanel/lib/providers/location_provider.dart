@@ -1,6 +1,7 @@
 import 'dart:convert';
 
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/constants.dart';
@@ -73,16 +74,15 @@ class LocationData {
 
 /// Fetches and caches area+room data. Loaded once on app start.
 final locationDataProvider =
-    StateNotifierProvider<LocationDataNotifier, AsyncValue<LocationData>>((ref) {
-  return LocationDataNotifier(ref);
-});
+    NotifierProvider<LocationDataNotifier, AsyncValue<LocationData>>(
+  LocationDataNotifier.new,
+);
 
-class LocationDataNotifier extends StateNotifier<AsyncValue<LocationData>> {
-  final Ref _ref;
+class LocationDataNotifier extends Notifier<AsyncValue<LocationData>> {
+  @override
+  AsyncValue<LocationData> build() => const AsyncValue.loading();
 
-  LocationDataNotifier(this._ref) : super(const AsyncValue.loading());
-
-  LocationRepository get _repo => _ref.read(locationRepositoryProvider);
+  LocationRepository get _repo => ref.read(locationRepositoryProvider);
 
   /// Load areas and rooms from the API, falling back to cache on failure.
   Future<void> load() async {
