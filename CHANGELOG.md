@@ -4,6 +4,40 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.16 – Registry-Only Devices & ETS Auto Location (2026-02-03)
+
+**Focus: Single source of truth for devices; zero-intervention ETS import**
+
+### Removed
+
+- **Static YAML device config**: Cleared `knx-bridge.yaml` devices to `[]`. Bridge starts empty — no more YAML→registry seeding on startup. Removed `seedDeviceRegistry()`, `buildDeviceSeed()`, and 6 helper functions (~570 net lines removed).
+- **Config-takes-precedence logic**: Removed "skip if already in config" check from `loadDevicesFromRegistry()`. Registry is now the sole source of device→GA mappings.
+
+### Added
+
+- **ETS location extraction**: Implemented `extractLocations()` in the ETS parser — builds `Location` objects (areas/rooms) from GroupRange hierarchy paths. Filters domain names (Lighting, HVAC, Blinds, etc. EN+DE), deduplicates by slug, classifies leaf nodes as rooms and non-leaf as areas.
+- **Auto room assignment**: Added `autoMapDeviceLocations()` in the import endpoint — maps `SuggestedRoom`/`SuggestedArea` to `RoomID`/`AreaID` after location creation. User-provided values take precedence.
+- **`SuggestedRoom`/`SuggestedArea` fields** on `ETSDeviceImport` — carries parser suggestions through to import phase.
+- **`createTestBridge()` test helper** — pre-loads device maps from config for bridge tests.
+- **6 new location extraction tests** — domain-first, location-first, 3-level, dedup, empty, device source.
+
+### Changed
+
+- **Bridge startup**: `NewBridge()` starts with empty GA maps. `Start()` calls `loadDevicesFromRegistry()` as sole loading path. Health reporting uses registry count.
+- **`extractLocations()` call site**: Moved from `parseGroupAddressesXML()` to `ParseBytes()` — works for all formats (knxproj, XML, CSV).
+
+### Files Modified
+
+- `code/core/configs/knx-bridge.yaml` — cleared devices
+- `code/core/internal/bridges/knx/bridge.go` — registry-only loading
+- `code/core/internal/bridges/knx/bridge_test.go` — test helper, removed dead tests
+- `code/core/internal/bridges/knx/config.go` — updated doc comment
+- `code/core/internal/commissioning/etsimport/parser.go` — location extraction
+- `code/core/internal/commissioning/etsimport/parser_test.go` — 6 new tests
+- `code/core/internal/api/commissioning.go` — auto-map device locations
+
+---
+
 ## 1.0.15 – Dev Environment Fixes & KNX Bridge Device Config (2026-02-03)
 
 **Focus: Fix dev environment connectivity and enable KNX state flow**

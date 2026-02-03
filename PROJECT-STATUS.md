@@ -7,7 +7,7 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 24 - Dev Environment Fixes & Bridge Config)
+**Last session:** 2026-02-03 (Session 25 - Registry-Only Devices & ETS Auto Location)
 **Current milestone:** Year 1 Foundation Complete + Dev Environment Operational
 
 **What's done:**
@@ -31,8 +31,8 @@
 - Dev Environment Fixes ✅ (knxd→knxsim, localhost API bind, bridge device mappings, end-to-end state flow)
 
 **What's next:**
-- Remove static knx-bridge.yaml device config — ETS import + Flutter admin panel should be single source of truth
 - Fix knxsim thermal simulation tunnel sends (proactive UDP telegrams not reaching knxd reliably)
+- Extend ETS domain filter list for other languages (French, Italian, etc.)
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
@@ -731,6 +731,49 @@ Switched to native Go development with containerised support services. Go core n
 
 **Files Modified**: 15+ across Go, Docker, docs
 **See**: CHANGELOG.md v1.0.13 for full details
+
+---
+
+### Session 25: 2026-02-03 — Registry-Only Devices & ETS Auto Location
+
+**Goal:** Remove redundant static YAML device config; implement automatic location extraction from ETS import
+
+**Part 1 — Registry-Only Device Config** (`a7f261a`):
+- Cleared `knx-bridge.yaml` devices to `[]` — bridge starts empty
+- Removed `seedDeviceRegistry()` — no more YAML→registry pollution on startup
+- Removed `BuildDeviceIndex()` call from `NewBridge()` — maps start empty
+- Made `loadDevicesFromRegistry()` the sole source of device→GA mappings
+- Removed "skip if already in config" check — registry is primary, not secondary
+- Fixed health reporting to use registry-loaded count
+- Removed 8 dead helper functions and 6 dead test functions (~570 net lines removed)
+- Added `createTestBridge()` test helper, updated 18 tests
+
+**Part 2 — ETS Location Extraction** (`6e28ca8`):
+- Implemented `extractLocations()` — builds `Location` objects from GA hierarchy paths
+- Algorithm: collect paths → build tree → filter domain names (EN+DE) → classify leaf=room, non-leaf=floor
+- Deduplicates by slug across domains (same room under Lighting + HVAC = 1 location)
+- Sorts areas before rooms for correct parent creation order
+- Added `autoMapDeviceLocations()` — maps `SuggestedRoom`→`RoomID` after location creation
+- Added `SuggestedRoom`/`SuggestedArea` fields to `ETSDeviceImport`
+- 6 new tests covering domain-first, location-first, 3-level, dedup, empty, device source
+
+**Result:** Fresh system + `.knxproj` import → areas, rooms, and devices auto-populated with zero manual intervention.
+
+**Files Modified**: 7 Go files + 1 YAML config
+**Commits**: 2
+
+---
+
+### Session 24: 2026-02-03 — Dev Environment Fixes & Bridge Config
+
+**Goal:** Fix dev environment connectivity and enable end-to-end KNX state flow
+
+Fixed three dev environment issues: knxd connected to old Windows VM IP instead of knxsim container, API broadcast on all interfaces, and KNX bridge had empty device mappings. Also seeded areas/rooms via API for Flutter panel room navigation.
+
+**Key changes**: `config.yaml` knxd host→localhost, API bind→127.0.0.1, populated `knx-bridge.yaml` with 15 devices, seeded 5 rooms via API, assigned devices to rooms.
+
+**Files Modified**: 2 config files
+**Commits**: 2 (`fix(config): dev defaults` + `docs: sync project logs`)
 
 ---
 
