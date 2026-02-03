@@ -4,6 +4,42 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.19 – ETS Import Room Assignment Fix (2026-02-03)
+
+**Focus: Fix ETS import so devices are correctly assigned to GLCore rooms and areas**
+
+Devices imported from ETS were ending up with no room or area assignments in the GLCore database. The Go backend was correct — it creates locations then auto-maps devices — but Flutter was silently dropping the `locations` array from the parse response and never sending it back on import. Without locations, no rooms were created, and all device `room_id`/`area_id` were cleared as invalid.
+
+### Fixed
+
+- **Flutter `ETSParseResult`**: Added `locations` field and `_parseLocations()` to capture location hierarchy from Go parse response (previously silently discarded)
+- **Flutter `ETSImportRequest.toJson()`**: Now includes `locations` in the import payload (previously omitted — Go received `locations: 0`)
+- **Flutter `ETSDetectedDevice.toImportJson()`**: Now includes `suggested_room` and `suggested_area` fields for auto-mapping fallback
+- **Flutter `_copyParseResultWithDevices()`**: Extracted helper method that preserves `locations` when rebuilding parse result state (previously lost on any device toggle/edit)
+- **Flutter panel deployment**: Fixed `cp -r build/web` creating nested `web/web/` directory — old build was being served instead of new one
+
+### Changed
+
+- **`commissioning.go`**: Added Info-level summary log on import request (device count, location count, options) for diagnostics
+- **`config.yaml`**: Type alias additions from previous session now included
+
+### Architecture
+
+```
+Flutter Parse Response → ETSParseResult.fromJson() → locations captured ✅
+                                                        (was: silently dropped ❌)
+
+Flutter Import Request → ETSImportRequest.toJson() → locations sent ✅
+                                                        (was: never included ❌)
+
+Go createLocationsFromETS() → areas + rooms created → autoMapDeviceLocations() → devices assigned ✅
+                                (was: empty list, nothing created ❌)
+```
+
+**Commits**: `2fbe1f7`, `8321a07`
+
+---
+
 ## 1.0.18 – KNX Device Classification — Full Pipeline Upgrade (2026-02-03)
 
 **Focus: Two-tier device classification with ETS Function Types + manufacturer metadata through the entire pipeline**

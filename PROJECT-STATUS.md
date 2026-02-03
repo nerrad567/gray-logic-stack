@@ -7,7 +7,7 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 27 - KNX Device Classification Pipeline Upgrade)
+**Last session:** 2026-02-03 (Session 28 - ETS Import Room Assignment Fix)
 **Current milestone:** Year 1 Foundation Complete + Commissioning Pipeline Upgraded
 
 **What's done:**
@@ -23,7 +23,7 @@
 - KNXSim Phase 2.7 Wall Switch Support ✅ (push buttons, shared GA handling, live GA editing)
 - KNXSim Phase 2.8 Topology Restructure ✅ Phase 1 complete (Areas/Lines schema, API, Reference data, UI)
 - KNXSim Phase 2.9 Thermostats ✅ (PID control, valve actuators, thermal simulation)
-- ETS Import Commissioning ✅ (parser, device detection, location auto-creation)
+- ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - Admin Interface ✅ (metrics, devices, import, discovery tabs)
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
@@ -918,6 +918,35 @@ Two MQTT topic schemes coexisted: flat (`graylogic/{category}/{protocol}/{addres
 - Updated `CHANGELOG.md` — Version 1.0.9 entry
 
 **Result**: Full bidirectional sync working: Flutter ↔ Core ↔ KNXSim
+
+---
+
+### Session 28: 2026-02-03 — ETS Import Room Assignment Fix
+
+**Goal:** Fix devices not being assigned to GLCore rooms/areas after ETS import
+
+Devices imported via the Flutter panel were ending up with empty `room_id` and `area_id` in the database, even though KNXSim correctly assigned them in the ETS hierarchy. The Go backend was correct — `createLocationsFromETS()` → `autoMapDeviceLocations()` → `createNewDevice()` — but Flutter was silently dropping location data.
+
+**Root cause — three Flutter data-passing gaps:**
+1. `ETSParseResult` didn't have a `locations` field — parse response locations silently discarded
+2. `ETSImportRequest.toJson()` didn't include `locations` — Go received `locations: 0`
+3. `_copyParseResultWithDevices()` didn't preserve `locations` — lost on any device toggle/edit
+
+**Additional discovery:**
+- `cp -r build/web ../../core/internal/panel/web` was creating nested `web/web/` — GLCore served old build without fixes
+
+**Fix:**
+- Added `locations` field + `_parseLocations()` to `ETSParseResult`
+- Added `locations` to `ETSImportRequest.toJson()`
+- Added `suggested_room`/`suggested_area` to `ETSDetectedDevice.toImportJson()`
+- Extracted `_copyParseResultWithDevices()` helper preserving all fields including `locations`
+- Added summary log to `commissioning.go` for import request diagnostics
+- Fixed panel deployment: `rm -rf` + `cp -r build/web/*` instead of `cp -r build/web`
+
+**Verified:** Fresh nuke-rebuild → ETS import → all 17 devices assigned to correct rooms and areas.
+
+**Files Modified**: 3 (ets_import.dart, ets_import_provider.dart, commissioning.go) + panel web assets
+**Commits**: 2 (`2fbe1f7`, `8321a07`)
 
 ---
 
