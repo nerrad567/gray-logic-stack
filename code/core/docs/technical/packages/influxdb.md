@@ -80,9 +80,9 @@ defer client.Close()
 
 **Connect(ctx, cfg) performs:**
 1. Validates config (disabled returns ErrDisabled)
-2. Validates batch settings (bounds: batch_size ≤ 100,000; flush_interval ≤ 3,600s)
+2. Validates batch settings — returns error if `batch_size > 100,000` or `flush_interval > 3,600` seconds
 3. Creates client with token authentication
-4. Verifies connectivity via ping (10s timeout enforced, even if context has no deadline)
+4. Verifies connectivity via ping (10s timeout enforced unconditionally — wraps caller's context with `context.WithTimeout` to prevent indefinite hangs)
 5. Creates non-blocking write API with batching
 6. Starts error handler goroutine for async write errors
 
@@ -121,11 +121,11 @@ if err := client.Close(); err != nil {
 
 **Close() performs:**
 1. Marks client as disconnected
-2. Flushes all pending batched writes (while error handler still running)
+2. Flushes all pending batched writes (while error handler still running — ensures any flush errors are delivered to the `SetOnError` callback)
 3. Signals error handler goroutine to stop
 4. Closes the underlying client
 
-> **Note:** Flush() is safe to call after Close() (no-op).
+> **Note:** Flush happens before signalling done — this ordering is intentional so that write errors during final flush are still delivered to the error callback.
 
 ---
 
@@ -245,4 +245,4 @@ make test PKG=./internal/infrastructure/influxdb/...
 ## Related Documents
 
 - [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/doc.go) — Package-level godoc
-- [docker-compose.yml](file:///home/graylogic-dev/gray-logic-stack/code/core/docker-compose.yml) — InfluxDB container config
+- [docker-compose.dev.yml](file:///home/graylogic-dev/gray-logic-stack/docker-compose.dev.yml) — InfluxDB container config (dev services)

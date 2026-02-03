@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 22 - Dev vs Prod Workflow Restructure)
-**Current milestone:** Year 1 Foundation Complete + Dev Workflow Optimised
+**Last session:** 2026-02-03 (Session 23 - Unified MQTT Topic Scheme)
+**Current milestone:** Year 1 Foundation Complete + MQTT Scheme Unified
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -27,6 +27,7 @@
 - Admin Interface ✅ (metrics, devices, import, discovery tabs)
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
 - Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
+- MQTT Topic Scheme Unification ✅ (flat scheme, fixed scene routing bug, 23 files updated)
 
 **What's next:**
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
@@ -714,6 +715,40 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 **Files Created**: 10+ (commissioning package, admin UI, GA recorder)
 **Files Modified**: 30+ across Go, Flutter, Python
 **Commits**: 75 since last changelog entry
+
+---
+
+### Session 22: 2026-02-03 — Dev vs Prod Workflow Restructure
+
+**Goal:** Eliminate Docker rebuild cycle for Go development
+
+Switched to native Go development with containerised support services. Go core now runs natively (~2-3s rebuild) while Mosquitto, InfluxDB, and KNXSim run in Docker. Added filesystem panel serving for Flutter hot reload without Go recompile.
+
+**Key changes**: Makefile dev/prod targets, `docker-compose.dev.yml` stripped to 3 services, `panel.Handler(dir)` for filesystem serving, config defaults to localhost.
+
+**Files Modified**: 15+ across Go, Docker, docs
+**See**: CHANGELOG.md v1.0.13 for full details
+
+---
+
+### Session 23: 2026-02-03 — Unified MQTT Topic Scheme
+
+**Goal:** Eliminate incompatible MQTT topic schemes and fix scene command routing bug
+
+Two MQTT topic schemes coexisted: flat (`graylogic/{category}/{protocol}/{address}`) used by the KNX bridge, and bridge-wrapped (`graylogic/bridge/{bridge_id}/{category}/{device_id}`) used by topic helpers and the scene engine. This caused a live bug — scene commands vanished because the engine published to topics no bridge subscribed to.
+
+**Standardised on flat scheme** across all Go code and documentation:
+- Rewrote `topics.go` bridge methods: `(bridgeID, deviceID)` → `(protocol, address)`
+- Fixed `engine.go`: scene commands now route to `graylogic/command/{protocol}/{device_id}`
+- Removed `deriveBridgeID()` — protocol name is the routing key
+- Added 3 new topic methods + 5 new wildcard methods to match full 8-category scheme
+- Updated all 16 documentation/config files — zero `graylogic/bridge/` references remain
+- Updated DALI bridge planning notes to reflect resolved topic scheme
+
+**Verification**: `go test ./...` all pass, `go vet` clean, comprehensive grep confirms zero old-scheme references.
+
+**Files Modified**: 7 Go files, 16 doc/config files (23 total)
+**Commits**: 2 (`fix(mqtt): unify topic scheme` + `docs(mqtt): update all topic references`)
 
 ---
 

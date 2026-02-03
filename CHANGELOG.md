@@ -4,6 +4,36 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.14 – Unified MQTT Topic Scheme (2026-02-03)
+
+**Focus: Eliminate incompatible MQTT topic schemes, fix scene command routing**
+
+Two incompatible MQTT topic schemes coexisted — the flat scheme (`graylogic/{category}/{protocol}/{address}`) used by the KNX bridge, and a bridge-wrapped scheme (`graylogic/bridge/{bridge_id}/{category}/{device_id}`) used by topic helpers and the scene engine. This caused a live bug where scene commands vanished because the engine published to topics the bridge wasn't subscribed to.
+
+### Fixed
+
+- **Scene command routing**: `engine.go` now publishes commands to `graylogic/command/{protocol}/{device_id}` — matching what bridges actually subscribe to. Previously used `graylogic/bridge/{bridge_id}/command/{device_id}` which no bridge listened to.
+
+### Changed
+
+- **MQTT topic helpers** (`topics.go`): All bridge methods now take `(protocol, address)` instead of `(bridgeID, deviceID)`. Output uses flat scheme: `graylogic/{category}/{protocol}/{address}`.
+- **Removed `deriveBridgeID()`** from `engine.go` — no longer needed; protocol name is the routing key.
+- **3 new topic methods**: `BridgeAck(protocol, address)`, `BridgeConfig(protocol)`, `BridgeRequest(protocol, requestID)`.
+- **5 new wildcard methods**: `AllBridgeAcks()`, `AllBridgeDiscovery()`, `AllBridgeRequests()`, `AllBridgeResponses()`, `AllBridgeConfigs()`.
+- **Documentation**: All 16 doc/config files updated to reference flat topic scheme. Zero remaining `graylogic/bridge/` references.
+
+### Files Modified
+
+- `internal/infrastructure/mqtt/topics.go` — Rewritten bridge methods
+- `internal/automation/engine.go` — Fixed scene command topic + removed deriveBridgeID
+- `internal/infrastructure/mqtt/publish.go`, `subscribe.go` — Updated doc comments
+- `internal/device/validation.go` — Updated GatewayID comment
+- `internal/infrastructure/mqtt/client_test.go` — Updated + expanded topic tests
+- `internal/automation/engine_test.go` — Updated expectations, removed TestDeriveBridgeID
+- 16 documentation and config files across `docs/`, `code/core/docs/`, `notes/`
+
+---
+
 ## 1.0.13 – Dev vs Prod Workflow Restructure (2026-02-03)
 
 **Focus: Fast native Go development with containerised support services**

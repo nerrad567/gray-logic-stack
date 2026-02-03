@@ -33,7 +33,7 @@ Provides configuration loading for Gray Logic Core with:
 
 | Type | Purpose |
 |------|---------|
-| `Config` | Root configuration structure (includes `DevMode` flag) |
+| `Config` | Root configuration structure (includes `DevMode` flag and `PanelDir` for dev) |
 | `SiteConfig` | Site identity and location |
 | `DatabaseConfig` | SQLite settings |
 | `MQTTConfig` | MQTT broker connection |
@@ -84,6 +84,8 @@ Secrets and deployment-specific values can be overridden:
 export GRAYLOGIC_MQTT_USERNAME=admin
 export GRAYLOGIC_MQTT_PASSWORD=secret
 export GRAYLOGIC_JWT_SECRET=production-secret-key
+export GRAYLOGIC_MQTT_HOST=mosquitto       # Override for Docker networking
+export GRAYLOGIC_PANEL_DIR=/path/to/flutter/build/web  # Dev only: filesystem panel serving
 ```
 
 **Pattern:** `GRAYLOGIC_<SECTION>_<FIELD>` (uppercase, underscores)
@@ -111,6 +113,7 @@ if cfg.API.Port < 1 || cfg.API.Port > 65535 {
 
 ```yaml
 dev_mode: false           # Enable dev-mode (simulates bridge confirmations without hardware)
+panel_dir: ""             # Dev only: serve Flutter panel from filesystem (set via GRAYLOGIC_PANEL_DIR)
 
 site:                    # SiteConfig
   id: "site-001"
@@ -150,7 +153,7 @@ api:                     # APIConfig
   timeouts:              # APITimeoutConfig
     read: 30
     write: 30
-    idle: 120
+    idle: 60
   cors:                  # CORSConfig
     allowed_origins: ["*"]
     allowed_methods: ["GET", "POST", "PUT", "DELETE"]
@@ -158,25 +161,40 @@ api:                     # APIConfig
 
 websocket:               # WebSocketConfig
   path: "/ws"
-  max_message_size: 65536
+  max_message_size: 8192
   ping_interval: 30
   pong_timeout: 10
 
 influxdb:                # InfluxDBConfig
+  enabled: false
   url: "http://localhost:8086"
   token: ""              # Set via GRAYLOGIC_INFLUXDB_TOKEN
   org: "graylogic"
   bucket: "metrics"
+  batch_size: 100        # Points per batch (max 100,000)
+  flush_interval: 10     # Seconds between flushes (max 3,600)
 
 logging:                 # LoggingConfig
   level: "info"
   format: "json"
   output: "stdout"
+  file:                  # FileLoggingConfig (optional)
+    path: ""             # File path for log output
+    max_size: 100        # MB before rotation
+    max_backups: 3       # Rotated files to keep
+    max_age: 28          # Days before deletion
+    compress: false      # Gzip rotated files
 
 security:                # SecurityConfig
-  jwt_secret: ""         # Set via GRAYLOGIC_JWT_SECRET
-  token_expiry: 24
-  bcrypt_cost: 12
+  jwt:                   # JWTConfig
+    secret: ""           # Set via GRAYLOGIC_JWT_SECRET
+    access_token_ttl: 24       # Hours
+    refresh_token_ttl: 168     # Hours (7 days)
+  api_keys:              # APIKeyConfig
+    enabled: false
+  rate_limit:            # RateLimitConfig
+    enabled: false
+    requests_per_minute: 60
 
 protocols:               # ProtocolsConfig
   knx:                   # KNXConfig
@@ -202,6 +220,7 @@ protocols:               # ProtocolsConfig
       restart_on_failure: true
       restart_delay_seconds: 5
       max_restart_attempts: 10
+      group_cache: true    # Enable knxd group comm cache (-c flag)
       health_check_interval: 30s
       health_check_device_address: ""  # Optional: "1/7/0"
       health_check_device_timeout: 3s
@@ -237,7 +256,7 @@ None — config is the root of the dependency tree.
 | `influxdb` | Uses `cfg.InfluxDB` for time-series |
 | `internal/knxd` | Uses `cfg.Protocols.KNX.KNXD` for daemon management |
 | `internal/bridges/knx` | Uses `cfg.Protocols.KNX` for bridge settings |
-| `api` | (Future) Uses `cfg.API` for server |
+| `api` | Uses `cfg.API`, `cfg.Security`, `cfg.PanelDir` for server |
 
 ---
 

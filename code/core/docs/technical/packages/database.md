@@ -73,6 +73,10 @@ defer db.Close()
 if err := db.Migrate(ctx); err != nil {
     log.Fatal(err)
 }
+
+// Optional: check migration status or rollback
+status, _ := db.GetMigrationStatus(ctx) // Applied vs pending
+_ = db.MigrateDown(ctx)                 // Rollback most recent migration
 ```
 
 **Open(ctx, cfg) performs:**
@@ -83,6 +87,12 @@ if err := db.Migrate(ctx); err != nil {
 5. Sets file permissions (`0600`)
 
 ### Core Operations
+
+**Direct access:**
+```go
+// Access the underlying *sql.DB for raw queries (e.g., admin/discovery endpoints)
+sqlDB := db.SqlDB()
+```
 
 **Query execution:**
 ```go
@@ -171,8 +181,10 @@ See also:
 | Package | Purpose |
 |---------|---------|
 | `cmd/graylogic/main.go` | Creates and manages lifecycle |
-| `device/registry/` | (Future) Device CRUD operations |
-| `automation/scene/` | (Future) Scene persistence |
+| `device` | Device CRUD operations, state persistence (`json_patch` for state merge) |
+| `automation` | Scene persistence |
+| `api` | Admin/discovery endpoints via `SqlDB()` |
+| `commissioning/etsimport` | ETS import device creation |
 
 ---
 
@@ -207,6 +219,9 @@ if err != nil {
 | `Close()` | Yes | Safe to call from signal handler |
 | `HealthCheck()` | Yes | Read-only query |
 | `Migrate()` | No | Call only during startup |
+| `MigrateDown()` | No | Call only during maintenance |
+| `GetMigrationStatus()` | Yes | Read-only query |
+| `SqlDB()` | Yes | Returns underlying `*sql.DB` |
 | `ExecContext()` | Yes | Connection pool handles |
 | `QueryContext()` | Yes | Connection pool handles |
 | `BeginTx()` | Yes | Returns isolated transaction |
@@ -263,7 +278,7 @@ make test PKG=./internal/infrastructure/database/...
 
 1. **Single writer** — SQLite limitation; high-write workloads may contend
 2. **CGO required** — `go-sqlite3` needs C compiler; cross-compilation harder
-3. **No JSON functions** — SQLite JSON1 available but not yet used
+3. **Limited JSON usage** — SQLite JSON1 used for `json_patch()` in state merge; further JSON queries not yet exploited
 4. **No encryption at rest** — Planned for future (SQLCipher)
 
 ---
