@@ -453,7 +453,9 @@ def _device_type_to_function_type(device_type: str) -> tuple[str, str]:
     standard = {
         # Lighting
         "light_switch": "SwitchableLight",
+        "light": "SwitchableLight",
         "switch_actuator_4ch": "SwitchableLight",
+        "switch_actuator_6fold": "SwitchableLight",
         "switch_actuator_8ch": "SwitchableLight",
         "switch_actuator_12ch": "SwitchableLight",
         "light_dimmer": "DimmableLight",
@@ -470,6 +472,7 @@ def _device_type_to_function_type(device_type: str) -> tuple[str, str]:
         # Climate
         "thermostat": "HeatingRadiator",
         "heating_actuator_6ch": "HeatingFloor",
+        "heating_actuator_6fold": "HeatingFloor",
         "fan_coil_controller": "HeatingContinuousVariable",
         "hvac_unit": "HeatingContinuousVariable",
         "air_handling_unit": "HeatingContinuousVariable",

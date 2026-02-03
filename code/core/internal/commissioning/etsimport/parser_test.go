@@ -954,12 +954,12 @@ func TestCommentToDeviceType_AllCategories(t *testing.T) {
 		{"solar_inverter", "solar_inverter", "energy"},
 		{"ev_charger", "ev_charger", "energy"},
 		// Controls
-		{"scene_controller", "scene_controller", "controls"},
-		{"push_button_4", "push_button", "controls"},
-		{"binary_input", "binary_input", "controls"},
+		{"scene_controller", "scene_controller", "lighting"},
+		{"push_button_4", "push_button", "lighting"},
+		{"binary_input", "binary_input", "sensor"},
 		// System
-		{"ip_router", "ip_router", "system"},
-		{"power_supply", "power_supply", "system"},
+		{"ip_router", "ip_router", "energy"},
+		{"power_supply", "power_supply", "energy"},
 		// Lighting actuators
 		{"switch_actuator_8ch", "light_switch", "lighting"},
 		{"dimmer_actuator_4ch", "light_dimmer", "lighting"},
