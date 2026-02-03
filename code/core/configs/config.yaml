@@ -92,7 +92,8 @@ mqtt:
 
 api:
   # HTTP server settings
-  host: "0.0.0.0"
+  # Dev default: localhost only. Production: override via GRAYLOGIC_API_HOST=0.0.0.0
+  host: "127.0.0.1"
   port: 8090
 
   # TLS configuration (recommended for production)
@@ -225,8 +226,9 @@ protocols:
         type: "ipt"
 
         # IP Tunnelling settings - connects to KNX/IP gateway via KNXnet/IP
-        # KNX Virtual on Windows VM
-        host: "192.168.4.34"
+        # Dev default: localhost (knxsim container on 127.0.0.1:3671/udp)
+        # Production / physical gateway: override via GRAYLOGIC_KNXD_BACKEND_HOST
+        host: "localhost"
         port: 3671
 
         # USB device settings (for type: "usb")
