@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 23 - Unified MQTT Topic Scheme)
-**Current milestone:** Year 1 Foundation Complete + MQTT Scheme Unified
+**Last session:** 2026-02-03 (Session 24 - Dev Environment Fixes & Bridge Config)
+**Current milestone:** Year 1 Foundation Complete + Dev Environment Operational
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -28,8 +28,11 @@
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
 - Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
 - MQTT Topic Scheme Unification ✅ (flat scheme, fixed scene routing bug, 23 files updated)
+- Dev Environment Fixes ✅ (knxd→knxsim, localhost API bind, bridge device mappings, end-to-end state flow)
 
 **What's next:**
+- Remove static knx-bridge.yaml device config — ETS import + Flutter admin panel should be single source of truth
+- Fix knxsim thermal simulation tunnel sends (proactive UDP telegrams not reaching knxd reliably)
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
 - Auth hardening (production JWT, refresh tokens, role-based access)
 - Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)

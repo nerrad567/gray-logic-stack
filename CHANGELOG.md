@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.15 – Dev Environment Fixes & KNX Bridge Device Config (2026-02-03)
+
+**Focus: Fix dev environment connectivity and enable KNX state flow**
+
+Dev environment had three issues: knxd pointed at a hardcoded Windows VM IP instead of the knxsim container, the API server bound to all interfaces (broadcasting on the network), and the KNX bridge had zero device mappings so all telegrams from knxsim were silently dropped.
+
+### Fixed
+
+- **knxd backend host**: Changed from `192.168.4.34` (old Windows KNX Virtual VM) to `localhost` — connects to knxsim container exposed on `127.0.0.1:3671/udp`. Override via `GRAYLOGIC_KNXD_BACKEND_HOST` for physical gateways.
+- **API bind address**: Changed from `0.0.0.0` to `127.0.0.1` — dev stays local-only. Override via `GRAYLOGIC_API_HOST=0.0.0.0` for production.
+
+### Added
+
+- **KNX bridge device mappings**: Populated `knx-bridge.yaml` with 15 devices matching knxsim config — 5 light switches (DPT 1.001), 5 thermostats (DPT 9.001 temp + setpoint, DPT 5.001 valve), 5 presence sensors (DPT 1.018 + DPT 9.004 lux). All status GAs have `transmit` flag for incoming telegram processing.
+
+### Notes
+
+- Identified that `knx-bridge.yaml` static device config is redundant with the ETS import + registry-based device loading. Plan to remove static YAML device config in favour of single source of truth: ETS import or Flutter admin panel.
+- knxsim thermal simulation proactive UDP telegrams not reliably reaching knxd — boolean telegrams (presence) work, 2-byte float telegrams (temperature) don't. Needs investigation in knxsim tunnel server.
+
+### Files Modified
+
+- `code/core/configs/config.yaml` — knxd backend host, API bind address
+- `code/core/configs/knx-bridge.yaml` — 15 device mappings with GAs, DPTs, flags
+
+---
+
 ## 1.0.14 – Unified MQTT Topic Scheme (2026-02-03)
 
 **Focus: Eliminate incompatible MQTT topic schemes, fix scene command routing**
