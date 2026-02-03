@@ -22,15 +22,22 @@ void main() {
       final statuses = <WSConnectionStatus>[];
       final sub = service.connectionStatus.listen(statuses.add);
 
-      // Attempt to connect to an unreachable server
-      await service.connect('ws://localhost:99999/ws');
+      // Attempt to connect to an unreachable server (valid port, nothing listening).
+      // connect() rethrows on failure, so we expect an exception.
+      try {
+        await service.connect('ws://localhost:19/ws');
+      } catch (_) {
+        // Expected — connection refused
+      }
 
-      // Give time for the connection attempt to fail
-      await Future.delayed(const Duration(milliseconds: 500));
+      // Give time for status updates to propagate
+      await Future.delayed(const Duration(milliseconds: 100));
 
       // Should have emitted connecting → disconnected
-      expect(statuses, isNotEmpty);
-      expect(statuses.first, WSConnectionStatus.connecting);
+      expect(statuses, containsAllInOrder([
+        WSConnectionStatus.connecting,
+        WSConnectionStatus.disconnected,
+      ]));
 
       await sub.cancel();
     });

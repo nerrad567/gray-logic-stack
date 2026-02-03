@@ -1,14 +1,6 @@
-import 'dart:async';
-import 'dart:typed_data';
-
 import 'package:file_picker/file_picker.dart';
-import 'package:flutter/foundation.dart' show kIsWeb;
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-
-// Web-only import (conditionally loaded)
-// ignore: avoid_web_libraries_in_flutter
-import 'dart:html' as html if (dart.library.io) 'dart:io';
 
 import '../models/ets_import.dart';
 import '../providers/ets_import_provider.dart';
@@ -169,11 +161,28 @@ class _UploadView extends StatelessWidget {
 
   Future<void> _pickFile(BuildContext context) async {
     try {
-      if (kIsWeb) {
-        await _pickFileWeb(context);
-      } else {
-        await _pickFileMobile(context);
+      final result = await FilePicker.platform.pickFiles(
+        type: FileType.custom,
+        allowedExtensions: ['knxproj', 'xml', 'csv'],
+        withData: true,
+      );
+
+      if (result == null || result.files.isEmpty) return;
+
+      final file = result.files.first;
+      if (file.bytes == null) {
+        if (context.mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            const SnackBar(content: Text('Could not read file')),
+          );
+        }
+        return;
       }
+
+      await ref.read(etsImportProvider.notifier).uploadAndParse(
+            file.bytes!,
+            file.name,
+          );
     } catch (e) {
       debugPrint('_pickFile error: $e');
       if (context.mounted) {
@@ -182,106 +191,6 @@ class _UploadView extends StatelessWidget {
         );
       }
     }
-  }
-
-  /// Mobile file picker using file_picker package
-  Future<void> _pickFileMobile(BuildContext context) async {
-    final result = await FilePicker.platform.pickFiles(
-      type: FileType.custom,
-      allowedExtensions: ['knxproj', 'xml', 'csv'],
-      withData: true,
-    );
-
-    if (result == null || result.files.isEmpty) return;
-
-    final file = result.files.first;
-    if (file.bytes == null) {
-      if (context.mounted) {
-        ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Could not read file')),
-        );
-      }
-      return;
-    }
-
-    await ref.read(etsImportProvider.notifier).uploadAndParse(
-          file.bytes!,
-          file.name,
-        );
-  }
-
-  /// Web-specific file picker using dart:html
-  Future<void> _pickFileWeb(BuildContext context) async {
-    final completer = Completer<void>();
-
-    final input = html.FileUploadInputElement()
-      ..accept = '.knxproj,.xml,.csv';
-
-    input.onChange.listen((event) async {
-      final files = input.files;
-      if (files == null || files.isEmpty) {
-        completer.complete();
-        return;
-      }
-
-      final file = files.first;
-      final fileName = file.name;
-
-      // Validate extension
-      final extension = fileName.split('.').last.toLowerCase();
-      final allowedExtensions = ['knxproj', 'xml', 'csv'];
-      if (!allowedExtensions.contains(extension)) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text('Unsupported file type: .$extension. Please select a .knxproj, .xml, or .csv file.'),
-            ),
-          );
-        }
-        completer.complete();
-        return;
-      }
-
-      // Read file bytes
-      final reader = html.FileReader();
-      reader.readAsArrayBuffer(file);
-
-      reader.onLoadEnd.listen((event) async {
-        final result = reader.result;
-        if (result == null) {
-          if (context.mounted) {
-            ScaffoldMessenger.of(context).showSnackBar(
-              const SnackBar(content: Text('Could not read file')),
-            );
-          }
-          completer.complete();
-          return;
-        }
-
-        final bytes = Uint8List.fromList(result as List<int>);
-
-        await ref.read(etsImportProvider.notifier).uploadAndParse(
-              bytes,
-              fileName,
-            );
-
-        completer.complete();
-      });
-
-      reader.onError.listen((event) {
-        if (context.mounted) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            const SnackBar(content: Text('Error reading file')),
-          );
-        }
-        completer.complete();
-      });
-    });
-
-    // Trigger file dialog
-    input.click();
-
-    // Don't wait for completion - the dialog is async
   }
 }
 
