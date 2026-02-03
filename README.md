@@ -16,6 +16,8 @@ A building automation platform I'm developing to teach myself BMS architecture a
 | **Flutter Wall Panel** | ✅ Complete | Touch UI embedded in Go binary, SPA with device/scene control |
 | **Scenes Engine** | ✅ Complete | Scene definitions, activation, execution tracking, transitions |
 | **Location Model** | ✅ Complete | Site → Area → Room spatial hierarchy |
+| **ETS Import** | ✅ Complete | Import ETS project files to auto-create devices and locations |
+| **Admin Interface** | ✅ Complete | System metrics, device listing, ETS import, bus discovery |
 
 ### Year 1 Foundation — Complete
 
@@ -116,6 +118,7 @@ gray-logic-stack/
 │   │   │   ├── api/                # REST API + WebSocket server
 │   │   │   ├── automation/         # Scenes engine
 │   │   │   ├── bridges/knx/        # KNX protocol bridge
+│   │   │   ├── commissioning/      # ETS import and device detection
 │   │   │   ├── device/             # Device registry
 │   │   │   ├── infrastructure/     # Config, MQTT, database, logging
 │   │   │   ├── knxd/              # knxd daemon manager
@@ -153,7 +156,9 @@ Requires Go 1.25+ and knxd for KNX functionality.
 
 **Year 1 Foundation: Complete.** All 6 milestones delivered and audited.
 
-**Next:** Refinement and simulation environment — building a Docker-based KNX simulator for full end-to-end testing without physical hardware.
+**Commissioning Tools: Working.** ETS project import auto-creates devices and locations. Admin interface provides system visibility with metrics, device listing, and bus discovery.
+
+**KNX Simulator (KNXSim): Functional.** Docker-based KNX/IP simulator with thermostats (PID control), dimmers, switches, blinds, and presence sensors. Supports thermal simulation for realistic heating behaviour.
 
 ## Why I Built This
 

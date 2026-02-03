@@ -4,6 +4,70 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.12 – ETS Import, Admin UI & KNXSim Thermostats (2026-02-03)
+
+**Focus: Commissioning workflow and realistic climate simulation**
+
+Major commissioning milestone: ETS project files can now be imported to auto-create devices, locations, and group addresses. New admin interface provides system visibility. KNXSim gains thermostat devices with internal PID control for realistic heating simulation.
+
+### Added
+
+- **ETS Import Commissioning** (`internal/commissioning/etsimport/`):
+  - Parser for ETS 5/6 XML project files (.knxproj)
+  - Device detection with confidence scoring (80%+ match required)
+  - Group address extraction with 3-level hierarchy (main/middle/sub)
+  - Room suggestion from ETS project structure
+  - Auto-create locations (areas/rooms) from imported topology
+  - 6 Go files: parser.go, types.go, detection.go, errors.go, doc.go + tests
+
+- **Admin Interface** (`code/ui/admin/`):
+  - Metrics tab with system health overview
+  - Devices tab with device listing and state
+  - Import tab for ETS project upload
+  - Discovery tab with KNX bus scan data
+
+- **GA Recorder** (`internal/bridges/knx/ga_recorder.go`):
+  - Records group address traffic with timestamps
+  - Replaces BusMonitor for commissioning discovery
+  - Integrates with health check cycling
+
+- **Flutter Panel Enhancements**:
+  - ETS import and onboarding screens
+  - Thermostat tile UI with setpoint control
+  - Room selection pre-populated from ETS suggested_room
+  - Auto-detect API host for embedded web panel
+
+- **KNXSim Thermostat** (`sim/knxsim/devices/thermostat.py`):
+  - Room thermostat with internal PID controller
+  - Valve actuator control output (0-100%)
+  - Setpoint adjustment via KNX commands
+  - Thermal simulation scenario for realistic heating behaviour
+  - Valve percentage display on heating actuator channels
+
+- **KNXSim Device Templates**:
+  - 28 new device templates added
+  - Multi-channel actuator support with LED indicators
+  - Loads system for physical equipment simulation
+  - Channel state synchronisation improvements
+
+### Changed
+
+- `internal/bridges/knx/bridge.go` — Reload device mappings after ETS import
+- `sim/knxsim/static/index.html` — Collapsible telegram inspector
+- `sim/knxsim/static/js/store.js` — Extended GA format handling
+- Device panel scroll fixes (absolute positioning)
+- Template browser layout improvements (wider cards, modal)
+
+### Fixed
+
+- CGO/SQLite build configuration
+- Extended GA format in multi-channel template generation
+- Button state normalisation in channel updates
+- Channel state routing by GA
+- Stale pressed state in button normalisation
+
+---
+
 ## 1.0.11 – KNXSim Wall Switch Support & Shared GA Handling (2026-01-26)
 
 **Focus: Interactive wall switch controls and multi-field GA support**

@@ -1,14 +1,14 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-02-01
-> **Current Phase:** Implementation (Year 1 Complete + KNXSim Topology Restructure)
+> **Last Updated:** 2026-02-03
+> **Current Phase:** Implementation (Year 1 Complete + Commissioning Tools)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-01 (Session 20 - KNXSim Topology Restructure Phase 1)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2.8 (Topology) in progress
+**Last session:** 2026-02-03 (Session 21 - ETS Import, Admin UI & Thermostats)
+**Current milestone:** Year 1 Foundation Complete + Commissioning Workflow in progress
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -22,6 +22,10 @@
 - KNXSim Phase 2.6 Alpine.js Refactor ✅ (reactive UI, global store, export endpoints)
 - KNXSim Phase 2.7 Wall Switch Support ✅ (push buttons, shared GA handling, live GA editing)
 - KNXSim Phase 2.8 Topology Restructure ✅ Phase 1 complete (Areas/Lines schema, API, Reference data, UI)
+- KNXSim Phase 2.9 Thermostats ✅ (PID control, valve actuators, thermal simulation)
+- ETS Import Commissioning ✅ (parser, device detection, location auto-creation)
+- Admin Interface ✅ (metrics, devices, import, discovery tabs)
+- GA Recorder ✅ (replaces BusMonitor for commissioning)
 
 **What's next:**
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
@@ -660,6 +664,55 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 **Total Lines Added**: ~4,300
 
 **Result**: Phase 1 complete — Topology schema, API, and UI working. Devices auto-migrated to topology on startup.
+
+---
+
+### Session 21: 2026-02-03 — ETS Import, Admin UI & KNXSim Thermostats
+
+**Goal:** Commissioning workflow and realistic climate simulation
+
+**ETS Import Commissioning** (`internal/commissioning/etsimport/`):
+- Created ETS 5/6 XML parser for .knxproj files
+- Device detection with confidence scoring (80%+ match threshold)
+- 3-level GroupRange hierarchy for room extraction
+- Auto-create locations (areas/rooms) from imported topology
+- Suggested room pre-populated in Flutter import UI
+- 6 files: parser.go, types.go, detection.go, errors.go, doc.go + tests
+
+**Admin Interface** (`code/ui/admin/`):
+- New admin UI with 4 tabs: Metrics, Devices, Import, Discovery
+- Discovery tab shows KNX bus scan data from GA Recorder
+- Import tab for ETS project file upload
+
+**GA Recorder** (`internal/bridges/knx/ga_recorder.go`):
+- Records group address traffic with timestamps
+- Replaces BusMonitor for commissioning discovery
+- Integrates with health check cycling
+
+**KNXSim Thermostats** (`sim/knxsim/devices/thermostat.py`):
+- Room thermostat with internal PID controller
+- Valve actuator control output (0-100%)
+- Setpoint adjustment via KNX commands
+- Thermal simulation scenario for realistic heating behaviour
+- Valve percentage display on heating actuator channels
+
+**KNXSim Enhancements**:
+- 28 new device templates added
+- Multi-channel actuator LED indicators
+- Loads system for physical equipment simulation
+- Channel state synchronisation improvements
+- Collapsible telegram inspector
+- Template browser layout improvements
+
+**Flutter Panel Improvements**:
+- ETS import and onboarding screens
+- Thermostat tile UI with setpoint control
+- Auto-detect API host for embedded panel
+- Room selection from suggested_room
+
+**Files Created**: 10+ (commissioning package, admin UI, GA recorder)
+**Files Modified**: 30+ across Go, Flutter, Python
+**Commits**: 75 since last changelog entry
 
 ---
 
