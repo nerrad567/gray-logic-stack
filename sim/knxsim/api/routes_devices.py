@@ -209,6 +209,9 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
         "temperature": ("temperature", "temperature"),
         "current_temperature": ("current_temperature", "current_temperature"),
         "actual_temperature": ("current_temperature", "actual_temperature"),
+        # Heating actuator valve commands
+        "valve": ("position", "valve_status"),
+        "heating_output": ("position", "heating_output"),
     }
 
     mapping = field_map.get(command, (command, None))
@@ -216,7 +219,13 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
 
     # For thermostats, route through on_group_write to trigger PID calculation
     from devices.thermostat import Thermostat
-    if isinstance(device, Thermostat) and command in ("temperature", "current_temperature", "actual_temperature", "setpoint"):
+
+    if isinstance(device, Thermostat) and command in (
+        "temperature",
+        "current_temperature",
+        "actual_temperature",
+        "setpoint",
+    ):
         # Find the GA for this command
         ga_name = command if command in device.group_addresses else None
         # Try aliases
@@ -227,7 +236,7 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
                     break
         if ga_name is None and command == "setpoint" and "setpoint" in device.group_addresses:
             ga_name = "setpoint"
-        
+
         if ga_name:
             ga = device.group_addresses[ga_name]
             payload = encode_dpt9(float(value))
@@ -244,11 +253,11 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
                     if decoded:
                         premise._dispatch_telegram(decoded["dst"], decoded["payload"])
                         telegrams_sent.append(f"ga_{decoded['dst']}")
-            
+
             # Trigger state change callback
             if premise._on_state_change:
                 premise._on_state_change(premise_id, device_id, dict(device.state))
-            
+
             return {
                 "status": "ok",
                 "device_id": device_id,
@@ -267,9 +276,15 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
             # Encode value based on command type
             if command in ("switch", "presence"):
                 payload = encode_dpt1(bool(value))
-            elif command in ("brightness", "position", "slat"):
+            elif command in ("brightness", "position", "slat", "valve", "heating_output"):
                 payload = encode_dpt5(int(value))
-            elif command in ("lux", "setpoint", "temperature", "current_temperature", "actual_temperature"):
+            elif command in (
+                "lux",
+                "setpoint",
+                "temperature",
+                "current_temperature",
+                "actual_temperature",
+            ):
                 payload = encode_dpt9(float(value))
             else:
                 payload = None
@@ -296,7 +311,7 @@ def send_command(premise_id: str, device_id: str, body: DeviceCommand):
 @router.post("/{device_id}/channels/{channel_id}/command", status_code=200)
 def send_channel_command(premise_id: str, device_id: str, channel_id: str, body: DeviceCommand):
     """Send a command to a specific channel of a multi-channel device.
-    
+
     Similar to send_command but targets a specific channel's group objects.
     The channel_id should match a channel's 'id' field (e.g., "A", "B").
     """
@@ -326,7 +341,7 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
     # Map command to state field (depends on device type)
     device_type = db_device.get("type", "")
     is_push_button = "push_button" in device_type or "pushbutton" in device_type
-    
+
     if is_push_button and command == "switch":
         # Push buttons use 'pressed' state, not 'on'
         field = "pressed"
@@ -337,6 +352,8 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
             "position": "position",
             "slat": "tilt",
             "state": "active",
+            "valve": "position",
+            "heating_output": "position",
         }
         field = field_map.get(command, command)
 
@@ -345,7 +362,7 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
 
     # Find the GA for this command in the channel's group_objects
     group_objects = channel.get("group_objects", {})
-    
+
     # Look for matching group object (command or command_status)
     ga_name = None
     ga_str = None
@@ -359,7 +376,8 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
     # Send telegram if we found a GA
     if ga_str and premise.server:
         from devices.base import encode_dpt1, encode_dpt5, encode_dpt9
-        from knxip import frames, constants as C
+        from knxip import constants as C
+        from knxip import frames
 
         # Parse GA
         ga = frames.parse_group_address(ga_str)
@@ -367,7 +385,7 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
         # Encode value based on command type
         if command in ("switch", "state"):
             payload = encode_dpt1(bool(value))
-        elif command in ("brightness", "position", "slat"):
+        elif command in ("brightness", "position", "slat", "valve", "heating_output"):
             payload = encode_dpt5(int(value))
         else:
             payload = None
