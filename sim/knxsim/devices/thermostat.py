@@ -175,13 +175,23 @@ class Thermostat(BaseDevice):
 
         return None
 
+    # Temperature field aliases — config may use any of these interchangeably.
+    _TEMP_ALIASES = ("current_temperature", "actual_temperature", "temperature")
+
     def get_indication(self, field: str) -> bytes | None:
         """Build an unsolicited indication for a field (used by scenarios)."""
         ga = self.group_addresses.get(field)
+        # Try alias keys when the primary lookup misses (e.g. scenario asks
+        # for "current_temperature" but config uses "actual_temperature").
+        if ga is None and field in self._TEMP_ALIASES:
+            for alias in self._TEMP_ALIASES:
+                ga = self.group_addresses.get(alias)
+                if ga is not None:
+                    break
         if ga is None:
             return None
 
-        if field in ("current_temperature", "actual_temperature", "temperature"):
+        if field in self._TEMP_ALIASES:
             value = self.state.get("current_temperature", 20.0)
             return self._make_indication(ga, encode_dpt9(value))
 

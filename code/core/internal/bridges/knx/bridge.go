@@ -373,6 +373,9 @@ func inferDPTFromFunction(fn string) string {
 	if strings.Contains(fnLower, "wind") && strings.Contains(fnLower, "speed") {
 		return "9.005" // Wind speed m/s
 	}
+	if strings.Contains(fnLower, "setpoint") {
+		return "9.001" // Temperature setpoint in °C
+	}
 
 	// DPT 5.xxx - 1-byte unsigned (0-100% or 0-255)
 	if strings.Contains(fnLower, "brightness") || strings.Contains(fnLower, "level") || strings.Contains(fnLower, "dim") {
@@ -381,10 +384,16 @@ func inferDPTFromFunction(fn string) string {
 	if strings.Contains(fnLower, "position") || strings.Contains(fnLower, "slat") || strings.Contains(fnLower, "tilt") {
 		return "5.001" // Percentage 0-100%
 	}
+	if strings.Contains(fnLower, "valve") || strings.Contains(fnLower, "heating_output") {
+		return "5.001" // Valve position 0-100%
+	}
 
 	// DPT 1.xxx - Boolean values
 	if strings.Contains(fnLower, "switch") || strings.Contains(fnLower, "on") || strings.Contains(fnLower, "off") {
 		return "1.001" // Switch on/off
+	}
+	if strings.Contains(fnLower, "button") || strings.Contains(fnLower, "led") {
+		return "1.001" // Push button / LED feedback
 	}
 	if strings.Contains(fnLower, "presence") || strings.Contains(fnLower, "motion") || strings.Contains(fnLower, "occupied") {
 		return "1.018" // Occupancy
@@ -976,6 +985,25 @@ var functionToStateKey = map[string]string{
 	"temperature":       "temperature",
 	"humidity":          "humidity",
 	"motion":            "motion",
+
+	// Climate: thermostats and heating actuators
+	"actual_temperature": "temperature",
+	"setpoint":           "setpoint",
+	"setpoint_status":    "setpoint",
+	"heating_output":     "heating_output",
+	"heating":            "heating",
+	"valve":              "valve",
+	"valve_status":       "valve",
+
+	// Presence and brightness sensors
+	"presence": "presence",
+	"lux":      "lux",
+
+	// Push-button interfaces
+	"button_1":     "on",
+	"button_1_led": "on",
+	"button_2":     "on",
+	"button_2_led": "on",
 }
 
 // buildStateUpdate builds a state object from the decoded value.
