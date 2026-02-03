@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../models/device.dart';
+import 'actuator_tile.dart';
 import 'blind_tile.dart';
 import 'dimmer_tile.dart';
 import 'sensor_tile.dart';
@@ -58,6 +59,9 @@ class DeviceGrid extends StatelessWidget {
   Widget _buildTile(Device device) {
     // Route to the correct tile based on domain and type first, then capabilities.
     // ValueKey ensures stable positions during state-driven rebuilds.
+    if (device.domain == 'infrastructure') {
+      return ActuatorTile(key: ValueKey(device.id), device: device);
+    }
     if (device.domain == 'sensor') {
       return SensorTile(key: ValueKey(device.id), device: device);
     }

@@ -571,6 +571,16 @@ func functionTypeToDeviceType(funcType, comment string) (string, string, float64
 // attribute) to GLCore device types. This enables Tier 1 classification for
 // device types that have no standard ETS Function Type.
 func commentToDeviceType(comment string) (string, string, float64) {
+	// Infrastructure devices carry JSON channel metadata in the Comment.
+	// Detect by checking for the JSON prefix.
+	if strings.HasPrefix(comment, "{\"infrastructure\"") {
+		// Determine actuator subtype from channel GAs
+		if strings.Contains(comment, "\"valve\"") {
+			return "heating_actuator", "infrastructure", 0.99
+		}
+		return "switch_actuator", "infrastructure", 0.99
+	}
+
 	known := map[string][2]string{
 		// Sensors
 		"presence_detector":        {"presence_sensor", "sensor"},

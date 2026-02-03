@@ -5,6 +5,7 @@ compatible with ETS project imports.
 """
 
 import io
+import json as _json
 import uuid
 import zipfile
 from collections import Counter
@@ -568,11 +569,15 @@ def _build_knxproj_xml(
             if not act_id or not ch_id or not load_room:
                 continue
             if load_room not in room_to_location_id:
-                print(f"[EXPORT DEBUG] SKIP room {load_room} not in {list(room_to_location_id.keys())}")
+                print(
+                    f"[EXPORT DEBUG] SKIP room {load_room} not in {list(room_to_location_id.keys())}"
+                )
                 continue
 
             actuator = device_by_id.get(act_id)
-            print(f"[EXPORT DEBUG] load {load.get('id')}: act_id={act_id} found={actuator is not None}")
+            print(
+                f"[EXPORT DEBUG] load {load.get('id')}: act_id={act_id} found={actuator is not None}"
+            )
             if not actuator:
                 continue
 
@@ -611,6 +616,92 @@ def _build_knxproj_xml(
                     ga_ref = ET.SubElement(ga_refs, "GroupAddressRef")
                     ga_ref.set("RefId", ga_id_map[ga_str])
                     ga_ref.set("Name", norm_fn)
+
+    # Pass 1.5: emit infrastructure Functions for covered actuators.
+    # These appear in the Distribution Board room and carry channel metadata
+    # in the Comment field so GLCore can build the admin actuator display.
+    if loads and covered_device_ids:
+        # Build per-actuator channel info from loads
+        actuator_channels: dict[str, dict[str, dict]] = {}  # {act_id: {ch: info}}
+        for load in loads:
+            act_id = load.get("actuator_device_id")
+            ch_id = load.get("actuator_channel_id", "").upper()
+            if act_id and ch_id:
+                load_id = load.get("id", "")
+                actuator_channels.setdefault(act_id, {})[ch_id] = {
+                    "load_name": _load_display_names.get(load_id, load.get("name")),
+                    "load_type": load.get("type"),
+                    "room": load.get("room_id"),
+                }
+
+        for device_id in covered_device_ids:
+            actuator = device_by_id.get(device_id)
+            if not actuator:
+                continue
+
+            act_room = actuator.get("room_id", "distribution-board")
+            if act_room not in room_to_location_id:
+                continue
+
+            act_name = actuator.get("name") or _id_to_display_name(device_id)
+            ch_info = actuator_channels.get(device_id, {})
+
+            # Build channel metadata with GAs for each channel
+            channels_meta: dict[str, dict] = {}
+            gas = actuator.get("group_addresses", {})
+            # Discover all channels present in the GA names
+            seen_channels: set[str] = set()
+            for ga_name in gas:
+                ch_letter = _extract_channel_letter(ga_name)
+                if ch_letter:
+                    seen_channels.add(ch_letter.upper())
+            # Also include channels from loads
+            for ch in ch_info:
+                seen_channels.add(ch)
+
+            for ch_letter in sorted(seen_channels):
+                channel_gas = _get_channel_gas(actuator, ch_letter)
+                ga_map = {}
+                for norm_fn, ga_str, _ in channel_gas:
+                    ga_map[norm_fn] = ga_str
+                load_info = ch_info.get(ch_letter, {})
+                channels_meta[ch_letter] = {
+                    "load_name": load_info.get("load_name"),
+                    "load_type": load_info.get("load_type"),
+                    "room": load_info.get("room"),
+                    "gas": ga_map,
+                }
+
+            comment_data = {
+                "infrastructure": True,
+                "channels": channels_meta,
+            }
+
+            trade = ET.SubElement(trades, "Trade")
+            trade.set("Id", _make_id("T"))
+            trade.set("Name", act_name)
+
+            func = ET.SubElement(trade, "Function")
+            func.set("Id", _make_id("F"))
+            func.set("Name", act_name)
+            func.set("Type", "Custom")
+            func.set("Comment", _json.dumps(comment_data, separators=(",", ":")))
+
+            loc_ref = ET.SubElement(func, "LocationReference")
+            loc_ref.set("RefId", room_to_location_id[act_room])
+
+            # Reference ALL the actuator's GAs
+            ga_refs = ET.SubElement(func, "GroupAddressRefs")
+            for ga_name, ga_data in gas.items():
+                ga_str = ga_data.get("ga", "") if isinstance(ga_data, dict) else ga_data
+                if ga_str in ga_id_map:
+                    norm_fn = _normalise_channel_function(ga_name)
+                    ch_letter = _extract_channel_letter(ga_name)
+                    # Prefix with channel letter to avoid key collisions
+                    ref_name = f"ch_{ch_letter}_{norm_fn}" if ch_letter else ga_name
+                    ga_ref = ET.SubElement(ga_refs, "GroupAddressRef")
+                    ga_ref.set("RefId", ga_id_map[ga_str])
+                    ga_ref.set("Name", ref_name)
 
     # Second pass: emit per-device Functions for non-covered devices
     for device in devices:

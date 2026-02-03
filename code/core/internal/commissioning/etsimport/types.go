@@ -89,6 +89,10 @@ type DetectedDevice struct {
 
 	// FunctionType is the ETS Function Type that classified this device (Tier 1).
 	FunctionType string `json:"function_type,omitempty"`
+
+	// FunctionComment is the raw Comment attribute from the ETS Function element.
+	// Infrastructure devices carry JSON channel metadata here.
+	FunctionComment string `json:"function_comment,omitempty"`
 }
 
 // DeviceAddress represents a single group address mapping for a device.

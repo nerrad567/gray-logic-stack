@@ -140,18 +140,19 @@ type Domain string
 
 // Domain constants.
 const (
-	DomainLighting   Domain = "lighting"
-	DomainClimate    Domain = "climate"
-	DomainBlinds     Domain = "blinds"
-	DomainAudio      Domain = "audio"
-	DomainVideo      Domain = "video"
-	DomainSecurity   Domain = "security"
-	DomainAccess     Domain = "access"
-	DomainEnergy     Domain = "energy"
-	DomainPlant      Domain = "plant"
-	DomainIrrigation Domain = "irrigation"
-	DomainSafety     Domain = "safety"
-	DomainSensor     Domain = "sensor"
+	DomainLighting       Domain = "lighting"
+	DomainClimate        Domain = "climate"
+	DomainBlinds         Domain = "blinds"
+	DomainAudio          Domain = "audio"
+	DomainVideo          Domain = "video"
+	DomainSecurity       Domain = "security"
+	DomainAccess         Domain = "access"
+	DomainEnergy         Domain = "energy"
+	DomainPlant          Domain = "plant"
+	DomainIrrigation     Domain = "irrigation"
+	DomainSafety         Domain = "safety"
+	DomainSensor         Domain = "sensor"
+	DomainInfrastructure Domain = "infrastructure"
 )
 
 // AllDomains returns all valid domain values.
@@ -160,6 +161,7 @@ func AllDomains() []Domain {
 		DomainLighting, DomainClimate, DomainBlinds, DomainAudio,
 		DomainVideo, DomainSecurity, DomainAccess, DomainEnergy,
 		DomainPlant, DomainIrrigation, DomainSafety, DomainSensor,
+		DomainInfrastructure,
 	}
 }
 
@@ -306,6 +308,7 @@ const (
 	DeviceTypePowerSupply    DeviceType = "power_supply"
 	DeviceTypeTimerSwitch    DeviceType = "timer_switch"
 	DeviceTypeLoadController DeviceType = "load_controller"
+	DeviceTypeSwitchActuator DeviceType = "switch_actuator"
 )
 
 // Additional sensor types.
@@ -358,7 +361,7 @@ func AllDeviceTypes() []DeviceType {
 		DeviceTypeRoomController, DeviceTypeLogicModule,
 		// KNX System/Infrastructure
 		DeviceTypeIPRouter, DeviceTypeLineCoupler, DeviceTypePowerSupply,
-		DeviceTypeTimerSwitch, DeviceTypeLoadController,
+		DeviceTypeTimerSwitch, DeviceTypeLoadController, DeviceTypeSwitchActuator,
 		// Additional Sensors
 		DeviceTypeMultiSensor, DeviceTypeWindSensor,
 		// Other

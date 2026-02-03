@@ -610,6 +610,7 @@ func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[st
 				ApplicationProgram: appProgram,
 				IndividualAddress:  indAddr,
 				FunctionType:       fn.Type,
+				FunctionComment:    fn.Comment,
 			}
 
 			if sourceLocation != "" {

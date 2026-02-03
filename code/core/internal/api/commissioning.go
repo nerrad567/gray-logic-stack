@@ -164,6 +164,10 @@ type ETSDeviceImport struct {
 
 	// IndividualAddress is the KNX individual address (e.g., "1.1.10").
 	IndividualAddress string `json:"individual_address,omitempty"`
+
+	// FunctionComment is the raw ETS Function Comment attribute.
+	// Infrastructure devices carry JSON channel metadata here.
+	FunctionComment string `json:"function_comment,omitempty"`
 }
 
 // ETSAddressImport represents a group address mapping for import.
@@ -698,8 +702,19 @@ func (s *Server) buildDeviceFromImport(imp ETSDeviceImport) *device.Device {
 
 	dev.Address = addresses
 
-	// Derive capabilities from addresses
-	dev.Capabilities = deriveCapabilitiesFromAddresses(imp.Addresses)
+	// Derive capabilities from addresses (skip for infrastructure — read-only)
+	if imp.Domain != string(device.DomainInfrastructure) {
+		dev.Capabilities = deriveCapabilitiesFromAddresses(imp.Addresses)
+	}
+
+	// Parse infrastructure channel metadata from FunctionComment into Config.
+	// This allows the Flutter panel to render per-channel status displays.
+	if strings.HasPrefix(imp.FunctionComment, "{\"infrastructure\"") {
+		var meta map[string]any
+		if err := json.Unmarshal([]byte(imp.FunctionComment), &meta); err == nil {
+			dev.Config = device.Config(meta)
+		}
+	}
 
 	return dev
 }
