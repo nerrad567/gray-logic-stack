@@ -2,7 +2,7 @@
 title: Audit Summary & History
 version: 2.0.0
 status: active
-last_updated: 2026-01-24
+last_updated: 2026-02-03
 auditor: Multiple (Gemini, Claude Code)
 ---
 
@@ -39,6 +39,7 @@ This document summarizes the comprehensive audit process conducted across two ph
 | **11** | Jan 23 | M1.4 REST API + WebSocket | **9.4** | Fixed 12 issues across 7 iterations: DoS, panics, races |
 | **12** | Jan 23-24 | M1.6 Basic Scenes | **9.4** | Fixed 10 issues (5 iterations): race, DoS, timeout, validation, abort logic, DeepCopy. Final Advisory: SHIP IT. |
 | **13** | Jan 24 | M1.5 Wall Panel (Go) | **9.5** | Fixed 7 issues (1 iteration): goroutine leak, unchecked errors, unused type, errorlint, staticcheck. SHIP IT. |
+| **14** | Feb 03 | MQTT Topic Unification | **9.3** | 0 Critical/High, 3 Medium (defense-in-depth). Fixed InfluxDB token auth. SHIP IT. |
 
 > **Note:** Code audits follow 7-phase verification (tests, lint, vulncheck, AI review, architecture, deps, docs).
 

@@ -19,8 +19,8 @@ import (
 func testConfig() config.InfluxDBConfig {
 	token := os.Getenv("INFLUXDB_TOKEN")
 	if token == "" {
-		// Default token from docker-compose.dev.yml setup
-		token = "QHxh_EMhIkYQYRk6ysuTjVeJ44S3Y39R5wg_hRRIBTUG7frpp5Eb-0xUNWFHv5cWgGqhQFbgd8nAoX9KXtfbqA=="
+		// Deterministic token set via DOCKER_INFLUXDB_INIT_ADMIN_TOKEN in docker-compose.dev.yml
+		token = "dev-token-graylogic-influxdb-local"
 	}
 	return config.InfluxDBConfig{
 		Enabled:       true,

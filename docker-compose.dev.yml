@@ -41,6 +41,7 @@ services:
       - DOCKER_INFLUXDB_INIT_PASSWORD=dev-password-only
       - DOCKER_INFLUXDB_INIT_ORG=graylogic
       - DOCKER_INFLUXDB_INIT_BUCKET=graylogic
+      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=dev-token-graylogic-influxdb-local
     volumes:
       - influxdb_data:/var/lib/influxdb2
 
