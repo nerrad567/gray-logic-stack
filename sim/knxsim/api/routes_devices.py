@@ -364,14 +364,26 @@ def send_channel_command(premise_id: str, device_id: str, channel_id: str, body:
     group_objects = channel.get("group_objects", {})
 
     # Look for matching group object (command or command_status)
+    # The UI sends generic names (e.g. "position") but group objects may use
+    # domain-specific names (e.g. "valve" for heating actuators).
+    command_aliases = {
+        "position": ["position", "valve", "heating_output"],
+        "valve": ["valve", "position", "heating_output"],
+        "heating_output": ["heating_output", "valve", "position"],
+    }
+    search_names = command_aliases.get(command, [command])
+
     ga_name = None
     ga_str = None
-    for go_name, go_data in group_objects.items():
-        if go_name == command or go_name.replace("_status", "") == command:
-            if isinstance(go_data, dict) and go_data.get("ga"):
-                ga_name = go_name
-                ga_str = go_data["ga"]
-                break
+    for candidate in search_names:
+        for go_name, go_data in group_objects.items():
+            if go_name == candidate or go_name.replace("_status", "") == candidate:
+                if isinstance(go_data, dict) and go_data.get("ga"):
+                    ga_name = go_name
+                    ga_str = go_data["ga"]
+                    break
+        if ga_str:
+            break
 
     # Send telegram if we found a GA
     if ga_str and premise.server:
