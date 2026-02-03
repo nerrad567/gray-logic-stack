@@ -284,6 +284,25 @@ func createTestConfig() *Config {
 	}
 }
 
+// createTestBridge creates a bridge and pre-loads device maps from config.
+// In production, device maps come from the registry; in tests we load them
+// directly from config using BuildDeviceIndex for convenience.
+func createTestBridge(t *testing.T, opts BridgeOptions) *Bridge {
+	t.Helper()
+	b, err := NewBridge(opts)
+	if err != nil {
+		t.Fatalf("NewBridge() error: %v", err)
+	}
+	// Pre-load device maps from config (simulates what the registry would provide)
+	gaToDevice, deviceToGAs := opts.Config.BuildDeviceIndex()
+	b.mappingMu.Lock()
+	b.gaToDevice = gaToDevice
+	b.deviceToGAs = deviceToGAs
+	b.mappingMu.Unlock()
+	b.health.SetDeviceCount(len(deviceToGAs))
+	return b
+}
+
 func TestNewBridge(t *testing.T) {
 	mqtt := NewMockMQTTClient()
 	knxd := NewMockConnector()
@@ -358,18 +377,14 @@ func TestBridgeStartStop(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
-	err = b.Start(ctx)
-	if err != nil {
+	if err := b.Start(ctx); err != nil {
 		t.Fatalf("Start() error: %v", err)
 	}
 
@@ -404,14 +419,11 @@ func TestBridgeOnCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -476,14 +488,11 @@ func TestBridgeOffCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -520,14 +529,11 @@ func TestBridgeDimCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -571,14 +577,11 @@ func TestBridgeSetPositionCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -622,14 +625,11 @@ func TestBridgeStopCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -667,14 +667,11 @@ func TestBridgeUnknownDevice(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -723,14 +720,11 @@ func TestBridgeUnknownCommand(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -763,14 +757,11 @@ func TestBridgeKNXTelegramToState(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -821,14 +812,11 @@ func TestBridgeKNXTelegramBrightness(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -873,14 +861,11 @@ func TestBridgeKNXTelegramTemperature(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -927,14 +912,11 @@ func TestBridgeStateChangeDetection(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -983,14 +965,11 @@ func TestBridgeUnknownGA(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1023,14 +1002,11 @@ func TestBridgeReadStateRequest(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1084,14 +1060,11 @@ func TestBridgeReadAllRequest(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1151,14 +1124,11 @@ func TestBridgeRequestUnknownDevice(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1204,14 +1174,11 @@ func TestBridgeInvalidTopicFormat(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1236,14 +1203,11 @@ func TestBridgeDimMissingLevel(t *testing.T) {
 	knxd := NewMockConnector()
 	cfg := createTestConfig()
 
-	b, err := NewBridge(BridgeOptions{
+	b := createTestBridge(t, BridgeOptions{
 		Config:     cfg,
 		MQTTClient: mqtt,
 		KNXDClient: knxd,
 	})
-	if err != nil {
-		t.Fatalf("NewBridge() error: %v", err)
-	}
 
 	ctx := context.Background()
 	if err := b.Start(ctx); err != nil {
@@ -1316,174 +1280,6 @@ func TestFunctionToStateKeyMapping(t *testing.T) {
 			}
 			if known && key != tt.wantKey {
 				t.Errorf("functionToStateKey[%q] = %q, want %q", tt.function, key, tt.wantKey)
-			}
-		})
-	}
-}
-
-// ─── Helper Function Tests ─────────────────────────────────────────
-
-func TestIdToName(t *testing.T) {
-	tests := []struct {
-		id   string
-		want string
-	}{
-		{"living-room-light", "Living Room Light"},
-		{"kitchen", "Kitchen"},
-		{"master-bedroom-ceiling", "Master Bedroom Ceiling"},
-		{"a-b-c", "A B C"},
-		{"", ""},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.id, func(t *testing.T) {
-			got := idToName(tt.id)
-			if got != tt.want {
-				t.Errorf("idToName(%q) = %q, want %q", tt.id, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDeriveDeviceType(t *testing.T) {
-	tests := []struct {
-		name      string
-		bridgeTyp string
-		addresses map[string]AddressConfig
-		want      string
-	}{
-		{"light_switch", "light_switch", nil, "light_switch"},
-		{"light_dimmer", "light_dimmer", nil, "light_dimmer"},
-		{"blind", "blind", nil, "blind_position"},
-		{"scene", "scene", nil, "relay_channel"},
-		{"sensor with presence", "sensor", map[string]AddressConfig{"presence": {}}, "presence_sensor"},
-		{"sensor with humidity", "sensor", map[string]AddressConfig{"humidity": {}}, "humidity_sensor"},
-		{"sensor with lux", "sensor", map[string]AddressConfig{"lux": {}}, "light_sensor"},
-		{"sensor default", "sensor", map[string]AddressConfig{"temperature": {}}, "temperature_sensor"},
-		{"unknown type", "custom", nil, "custom"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := deriveDeviceType(tt.bridgeTyp, tt.addresses)
-			if got != tt.want {
-				t.Errorf("deriveDeviceType(%q) = %q, want %q", tt.bridgeTyp, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDeriveSensorType(t *testing.T) {
-	tests := []struct {
-		name      string
-		addresses map[string]AddressConfig
-		want      string
-	}{
-		{"presence sensor", map[string]AddressConfig{"presence": {}}, "presence_sensor"},
-		{"humidity sensor", map[string]AddressConfig{"humidity": {}}, "humidity_sensor"},
-		{"light sensor", map[string]AddressConfig{"lux": {}}, "light_sensor"},
-		{"temperature sensor (default)", map[string]AddressConfig{"temperature": {}}, "temperature_sensor"},
-		{"empty addresses", map[string]AddressConfig{}, "temperature_sensor"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := deriveSensorType(tt.addresses)
-			if got != tt.want {
-				t.Errorf("deriveSensorType() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDeriveDomain(t *testing.T) {
-	tests := []struct {
-		bridgeType string
-		want       string
-	}{
-		{"light_switch", "lighting"},
-		{"light_dimmer", "lighting"},
-		{"scene", "lighting"},
-		{"blind", "blinds"},
-		{"sensor", "sensor"},
-		{"unknown", "sensor"},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.bridgeType, func(t *testing.T) {
-			got := deriveDomain(tt.bridgeType)
-			if got != tt.want {
-				t.Errorf("deriveDomain(%q) = %q, want %q", tt.bridgeType, got, tt.want)
-			}
-		})
-	}
-}
-
-func TestDeriveCapabilities(t *testing.T) {
-	tests := []struct {
-		name       string
-		bridgeType string
-		addresses  map[string]AddressConfig
-		want       []string
-	}{
-		{"light_switch", "light_switch", nil, []string{"on_off"}},
-		{"light_dimmer", "light_dimmer", nil, []string{"on_off", "dim"}},
-		{"blind without slat", "blind", map[string]AddressConfig{"position": {}}, []string{"position"}},
-		{"blind with slat", "blind", map[string]AddressConfig{"position": {}, "slat": {}}, []string{"position", "tilt"}},
-		{"sensor with temp", "sensor", map[string]AddressConfig{"temperature": {}}, []string{"temperature_read"}},
-		{"sensor with multiple", "sensor", map[string]AddressConfig{"temperature": {}, "humidity": {}}, []string{"temperature_read", "humidity_read"}},
-		{"unknown type", "custom", nil, nil},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := deriveCapabilities(tt.bridgeType, tt.addresses)
-			if len(got) != len(tt.want) {
-				t.Errorf("deriveCapabilities() = %v, want %v", got, tt.want)
-				return
-			}
-			for i, cap := range tt.want {
-				if got[i] != cap {
-					t.Errorf("deriveCapabilities()[%d] = %q, want %q", i, got[i], cap)
-				}
-			}
-		})
-	}
-}
-
-func TestDeriveSensorCapabilities(t *testing.T) {
-	tests := []struct {
-		name      string
-		addresses map[string]AddressConfig
-		want      []string
-	}{
-		{"temperature only", map[string]AddressConfig{"temperature": {}}, []string{"temperature_read"}},
-		{"humidity only", map[string]AddressConfig{"humidity": {}}, []string{"humidity_read"}},
-		{"lux only", map[string]AddressConfig{"lux": {}}, []string{"light_level_read"}},
-		{"presence only", map[string]AddressConfig{"presence": {}}, []string{"presence_detect"}},
-		{"multiple capabilities", map[string]AddressConfig{"temperature": {}, "humidity": {}, "lux": {}}, []string{"temperature_read", "humidity_read", "light_level_read"}},
-		{"empty defaults to temperature", map[string]AddressConfig{}, []string{"temperature_read"}},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := deriveSensorCapabilities(tt.addresses)
-			if len(got) != len(tt.want) {
-				t.Errorf("deriveSensorCapabilities() = %v, want %v", got, tt.want)
-				return
-			}
-			// Check all expected capabilities are present (order may vary for multiple)
-			for _, wantCap := range tt.want {
-				found := false
-				for _, gotCap := range got {
-					if gotCap == wantCap {
-						found = true
-						break
-					}
-				}
-				if !found {
-					t.Errorf("deriveSensorCapabilities() missing %q, got %v", wantCap, got)
-				}
 			}
 		})
 	}

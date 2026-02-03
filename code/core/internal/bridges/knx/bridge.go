@@ -165,9 +165,6 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		return nil, fmt.Errorf("knxd client is required")
 	}
 
-	// Build device index from config
-	gaToDevice, deviceToGAs := opts.Config.BuildDeviceIndex()
-
 	// Create bridge-level context for command cancellation on shutdown
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
@@ -177,8 +174,8 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		knxd:        opts.KNXDClient,
 		registry:    opts.Registry,   // May be nil (optional)
 		gaRecorder:  opts.GARecorder, // May be nil (optional)
-		gaToDevice:  gaToDevice,
-		deviceToGAs: deviceToGAs,
+		gaToDevice:  make(map[string]GAMapping),
+		deviceToGAs: make(map[string]map[string]AddressConfig),
 		stateCache:  make(map[string]map[string]any),
 		done:        make(chan struct{}),
 		ctx:         ctx,
@@ -194,7 +191,7 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		Publisher:  opts.MQTTClient,
 		KNXDClient: opts.KNXDClient,
 	})
-	b.health.SetDeviceCount(len(opts.Config.Devices))
+	b.health.SetDeviceCount(0) // Starts empty; updated after registry load
 	if opts.Logger != nil {
 		b.health.SetLogger(opts.Logger)
 	}
@@ -206,10 +203,7 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 // This subscribes to MQTT topics, sets up the KNX telegram handler,
 // and starts health reporting.
 func (b *Bridge) Start(ctx context.Context) error {
-	// Seed device registry from bridge config (idempotent)
-	b.seedDeviceRegistry(ctx)
-
-	// Load devices from registry (merges with config devices)
+	// Load devices from registry (sole source of device mappings)
 	b.loadDevicesFromRegistry(ctx)
 
 	// Publish starting status
@@ -242,9 +236,13 @@ func (b *Bridge) Start(ctx context.Context) error {
 		b.logError("failed to publish healthy status", err)
 	}
 
+	b.mappingMu.RLock()
+	deviceCount := len(b.deviceToGAs)
+	b.mappingMu.RUnlock()
+
 	b.logInfo("bridge started",
 		"bridge_id", b.cfg.Bridge.ID,
-		"devices", len(b.cfg.Devices))
+		"devices", deviceCount)
 
 	return nil
 }
@@ -267,26 +265,9 @@ func (b *Bridge) Stop() {
 	})
 }
 
-// seedDeviceRegistry ensures all devices in the bridge config exist in the
-// device registry. This makes knx-bridge.yaml the single source of truth for
-// KNX device definitions — no manual device creation required.
-// Idempotent: existing devices are not modified (preserves user enrichments).
-func (b *Bridge) seedDeviceRegistry(ctx context.Context) {
-	if b.registry == nil {
-		return
-	}
-	for _, devCfg := range b.cfg.Devices {
-		seed := buildDeviceSeed(devCfg, b.cfg.Bridge.ID)
-		if err := b.registry.CreateDeviceIfNotExists(ctx, seed); err != nil {
-			b.logInfo("failed to seed device", "device", devCfg.DeviceID, "error", err.Error())
-		}
-	}
-}
-
 // loadDevicesFromRegistry loads KNX devices from the device registry and
-// merges them into the bridge's device mappings. This allows devices created
-// via ETS import (or other means) to be controlled by the bridge without
-// requiring manual knx-bridge.yaml configuration.
+// builds the bridge's device mappings. The registry is the sole source of
+// device→GA mappings — devices are created via ETS import or the admin panel.
 func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 	if b.registry == nil {
 		return
@@ -307,11 +288,6 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 
 	loaded := 0
 	for _, dev := range devices {
-		// Skip if already in config (config takes precedence)
-		if _, exists := b.deviceToGAs[dev.ID]; exists {
-			continue
-		}
-
 		// Convert registry device to address configs
 		addresses := make(map[string]AddressConfig)
 		for fn, ga := range dev.Address {
@@ -346,9 +322,9 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 
 	if loaded > 0 {
 		b.logInfo("loaded devices from registry", "count", loaded)
-		// Update health reporter device count
-		b.health.SetDeviceCount(len(b.cfg.Devices) + loaded)
 	}
+	// Update health reporter with total device count from maps
+	b.health.SetDeviceCount(len(b.deviceToGAs))
 }
 
 // ReloadDevices reloads device mappings from the registry.
@@ -425,143 +401,6 @@ func inferDPTFromFunction(fn string) string {
 
 	// Default: no DPT (will return raw bytes)
 	return ""
-}
-
-// buildDeviceSeed derives a DeviceSeed from bridge config.
-func buildDeviceSeed(cfg DeviceConfig, bridgeID string) DeviceSeed {
-	deviceType := deriveDeviceType(cfg.Type, cfg.Addresses)
-	return DeviceSeed{
-		ID:           cfg.DeviceID,
-		Name:         idToName(cfg.DeviceID),
-		Type:         deviceType,
-		Domain:       deriveDomain(cfg.Type),
-		Protocol:     "knx",
-		GatewayID:    bridgeID,
-		Capabilities: deriveCapabilities(cfg.Type, cfg.Addresses),
-		Address:      buildRegistryAddress(cfg.Addresses),
-	}
-}
-
-// buildRegistryAddress creates a device.Address map that satisfies the
-// KNX address validator (requires "group_address" key) while including
-// all GA mappings for reference.
-func buildRegistryAddress(addresses map[string]AddressConfig) map[string]string {
-	m := make(map[string]string, len(addresses)+1)
-	var primaryGA string
-	for fn, addr := range addresses {
-		m[fn] = addr.GA
-		// Prefer a write-flagged GA as the primary address
-		if primaryGA == "" {
-			primaryGA = addr.GA
-		}
-		for _, flag := range addr.Flags {
-			if flag == "write" {
-				primaryGA = addr.GA
-			}
-		}
-	}
-	m["group_address"] = primaryGA
-	return m
-}
-
-// idToName converts a device ID to a human-readable name.
-// "living-room-ceiling-light" → "Living Room Ceiling Light"
-func idToName(id string) string {
-	words := strings.Split(id, "-")
-	for i, w := range words {
-		if len(w) > 0 {
-			words[i] = strings.ToUpper(w[:1]) + w[1:]
-		}
-	}
-	return strings.Join(words, " ")
-}
-
-// deriveDeviceType maps bridge config type to registry DeviceType,
-// refining generic types (e.g. "sensor") based on configured addresses.
-func deriveDeviceType(bridgeType string, addresses map[string]AddressConfig) string {
-	switch bridgeType {
-	case "light_switch":
-		return "light_switch"
-	case "light_dimmer":
-		return "light_dimmer"
-	case "blind":
-		return "blind_position"
-	case "sensor":
-		return deriveSensorType(addresses)
-	case "scene":
-		return "relay_channel"
-	default:
-		return bridgeType
-	}
-}
-
-// deriveSensorType determines the specific sensor type from address functions.
-func deriveSensorType(addresses map[string]AddressConfig) string {
-	if _, ok := addresses["presence"]; ok {
-		return "presence_sensor"
-	}
-	if _, ok := addresses["humidity"]; ok {
-		return "humidity_sensor"
-	}
-	if _, ok := addresses["lux"]; ok {
-		return "light_sensor"
-	}
-	return "temperature_sensor"
-}
-
-// deriveDomain maps bridge config type to the device domain.
-func deriveDomain(bridgeType string) string {
-	switch bridgeType {
-	case "light_switch", "light_dimmer", "scene":
-		return "lighting"
-	case "blind":
-		return "blinds"
-	case "sensor":
-		return "sensor"
-	default:
-		return "sensor"
-	}
-}
-
-// deriveCapabilities infers device capabilities from type and address functions.
-func deriveCapabilities(bridgeType string, addresses map[string]AddressConfig) []string {
-	switch bridgeType {
-	case "light_switch":
-		return []string{"on_off"}
-	case "light_dimmer":
-		return []string{"on_off", "dim"}
-	case "blind":
-		caps := []string{"position"}
-		if _, ok := addresses["slat"]; ok {
-			caps = append(caps, "tilt")
-		}
-		return caps
-	case "sensor":
-		return deriveSensorCapabilities(addresses)
-	default:
-		return nil
-	}
-}
-
-// deriveSensorCapabilities determines capabilities from sensor address functions.
-func deriveSensorCapabilities(addresses map[string]AddressConfig) []string {
-	var caps []string
-	if _, ok := addresses["temperature"]; ok {
-		caps = append(caps, "temperature_read")
-	}
-	if _, ok := addresses["humidity"]; ok {
-		caps = append(caps, "humidity_read")
-	}
-	if _, ok := addresses["lux"]; ok {
-		caps = append(caps, "light_level_read")
-	}
-	if _, ok := addresses["presence"]; ok {
-		caps = append(caps, "presence_detect")
-	}
-	if len(caps) == 0 {
-		caps = []string{"temperature_read"}
-	}
-	return caps
 }
 
 // handleMQTTMessage routes incoming MQTT messages to appropriate handlers.
