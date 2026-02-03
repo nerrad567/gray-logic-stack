@@ -19,14 +19,19 @@ Execute each phase in order. Do NOT skip phases. Report progress after each phas
 Stop everything that might be running. Order matters: GLCore first, then knxd, then
 Docker services.
 
+**IMPORTANT**: Do NOT use `pkill -f "build/graylogic"` directly — the shell running
+the pkill command contains the match string in its own command line and will kill
+itself. Use the bracket trick with `pgrep`/`ps` to avoid self-matching.
+
 ```bash
 # 1a. Kill any running GLCore process (nohup'd or otherwise)
-pkill -f "build/graylogic" 2>/dev/null || true
+#     The [b] bracket trick prevents the grep/pgrep from matching itself
+pgrep -f '[b]uild/graylogic' | xargs -r kill 2>/dev/null || true
 sleep 1
 
 # 1b. Kill any orphaned knxd managed by GLCore
 #     (Match the socket path to avoid killing system knxd)
-pkill -f "graylogic-knxd" 2>/dev/null || true
+pgrep -f '[g]raylogic-knxd' | xargs -r kill 2>/dev/null || true
 
 # 1c. Bring down Docker dev services
 cd code/core && make dev-services-down
