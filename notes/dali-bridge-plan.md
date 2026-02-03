@@ -26,11 +26,11 @@ From `docs/CONSTRAINTS.md` and DALI protocol spec:
 - Only KNX bridge exists in code: `code/core/internal/bridges/knx`.
 - KNX bridge uses the flat MQTT topic scheme: `graylogic/command/knx/{address}` etc.
 - Infrastructure MQTT helpers use the same flat scheme: `graylogic/{category}/{protocol}/{address}`.
-- DALI spec document uses the bridge scheme (per `docs/protocols/dali.md`).
+- DALI spec document uses the same flat scheme (per `docs/protocols/dali.md`).
 - Config system includes `DALIConfig` stub in `internal/infrastructure/config`.
 - Device registry provides a standard protocol address map (example DALI address fields listed).
 
-**Decision required before implementation:** unify or reconcile MQTT topic scheme (see Section 4).
+**MQTT topic scheme is resolved:** all bridges use the flat scheme `graylogic/{category}/{protocol}/{address}` (see `docs/protocols/mqtt.md` and `internal/infrastructure/mqtt/topics.go`).
 
 ---
 
@@ -42,7 +42,7 @@ code/core/internal/bridges/dali/
   doc.go               # package docs
   config.go            # YAML config + validation + env overrides
   bridge.go            # orchestrator (MQTT <-> DALI gateway)
-  messages.go          # MQTT message structs + topic helpers
+  messages.go          # MQTT message structs + topic helpers (follow knx/messages.go pattern)
   health.go            # health reporter (LWT, status, metrics)
   errors.go            # domain errors
   levels.go            # DALI level <-> % conversions
@@ -60,24 +60,25 @@ Additional (outside package):
 
 ---
 
-## 4) MQTT Topic Scheme — Open Decision
-
-Current sources conflict:
-- KNX bridge code: `graylogic/command/knx/{address}`.
-- MQTT helpers (`internal/infrastructure/mqtt/topics.go`): `graylogic/command/{protocol}/{device_id}`.
-- DALI spec: `graylogic/command/dali/{address}` etc.
-
-**Resolved:** All bridges use the flat topic scheme `graylogic/{category}/{protocol}/{address}` as defined in `internal/infrastructure/mqtt/topics.go` and `docs/protocols/mqtt.md`. KNX bridge already follows this pattern. DALI bridge should use the same scheme (e.g. `graylogic/command/dali/{address}`, `graylogic/state/dali/{address}`, `graylogic/health/dali`).
-
----
-
-## 5) Interfaces Needed (No Code Yet)
+## 4) Interfaces Needed (No Code Yet)
 
 ### MQTT Client Interface (same shape as KNX bridge)
 - `Publish(topic string, payload []byte, qos byte, retained bool) error`
 - `Subscribe(topic string, qos byte, handler func(topic string, payload []byte)) error`
 - `IsConnected() bool`
 - `Disconnect(quiesce uint)`
+
+Topics use the flat scheme `graylogic/{category}/dali/{address}`:
+- `graylogic/command/dali/{address}` — commands from Core
+- `graylogic/state/dali/{address}` — state updates to Core
+- `graylogic/ack/dali/{address}` — command acknowledgements
+- `graylogic/health/dali` — bridge health (retained, LWT)
+- `graylogic/discovery/dali` — device discovery
+- `graylogic/config/dali` — bridge configuration from Core
+- `graylogic/request/dali/{request_id}` — ad-hoc requests from Core
+- `graylogic/response/dali/{request_id}` — responses to requests
+
+Use `mqtt.Topics{}` helpers (e.g. `BridgeCommand("dali", addr)`) — never construct topics manually.
 
 ### Device Registry Interface (same concept as KNX bridge)
 - `SetDeviceState(ctx, id, state map[string]any) error`
@@ -102,7 +103,7 @@ Support both polling and event-driven gateways:
 
 ---
 
-## 6) Configuration Model (Derived from DALI Spec)
+## 5) Configuration Model (Derived from DALI Spec)
 
 Based on `docs/protocols/dali.md`:
 - Bridge:
@@ -120,7 +121,7 @@ Plan: place a `dali-bridge.yaml` template under `code/core/configs/`.
 
 ---
 
-## 7) Bridge Behaviour (High-Level)
+## 6) Bridge Behaviour (High-Level)
 
 ### Startup
 1. Load config; validate gateway/device/group mappings.
@@ -153,7 +154,7 @@ Plan: place a `dali-bridge.yaml` template under `code/core/configs/`.
 
 ---
 
-## 8) Testing Plan (Coverage + Tiers)
+## 7) Testing Plan (Coverage + Tiers)
 
 - Unit tests for conversions:
   - DALI level <-> % (roundtrip tolerances)
@@ -172,38 +173,38 @@ Target coverage: 80%+ new code, 100% for error paths (per `docs/CONSTRAINTS.md`)
 
 ---
 
-## 9) Open Questions / Decisions Needed
+## 8) Open Questions / Decisions Needed
 
-1. **MQTT topic scheme**: bridge-style topics vs legacy KNX-style topics.
-2. **Gateway support**: which gateway types to implement first (Modbus TCP vs REST vs MQTT)?
-3. **Registry integration**: should bridge ingest device mappings from registry on startup (like KNX)?
-4. **Polling cadence**: default intervals for status/lamp failure checks.
-
----
-
-## 10) Step-by-Step Implementation Plan (Sequenced)
-
-1. Finalise MQTT topic scheme (document decision).
-2. Create `internal/bridges/dali/` structure + `doc.go`, `errors.go`.
-3. Implement config loading + validation + sample config file.
-4. Implement message structs + topic helpers (based on chosen scheme).
-5. Implement conversion helpers (levels, fade time, mirek).
-6. Implement gateway interface + mock gateway (test harness).
-7. Implement bridge orchestrator (subscribe, ack, state cache, health).
-8. Integrate in `cmd/graylogic/main.go` (startDALIBridge analog to KNX).
-9. Add tests (unit + integration scaffolding).
-10. Update docs (`docs/protocols/dali.md`/package docs if needed).
+1. **Gateway support**: which gateway types to implement first (Modbus TCP vs REST vs MQTT)?
+2. **Registry integration**: should bridge ingest device mappings from registry on startup (like KNX)?
+3. **Polling cadence**: default intervals for status/lamp failure checks.
 
 ---
 
-## 11) Files to Reference During Implementation
+## 9) Step-by-Step Implementation Plan (Sequenced)
 
-- `docs/CONSTRAINTS.md`
-- `docs/architecture/bridge-interface.md`
-- `docs/protocols/dali.md`
-- `docs/protocols/mqtt.md`
-- `code/core/internal/bridges/knx/*`
-- `code/core/internal/infrastructure/mqtt/*`
-- `code/core/internal/device/*`
-- `code/core/internal/infrastructure/config/config.go`
+1. Create `internal/bridges/dali/` structure + `doc.go`, `errors.go`.
+2. Implement config loading + validation + sample config file.
+3. Implement message structs + topic helpers (follow `knx/messages.go` pattern, use `mqtt.Topics{}` helpers).
+4. Implement conversion helpers (levels, fade time, mirek).
+5. Implement gateway interface + mock gateway (test harness).
+6. Implement bridge orchestrator (subscribe, ack, state cache, health).
+7. Integrate in `cmd/graylogic/main.go` (startDALIBridge analog to KNX).
+8. Add tests (unit + integration scaffolding).
+9. Update docs (`docs/protocols/dali.md`/package docs if needed).
+
+---
+
+## 10) Files to Reference During Implementation
+
+- `docs/CONSTRAINTS.md` — hard rules that apply to all bridges
+- `docs/architecture/bridge-interface.md` — bridge contract spec
+- `docs/protocols/dali.md` — DALI-2 protocol spec and examples
+- `docs/protocols/mqtt.md` — unified flat topic scheme reference
+- `code/core/internal/bridges/knx/*` — primary reference implementation
+- `code/core/internal/bridges/knx/messages.go` — topic helpers and message structs to mirror
+- `code/core/internal/infrastructure/mqtt/topics.go` — `Topics{}` builder methods (use these, don't hardcode topics)
+- `code/core/internal/infrastructure/mqtt/client.go` — MQTT client interface
+- `code/core/internal/device/*` — device registry, types, validation
+- `code/core/internal/infrastructure/config/config.go` — config system with `DALIConfig` stub
 
