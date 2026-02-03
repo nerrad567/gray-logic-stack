@@ -239,29 +239,28 @@ class _ChannelIndicator extends StatelessWidget {
 
   /// Get the status text for this channel from the device state.
   /// State keys are prefixed: ch_a_switch_status, ch_a_valve_status, etc.
+  /// Falls back to command keys (ch_a_switch, ch_a_valve) when status
+  /// keys haven't been received yet.
   String _getStatusText() {
     if (channel.isSpare) return '--';
 
     final prefix = 'ch_${channel.letter.toLowerCase()}';
 
     if (isValveType) {
-      // Look for valve percentage
-      final valveKey = '${prefix}_valve_status';
-      final val = deviceState[valveKey];
-      if (val is num) return '${val.toInt()}%';
-      // Fall back to on/off
-      final switchKey = '${prefix}_switch_status';
-      final sw = deviceState[switchKey];
-      if (sw == true) return 'OPEN';
-      if (sw == false) return 'SHUT';
+      // Look for valve percentage — try status first, then command
+      for (final suffix in ['_valve_status', '_valve']) {
+        final val = deviceState['$prefix$suffix'];
+        if (val is num) return '${val.toInt()}%';
+      }
       return '?';
     }
 
-    // Switch/dimmer actuator
-    final switchKey = '${prefix}_switch_status';
-    final sw = deviceState[switchKey];
-    if (sw == true) return 'ON';
-    if (sw == false) return 'OFF';
+    // Switch/dimmer actuator — try status first, then command
+    for (final suffix in ['_switch_status', '_switch']) {
+      final sw = deviceState['$prefix$suffix'];
+      if (sw == true) return 'ON';
+      if (sw == false) return 'OFF';
+    }
     return '?';
   }
 
@@ -272,15 +271,18 @@ class _ChannelIndicator extends StatelessWidget {
     final prefix = 'ch_${channel.letter.toLowerCase()}';
 
     if (isValveType) {
-      final valveKey = '${prefix}_valve_status';
-      final val = deviceState[valveKey];
-      if (val is num) return val > 0;
-      final switchKey = '${prefix}_switch_status';
-      return deviceState[switchKey] == true;
+      for (final suffix in ['_valve_status', '_valve']) {
+        final val = deviceState['$prefix$suffix'];
+        if (val is num) return val > 0;
+      }
+      return false;
     }
 
-    final switchKey = '${prefix}_switch_status';
-    return deviceState[switchKey] == true;
+    for (final suffix in ['_switch_status', '_switch']) {
+      final sw = deviceState['$prefix$suffix'];
+      if (sw is bool) return sw;
+    }
+    return false;
   }
 
   /// Truncate load name for compact display.
