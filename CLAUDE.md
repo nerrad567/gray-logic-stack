@@ -126,6 +126,33 @@ Archived (for reference):
 | Voice TTS | Piper | Local, natural |
 | Local AI | Llama/Phi | On-device intelligence |
 
+## Development Workflow
+
+**DEFAULT: Dev mode.** Unless the user explicitly says "production build" or
+"full Docker", always assume native Go development with containerised support services.
+
+### Dev Mode (Default — every session)
+
+```bash
+cd code/core && make dev-services    # starts mosquitto, knxsim, influxdb
+cd code/core && make dev-run         # builds + runs Go core natively (~2-3s)
+```
+
+Flutter panel (no Go recompile needed):
+```bash
+cd code/ui/wallpanel && flutter build web --base-href="/panel/"
+cp -r build/web ../../core/internal/panel/web
+# Panel refreshes in browser — Go core serves from filesystem via GRAYLOGIC_PANEL_DIR
+```
+
+### Prod Mode (Explicit request only)
+
+```bash
+cd code/core && make docker-up       # builds + starts full containerised stack
+```
+
+See `docs/development/dev-workflow.md` for the full reference.
+
 ### When Adding Features
 
 1. **Check offline-first**: Will this work without internet?
@@ -167,20 +194,20 @@ When working on this project:
 ## Common Commands
 
 ```bash
-# Build
-cd code/core && go build -o bin/graylogic ./cmd/graylogic
+# Dev workflow (default)
+cd code/core && make dev-services       # Start support services
+cd code/core && make dev-run            # Build + run Go core (~2-3s)
+cd code/core && make dev-run-quick      # Fastest loop (skip fmt/vet)
+cd code/core && make dev-services-down  # Stop support services
 
-# Run tests
-cd code/core && go test -v ./...
+# Build + test
+cd code/core && make build              # Build binary
+cd code/core && go test -v ./...        # Run tests
+cd code/core && golangci-lint run       # Lint
 
-# Lint
-cd code/core && golangci-lint run
-
-# Run locally (once complete)
-./code/core/bin/graylogic --config config/dev.yaml
-
-# Start dev services (MQTT + InfluxDB)
-docker compose -f docker-compose.dev.yml up -d
+# Production Docker (explicit only)
+cd code/core && make docker-up          # Full containerised stack
+cd code/core && make docker-down        # Stop full stack
 ```
 
 ## Custom Commands

@@ -18,8 +18,8 @@ func (s *Server) buildRouter() http.Handler {
 	r.Use(s.corsMiddleware)
 	r.Use(s.bodySizeLimitMiddleware)
 
-	// Wall panel UI (Flutter web build, embedded via go:embed)
-	r.Handle("/panel/*", http.StripPrefix("/panel", panel.Handler()))
+	// Wall panel UI (Flutter web build — filesystem in dev, embedded in prod)
+	r.Handle("/panel/*", http.StripPrefix("/panel", panel.Handler(s.panelDir)))
 	r.Handle("/panel", http.RedirectHandler("/panel/", http.StatusMovedPermanently))
 
 	// API v1 routes

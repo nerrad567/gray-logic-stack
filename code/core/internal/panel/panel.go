@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"io/fs"
 	"net/http"
+	"os"
 	"path"
 )
 
@@ -12,15 +13,33 @@ import (
 var content embed.FS
 
 // Handler returns an http.Handler that serves the Flutter web UI.
-// It implements SPA fallback: if a requested file doesn't exist,
-// it serves index.html so client-side routing works correctly.
+//
+// When dir is non-empty and the directory exists, assets are served from the
+// filesystem (dev mode — no recompile needed after Flutter rebuild).
+// When dir is empty, assets are served from the embedded go:embed FS (production).
+//
+// Both modes implement SPA fallback: if a requested file doesn't exist,
+// index.html is served so client-side routing works correctly.
 // Panics if the embedded web assets cannot be loaded (build error).
-func Handler() http.Handler {
-	webFS, err := fs.Sub(content, "web")
-	if err != nil {
-		panic(fmt.Sprintf("panel: failed to load embedded web assets: %v", err))
+func Handler(dir string) http.Handler {
+	var fileSystem http.FileSystem
+
+	if dir != "" {
+		if info, err := os.Stat(dir); err == nil && info.IsDir() {
+			fileSystem = http.Dir(dir)
+		}
 	}
-	fileServer := http.FileServer(http.FS(webFS))
+
+	// Fall back to embedded assets if dir was empty or didn't exist
+	if fileSystem == nil {
+		webFS, err := fs.Sub(content, "web")
+		if err != nil {
+			panic(fmt.Sprintf("panel: failed to load embedded web assets: %v", err))
+		}
+		fileSystem = http.FS(webFS)
+	}
+
+	fileServer := http.FileServer(fileSystem)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 		// Prevent aggressive caching of mutable assets (index.html, JS).
@@ -41,7 +60,7 @@ func Handler() http.Handler {
 
 		// Try to open the requested file
 		filePath := upath[1:] // strip leading /
-		f, err := webFS.Open(filePath)
+		f, err := fileSystem.Open(filePath)
 		if err != nil {
 			// File not found — SPA fallback: serve index.html with 200
 			r.URL.Path = "/"

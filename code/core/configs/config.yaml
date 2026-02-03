@@ -11,6 +11,10 @@
 # for bridge confirmation. Disable in production to ensure only confirmed
 # hardware state is persisted.
 dev_mode: true
+
+# Panel directory (dev only): serve Flutter panel from filesystem for hot reload.
+# Uncomment to enable filesystem serving instead of embedded assets.
+# panel_dir: "./internal/panel/web"
 #
 # Configuration can also be set via environment variables:
 #   GRAYLOGIC_DATABASE_PATH=/data/graylogic.db
@@ -59,8 +63,8 @@ database:
 mqtt:
   # Broker connection details
   broker:
-    # Use "mosquitto" for Docker networking, "localhost" for local development
-    host: "mosquitto"
+    # Default: "localhost" for native dev. Docker prod overrides via GRAYLOGIC_MQTT_HOST=mosquitto
+    host: "localhost"
     port: 1883
     # Use TLS for encrypted connection
     tls: false

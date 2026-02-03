@@ -1,0 +1,93 @@
+# Gray Logic — Full Stack (Production Testing / CI)
+#
+# All 4 services in a Docker network with container DNS resolution.
+# Use this for production-like testing, CI pipelines, or deployment.
+#
+# Usage:
+#   docker compose -f docker-compose.prod.yml up -d --build
+#   docker compose -f docker-compose.prod.yml down
+#
+# Or via Makefile (from code/core):
+#   make docker-up      # Build + start
+#   make docker-down    # Stop
+
+services:
+  # MQTT Broker
+  mosquitto:
+    image: eclipse-mosquitto:2.0.18
+    container_name: graylogic-mosquitto
+    ports:
+      - "127.0.0.1:1883:1883"
+    volumes:
+      - ./code/core/docker/mosquitto/config:/mosquitto/config
+      - mosquitto_data:/mosquitto/data
+      - mosquitto_log:/mosquitto/log
+    healthcheck:
+      test: ["CMD-SHELL", "mosquitto_sub -t '$$SYS/#' -C 1 -W 3 || exit 1"]
+      interval: 5s
+      timeout: 3s
+      retries: 5
+    networks:
+      - graylogic
+
+  # Time Series Database
+  influxdb:
+    image: influxdb:2.7-alpine
+    container_name: graylogic-influxdb
+    ports:
+      - "127.0.0.1:8086:8086"
+    environment:
+      - DOCKER_INFLUXDB_INIT_MODE=setup
+      - DOCKER_INFLUXDB_INIT_USERNAME=graylogic
+      - DOCKER_INFLUXDB_INIT_PASSWORD=dev-password-only
+      - DOCKER_INFLUXDB_INIT_ORG=graylogic
+      - DOCKER_INFLUXDB_INIT_BUCKET=graylogic
+    volumes:
+      - influxdb_data:/var/lib/influxdb2
+    networks:
+      - graylogic
+
+  # KNX/IP Gateway Simulator
+  knxsim:
+    build:
+      context: ./sim/knxsim
+    container_name: graylogic-knxsim
+    ports:
+      - "127.0.0.1:9090:9090"
+    volumes:
+      - knxsim_data:/app/data
+    networks:
+      - graylogic
+
+  # Gray Logic Core (API + WebSocket + Panel UI + managed knxd)
+  graylogic:
+    build:
+      context: ./code/core
+      dockerfile: Dockerfile
+    container_name: graylogic-core
+    ports:
+      - "8090:8090"
+    depends_on:
+      mosquitto:
+        condition: service_healthy
+      knxsim:
+        condition: service_started
+    volumes:
+      - ./code/core/configs:/app/configs:ro
+      - graylogic_data:/app/data
+    environment:
+      - GRAYLOGIC_MQTT_HOST=mosquitto
+      - GRAYLOGIC_KNXD_BACKEND_HOST=knxsim
+    networks:
+      - graylogic
+
+volumes:
+  mosquitto_data:
+  mosquitto_log:
+  influxdb_data:
+  knxsim_data:
+  graylogic_data:
+
+networks:
+  graylogic:
+    driver: bridge

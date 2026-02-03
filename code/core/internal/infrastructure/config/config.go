@@ -21,7 +21,8 @@ type Config struct {
 	Logging   LoggingConfig   `yaml:"logging"`
 	Protocols ProtocolsConfig `yaml:"protocols"`
 	Security  SecurityConfig  `yaml:"security"`
-	DevMode   bool            `yaml:"dev_mode"`
+	DevMode  bool   `yaml:"dev_mode"`
+	PanelDir string `yaml:"panel_dir"` // Dev only: serve Flutter panel from filesystem instead of embed
 }
 
 // SiteConfig contains site-specific information.
@@ -427,6 +428,11 @@ func applyEnvOverrides(cfg *Config) {
 	// Security - JWT secret (IMPORTANT: always override in production)
 	if v := os.Getenv("GRAYLOGIC_JWT_SECRET"); v != "" {
 		cfg.Security.JWT.Secret = v
+	}
+
+	// Panel directory (dev only: serve Flutter from filesystem)
+	if v := os.Getenv("GRAYLOGIC_PANEL_DIR"); v != "" {
+		cfg.PanelDir = v
 	}
 }
 

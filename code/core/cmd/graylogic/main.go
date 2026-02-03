@@ -207,6 +207,7 @@ func run(ctx context.Context) error {
 		SceneRepo:     sceneRepo,
 		LocationRepo:  locationRepo,
 		DevMode:       cfg.DevMode,
+		PanelDir:      cfg.PanelDir,
 		ExternalHub:   wsHub,
 		Version:       version + " (" + commit + ")",
 	})

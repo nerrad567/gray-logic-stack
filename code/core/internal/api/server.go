@@ -75,7 +75,8 @@ type Deps struct {
 	SceneRepo     automation.Repository
 	LocationRepo  location.Repository
 	ExternalHub   *Hub // If set, the server uses this hub instead of creating its own
-	DevMode       bool // When true, commands apply state locally without bridge confirmation
+	DevMode       bool   // When true, commands apply state locally without bridge confirmation
+	PanelDir      string // Dev only: serve Flutter panel from filesystem instead of embed
 	Version       string
 }
 
@@ -96,6 +97,7 @@ type Server struct {
 	sceneRepo          automation.Repository
 	locationRepo       location.Repository
 	devMode            bool
+	panelDir           string
 	version            string
 	startTime          time.Time // server start time for uptime calculation
 	server             *http.Server
@@ -138,6 +140,7 @@ func New(deps Deps) (*Server, error) {
 		sceneRepo:     deps.SceneRepo,
 		locationRepo:  deps.LocationRepo,
 		devMode:       deps.DevMode,
+		panelDir:      deps.PanelDir,
 		version:       deps.Version,
 		startTime:     time.Now(),
 	}

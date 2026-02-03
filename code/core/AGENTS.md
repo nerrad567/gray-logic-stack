@@ -16,6 +16,24 @@ Before working on Gray Logic Core, you MUST read:
 
 ---
 
+## Development Workflow (READ FIRST)
+
+**Always default to dev mode** — native Go with Docker support services.
+Only use Docker for the Go core when explicitly told "production build".
+
+```bash
+make dev-services       # Start mosquitto, knxsim, influxdb
+make dev-run            # Build + run Go core (~2-3s rebuild)
+make dev-run-quick      # Fastest loop (skip fmt/vet)
+make dev-services-down  # Stop support services
+```
+
+- Config defaults to `localhost` — works natively without Docker networking
+- Panel served from filesystem via `GRAYLOGIC_PANEL_DIR` env var (no Go recompile for Flutter changes)
+- See `docs/development/dev-workflow.md` for the full reference
+
+---
+
 ## Quick Reference
 
 ### Critical Boundaries (Summary)

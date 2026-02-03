@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 21 - ETS Import, Admin UI & Thermostats)
-**Current milestone:** Year 1 Foundation Complete + Commissioning Workflow in progress
+**Last session:** 2026-02-03 (Session 22 - Dev vs Prod Workflow Restructure)
+**Current milestone:** Year 1 Foundation Complete + Dev Workflow Optimised
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -26,6 +26,7 @@
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation)
 - Admin Interface ✅ (metrics, devices, import, discovery tabs)
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
+- Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
 
 **What's next:**
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation

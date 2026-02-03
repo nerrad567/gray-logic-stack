@@ -47,7 +47,9 @@ PKG_DIR := ./pkg/...
 # Phony targets are not files - they're just command names.
 # Declaring them prevents Make from confusing them with filenames.
 
-.PHONY: help build run clean test test-coverage lint fmt vet tidy vendor check all dev
+.PHONY: help build run clean test test-coverage lint fmt vet tidy vendor check all dev \
+       dev-services dev-services-down dev-run dev-run-quick \
+       docker-build docker-up docker-down
 
 # ============================================================================
 # HELP
@@ -193,20 +195,37 @@ migrate-down:
 	@echo "TODO: Implement migration runner"
 
 # ============================================================================
-# DOCKER TARGETS (for future use)
+# DEV WORKFLOW TARGETS (default mode — native Go + Docker support services)
 # ============================================================================
 
-## docker-build: Build Docker image
+## dev-services: Start support services (mosquitto, knxsim, influxdb)
+dev-services:
+	docker compose -f ../../docker-compose.dev.yml up -d --remove-orphans
+
+## dev-services-down: Stop support services
+dev-services-down:
+	docker compose -f ../../docker-compose.dev.yml down
+
+## dev-run: Build and run with filesystem panel serving
+dev-run: fmt vet build
+	GRAYLOGIC_PANEL_DIR=./internal/panel/web $(BUILD_DIR)/$(APP_NAME)
+
+## dev-run-quick: Fastest iteration — skip fmt/vet, just build + run
+dev-run-quick: build
+	GRAYLOGIC_PANEL_DIR=./internal/panel/web $(BUILD_DIR)/$(APP_NAME)
+
+# ============================================================================
+# DOCKER TARGETS (production-like — full containerised stack)
+# ============================================================================
+
+## docker-build: Build production Docker image
 docker-build:
-	@echo "Building Docker image..."
-	@echo "TODO: Implement Docker build"
+	docker build -t graylogic/core:latest ./
 
-## docker-up: Start development environment (Mosquitto, InfluxDB)
+## docker-up: Start full stack (production-like)
 docker-up:
-	@echo "Starting development environment..."
-	@echo "TODO: Implement docker-compose up"
+	docker compose -f ../../docker-compose.prod.yml up -d --build
 
-## docker-down: Stop development environment
+## docker-down: Stop full stack
 docker-down:
-	@echo "Stopping development environment..."
-	@echo "TODO: Implement docker-compose down"
+	docker compose -f ../../docker-compose.prod.yml down

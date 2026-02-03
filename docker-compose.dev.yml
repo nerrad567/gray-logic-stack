@@ -1,10 +1,24 @@
+# Gray Logic — Development Support Services
+#
+# These are the services that Gray Logic Core connects TO.
+# The Go core itself runs natively on the host for fast iteration (~2-3s rebuild).
+#
+# Usage:
+#   docker compose -f docker-compose.dev.yml up -d        # Start services
+#   docker compose -f docker-compose.dev.yml down          # Stop services
+#   docker compose -f docker-compose.dev.yml down -v       # Stop + wipe data
+#
+# Or via Makefile (from code/core):
+#   make dev-services        # Start
+#   make dev-services-down   # Stop
+
 services:
   # MQTT Broker
   mosquitto:
     image: eclipse-mosquitto:2.0.18
     container_name: graylogic-mosquitto
     ports:
-      - "127.0.0.1:1883:1883" # localhost only for dev/testing
+      - "127.0.0.1:1883:1883" # localhost only
     volumes:
       - ./code/core/docker/mosquitto/config:/mosquitto/config
       - mosquitto_data:/mosquitto/data
@@ -14,15 +28,13 @@ services:
       interval: 5s
       timeout: 3s
       retries: 5
-    networks:
-      - graylogic
 
   # Time Series Database
   influxdb:
     image: influxdb:2.7-alpine
     container_name: graylogic-influxdb
     ports:
-      - "127.0.0.1:8086:8086" # localhost only for dev/testing
+      - "127.0.0.1:8086:8086" # localhost only
     environment:
       - DOCKER_INFLUXDB_INIT_MODE=setup
       - DOCKER_INFLUXDB_INIT_USERNAME=graylogic
@@ -31,8 +43,6 @@ services:
       - DOCKER_INFLUXDB_INIT_BUCKET=graylogic
     volumes:
       - influxdb_data:/var/lib/influxdb2
-    networks:
-      - graylogic
 
   # KNX/IP Gateway Simulator (standalone Python, UDP:3671, API:9090)
   knxsim:
@@ -40,49 +50,21 @@ services:
       context: ./sim/knxsim
     container_name: graylogic-knxsim
     ports:
-      - "9090:9090"
+      - "127.0.0.1:3671:3671/udp" # KNXnet/IP — Go core connects here
+      - "127.0.0.1:9090:9090"     # Web UI
     volumes:
       - knxsim_data:/app/data
-      - ./sim/knxsim/static:/app/static  # Dev: live reload CSS/JS/HTML
-      - ./sim/knxsim/templates:/app/templates  # Dev: live reload templates
-      - ./sim/knxsim/config.yaml:/app/config.yaml  # Dev: live reload config
-      - ./sim/knxsim/persistence:/app/persistence  # Dev: Python code
-      - ./sim/knxsim/api:/app/api  # Dev: Python API code
-      - ./sim/knxsim/core:/app/core  # Dev: Python core code
-      - ./sim/knxsim/devices:/app/devices  # Dev: Python device classes
-      - ./sim/knxsim/scenarios:/app/scenarios  # Dev: Python scenarios
-    networks:
-      - graylogic
-
-  # Gray Logic Core (API + WebSocket + Panel UI + managed knxd)
-  graylogic:
-    build:
-      context: ./code/core
-      dockerfile: Dockerfile  # Multi-stage build with Go compiler
-    container_name: graylogic-core
-    ports:
-      - "8090:8090"
-    depends_on:
-      mosquitto:
-        condition: service_healthy
-      knxsim:
-        condition: service_started
-    volumes:
-      - ./code/core/configs:/app/configs:ro
-      - graylogic_data:/app/data
-    environment:
-      - GRAYLOGIC_MQTT_HOST=mosquitto
-      - GRAYLOGIC_KNXD_BACKEND_HOST=knxsim
-    networks:
-      - graylogic
+      - ./sim/knxsim/static:/app/static
+      - ./sim/knxsim/templates:/app/templates
+      - ./sim/knxsim/config.yaml:/app/config.yaml
+      - ./sim/knxsim/persistence:/app/persistence
+      - ./sim/knxsim/api:/app/api
+      - ./sim/knxsim/core:/app/core
+      - ./sim/knxsim/devices:/app/devices
+      - ./sim/knxsim/scenarios:/app/scenarios
 
 volumes:
   mosquitto_data:
   mosquitto_log:
   influxdb_data:
-  graylogic_data:
   knxsim_data:
-
-networks:
-  graylogic:
-    driver: bridge

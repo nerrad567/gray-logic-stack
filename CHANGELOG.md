@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.13 – Dev vs Prod Workflow Restructure (2026-02-03)
+
+**Focus: Fast native Go development with containerised support services**
+
+Eliminates the 2-3 minute Docker rebuild cycle. Go core now runs natively on the host (~2-3s rebuild) while support services (Mosquitto, InfluxDB, KNXSim) run in Docker. Config defaults to localhost; production Docker overrides via environment variables.
+
+### Added
+
+- **Filesystem Panel Serving**: `panel.Handler(dir)` accepts a directory path to serve Flutter assets from the filesystem instead of embedded `go:embed` (dev mode). Falls back to embedded assets when dir is empty or missing (production).
+- **PanelDir Config Field**: `Config.PanelDir` + `GRAYLOGIC_PANEL_DIR` env override wires filesystem panel serving through config → API server → router.
+- **Makefile Dev Targets**: `dev-services`, `dev-services-down`, `dev-run`, `dev-run-quick` for fast native development loop.
+- **Makefile Docker Targets**: `docker-build`, `docker-up`, `docker-down` replace placeholder TODOs.
+- **`docker-compose.prod.yml`**: Full 4-service stack (mosquitto, influxdb, knxsim, graylogic) with Docker network for production testing and CI.
+- **`docs/development/dev-workflow.md`**: Canonical dev workflow reference with prerequisites, quick start, troubleshooting.
+- **Dev workflow sections** in `CLAUDE.md` and `AGENTS.md` — dev mode is the documented default for every session.
+
+### Changed
+
+- **`configs/config.yaml`**: MQTT broker host changed from `"mosquitto"` to `"localhost"` — works natively without Docker networking. Production overrides via `GRAYLOGIC_MQTT_HOST=mosquitto`.
+- **`docker-compose.dev.yml`**: Stripped to 3 support services only (mosquitto, influxdb, knxsim). Removed `graylogic` service, Docker network, and unused volume. Added knxsim port bindings (`localhost:3671/udp`, `localhost:9090`).
+- **Panel tests**: Updated all 5 existing calls from `Handler()` to `Handler("")`. Added `TestHandlerFilesystemMode` and `TestHandlerInvalidDirFallsBackToEmbed`.
+
+### Removed
+
+- **`code/core/docker-compose.yml`**: Deleted duplicate compose file with diverged credentials. Only root-level compose files now exist.
+
+### Environment
+
+- **knxd** installed on host (`apt-get install knxd`) — required for native dev mode. System service disabled (Gray Logic manages knxd as a subprocess).
+- **Flutter SDK** installed at `/opt/flutter` (v3.38.9) — standalone tarball, no snap.
+
+---
+
 ## 1.0.12 – ETS Import, Admin UI & KNXSim Thermostats (2026-02-03)
 
 **Focus: Commissioning workflow and realistic climate simulation**
