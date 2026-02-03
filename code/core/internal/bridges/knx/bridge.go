@@ -22,6 +22,11 @@ const (
 
 	// interReadDelay is the delay between read requests to avoid bus flooding.
 	interReadDelay = 50 * time.Millisecond
+
+	// infrastructurePollInterval is how often we re-read status GAs for
+	// infrastructure devices (actuators in distribution board). Only status
+	// GAs with non-zero cached values are polled to avoid spamming the bus.
+	infrastructurePollInterval = 30 * time.Second
 )
 
 // Bridge orchestrates bidirectional translation between KNX and MQTT.
@@ -40,9 +45,10 @@ type Bridge struct {
 	gaRecorder GARecorderInterface // Optional GA recorder for passive discovery
 
 	// Device mappings (built from config)
-	gaToDevice  map[string]GAMapping
-	deviceToGAs map[string]map[string]AddressConfig
-	mappingMu   sync.RWMutex
+	gaToDevice        map[string]GAMapping
+	deviceToGAs       map[string]map[string]AddressConfig
+	infrastructureIDs map[string]bool // device IDs with domain "infrastructure"
+	mappingMu         sync.RWMutex
 
 	// State cache for change detection
 	stateCache   map[string]map[string]any
@@ -169,18 +175,19 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 	ctx, ctxCancel := context.WithCancel(context.Background())
 
 	b := &Bridge{
-		cfg:         opts.Config,
-		mqtt:        opts.MQTTClient,
-		knxd:        opts.KNXDClient,
-		registry:    opts.Registry,   // May be nil (optional)
-		gaRecorder:  opts.GARecorder, // May be nil (optional)
-		gaToDevice:  make(map[string]GAMapping),
-		deviceToGAs: make(map[string]map[string]AddressConfig),
-		stateCache:  make(map[string]map[string]any),
-		done:        make(chan struct{}),
-		ctx:         ctx,
-		ctxCancel:   ctxCancel,
-		logger:      opts.Logger,
+		cfg:               opts.Config,
+		mqtt:              opts.MQTTClient,
+		knxd:              opts.KNXDClient,
+		registry:          opts.Registry,   // May be nil (optional)
+		gaRecorder:        opts.GARecorder, // May be nil (optional)
+		gaToDevice:        make(map[string]GAMapping),
+		deviceToGAs:       make(map[string]map[string]AddressConfig),
+		infrastructureIDs: make(map[string]bool),
+		stateCache:        make(map[string]map[string]any),
+		done:              make(chan struct{}),
+		ctx:               ctx,
+		ctxCancel:         ctxCancel,
+		logger:            opts.Logger,
 	}
 
 	// Create health reporter
@@ -243,6 +250,10 @@ func (b *Bridge) Start(ctx context.Context) error {
 	b.logInfo("bridge started",
 		"bridge_id", b.cfg.Bridge.ID,
 		"devices", deviceCount)
+
+	// Start infrastructure status poller in background.
+	b.wg.Add(1)
+	go b.infrastructurePollLoop()
 
 	return nil
 }
@@ -317,6 +328,11 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 			}
 		}
 
+		// Track infrastructure devices for periodic polling
+		if dev.Domain == "infrastructure" {
+			b.infrastructureIDs[dev.ID] = true
+		}
+
 		loaded++
 	}
 
@@ -330,8 +346,140 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 // ReloadDevices reloads device mappings from the registry.
 // Call this after ETS import or other operations that create new KNX devices
 // so the bridge can control them without requiring a restart.
+// After reloading, it sends read requests for all readable GAs to populate
+// initial state.
 func (b *Bridge) ReloadDevices(ctx context.Context) {
 	b.loadDevicesFromRegistry(ctx)
+
+	// Send read requests in background using the bridge's own context
+	// (not the caller's — it may be an HTTP request context that gets cancelled).
+	go b.readAllDevices(b.ctx)
+}
+
+// readAllDevices sends KNX read requests for all readable GAs across all
+// devices. Used after import/reload to populate initial state values.
+func (b *Bridge) readAllDevices(ctx context.Context) {
+	readCtx, cancel := context.WithTimeout(ctx, readAllTimeout)
+	defer cancel()
+
+	b.mappingMu.RLock()
+	devices := make(map[string]map[string]AddressConfig, len(b.deviceToGAs))
+	for id, gas := range b.deviceToGAs {
+		devices[id] = gas
+	}
+	b.mappingMu.RUnlock()
+
+	readCount := 0
+	for _, deviceGAs := range devices {
+		for _, addr := range deviceGAs {
+			if !addr.HasFlag("read") {
+				continue
+			}
+			ga, err := ParseGroupAddress(addr.GA)
+			if err != nil {
+				continue
+			}
+			if err := b.knxd.SendRead(readCtx, ga); err != nil {
+				continue
+			}
+			readCount++
+			select {
+			case <-readCtx.Done():
+				b.logInfo("read-all interrupted", "reads_sent", readCount)
+				return
+			case <-time.After(interReadDelay):
+			}
+		}
+	}
+
+	if readCount > 0 {
+		b.logInfo("initial read-all complete", "reads_sent", readCount)
+	}
+}
+
+// infrastructurePollLoop periodically re-reads status GAs for infrastructure
+// devices (multi-channel actuators). It only reads status functions that have
+// previously received a non-zero value, avoiding unnecessary bus traffic for
+// spare or idle channels.
+func (b *Bridge) infrastructurePollLoop() {
+	defer b.wg.Done()
+
+	ticker := time.NewTicker(infrastructurePollInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-b.done:
+			return
+		case <-ticker.C:
+			b.pollInfrastructureStatus()
+		}
+	}
+}
+
+// pollInfrastructureStatus sends read requests for active status GAs
+// on infrastructure devices.
+func (b *Bridge) pollInfrastructureStatus() {
+	b.mappingMu.RLock()
+	infraIDs := make(map[string]bool, len(b.infrastructureIDs))
+	for id := range b.infrastructureIDs {
+		infraIDs[id] = true
+	}
+	b.mappingMu.RUnlock()
+
+	if len(infraIDs) == 0 {
+		return
+	}
+
+	// Collect readable status GAs for infrastructure devices
+	b.mappingMu.RLock()
+	type readTarget struct {
+		ga    string
+		devID string
+		fn    string
+	}
+	var targets []readTarget
+	for devID := range infraIDs {
+		deviceGAs, ok := b.deviceToGAs[devID]
+		if !ok {
+			continue
+		}
+		for fn, addr := range deviceGAs {
+			if !addr.HasFlag("read") {
+				continue
+			}
+			targets = append(targets, readTarget{ga: addr.GA, devID: devID, fn: fn})
+		}
+	}
+	b.mappingMu.RUnlock()
+
+	if len(targets) == 0 {
+		return
+	}
+
+	readCtx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
+	defer cancel()
+
+	readCount := 0
+	for _, t := range targets {
+		ga, err := ParseGroupAddress(t.ga)
+		if err != nil {
+			continue
+		}
+		if err := b.knxd.SendRead(readCtx, ga); err != nil {
+			continue
+		}
+		readCount++
+		select {
+		case <-readCtx.Done():
+			return
+		case <-time.After(interReadDelay):
+		}
+	}
+
+	if readCount > 0 {
+		b.logDebug("infrastructure poll", "reads_sent", readCount)
+	}
 }
 
 // inferFlagsFromFunction returns appropriate flags based on the function name.
