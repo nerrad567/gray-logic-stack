@@ -27,6 +27,12 @@ type DetectionRule struct {
 	// MaxAddresses limits matches to avoid false positives (0 = no limit).
 	MaxAddresses int
 
+	// StrictNameMatch disables the name-fallback in matchRequiredDPTs.
+	// When true, required DPTs MUST match by name keywords — a DPT-only
+	// match is not enough. Use this for rules whose DPT patterns overlap
+	// with other device types (e.g., heating_actuator vs blind both use 5.001).
+	StrictNameMatch bool
+
 	// MinConfidence is the base confidence for this rule.
 	MinConfidence float64
 }
@@ -74,8 +80,8 @@ func (r *DetectionRule) matchRequiredDPTs(addresses []GroupAddress) map[string]G
 
 	for _, req := range r.RequiredDPTs {
 		if !r.tryMatchDPT(req, addresses, matched, true) {
-			// Try without name matching as fallback
-			if !r.tryMatchDPT(req, addresses, matched, false) {
+			// Try without name matching as fallback (unless StrictNameMatch)
+			if r.StrictNameMatch || !r.tryMatchDPT(req, addresses, matched, false) {
 				return nil // Required DPT not found
 			}
 		}
@@ -244,6 +250,31 @@ func DefaultDetectionRules() []DetectionRule {
 					DPT:          "5.001",
 					Function:     "brightness_status",
 					NameContains: []string{"brightness", "dim", "status", "feedback", "rückmeldung", "state", "actual"},
+					Flags:        []string{"read", "transmit"},
+				},
+			},
+		},
+
+		// Heating/valve actuator (must be before blind rules to prevent
+		// valve DPT 5.001 GAs matching blind_tilt via name-fallback path)
+		{
+			Name:            "heating_actuator",
+			Domain:          "climate",
+			StrictNameMatch: true,
+			MinConfidence:   0.85,
+			RequiredDPTs: []DPTRequirement{
+				{
+					DPT:          "5.001",
+					Function:     "valve",
+					NameContains: []string{"valve", "heating", "actuator", "ventil"},
+					Flags:        []string{"write"},
+				},
+			},
+			OptionalDPTs: []DPTRequirement{
+				{
+					DPT:          "5.001",
+					Function:     "valve_status",
+					NameContains: []string{"valve", "status", "feedback", "rückmeldung"},
 					Flags:        []string{"read", "transmit"},
 				},
 			},
@@ -422,23 +453,9 @@ func DefaultDetectionRules() []DetectionRule {
 			},
 		},
 
-		// Lux sensor
-		{
-			Name:          "light_sensor",
-			Domain:        "sensor",
-			MinConfidence: 0.90,
-			MaxAddresses:  2,
-			RequiredDPTs: []DPTRequirement{
-				{
-					DPT:          "9.004",
-					Function:     "lux",
-					NameContains: []string{"lux", "brightness", "helligkeit", "light level"},
-					Flags:        []string{"read", "transmit"},
-				},
-			},
-		},
-
-		// Presence/motion sensor
+		// Presence/motion sensor (must be before light_sensor so that a
+		// device with both presence DPT 1.* and lux DPT 9.004 is detected
+		// as presence_sensor, not light_sensor)
 		{
 			Name:          "presence_sensor",
 			Domain:        "sensor",
@@ -457,6 +474,23 @@ func DefaultDetectionRules() []DetectionRule {
 					DPT:          "9.004",
 					Function:     "lux",
 					NameContains: []string{"lux", "brightness", "helligkeit"},
+					Flags:        []string{"read", "transmit"},
+				},
+			},
+		},
+
+		// Lux sensor (standalone — if device also has presence DPT, it
+		// was already caught by the presence_sensor rule above)
+		{
+			Name:          "light_sensor",
+			Domain:        "sensor",
+			MinConfidence: 0.90,
+			MaxAddresses:  2,
+			RequiredDPTs: []DPTRequirement{
+				{
+					DPT:          "9.004",
+					Function:     "lux",
+					NameContains: []string{"lux", "brightness", "helligkeit", "light level"},
 					Flags:        []string{"read", "transmit"},
 				},
 			},

@@ -66,6 +66,7 @@ type Deps struct {
 	Config        config.APIConfig
 	WS            config.WebSocketConfig
 	Security      config.SecurityConfig
+	SiteID        string // Site ID for location hierarchy (from config)
 	Logger        *logging.Logger
 	Registry      *device.Registry
 	MQTT          *mqtt.Client
@@ -88,6 +89,7 @@ type Server struct {
 	cfg                config.APIConfig
 	wsCfg              config.WebSocketConfig
 	secCfg             config.SecurityConfig
+	siteID             string
 	logger             *logging.Logger
 	registry           *device.Registry
 	mqtt               *mqtt.Client
@@ -131,6 +133,7 @@ func New(deps Deps) (*Server, error) {
 		cfg:           deps.Config,
 		wsCfg:         deps.WS,
 		secCfg:        deps.Security,
+		siteID:        deps.SiteID,
 		logger:        deps.Logger,
 		registry:      deps.Registry,
 		mqtt:          deps.MQTT,

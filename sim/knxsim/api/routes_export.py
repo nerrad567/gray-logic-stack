@@ -196,7 +196,7 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
             else:
                 ga_str = ga_data
                 ga_dpt = ""
-            
+
             if ga_str and "/" in ga_str:
                 main_group = ga_str.split("/")[0]
 
@@ -209,12 +209,14 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                     ga_hierarchy[main_group][floor_name][room_name] = []
 
                 function_name = _ga_name_to_function(ga_name)
-                ga_hierarchy[main_group][floor_name][room_name].append({
-                    "address": ga_str,
-                    "name": f"{device_name} : {function_name}",
-                    "device_id": device_id,
-                    "dpt": ga_dpt or _guess_dpt(device_type, ga_name),
-                })
+                ga_hierarchy[main_group][floor_name][room_name].append(
+                    {
+                        "address": ga_str,
+                        "name": f"{device_name} : {function_name}",
+                        "device_id": device_id,
+                        "dpt": ga_dpt or _guess_dpt(device_type, ga_name),
+                    }
+                )
 
     # Create GroupRange elements with 3-level hierarchy
     for main_group, floors_data in sorted(ga_hierarchy.items()):
@@ -325,7 +327,9 @@ def _guess_dpt(device_type: str, ga_name: str) -> str:
     if "presence" in ga_lower or "motion" in ga_lower:
         return "1.018"
 
-    # Climate
+    # Climate / Heating
+    if "valve" in ga_lower or "heating" in ga_lower:
+        return "5.001"
     if "setpoint" in ga_lower:
         return "9.001"
     if "mode" in ga_lower and "hvac" in ga_lower:

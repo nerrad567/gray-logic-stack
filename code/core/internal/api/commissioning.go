@@ -439,8 +439,10 @@ func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimpo
 
 // getSiteID returns the configured site ID.
 func (s *Server) getSiteID() string {
-	// Default site ID if not configured
-	return "site-1"
+	if s.siteID != "" {
+		return s.siteID
+	}
+	return "site-001" // Default matching config.yaml
 }
 
 // inferRoomType guesses the room type from its name.

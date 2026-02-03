@@ -10,10 +10,13 @@ import (
 
 // Test constants to avoid magic strings.
 const (
-	testTypeLightDimmer = "light_dimmer"
-	testTypeLightSwitch = "light_switch"
-	testTypeBlind       = "blind_position"
-	testTypeTempSensor  = "temperature_sensor"
+	testTypeLightDimmer    = "light_dimmer"
+	testTypeLightSwitch    = "light_switch"
+	testTypeBlind          = "blind_position"
+	testTypeTempSensor     = "temperature_sensor"
+	testTypePresenceSensor = "presence_sensor"
+	testTypeLightSensor    = "light_sensor"
+	testTypeHeatingAct     = "heating_actuator"
 )
 
 func TestNormaliseDPT(t *testing.T) {
@@ -702,5 +705,135 @@ func TestExtractLocations_FromDeviceSourceLocation(t *testing.T) {
 	}
 	if rooms != 2 {
 		t.Errorf("Expected 2 rooms from device SourceLocation, got %d", rooms)
+	}
+}
+
+// --- Detection rule tests for presence sensor, heating actuator, and ordering ---
+
+func TestDetectionRulePresenceSensor(t *testing.T) {
+	addresses := []GroupAddress{
+		{Address: "4/0/0", Name: "Living Presence", DPT: "1.018"},
+		{Address: "4/0/1", Name: "Living Lux", DPT: "9.004"},
+	}
+
+	rules := DefaultDetectionRules()
+	var presenceRule *DetectionRule
+	for i := range rules {
+		if rules[i].Name == testTypePresenceSensor {
+			presenceRule = &rules[i]
+			break
+		}
+	}
+
+	if presenceRule == nil {
+		t.Fatal("Presence sensor rule not found in default rules")
+	}
+
+	device := presenceRule.TryMatch("Living", addresses)
+	if device == nil {
+		t.Fatal("Expected presence sensor rule to match")
+	}
+
+	if device.DetectedType != testTypePresenceSensor {
+		t.Errorf("DetectedType = %q, want %q", device.DetectedType, testTypePresenceSensor)
+	}
+
+	if device.SuggestedDomain != "sensor" {
+		t.Errorf("SuggestedDomain = %q, want %q", device.SuggestedDomain, "sensor")
+	}
+}
+
+func TestDetectionPresenceBeatsLightSensor(t *testing.T) {
+	// When a device has both presence (DPT 1.*) and lux (DPT 9.004) GAs,
+	// the full detection pipeline should classify it as presence_sensor,
+	// not light_sensor.
+	addresses := []GroupAddress{
+		{Address: "4/0/0", Name: "Presence Living : Presence", DPT: "1.018"},
+		{Address: "4/0/1", Name: "Presence Living : Lux", DPT: "9.004"},
+	}
+
+	parser := NewParser()
+	device := parser.tryDetectDevice("Presence Living", addresses)
+	if device == nil {
+		t.Fatal("Expected device detection to succeed")
+	}
+
+	if device.DetectedType != testTypePresenceSensor {
+		t.Errorf("DetectedType = %q, want %q (should not be light_sensor)", device.DetectedType, testTypePresenceSensor)
+	}
+}
+
+func TestDetectionRuleHeatingActuator(t *testing.T) {
+	addresses := []GroupAddress{
+		{Address: "3/0/0", Name: "Heating Actuator : Ch1 Valve", DPT: "5.001"},
+		{Address: "3/0/1", Name: "Heating Actuator : Ch1 Valve Status", DPT: "5.001"},
+	}
+
+	rules := DefaultDetectionRules()
+	var heatingRule *DetectionRule
+	for i := range rules {
+		if rules[i].Name == testTypeHeatingAct {
+			heatingRule = &rules[i]
+			break
+		}
+	}
+
+	if heatingRule == nil {
+		t.Fatal("Heating actuator rule not found in default rules")
+	}
+
+	device := heatingRule.TryMatch("Heating Actuator", addresses)
+	if device == nil {
+		t.Fatal("Expected heating actuator rule to match")
+	}
+
+	if device.DetectedType != testTypeHeatingAct {
+		t.Errorf("DetectedType = %q, want %q", device.DetectedType, testTypeHeatingAct)
+	}
+
+	if device.SuggestedDomain != "climate" {
+		t.Errorf("SuggestedDomain = %q, want %q", device.SuggestedDomain, "climate")
+	}
+}
+
+func TestDetectionHeatingActuatorNotBlind(t *testing.T) {
+	// Valve DPT 5.001 GAs should NOT be misdetected as blind_tilt.
+	addresses := []GroupAddress{
+		{Address: "3/0/0", Name: "Heating Actuator : Ch1 Valve", DPT: "5.001"},
+		{Address: "3/0/1", Name: "Heating Actuator : Ch1 Valve Status", DPT: "5.001"},
+		{Address: "3/0/2", Name: "Heating Actuator : Ch2 Valve", DPT: "5.001"},
+		{Address: "3/0/3", Name: "Heating Actuator : Ch2 Valve Status", DPT: "5.001"},
+	}
+
+	parser := NewParser()
+	device := parser.tryDetectDevice("Heating Actuator", addresses)
+	if device == nil {
+		t.Fatal("Expected device detection to succeed")
+	}
+
+	if device.DetectedType == "blind_tilt" || device.DetectedType == "blind_position" {
+		t.Errorf("DetectedType = %q, valve GAs should not be detected as a blind type", device.DetectedType)
+	}
+
+	if device.DetectedType != testTypeHeatingAct {
+		t.Errorf("DetectedType = %q, want %q", device.DetectedType, testTypeHeatingAct)
+	}
+}
+
+func TestStandaloneLuxSensorStillWorks(t *testing.T) {
+	// Regression test: a pure lux sensor (no presence GA) should still
+	// be detected as light_sensor after reordering presence above it.
+	addresses := []GroupAddress{
+		{Address: "4/0/0", Name: "Outdoor Brightness", DPT: "9.004"},
+	}
+
+	parser := NewParser()
+	device := parser.tryDetectDevice("Outdoor Brightness", addresses)
+	if device == nil {
+		t.Fatal("Expected device detection to succeed")
+	}
+
+	if device.DetectedType != testTypeLightSensor {
+		t.Errorf("DetectedType = %q, want %q", device.DetectedType, testTypeLightSensor)
 	}
 }

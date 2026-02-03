@@ -198,6 +198,7 @@ func run(ctx context.Context) error {
 		Config:        cfg.API,
 		WS:            cfg.WebSocket,
 		Security:      cfg.Security,
+		SiteID:        cfg.Site.ID,
 		Logger:        log,
 		Registry:      deviceRegistry,
 		MQTT:          mqttClient,
