@@ -9,6 +9,8 @@ import (
 )
 
 // DeviceInfo holds the minimal device information the engine needs for routing.
+// GatewayID identifies the physical gateway for the bridge's internal routing
+// but is not used in MQTT topic construction (topics use protocol as the key).
 type DeviceInfo struct {
 	ID        string
 	Protocol  string
@@ -323,9 +325,8 @@ func (e *Engine) executeAction(ctx context.Context, sceneID, executionID string,
 		return fmt.Errorf("marshalling command: %w", marshalErr)
 	}
 
-	// Derive bridge ID and publish
-	bridgeID := deriveBridgeID(dev)
-	topic := "graylogic/bridge/" + bridgeID + "/command/" + action.DeviceID
+	// Publish command using flat topic scheme: graylogic/command/{protocol}/{device_id}
+	topic := "graylogic/command/" + dev.Protocol + "/" + action.DeviceID
 
 	if pubErr := e.mqtt.Publish(topic, payload, 1, false); pubErr != nil {
 		return fmt.Errorf("publishing to %q: %w", topic, pubErr)
@@ -339,15 +340,6 @@ func (e *Engine) executeAction(ctx context.Context, sceneID, executionID string,
 	)
 
 	return nil
-}
-
-// deriveBridgeID determines the MQTT bridge ID for routing commands.
-// Uses gateway_id if set, otherwise falls back to protocol-main.
-func deriveBridgeID(dev DeviceInfo) string {
-	if dev.GatewayID != nil && *dev.GatewayID != "" {
-		return *dev.GatewayID
-	}
-	return dev.Protocol + "-main"
 }
 
 // groupActions splits actions into sequential groups based on the Parallel flag.

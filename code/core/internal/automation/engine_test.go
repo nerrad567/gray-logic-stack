@@ -183,10 +183,10 @@ func TestEngine_ActivateScene_Success(t *testing.T) {
 			t.Errorf("source = %v, want %q", msg.Payload["source"], "scene:cinema")
 		}
 	}
-	if !topics["graylogic/bridge/knx-main/command/light-01"] {
+	if !topics["graylogic/command/knx/light-01"] {
 		t.Error("missing MQTT message for light-01")
 	}
-	if !topics["graylogic/bridge/knx-main/command/blind-01"] {
+	if !topics["graylogic/command/knx/blind-01"] {
 		t.Error("missing MQTT message for blind-01")
 	}
 
@@ -485,7 +485,7 @@ func TestEngine_ActivateScene_MQTTPublishFailure(t *testing.T) {
 	ctx := context.Background()
 
 	// Make MQTT fail for light-01
-	mqtt.failOn = "graylogic/bridge/knx-main/command/light-01"
+	mqtt.failOn = "graylogic/command/knx/light-01"
 
 	createTestScene(repo, engine.registry, "mqttfail", "MQTT Fail Test", []SceneAction{
 		{DeviceID: "light-01", Command: "set", ContinueOnError: true},
@@ -510,7 +510,8 @@ func TestEngine_ActivateScene_GatewayRouting(t *testing.T) {
 	repo := newMockRepository()
 	registry := NewRegistry(repo)
 
-	// Device with custom gateway
+	// Device with custom gateway — topic still uses protocol, not gateway ID.
+	// GatewayID is for the bridge's internal routing, not MQTT topics.
 	gatewayID := "knx-bridge-02"
 	devices := &mockDeviceRegistry{
 		devices: map[string]DeviceInfo{
@@ -535,7 +536,7 @@ func TestEngine_ActivateScene_GatewayRouting(t *testing.T) {
 	if len(msgs) != 1 {
 		t.Fatalf("expected 1 message, got %d", len(msgs))
 	}
-	expectedTopic := "graylogic/bridge/knx-bridge-02/command/light-gw"
+	expectedTopic := "graylogic/command/knx/light-gw"
 	if msgs[0].Topic != expectedTopic {
 		t.Errorf("topic = %q, want %q", msgs[0].Topic, expectedTopic)
 	}
@@ -696,44 +697,3 @@ func TestGroupActions(t *testing.T) {
 	}
 }
 
-func TestDeriveBridgeID(t *testing.T) {
-	tests := []struct {
-		name string
-		dev  DeviceInfo
-		want string
-	}{
-		{
-			name: "no gateway",
-			dev:  DeviceInfo{ID: "d1", Protocol: "knx"},
-			want: "knx-main",
-		},
-		{
-			name: "with gateway",
-			dev:  DeviceInfo{ID: "d1", Protocol: "knx", GatewayID: strPtr("knx-02")},
-			want: "knx-02",
-		},
-		{
-			name: "empty gateway",
-			dev:  DeviceInfo{ID: "d1", Protocol: "modbus", GatewayID: strPtr("")},
-			want: "modbus-main",
-		},
-		{
-			name: "modbus protocol",
-			dev:  DeviceInfo{ID: "d1", Protocol: "modbus"},
-			want: "modbus-main",
-		},
-	}
-
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			got := deriveBridgeID(tt.dev)
-			if got != tt.want {
-				t.Errorf("deriveBridgeID() = %q, want %q", got, tt.want)
-			}
-		})
-	}
-}
-
-func strPtr(s string) *string {
-	return &s
-}

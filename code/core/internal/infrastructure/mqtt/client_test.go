@@ -159,7 +159,7 @@ func TestPublish(t *testing.T) {
 	}
 	defer client.Close()
 
-	topic := Topics{}.BridgeCommand("test-bridge", "test-device")
+	topic := Topics{}.BridgeCommand("test", "test-device")
 	payload := []byte(`{"test":true}`)
 
 	err = client.Publish(topic, payload, 1, false)
@@ -177,7 +177,7 @@ func TestPublishString(t *testing.T) {
 	}
 	defer client.Close()
 
-	topic := Topics{}.BridgeCommand("test-bridge", "test-device")
+	topic := Topics{}.BridgeCommand("test", "test-device")
 
 	err = client.PublishString(topic, `{"test":true}`, 1, false)
 	if err != nil {
@@ -597,41 +597,64 @@ func TestTopicBuilders(t *testing.T) {
 		builder  func() string
 		expected string
 	}{
+		// Bridge topics (flat scheme)
 		{
 			name: "BridgeState",
 			builder: func() string {
-				return Topics{}.BridgeState("knx-01", "light-living")
+				return Topics{}.BridgeState("knx", "light-living")
 			},
-			expected: "graylogic/bridge/knx-01/state/light-living",
+			expected: "graylogic/state/knx/light-living",
 		},
 		{
 			name: "BridgeCommand",
 			builder: func() string {
-				return Topics{}.BridgeCommand("knx-01", "light-living")
+				return Topics{}.BridgeCommand("knx", "light-living")
 			},
-			expected: "graylogic/bridge/knx-01/command/light-living",
+			expected: "graylogic/command/knx/light-living",
+		},
+		{
+			name: "BridgeAck",
+			builder: func() string {
+				return Topics{}.BridgeAck("knx", "light-living")
+			},
+			expected: "graylogic/ack/knx/light-living",
 		},
 		{
 			name: "BridgeResponse",
 			builder: func() string {
-				return Topics{}.BridgeResponse("knx-01", "req-123")
+				return Topics{}.BridgeResponse("knx", "req-123")
 			},
-			expected: "graylogic/bridge/knx-01/response/req-123",
+			expected: "graylogic/response/knx/req-123",
+		},
+		{
+			name: "BridgeRequest",
+			builder: func() string {
+				return Topics{}.BridgeRequest("knx", "req-123")
+			},
+			expected: "graylogic/request/knx/req-123",
 		},
 		{
 			name: "BridgeHealth",
 			builder: func() string {
-				return Topics{}.BridgeHealth("knx-01")
+				return Topics{}.BridgeHealth("knx")
 			},
-			expected: "graylogic/bridge/knx-01/health",
+			expected: "graylogic/health/knx",
 		},
 		{
 			name: "BridgeDiscovery",
 			builder: func() string {
-				return Topics{}.BridgeDiscovery("knx-01")
+				return Topics{}.BridgeDiscovery("knx")
 			},
-			expected: "graylogic/bridge/knx-01/discovery",
+			expected: "graylogic/discovery/knx",
 		},
+		{
+			name: "BridgeConfig",
+			builder: func() string {
+				return Topics{}.BridgeConfig("knx")
+			},
+			expected: "graylogic/config/knx",
+		},
+		// Core topics
 		{
 			name: "CoreDeviceState",
 			builder: func() string {
@@ -681,6 +704,7 @@ func TestTopicBuilders(t *testing.T) {
 			},
 			expected: "graylogic/core/mode",
 		},
+		// System topics
 		{
 			name: "SystemStatus",
 			builder: func() string {
@@ -702,6 +726,7 @@ func TestTopicBuilders(t *testing.T) {
 			},
 			expected: "graylogic/system/shutdown",
 		},
+		// UI topics
 		{
 			name: "UINotification",
 			builder: func() string {
@@ -716,26 +741,62 @@ func TestTopicBuilders(t *testing.T) {
 			},
 			expected: "graylogic/ui/panel-kitchen/presence",
 		},
+		// Wildcard patterns
 		{
 			name: "AllBridgeStates",
 			builder: func() string {
 				return Topics{}.AllBridgeStates()
 			},
-			expected: "graylogic/bridge/+/state/+",
+			expected: "graylogic/state/+/+",
 		},
 		{
 			name: "AllBridgeCommands",
 			builder: func() string {
 				return Topics{}.AllBridgeCommands()
 			},
-			expected: "graylogic/bridge/+/command/+",
+			expected: "graylogic/command/+/+",
+		},
+		{
+			name: "AllBridgeAcks",
+			builder: func() string {
+				return Topics{}.AllBridgeAcks()
+			},
+			expected: "graylogic/ack/+/+",
 		},
 		{
 			name: "AllBridgeHealth",
 			builder: func() string {
 				return Topics{}.AllBridgeHealth()
 			},
-			expected: "graylogic/bridge/+/health",
+			expected: "graylogic/health/+",
+		},
+		{
+			name: "AllBridgeDiscovery",
+			builder: func() string {
+				return Topics{}.AllBridgeDiscovery()
+			},
+			expected: "graylogic/discovery/+",
+		},
+		{
+			name: "AllBridgeRequests",
+			builder: func() string {
+				return Topics{}.AllBridgeRequests()
+			},
+			expected: "graylogic/request/+/+",
+		},
+		{
+			name: "AllBridgeResponses",
+			builder: func() string {
+				return Topics{}.AllBridgeResponses()
+			},
+			expected: "graylogic/response/+/+",
+		},
+		{
+			name: "AllBridgeConfigs",
+			builder: func() string {
+				return Topics{}.AllBridgeConfigs()
+			},
+			expected: "graylogic/config/+",
 		},
 		{
 			name: "AllCoreDeviceStates",

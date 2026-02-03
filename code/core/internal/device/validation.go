@@ -301,9 +301,10 @@ func ValidateHealthStatus(status HealthStatus) error {
 	return fmt.Errorf("%w: %q", ErrInvalidState, status)
 }
 
-// ValidateGatewayID checks if a gateway ID is safe for use in MQTT topics.
-// GatewayID is used in MQTT topic construction (e.g., graylogic/bridge/{gatewayID}/command/...),
-// so it must not contain MQTT wildcards (+, #) or level separators (/).
+// ValidateGatewayID checks if a gateway ID is safe for MQTT use.
+// GatewayID identifies the physical gateway for a bridge's internal routing,
+// but is not used in MQTT topic construction (topics use the protocol name).
+// It must still be MQTT-safe as it may appear in payloads or logs.
 // Allowed characters: a-z, A-Z, 0-9, underscore, hyphen.
 func ValidateGatewayID(gatewayID string) error {
 	if gatewayID == "" {

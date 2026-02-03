@@ -7,7 +7,7 @@ import (
 // Subscribe registers a handler for messages on the specified topic.
 //
 // Topics can include MQTT wildcards:
-//   - + (single-level): "graylogic/bridge/+/state/+" matches any bridge and device
+//   - + (single-level): "graylogic/state/+/+" matches any protocol and device
 //   - # (multi-level): "graylogic/#" matches all Gray Logic topics
 //
 // The handler is called in a separate goroutine for each received message.

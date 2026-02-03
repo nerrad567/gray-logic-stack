@@ -11,7 +11,7 @@ const maxPayloadSize = 1 << 20 // 1MB
 // Publish sends a message to the specified MQTT topic.
 //
 // Parameters:
-//   - topic: The topic to publish to (e.g., "graylogic/bridge/knx-01/command/light-living")
+//   - topic: The topic to publish to (e.g., "graylogic/command/knx/light-living")
 //   - payload: The message payload (typically JSON, max 1MB)
 //   - qos: Quality of Service level (0, 1, or 2)
 //   - retained: Whether the broker should retain the message for new subscribers
@@ -32,7 +32,7 @@ const maxPayloadSize = 1 << 20 // 1MB
 //
 // Example:
 //
-//	topic := mqtt.Topics{}.BridgeCommand("knx-bridge-01", "light-living")
+//	topic := mqtt.Topics{}.BridgeCommand("knx", "light-living")
 //	err := client.Publish(topic, []byte(`{"on":true}`), 1, false)
 func (c *Client) Publish(topic string, payload []byte, qos byte, retained bool) error {
 	// Validate inputs

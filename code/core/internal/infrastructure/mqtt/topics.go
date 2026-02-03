@@ -4,9 +4,13 @@ import "fmt"
 
 // Topic prefixes per Gray Logic MQTT specification.
 // See docs/protocols/mqtt.md for complete topic hierarchy.
+//
+// All bridge topics use the flat scheme: graylogic/{category}/{protocol}/{address}
+// This matches the KNX bridge's messages.go and all runtime subscribers.
 const (
 	// TopicPrefixBridge is the base for all bridge topics.
-	TopicPrefixBridge = "graylogic/bridge"
+	// Flat scheme: graylogic/{category}/{protocol}/{address_or_id}
+	TopicPrefixBridge = "graylogic"
 
 	// TopicPrefixCore is the base for all core topics.
 	TopicPrefixCore = "graylogic/core"
@@ -21,11 +25,11 @@ const (
 // Topics provides builders for Gray Logic MQTT topics.
 // Using these helpers ensures consistent topic naming across the codebase.
 //
-// Example:
+// Bridge topics use the flat scheme matching the KNX bridge's messages.go:
 //
 //	topics := mqtt.Topics{}
-//	stateTopic := topics.BridgeState("knx-bridge-01", "light-living-main")
-//	// Returns: "graylogic/bridge/knx-bridge-01/state/light-living-main"
+//	stateTopic := topics.BridgeState("knx", "light-living-main")
+//	// Returns: "graylogic/state/knx/light-living-main"
 type Topics struct{}
 
 // =============================================================================
@@ -34,37 +38,58 @@ type Topics struct{}
 
 // BridgeState returns the topic for device state updates from a bridge.
 //
-// Example: graylogic/bridge/knx-bridge-01/state/light-living-main
-func (Topics) BridgeState(bridgeID, deviceID string) string {
-	return fmt.Sprintf("%s/%s/state/%s", TopicPrefixBridge, bridgeID, deviceID)
+// Example: graylogic/state/knx/light-living-main
+func (Topics) BridgeState(protocol, address string) string {
+	return fmt.Sprintf("%s/state/%s/%s", TopicPrefixBridge, protocol, address)
 }
 
 // BridgeCommand returns the topic for commands to a bridge.
 //
-// Example: graylogic/bridge/knx-bridge-01/command/light-living-main
-func (Topics) BridgeCommand(bridgeID, deviceID string) string {
-	return fmt.Sprintf("%s/%s/command/%s", TopicPrefixBridge, bridgeID, deviceID)
+// Example: graylogic/command/knx/light-living-main
+func (Topics) BridgeCommand(protocol, address string) string {
+	return fmt.Sprintf("%s/command/%s/%s", TopicPrefixBridge, protocol, address)
 }
 
-// BridgeResponse returns the topic for command responses from a bridge.
+// BridgeAck returns the topic for command acknowledgements from a bridge.
 //
-// Example: graylogic/bridge/knx-bridge-01/response/req-abc123
-func (Topics) BridgeResponse(bridgeID, requestID string) string {
-	return fmt.Sprintf("%s/%s/response/%s", TopicPrefixBridge, bridgeID, requestID)
+// Example: graylogic/ack/knx/light-living-main
+func (Topics) BridgeAck(protocol, address string) string {
+	return fmt.Sprintf("%s/ack/%s/%s", TopicPrefixBridge, protocol, address)
+}
+
+// BridgeResponse returns the topic for request responses from a bridge.
+//
+// Example: graylogic/response/knx/req-abc123
+func (Topics) BridgeResponse(protocol, requestID string) string {
+	return fmt.Sprintf("%s/response/%s/%s", TopicPrefixBridge, protocol, requestID)
+}
+
+// BridgeRequest returns the topic for requests to a bridge.
+//
+// Example: graylogic/request/knx/req-abc123
+func (Topics) BridgeRequest(protocol, requestID string) string {
+	return fmt.Sprintf("%s/request/%s/%s", TopicPrefixBridge, protocol, requestID)
 }
 
 // BridgeHealth returns the topic for bridge health status.
 //
-// Example: graylogic/bridge/knx-bridge-01/health
-func (Topics) BridgeHealth(bridgeID string) string {
-	return fmt.Sprintf("%s/%s/health", TopicPrefixBridge, bridgeID)
+// Example: graylogic/health/knx
+func (Topics) BridgeHealth(protocol string) string {
+	return fmt.Sprintf("%s/health/%s", TopicPrefixBridge, protocol)
 }
 
 // BridgeDiscovery returns the topic for device discovery from a bridge.
 //
-// Example: graylogic/bridge/knx-bridge-01/discovery
-func (Topics) BridgeDiscovery(bridgeID string) string {
-	return fmt.Sprintf("%s/%s/discovery", TopicPrefixBridge, bridgeID)
+// Example: graylogic/discovery/knx
+func (Topics) BridgeDiscovery(protocol string) string {
+	return fmt.Sprintf("%s/discovery/%s", TopicPrefixBridge, protocol)
+}
+
+// BridgeConfig returns the topic for configuration updates to a bridge.
+//
+// Example: graylogic/config/knx
+func (Topics) BridgeConfig(protocol string) string {
+	return fmt.Sprintf("%s/config/%s", TopicPrefixBridge, protocol)
 }
 
 // =============================================================================
@@ -170,23 +195,58 @@ func (Topics) UIPresence(clientID string) string {
 
 // AllBridgeStates returns a pattern matching all bridge state updates.
 //
-// Pattern: graylogic/bridge/+/state/+
+// Pattern: graylogic/state/+/+
 func (Topics) AllBridgeStates() string {
-	return fmt.Sprintf("%s/+/state/+", TopicPrefixBridge)
+	return fmt.Sprintf("%s/state/+/+", TopicPrefixBridge)
 }
 
 // AllBridgeCommands returns a pattern matching all commands to bridges.
 //
-// Pattern: graylogic/bridge/+/command/+
+// Pattern: graylogic/command/+/+
 func (Topics) AllBridgeCommands() string {
-	return fmt.Sprintf("%s/+/command/+", TopicPrefixBridge)
+	return fmt.Sprintf("%s/command/+/+", TopicPrefixBridge)
+}
+
+// AllBridgeAcks returns a pattern matching all bridge acknowledgements.
+//
+// Pattern: graylogic/ack/+/+
+func (Topics) AllBridgeAcks() string {
+	return fmt.Sprintf("%s/ack/+/+", TopicPrefixBridge)
 }
 
 // AllBridgeHealth returns a pattern matching all bridge health updates.
 //
-// Pattern: graylogic/bridge/+/health
+// Pattern: graylogic/health/+
 func (Topics) AllBridgeHealth() string {
-	return fmt.Sprintf("%s/+/health", TopicPrefixBridge)
+	return fmt.Sprintf("%s/health/+", TopicPrefixBridge)
+}
+
+// AllBridgeDiscovery returns a pattern matching all bridge discovery topics.
+//
+// Pattern: graylogic/discovery/+
+func (Topics) AllBridgeDiscovery() string {
+	return fmt.Sprintf("%s/discovery/+", TopicPrefixBridge)
+}
+
+// AllBridgeRequests returns a pattern matching all bridge request topics.
+//
+// Pattern: graylogic/request/+/+
+func (Topics) AllBridgeRequests() string {
+	return fmt.Sprintf("%s/request/+/+", TopicPrefixBridge)
+}
+
+// AllBridgeResponses returns a pattern matching all bridge response topics.
+//
+// Pattern: graylogic/response/+/+
+func (Topics) AllBridgeResponses() string {
+	return fmt.Sprintf("%s/response/+/+", TopicPrefixBridge)
+}
+
+// AllBridgeConfigs returns a pattern matching all bridge config topics.
+//
+// Pattern: graylogic/config/+
+func (Topics) AllBridgeConfigs() string {
+	return fmt.Sprintf("%s/config/+", TopicPrefixBridge)
 }
 
 // AllCoreDeviceStates returns a pattern matching all canonical device states.
