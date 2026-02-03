@@ -175,7 +175,8 @@ def reset_to_sample(premise_id: str):
             "individual_address": dev_config["individual_address"],
             "group_addresses": dev_config.get("group_addresses", {}),
             "initial_state": dev_config.get("initial", {}),
-            "room_id": guess_room_for_device(
+            "room_id": dev_config.get("room_id")
+            or guess_room_for_device(
                 dev_config["id"],
                 dev_config.get("group_addresses", {}),
             ),
@@ -189,14 +190,14 @@ def reset_to_sample(premise_id: str):
         loader = router.app.state.template_loader
         template = loader.get_template(dev_config["type"])
         if template and template.manufacturer_name:
-            config = device_data.get("config") or {}
-            config["template_id"] = template.id
-            config["manufacturer_id"] = template.manufacturer_id
-            config["manufacturer_name"] = template.manufacturer_name
-            config["product_model"] = template.product_model
-            config["application_program"] = template.application_program
-            config["hardware_type"] = template.hardware_type
-            device_data["config"] = config
+            dev_cfg = device_data.get("config") or {}
+            dev_cfg["template_id"] = template.id
+            dev_cfg["manufacturer_id"] = template.manufacturer_id
+            dev_cfg["manufacturer_name"] = template.manufacturer_name
+            dev_cfg["product_model"] = template.product_model
+            dev_cfg["application_program"] = template.application_program
+            dev_cfg["hardware_type"] = template.hardware_type
+            device_data["config"] = dev_cfg
 
         try:
             manager.add_device(premise_id, device_data)
@@ -260,7 +261,7 @@ def reset_to_sample(premise_id: str):
             "icon": load_config.get("icon"),
             "actuator_device_id": load_config.get("actuator_device_id"),
             "actuator_channel_id": load_config.get("actuator_channel_id"),
-            "room_id": guess_room_for_load(load_config["id"]),
+            "room_id": load_config.get("room_id") or guess_room_for_load(load_config["id"]),
         }
 
         try:

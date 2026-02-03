@@ -709,7 +709,10 @@ func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capa
 	caps := make(map[device.Capability]bool)
 
 	for _, addr := range addresses {
-		switch addr.Function {
+		fn := strings.ToLower(addr.Function)
+
+		// Exact matches first
+		switch fn {
 		case "switch", "switch_status", "on_off":
 			caps[device.CapOnOff] = true
 		case "brightness", "brightness_status":
@@ -746,8 +749,31 @@ func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capa
 			caps[device.CapVoltageRead] = true
 		case "current":
 			caps[device.CapCurrentRead] = true
+		case "valve", "valve_status", "valve_cmd":
+			caps[device.CapOnOff] = true
 		case "hvac_mode":
 			caps[device.CapModeSelect] = true
+		default:
+			// Suffix-based patterns for multi-channel device GA names
+			// e.g. "channel_a_switch", "ch1_switch_cmd", "button_1"
+			switch {
+			case strings.HasSuffix(fn, "_switch") || strings.HasSuffix(fn, "_switch_cmd") || strings.HasSuffix(fn, "_switch_status"):
+				caps[device.CapOnOff] = true
+			case strings.HasPrefix(fn, "button_") && !strings.HasSuffix(fn, "_led"):
+				caps[device.CapOnOff] = true
+			case strings.HasSuffix(fn, "_brightness") || strings.HasSuffix(fn, "_brightness_cmd") || strings.HasSuffix(fn, "_brightness_status"):
+				caps[device.CapDim] = true
+			case strings.HasSuffix(fn, "_relative_dim"):
+				caps[device.CapDim] = true
+			case strings.HasSuffix(fn, "_position") || strings.HasSuffix(fn, "_position_status"):
+				caps[device.CapPosition] = true
+			case strings.HasSuffix(fn, "_move") || strings.HasSuffix(fn, "_stop"):
+				caps[device.CapPosition] = true
+			case strings.HasSuffix(fn, "_slat") || strings.HasSuffix(fn, "_slat_status"):
+				caps[device.CapTilt] = true
+			case strings.HasSuffix(fn, "_valve") || strings.HasSuffix(fn, "_valve_cmd") || strings.HasSuffix(fn, "_valve_status"):
+				caps[device.CapOnOff] = true
+			}
 		}
 	}
 

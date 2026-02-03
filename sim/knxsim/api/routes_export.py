@@ -7,6 +7,7 @@ compatible with ETS project imports.
 import io
 import uuid
 import zipfile
+from collections import Counter
 from datetime import UTC, datetime
 from xml.etree import ElementTree as ET
 
@@ -63,6 +64,144 @@ def _ga_name_to_function(ga_name: str) -> str:
     return " ".join(word.capitalize() for word in name.split())
 
 
+def _extract_channel_letter(ga_name: str) -> str | None:
+    """Extract channel letter from a GA name like 'channel_a_switch' → 'a'."""
+    lower = ga_name.lower()
+    # "channel_" is 8 chars, so index 8 = letter, index 9 = "_"
+    if lower.startswith("channel_") and len(lower) > 9 and lower[9] == "_":
+        return lower[8]
+    return None
+
+
+def _normalise_channel_function(ga_name: str) -> str:
+    """Strip channel prefix from a GA name and normalise to a standard function.
+
+    Handles both conventions:
+      - channel_a_switch / channel_a_switch_status  (config.yaml letter-based)
+      - ch1_switch_cmd / ch1_switch_status           (template number-based)
+      - button_1 / button_1_led                      (push buttons)
+
+    Returns a normalised function name like 'switch', 'switch_status',
+    'brightness', 'valve', 'position', etc.
+    """
+    lower = ga_name.lower()
+
+    # Strip "channel_X_" prefix (letter-based)
+    if lower.startswith("channel_") and len(lower) > 9 and lower[9] == "_":
+        lower = lower[10:]  # everything after "channel_X_"
+
+    # Strip "chN_" prefix (number-based, 1-99)
+    elif lower.startswith("ch"):
+        rest = lower[2:]
+        # Find end of digits
+        i = 0
+        while i < len(rest) and rest[i].isdigit():
+            i += 1
+        if i > 0 and i < len(rest) and rest[i] == "_":
+            lower = rest[i + 1 :]
+
+    # Strip "button_N" → "switch" (push buttons control lights)
+    elif lower.startswith("button_"):
+        rest = lower[7:]
+        # button_N (no suffix) → switch command
+        if rest.isdigit():
+            return "switch"
+        # button_N_led → switch_status
+        if "_led" in rest:
+            return "switch_status"
+        return rest
+
+    # Strip "group_N_" prefix (DALI)
+    elif lower.startswith("group_"):
+        rest = lower[6:]
+        i = 0
+        while i < len(rest) and rest[i].isdigit():
+            i += 1
+        if i > 0 and i < len(rest) and rest[i] == "_":
+            lower = rest[i + 1 :]
+
+    # Normalise common suffixes: remove _cmd, keep _status
+    # "switch_cmd" → "switch", "switch_status" stays
+    if lower.endswith("_cmd"):
+        lower = lower[:-4]
+
+    return lower
+
+
+def _get_channel_gas(device: dict, channel_id: str) -> list[tuple[str, str, str]]:
+    """Extract GAs for a specific channel from a multi-channel device.
+
+    Tries both naming conventions:
+      - channel_<letter>_* (config.yaml: channel_a_switch, channel_b_valve)
+      - ch<number>_*       (templates: ch1_switch_cmd, ch2_valve_status)
+
+    Args:
+        device: Device dict with 'group_addresses' field.
+        channel_id: Channel identifier, e.g. "A", "B", "1", "2".
+
+    Returns:
+        List of (normalised_function, ga_string, dpt) tuples.
+    """
+    gas = device.get("group_addresses", {})
+    results = []
+
+    # Normalise channel_id to both letter and number forms
+    ch_id_upper = channel_id.upper()
+    ch_letter = ch_id_upper.lower() if ch_id_upper.isalpha() else None
+    ch_number = ch_id_upper if ch_id_upper.isdigit() else None
+
+    # Map letter to number and vice versa: A=1, B=2, ...
+    if ch_letter and not ch_number:
+        ch_number = str(ord(ch_letter) - ord("a") + 1)
+    elif ch_number and not ch_letter:
+        n = int(ch_number)
+        if 1 <= n <= 26:
+            ch_letter = chr(ord("a") + n - 1)
+
+    for ga_name, ga_data in gas.items():
+        lower_name = ga_name.lower()
+        matched = False
+
+        # Try channel_<letter>_ pattern
+        if ch_letter and lower_name.startswith(f"channel_{ch_letter}_"):
+            matched = True
+        # Try ch<number>_ pattern
+        elif ch_number and lower_name.startswith(f"ch{ch_number}_"):
+            matched = True
+
+        if matched:
+            if isinstance(ga_data, dict):
+                ga_str = ga_data.get("ga", "")
+                ga_dpt = ga_data.get("dpt", "")
+            else:
+                ga_str = ga_data
+                ga_dpt = ""
+
+            if ga_str:
+                norm_fn = _normalise_channel_function(ga_name)
+                results.append((norm_fn, ga_str, ga_dpt))
+
+    return results
+
+
+def _load_type_to_function_type(load_type: str) -> tuple[str, str]:
+    """Map load type to ETS Function Type for the Trades section.
+
+    Returns (function_type, comment) tuple.
+    """
+    mapping = {
+        "light": ("SwitchableLight", ""),
+        "dimmer": ("DimmableLight", ""),
+        "blind": ("Sunblind", ""),
+        "shutter": ("Sunblind", ""),
+        "valve": ("HeatingFloor", ""),
+        "motor": ("Sunblind", ""),
+        "fan": ("Custom", "fan"),
+        "speaker": ("Custom", "speaker"),
+    }
+    return mapping.get(load_type, ("Custom", load_type))
+
+
 def _make_id(prefix: str) -> str:
     """Generate a unique ID in ETS format."""
     return f"{prefix}-{uuid.uuid4().hex[:8].upper()}"
@@ -99,7 +238,9 @@ def _dpt_to_size(dpt: str) -> str:
     return sizes.get(main_dpt, "1 Byte")
 
 
-def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
+def _build_knxproj_xml(
+    premise: dict, floors: list, devices: list, loads: list | None = None
+) -> str:
     """Build the 0.xml content for the .knxproj archive."""
 
     # Create root element with namespace
@@ -172,6 +313,29 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                 "floor": floor_name,
             }
 
+    # Build channel-to-room and channel-to-load-name mappings from loads.
+    # Loads tell us which actuator channel controls which room, so we can
+    # place each channel's GAs under the correct room in the GroupRange
+    # hierarchy instead of lumping them all under the actuator's physical
+    # location (e.g. Distribution Board).
+    #
+    # channel_room_map: {device_id: {channel_letter: room_id}}
+    # channel_name_map: {device_id: {channel_letter: load_name}}
+    channel_room_map: dict[str, dict[str, str]] = {}
+    channel_name_map: dict[str, dict[str, str]] = {}
+    if loads:
+        for load in loads:
+            act_id = load.get("actuator_device_id")
+            ch_id = load.get("actuator_channel_id")
+            load_room = load.get("room_id")
+            load_name = load.get("name", "")
+            if act_id and ch_id:
+                ch_key = ch_id.lower()
+                if load_room:
+                    channel_room_map.setdefault(act_id, {})[ch_key] = load_room
+                if load_name:
+                    channel_name_map.setdefault(act_id, {})[ch_key] = load_name
+
     # Organize GAs by: main_group > floor > room
     # Structure: {main: {floor: {room: [ga_info, ...]}}}
     ga_hierarchy = {}
@@ -182,11 +346,13 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
         device_name = device.get("name") or _id_to_display_name(device_id)
         device_type = device.get("type", "")
         device_room_id = device.get("room_id")
+        device_channels = channel_room_map.get(device_id, {})
+        device_ch_names = channel_name_map.get(device_id, {})
 
-        # Get floor and room info
-        room_info = room_id_to_info.get(device_room_id, {})
-        floor_name = room_info.get("floor", "Unassigned")
-        room_name = room_info.get("name", "Unassigned")
+        # Default floor/room from the device's own placement
+        default_room_info = room_id_to_info.get(device_room_id, {})
+        default_floor = default_room_info.get("floor", "Unassigned")
+        default_room = default_room_info.get("name", "Unassigned")
 
         for ga_name, ga_data in device.get("group_addresses", {}).items():
             # Handle both old format (string) and new format (dict with ga, dpt, flags)
@@ -200,6 +366,24 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
             if ga_str and "/" in ga_str:
                 main_group = ga_str.split("/")[0]
 
+                # For multi-channel actuators, resolve channel letter from
+                # GA name (e.g. "channel_a_switch" → "a") and look up the
+                # room that channel's load belongs to.
+                floor_name = default_floor
+                room_name = default_room
+                ga_display_name = device_name  # default: use device name
+                if device_channels:
+                    ch_letter = _extract_channel_letter(ga_name)
+                    if ch_letter and ch_letter in device_channels:
+                        ch_room_id = device_channels[ch_letter]
+                        ch_room_info = room_id_to_info.get(ch_room_id, {})
+                        if ch_room_info:
+                            floor_name = ch_room_info.get("floor", default_floor)
+                            room_name = ch_room_info.get("name", default_room)
+                        # Use load name for GA display if available
+                        if ch_letter in device_ch_names:
+                            ga_display_name = device_ch_names[ch_letter]
+
                 # Initialize hierarchy levels
                 if main_group not in ga_hierarchy:
                     ga_hierarchy[main_group] = {}
@@ -208,11 +392,16 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                 if room_name not in ga_hierarchy[main_group][floor_name]:
                     ga_hierarchy[main_group][floor_name][room_name] = []
 
-                function_name = _ga_name_to_function(ga_name)
+                # Use normalised function name for channels, raw for others
+                if device_channels and _extract_channel_letter(ga_name):
+                    function_name = _ga_name_to_function(_normalise_channel_function(ga_name))
+                else:
+                    function_name = _ga_name_to_function(ga_name)
+
                 ga_hierarchy[main_group][floor_name][room_name].append(
                     {
                         "address": ga_str,
-                        "name": f"{device_name} : {function_name}",
+                        "name": f"{ga_display_name} : {function_name}",
                         "device_id": device_id,
                         "dpt": ga_dpt or _guess_dpt(device_type, ga_name),
                     }
@@ -338,25 +527,122 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
                 app_elem.set("ApplicationVersion", "1")
 
     # === Trades (Functions) - Maps GAs to rooms with ETS Function Types ===
+    #
+    # Strategy: Emit one Function per LOAD (not per device) for multi-channel
+    # actuators. This makes GLCore create separate devices like "Bedroom Light"
+    # instead of one blob "Light Actuator 6ch". Devices not covered by loads
+    # (thermostats, sensors, etc.) still get per-device Functions.
     trades = ET.SubElement(installation, "Trades")
 
+    # Build index of devices by ID for fast lookup
+    device_by_id = {d.get("id"): d for d in devices}
+
+    # Track which device IDs are covered by loads and which GAs are consumed
+    covered_device_ids: set[str] = set()
+    covered_gas: set[str] = set()
+
+    if loads:
+        # Disambiguate duplicate load names by prepending room name.
+        # e.g. five loads all named "UFH Valve" become "Living Room UFH Valve",
+        # "Kitchen UFH Valve", etc. — preventing suggested_id collisions in GLCore.
+        _load_name_counts = Counter(ld.get("name", "Load") for ld in loads)
+        _load_display_names: dict[str, str] = {}  # load_id → unique display name
+        for ld in loads:
+            lid = ld.get("id", "")
+            raw_name = ld.get("name", "Load")
+            if _load_name_counts[raw_name] > 1:
+                room_info = room_id_to_info.get(ld.get("room_id", ""), {})
+                room_label = room_info.get("name", "")
+                _load_display_names[lid] = f"{room_label} {raw_name}" if room_label else raw_name
+            else:
+                _load_display_names[lid] = raw_name
+
+        # First pass: emit per-load Functions and collect covered GAs
+        for load in loads:
+            act_id = load.get("actuator_device_id")
+            ch_id = load.get("actuator_channel_id")
+            load_room = load.get("room_id")
+            load_name = _load_display_names.get(load.get("id", ""), load.get("name", "Load"))
+            load_type = load.get("type", "")
+
+            if not act_id or not ch_id or not load_room:
+                continue
+            if load_room not in room_to_location_id:
+                print(f"[EXPORT DEBUG] SKIP room {load_room} not in {list(room_to_location_id.keys())}")
+                continue
+
+            actuator = device_by_id.get(act_id)
+            print(f"[EXPORT DEBUG] load {load.get('id')}: act_id={act_id} found={actuator is not None}")
+            if not actuator:
+                continue
+
+            covered_device_ids.add(act_id)
+
+            # Get the channel's GAs with normalised function names
+            channel_gas = _get_channel_gas(actuator, ch_id)
+            print(f"[EXPORT DEBUG] load {load.get('id')}: ch_id={ch_id}, channel_gas={channel_gas}")
+            if not channel_gas:
+                continue
+
+            # Track all GAs consumed by loads
+            for _, ga_str, _ in channel_gas:
+                covered_gas.add(ga_str)
+
+            # Emit Function for this load
+            func_type, comment = _load_type_to_function_type(load_type)
+
+            trade = ET.SubElement(trades, "Trade")
+            trade.set("Id", _make_id("T"))
+            trade.set("Name", load_name)
+
+            func = ET.SubElement(trade, "Function")
+            func.set("Id", _make_id("F"))
+            func.set("Name", load_name)
+            func.set("Type", func_type)
+            if comment:
+                func.set("Comment", comment)
+
+            loc_ref = ET.SubElement(func, "LocationReference")
+            loc_ref.set("RefId", room_to_location_id[load_room])
+
+            ga_refs = ET.SubElement(func, "GroupAddressRefs")
+            for norm_fn, ga_str, _ in channel_gas:
+                if ga_str in ga_id_map:
+                    ga_ref = ET.SubElement(ga_refs, "GroupAddressRef")
+                    ga_ref.set("RefId", ga_id_map[ga_str])
+                    ga_ref.set("Name", norm_fn)
+
+    # Second pass: emit per-device Functions for non-covered devices
     for device in devices:
+        device_id = device.get("id", "")
+
+        # Skip devices whose channels are represented by loads
+        if device_id in covered_device_ids:
+            continue
+
         room_id = device.get("room_id")
         if not room_id or room_id not in room_to_location_id:
             continue
 
-        device_id = device.get("id", "Device")
-        device_name = device.get("name") or _id_to_display_name(device_id)
-        config = device.get("config") or {}
-        template_id = config.get("template_id", device.get("type", ""))
+        # Check if ALL this device's GAs are already covered by loads
+        # (e.g., a wall switch that shares GAs with a light load)
+        device_gas = set()
+        for ga_data in device.get("group_addresses", {}).values():
+            ga_str = ga_data.get("ga", "") if isinstance(ga_data, dict) else ga_data
+            if ga_str:
+                device_gas.add(ga_str)
+        if device_gas and device_gas.issubset(covered_gas):
+            continue  # All GAs covered — skip this device
 
-        # Create a Function for each device
+        device_name = device.get("name") or _id_to_display_name(device_id)
+        dev_config = device.get("config") or {}
+        template_id = dev_config.get("template_id", device.get("type", ""))
+
+        func_type, comment = _device_type_to_function_type(template_id)
+
         trade = ET.SubElement(trades, "Trade")
         trade.set("Id", _make_id("T"))
         trade.set("Name", device_name)
-
-        # Standard ETS Function Type
-        func_type, comment = _device_type_to_function_type(template_id)
 
         func = ET.SubElement(trade, "Function")
         func.set("Id", _make_id("F"))
@@ -365,14 +651,11 @@ def _build_knxproj_xml(premise: dict, floors: list, devices: list) -> str:
         if comment:
             func.set("Comment", comment)
 
-        # Link to location
         loc_ref = ET.SubElement(func, "LocationReference")
         loc_ref.set("RefId", room_to_location_id[room_id])
 
-        # Link group addresses
         ga_refs = ET.SubElement(func, "GroupAddressRefs")
         for ga_name, ga_data in device.get("group_addresses", {}).items():
-            # Handle both old format (string) and new format (dict)
             ga_str = ga_data.get("ga", "") if isinstance(ga_data, dict) else ga_data
             if ga_str in ga_id_map:
                 ga_ref = ET.SubElement(ga_refs, "GroupAddressRef")
@@ -501,8 +784,12 @@ async def export_knxproj(premise_id: str):
     # Get all devices
     devices = manager.list_devices(premise_id)
 
+    # Get loads (for channel-to-room mapping of multi-channel actuators)
+    loads = manager.db.list_loads(premise_id)
+    print(f"[EXPORT DEBUG] loads={len(loads)}, first={loads[0] if loads else None}")
+
     # Build XML content
-    xml_content = _build_knxproj_xml(premise, floors, devices)
+    xml_content = _build_knxproj_xml(premise, floors, devices, loads)
 
     # Create ZIP archive in memory
     zip_buffer = io.BytesIO()

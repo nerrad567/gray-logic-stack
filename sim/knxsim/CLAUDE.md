@@ -76,7 +76,7 @@ The `.knxproj` export (`sim/knxsim/api/routes_export.py`) is a critical interfac
 3. **3-level GA hierarchy**: GroupRanges MUST be structured as `Domain > Floor > Room` to enable location extraction by the import pipeline.
 4. **Building structure**: The `<Locations>` element MUST include `Building > Floor > Room` hierarchy matching the premise's floor/room structure.
 5. **Parseable by GLCore**: The exported file MUST successfully parse via `POST /api/v1/commissioning/ets/parse`. If it doesn't, the export is broken.
-6. **Function type mapping**: Use correct ETS Function types (FT-1 for switchable light, FT-4 for sun protection, FT-5 for HVAC, FT-6 for sensors).
+6. **Function type mapping**: Use standard ETS Function Type names (`SwitchableLight`, `DimmableLight`, `Sunblind`, `HeatingRadiator`, `HeatingFloor`, etc.). Non-standard types use `Custom` with the template ID in the Comment attribute.
 
 ## Known Divergences from Real Hardware
 
