@@ -399,8 +399,8 @@ func (c *Config) GetMQTTClientID() string {
 // Returns:
 //   - gaToDevice: Maps "ga" → (device_id, function_name)
 //   - deviceToGAs: Maps device_id → function_name → AddressConfig
-func (c *Config) BuildDeviceIndex() (gaToDevice map[string]GAMapping, deviceToGAs map[string]map[string]AddressConfig) {
-	gaToDevice = make(map[string]GAMapping)
+func (c *Config) BuildDeviceIndex() (gaToDevice map[string][]GAMapping, deviceToGAs map[string]map[string]AddressConfig) {
+	gaToDevice = make(map[string][]GAMapping)
 	deviceToGAs = make(map[string]map[string]AddressConfig)
 
 	for _, dev := range c.Devices {
@@ -412,12 +412,12 @@ func (c *Config) BuildDeviceIndex() (gaToDevice map[string]GAMapping, deviceToGA
 			// Only index GAs that transmit (so we can map incoming telegrams to devices)
 			for _, flag := range addr.Flags {
 				if flag == "transmit" {
-					gaToDevice[addr.GA] = GAMapping{
+					gaToDevice[addr.GA] = append(gaToDevice[addr.GA], GAMapping{
 						DeviceID: dev.DeviceID,
 						Function: funcName,
 						DPT:      addr.DPT,
 						Type:     dev.Type,
-					}
+					})
 					break
 				}
 			}

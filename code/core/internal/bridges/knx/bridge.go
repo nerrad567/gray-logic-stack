@@ -22,11 +22,6 @@ const (
 
 	// interReadDelay is the delay between read requests to avoid bus flooding.
 	interReadDelay = 50 * time.Millisecond
-
-	// infrastructurePollInterval is how often we re-read status GAs for
-	// infrastructure devices (actuators in distribution board). Only status
-	// GAs with non-zero cached values are polled to avoid spamming the bus.
-	infrastructurePollInterval = 30 * time.Second
 )
 
 // Bridge orchestrates bidirectional translation between KNX and MQTT.
@@ -45,7 +40,7 @@ type Bridge struct {
 	gaRecorder GARecorderInterface // Optional GA recorder for passive discovery
 
 	// Device mappings (built from config)
-	gaToDevice        map[string]GAMapping
+	gaToDevice        map[string][]GAMapping
 	deviceToGAs       map[string]map[string]AddressConfig
 	infrastructureIDs map[string]bool // device IDs with domain "infrastructure"
 	mappingMu         sync.RWMutex
@@ -180,7 +175,7 @@ func NewBridge(opts BridgeOptions) (*Bridge, error) {
 		knxd:              opts.KNXDClient,
 		registry:          opts.Registry,   // May be nil (optional)
 		gaRecorder:        opts.GARecorder, // May be nil (optional)
-		gaToDevice:        make(map[string]GAMapping),
+		gaToDevice:        make(map[string][]GAMapping),
 		deviceToGAs:       make(map[string]map[string]AddressConfig),
 		infrastructureIDs: make(map[string]bool),
 		stateCache:        make(map[string]map[string]any),
@@ -251,10 +246,6 @@ func (b *Bridge) Start(ctx context.Context) error {
 		"bridge_id", b.cfg.Bridge.ID,
 		"devices", deviceCount)
 
-	// Start infrastructure status poller in background.
-	b.wg.Add(1)
-	go b.infrastructurePollLoop()
-
 	return nil
 }
 
@@ -302,8 +293,9 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 		// Convert registry device to address configs
 		addresses := make(map[string]AddressConfig)
 		for fn, ga := range dev.Address {
-			if fn == "group_address" {
-				continue // Skip the primary GA marker
+			// Skip metadata keys that are not GA function mappings
+			if fn == "group_address" || fn == "individual_address" || fn == "application_program" {
+				continue
 			}
 			// Infer flags from function name
 			flags := inferFlagsFromFunction(fn)
@@ -317,15 +309,15 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 			continue
 		}
 
-		// Build GA mappings
+		// Build GA mappings (one GA may map to multiple devices)
 		b.deviceToGAs[dev.ID] = addresses
 		for fn, addr := range addresses {
-			b.gaToDevice[addr.GA] = GAMapping{
+			b.gaToDevice[addr.GA] = append(b.gaToDevice[addr.GA], GAMapping{
 				DeviceID: dev.ID,
 				Function: fn,
 				Type:     dev.Type,
 				DPT:      inferDPTFromFunction(fn),
-			}
+			})
 		}
 
 		// Track infrastructure devices for periodic polling
@@ -370,7 +362,13 @@ func (b *Bridge) readAllDevices(ctx context.Context) {
 	b.mappingMu.RUnlock()
 
 	readCount := 0
-	for _, deviceGAs := range devices {
+	for devID, deviceGAs := range devices {
+		// Skip infrastructure devices — their status GAs share the same
+		// physical GAs as per-room devices. Reading them would duplicate
+		// reads and may return stale values from simulators.
+		if b.infrastructureIDs[devID] {
+			continue
+		}
 		for _, addr := range deviceGAs {
 			if !addr.HasFlag("read") {
 				continue
@@ -394,91 +392,6 @@ func (b *Bridge) readAllDevices(ctx context.Context) {
 
 	if readCount > 0 {
 		b.logInfo("initial read-all complete", "reads_sent", readCount)
-	}
-}
-
-// infrastructurePollLoop periodically re-reads status GAs for infrastructure
-// devices (multi-channel actuators). It only reads status functions that have
-// previously received a non-zero value, avoiding unnecessary bus traffic for
-// spare or idle channels.
-func (b *Bridge) infrastructurePollLoop() {
-	defer b.wg.Done()
-
-	ticker := time.NewTicker(infrastructurePollInterval)
-	defer ticker.Stop()
-
-	for {
-		select {
-		case <-b.done:
-			return
-		case <-ticker.C:
-			b.pollInfrastructureStatus()
-		}
-	}
-}
-
-// pollInfrastructureStatus sends read requests for active status GAs
-// on infrastructure devices.
-func (b *Bridge) pollInfrastructureStatus() {
-	b.mappingMu.RLock()
-	infraIDs := make(map[string]bool, len(b.infrastructureIDs))
-	for id := range b.infrastructureIDs {
-		infraIDs[id] = true
-	}
-	b.mappingMu.RUnlock()
-
-	if len(infraIDs) == 0 {
-		return
-	}
-
-	// Collect readable status GAs for infrastructure devices
-	b.mappingMu.RLock()
-	type readTarget struct {
-		ga    string
-		devID string
-		fn    string
-	}
-	var targets []readTarget
-	for devID := range infraIDs {
-		deviceGAs, ok := b.deviceToGAs[devID]
-		if !ok {
-			continue
-		}
-		for fn, addr := range deviceGAs {
-			if !addr.HasFlag("read") {
-				continue
-			}
-			targets = append(targets, readTarget{ga: addr.GA, devID: devID, fn: fn})
-		}
-	}
-	b.mappingMu.RUnlock()
-
-	if len(targets) == 0 {
-		return
-	}
-
-	readCtx, cancel := context.WithTimeout(b.ctx, 10*time.Second)
-	defer cancel()
-
-	readCount := 0
-	for _, t := range targets {
-		ga, err := ParseGroupAddress(t.ga)
-		if err != nil {
-			continue
-		}
-		if err := b.knxd.SendRead(readCtx, ga); err != nil {
-			continue
-		}
-		readCount++
-		select {
-		case <-readCtx.Done():
-			return
-		case <-time.After(interReadDelay):
-		}
-	}
-
-	if readCount > 0 {
-		b.logDebug("infrastructure poll", "reads_sent", readCount)
 	}
 }
 
@@ -1041,68 +954,63 @@ func (b *Bridge) handleKNXTelegram(t Telegram) {
 		b.gaRecorder.RecordTelegram(t.Source, gaStr, isResponse)
 	}
 
-	// Look up device mapping
+	// Look up device mappings (one GA may map to multiple devices)
 	b.mappingMu.RLock()
-	mapping, ok := b.gaToDevice[gaStr]
+	mappings, ok := b.gaToDevice[gaStr]
 	b.mappingMu.RUnlock()
 
-	if !ok {
+	if !ok || len(mappings) == 0 {
 		// Unknown GA, ignore (might be traffic we don't care about)
 		return
 	}
 
-	// Decode the value based on DPT
-	value, err := b.decodeTelegramValue(t, mapping.DPT)
+	// Decode the value once using the first mapping's DPT
+	// (all mappings for the same GA share the same physical datapoint type)
+	value, err := b.decodeTelegramValue(t, mappings[0].DPT)
 	if err != nil {
 		b.logError("failed to decode telegram",
-			fmt.Errorf("ga=%s dpt=%s: %w", gaStr, mapping.DPT, err))
+			fmt.Errorf("ga=%s dpt=%s: %w", gaStr, mappings[0].DPT, err))
 		return
 	}
 
-	// Build state update
-	state := b.buildStateUpdate(mapping, value)
+	// Update each mapped device
+	for _, mapping := range mappings {
+		state := b.buildStateUpdate(mapping, value)
 
-	// Check if state changed (for change detection)
-	if b.stateUnchanged(mapping.DeviceID, mapping.Function, value) {
-		return // No change, skip publish
-	}
+		if b.stateUnchanged(mapping.DeviceID, mapping.Function, value) {
+			continue // No change for this device, skip
+		}
 
-	// Publish state message
-	msg := NewStateMessage(mapping.DeviceID, gaStr, state)
+		// Publish state message
+		msg := NewStateMessage(mapping.DeviceID, gaStr, state)
 
-	payload, err := json.Marshal(msg)
-	if err != nil {
-		b.logError("failed to marshal state", err)
-		return
-	}
+		payload, err := json.Marshal(msg)
+		if err != nil {
+			b.logError("failed to marshal state", err)
+			continue
+		}
 
-	topic := StateTopic(gaStr)
-	if err := b.mqtt.Publish(topic, payload, 1, true); err != nil {
-		b.logError("failed to publish state", err)
-		return
-	}
+		topic := StateTopic(gaStr)
+		if err := b.mqtt.Publish(topic, payload, 1, true); err != nil {
+			b.logError("failed to publish state", err)
+			continue
+		}
 
-	// Update device registry (if configured)
-	if b.registry != nil {
-		if err := b.registry.SetDeviceState(b.ctx, mapping.DeviceID, state); err != nil {
-			// Log but don't fail - device may not be in registry yet
-			b.logDebug("registry state update skipped",
-				"device", mapping.DeviceID,
-				"reason", err.Error())
-		} else {
-			// Mark device as online since we received traffic
-			if healthErr := b.registry.SetDeviceHealth(b.ctx, mapping.DeviceID, "online"); healthErr != nil {
-				b.logDebug("registry health update skipped",
+		// Update device registry (if configured)
+		if b.registry != nil {
+			if err := b.registry.SetDeviceState(b.ctx, mapping.DeviceID, state); err != nil {
+				b.logDebug("registry state update skipped",
 					"device", mapping.DeviceID,
-					"reason", healthErr.Error())
+					"reason", err.Error())
+			} else {
+				if healthErr := b.registry.SetDeviceHealth(b.ctx, mapping.DeviceID, "online"); healthErr != nil {
+					b.logDebug("registry health update skipped",
+						"device", mapping.DeviceID,
+						"reason", healthErr.Error())
+				}
 			}
 		}
 	}
-
-	b.logInfo("published state",
-		"device_id", mapping.DeviceID,
-		"function", mapping.Function,
-		"value", value)
 }
 
 // decodeTelegramValue decodes the telegram data based on DPT.

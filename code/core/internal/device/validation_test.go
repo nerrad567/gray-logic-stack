@@ -734,6 +734,7 @@ func TestAllDomains(t *testing.T) {
 		DomainLighting, DomainClimate, DomainBlinds, DomainAudio,
 		DomainVideo, DomainSecurity, DomainAccess, DomainEnergy,
 		DomainPlant, DomainIrrigation, DomainSafety, DomainSensor,
+		DomainInfrastructure,
 	}
 
 	if len(domains) != len(expected) {

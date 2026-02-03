@@ -412,10 +412,11 @@ func TestBuildDeviceIndex(t *testing.T) {
 	}
 
 	// Check specific GA mapping
-	mapping, ok := gaToDevice["6/0/2"]
-	if !ok {
+	mappings, ok := gaToDevice["6/0/2"]
+	if !ok || len(mappings) == 0 {
 		t.Fatal("gaToDevice[6/0/2] not found")
 	}
+	mapping := mappings[0]
 	if mapping.DeviceID != "light-living" {
 		t.Errorf("mapping.DeviceID = %q, want light-living", mapping.DeviceID)
 	}
