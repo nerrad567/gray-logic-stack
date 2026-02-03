@@ -74,7 +74,7 @@ type Deps struct {
 	SceneRegistry *automation.Registry
 	SceneRepo     automation.Repository
 	LocationRepo  location.Repository
-	ExternalHub   *Hub // If set, the server uses this hub instead of creating its own
+	ExternalHub   *Hub   // If set, the server uses this hub instead of creating its own
 	DevMode       bool   // When true, commands apply state locally without bridge confirmation
 	PanelDir      string // Dev only: serve Flutter panel from filesystem instead of embed
 	Version       string

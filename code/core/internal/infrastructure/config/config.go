@@ -21,8 +21,8 @@ type Config struct {
 	Logging   LoggingConfig   `yaml:"logging"`
 	Protocols ProtocolsConfig `yaml:"protocols"`
 	Security  SecurityConfig  `yaml:"security"`
-	DevMode  bool   `yaml:"dev_mode"`
-	PanelDir string `yaml:"panel_dir"` // Dev only: serve Flutter panel from filesystem instead of embed
+	DevMode   bool            `yaml:"dev_mode"`
+	PanelDir  string          `yaml:"panel_dir"` // Dev only: serve Flutter panel from filesystem instead of embed
 }
 
 // SiteConfig contains site-specific information.

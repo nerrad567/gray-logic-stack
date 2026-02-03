@@ -696,4 +696,3 @@ func TestGroupActions(t *testing.T) {
 		})
 	}
 }
-
