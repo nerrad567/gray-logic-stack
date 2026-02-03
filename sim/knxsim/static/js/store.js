@@ -267,6 +267,34 @@ export function initStores() {
       this.selectedDeviceId = deviceId;
     },
 
+    /**
+     * Handle click on a device tile in the room card.
+     * Engineer mode always opens the detail panel for editing.
+     * Normal mode: presence sensors toggle state, others open detail panel.
+     */
+    async onDeviceTileClick(device) {
+      if (this.engineerMode) {
+        this.selectDevice(device.id);
+        return;
+      }
+      if (device.type === "presence" || device.type === "presence_detector") {
+        const current = device.state?.presence === true;
+        await this.sendCommand(device.id, "presence", !current);
+        return;
+      }
+      if (
+        device.type?.startsWith("push_button") ||
+        device.type?.startsWith("switch_sensor")
+      ) {
+        // Toggle channel A switch (simulates pressing the top button)
+        const chA = device.channels?.find((c) => c.id === "A");
+        const current = chA?.state?.pressed === true;
+        await this.sendChannelCommand(device.id, "A", "switch", !current);
+        return;
+      }
+      this.selectDevice(device.id);
+    },
+
     clearSelection() {
       this.selectedDeviceId = null;
     },
@@ -727,11 +755,29 @@ export function initStores() {
     },
 
     /**
-     * Toggle a load on/off
+     * Handle click on a load tile in the room card.
+     * Engineer mode opens the linked actuator's detail panel.
+     * Normal mode: toggles lights, ignores valves.
+     */
+    onLoadTileClick(load) {
+      if (this.engineerMode && load.actuator_device_id) {
+        this.selectDevice(load.actuator_device_id);
+        return;
+      }
+      this.toggleLoad(load.id);
+    },
+
+    /**
+     * Toggle a load — action depends on load type
      */
     async toggleLoad(loadId) {
       const load = this.loads.find((l) => l.id === loadId);
       if (!load) return;
+
+      if (load.type === "valve" || load.type === "heater") {
+        // Proportional valves have no on/off — ignore click
+        return;
+      }
 
       const isOn = this.isLoadOn(load);
       await this.controlLoad(loadId, "switch", !isOn);

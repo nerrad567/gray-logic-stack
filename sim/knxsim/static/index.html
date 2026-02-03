@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=20" />
+    <link rel="stylesheet" href="css/style.css?v=22" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -739,7 +739,7 @@
                     <div
                       class="device-tile load-tile"
                       :class="{ 'load-on': $store.app.isLoadOn(load), 'load-orphan': !$store.app.getLoadActuatorInfo(load).linked, 'load-valve': load.type === 'valve' || load.type === 'heater' }"
-                      @click="$store.app.toggleLoad(load.id)"
+                      @click="$store.app.onLoadTileClick(load)"
                       :title="$store.app.getLoadActuatorInfo(load).text"
                     >
                       <div class="device-info">
@@ -780,7 +780,7 @@
                       'multi-channel': $store.app.isMultiChannelActuator(device)
                     }"
                       :draggable="$store.app.engineerMode"
-                      @click="$store.app.selectDevice(device.id)"
+                      @click="$store.app.onDeviceTileClick(device)"
                       @dragstart="$store.app.engineerMode && $store.app.startDragDevice($event, device.id)"
                       @dragend="$store.app.endDragDevice()"
                     >
