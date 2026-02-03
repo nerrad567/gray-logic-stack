@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device.dart';
+import '../providers/device_provider.dart';
 
 /// A read-only tile for multi-channel actuators in the Distribution Board.
 ///
@@ -18,9 +19,16 @@ class ActuatorTile extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // Watch the provider to trigger rebuilds on WebSocket state changes.
+    // Find our updated device from the provider's list.
+    final devicesAsync = ref.watch(roomDevicesProvider);
+    final liveDevice = devicesAsync.value
+            ?.firstWhere((d) => d.id == device.id, orElse: () => device) ??
+        device;
+
     final theme = Theme.of(context);
-    final channels = _parseChannels(device.config);
-    final isOnline = device.isOnline;
+    final channels = _parseChannels(liveDevice.config);
+    final isOnline = liveDevice.isOnline;
 
     return Card(
       child: Padding(
@@ -57,8 +65,8 @@ class ActuatorTile extends ConsumerWidget {
             Expanded(
               child: _ChannelGrid(
                 channels: channels,
-                deviceState: device.state,
-                isValveType: device.type.contains('heating'),
+                deviceState: liveDevice.state,
+                isValveType: liveDevice.type.contains('heating'),
               ),
             ),
           ],
