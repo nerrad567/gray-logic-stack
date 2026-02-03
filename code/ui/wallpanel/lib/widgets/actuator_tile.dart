@@ -167,18 +167,26 @@ class _ChannelIndicator extends StatelessWidget {
     final isSpare = channel.isSpare;
     final statusText = _getStatusText();
     final isActive = _isActive();
+    final valvePercent = isValveType ? _getValvePercent() : 0.0;
+
+    // Heating channels use a warm colour gradient based on valve position;
+    // switch channels keep the existing green/grey scheme.
+    final Color accentColor;
+    if (isValveType && isActive) {
+      accentColor = _heatColor(valvePercent);
+    } else if (isActive) {
+      accentColor = Colors.green;
+    } else {
+      accentColor = Colors.grey.shade700;
+    }
 
     final bgColor = isSpare
         ? Colors.grey.shade800
         : isActive
-            ? Colors.green.withValues(alpha: 0.2)
+            ? accentColor.withValues(alpha: 0.2)
             : Colors.grey.shade900;
 
-    final borderColor = isSpare
-        ? Colors.grey.shade700
-        : isActive
-            ? Colors.green.shade700
-            : Colors.grey.shade700;
+    final borderColor = isSpare ? Colors.grey.shade700 : accentColor;
 
     return Container(
       decoration: BoxDecoration(
@@ -211,7 +219,7 @@ class _ChannelIndicator extends StatelessWidget {
                   color: isSpare
                       ? Colors.grey.shade600
                       : isActive
-                          ? Colors.green.shade400
+                          ? (isValveType ? accentColor : Colors.green.shade400)
                           : Colors.grey.shade400,
                 ),
               ),
@@ -270,6 +278,34 @@ class _ChannelIndicator extends StatelessWidget {
       if (sw == false) return 'OFF';
     }
     return '?';
+  }
+
+  /// Get the valve position as a 0.0–1.0 fraction for colour interpolation.
+  double _getValvePercent() {
+    final prefix = 'ch_${channel.letter.toLowerCase()}';
+    for (final suffix in ['_valve', '_valve_status']) {
+      final val = deviceState['$prefix$suffix'];
+      if (val is num) return (val / 100).clamp(0.0, 1.0);
+    }
+    return 0.0;
+  }
+
+  /// Map a 0.0–1.0 valve fraction to a warm colour:
+  ///   0% = steel blue (cold/closed)
+  ///  25% = amber (warming)
+  ///  50% = deep orange
+  /// 100% = red (fully open / max heat)
+  static Color _heatColor(double t) {
+    const stops = [
+      Color(0xFF5C7A99), //  0% — cool steel blue
+      Color(0xFFFFA726), // 33% — amber
+      Color(0xFFFF5722), // 66% — deep orange
+      Color(0xFFD32F2F), // 100% — red
+    ];
+    final scaled = t * (stops.length - 1);
+    final i = scaled.floor().clamp(0, stops.length - 2);
+    final frac = scaled - i;
+    return Color.lerp(stops[i], stops[i + 1], frac)!;
   }
 
   /// Whether this channel is currently active (on/open/non-zero).
