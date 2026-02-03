@@ -423,13 +423,21 @@ type xmlTrade struct {
 	Functions []xmlFunction `xml:"Function"`
 }
 
+type xmlBuildingLocation struct {
+	ID       string                `xml:"Id,attr"`
+	Name     string                `xml:"Name,attr"`
+	Type     string                `xml:"Type,attr"`
+	Children []xmlBuildingLocation `xml:"Location"`
+}
+
 // xmlProjectFull extends the basic project parse to include Topology,
-// ManufacturerData, and Trades (Functions).
+// ManufacturerData, Trades (Functions), and Building Locations.
 type xmlProjectFull struct {
-	XMLName       xml.Name            `xml:"KNX"`
-	Manufacturers []xmlManufacturer   `xml:"ManufacturerData>Manufacturer"`
-	Devices       []xmlDeviceInstance `xml:"Project>Installations>Installation>Topology>Area>Line>DeviceInstance"`
-	Trades        []xmlTrade          `xml:"Project>Installations>Installation>Trades>Trade"`
+	XMLName       xml.Name              `xml:"KNX"`
+	Manufacturers []xmlManufacturer     `xml:"ManufacturerData>Manufacturer"`
+	Devices       []xmlDeviceInstance   `xml:"Project>Installations>Installation>Topology>Area>Line>DeviceInstance"`
+	Trades        []xmlTrade            `xml:"Project>Installations>Installation>Trades>Trade"`
+	Locations     []xmlBuildingLocation `xml:"Project>Installations>Installation>Locations>Location"`
 }
 
 // extractFunctionDevices performs Tier 1 classification: it parses Functions
@@ -531,6 +539,22 @@ func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[st
 		}
 	}
 
+	// Building Location ID → path (e.g. "L-FD02E366" → "Ground Floor > Distribution Board")
+	// Used to resolve Function LocationReferences to room/area paths.
+	locIDToPath := make(map[string]string)
+	var walkLocations func(locs []xmlBuildingLocation, parentPath string)
+	walkLocations = func(locs []xmlBuildingLocation, parentPath string) {
+		for _, loc := range locs {
+			path := loc.Name
+			if parentPath != "" {
+				path = parentPath + " > " + loc.Name
+			}
+			locIDToPath[loc.ID] = path
+			walkLocations(loc.Children, path)
+		}
+	}
+	walkLocations(doc.Locations, "")
+
 	// Process Functions from Trades
 	consumedGAIDs := make(map[string]bool)
 	tier1Count := 0
@@ -573,6 +597,16 @@ func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[st
 
 			if len(addresses) == 0 {
 				continue // No resolvable GAs — skip
+			}
+
+			// Prefer the Function's own LocationReference over the GA path.
+			// GAs belong to the room where the load is (e.g. Living Room),
+			// but the Function's LocationRef points to where the device
+			// physically lives (e.g. Distribution Board).
+			if len(fn.LocRef) > 0 {
+				if path, ok := locIDToPath[fn.LocRef[0].RefID]; ok {
+					sourceLocation = path
+				}
 			}
 
 			// Try to find linked DeviceInstance for metadata
