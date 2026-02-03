@@ -10,6 +10,7 @@ class ETSParseResult {
   final List<ETSGroupAddress> unmappedAddresses;
   final List<ETSWarning> warnings;
   final ETSStatistics statistics;
+  final List<Map<String, dynamic>> locations;
 
   const ETSParseResult({
     required this.importId,
@@ -19,6 +20,7 @@ class ETSParseResult {
     this.unmappedAddresses = const [],
     this.warnings = const [],
     required this.statistics,
+    this.locations = const [],
   });
 
   factory ETSParseResult.fromJson(Map<String, dynamic> json) {
@@ -32,6 +34,7 @@ class ETSParseResult {
       statistics: ETSStatistics.fromJson(
         json['statistics'] as Map<String, dynamic>? ?? {},
       ),
+      locations: _parseLocations(json['locations']),
     );
   }
 
@@ -54,6 +57,11 @@ class ETSParseResult {
     return value
         .map((w) => ETSWarning.fromJson(w as Map<String, dynamic>))
         .toList();
+  }
+
+  static List<Map<String, dynamic>> _parseLocations(dynamic value) {
+    if (value is! List) return [];
+    return value.cast<Map<String, dynamic>>();
   }
 }
 
@@ -140,6 +148,8 @@ class ETSDetectedDevice {
       'domain': suggestedDomain,
       if (selectedRoomId != null) 'room_id': selectedRoomId,
       if (selectedAreaId != null) 'area_id': selectedAreaId,
+      if (suggestedRoom != null) 'suggested_room': suggestedRoom,
+      if (suggestedArea != null) 'suggested_area': suggestedArea,
       'addresses': addresses.map((a) => a.toJson()).toList(),
     };
   }
@@ -275,11 +285,13 @@ class ETSImportRequest {
   final String importId;
   final List<ETSDetectedDevice> devices;
   final ETSImportOptions options;
+  final List<Map<String, dynamic>> locations;
 
   const ETSImportRequest({
     required this.importId,
     required this.devices,
     this.options = const ETSImportOptions(),
+    this.locations = const [],
   });
 
   Map<String, dynamic> toJson() {
@@ -287,6 +299,7 @@ class ETSImportRequest {
       'import_id': importId,
       'devices': devices.map((d) => d.toImportJson()).toList(),
       'options': options.toJson(),
+      if (locations.isNotEmpty) 'locations': locations,
     };
   }
 }

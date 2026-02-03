@@ -117,15 +117,7 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
 
     // Create a new parse result with updated devices
     state = state.copyWith(
-      parseResult: ETSParseResult(
-        importId: state.parseResult!.importId,
-        format: state.parseResult!.format,
-        sourceFile: state.parseResult!.sourceFile,
-        devices: devices,
-        unmappedAddresses: state.parseResult!.unmappedAddresses,
-        warnings: state.parseResult!.warnings,
-        statistics: state.parseResult!.statistics,
-      ),
+      parseResult: _copyParseResultWithDevices(devices),
     );
   }
 
@@ -137,15 +129,7 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
     devices[index].editedId = newId;
 
     state = state.copyWith(
-      parseResult: ETSParseResult(
-        importId: state.parseResult!.importId,
-        format: state.parseResult!.format,
-        sourceFile: state.parseResult!.sourceFile,
-        devices: devices,
-        unmappedAddresses: state.parseResult!.unmappedAddresses,
-        warnings: state.parseResult!.warnings,
-        statistics: state.parseResult!.statistics,
-      ),
+      parseResult: _copyParseResultWithDevices(devices),
     );
   }
 
@@ -157,15 +141,7 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
     devices[index].editedName = newName;
 
     state = state.copyWith(
-      parseResult: ETSParseResult(
-        importId: state.parseResult!.importId,
-        format: state.parseResult!.format,
-        sourceFile: state.parseResult!.sourceFile,
-        devices: devices,
-        unmappedAddresses: state.parseResult!.unmappedAddresses,
-        warnings: state.parseResult!.warnings,
-        statistics: state.parseResult!.statistics,
-      ),
+      parseResult: _copyParseResultWithDevices(devices),
     );
   }
 
@@ -177,15 +153,7 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
     devices[index].selectedRoomId = roomId;
 
     state = state.copyWith(
-      parseResult: ETSParseResult(
-        importId: state.parseResult!.importId,
-        format: state.parseResult!.format,
-        sourceFile: state.parseResult!.sourceFile,
-        devices: devices,
-        unmappedAddresses: state.parseResult!.unmappedAddresses,
-        warnings: state.parseResult!.warnings,
-        statistics: state.parseResult!.statistics,
-      ),
+      parseResult: _copyParseResultWithDevices(devices),
     );
   }
 
@@ -199,15 +167,22 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
     }
 
     state = state.copyWith(
-      parseResult: ETSParseResult(
-        importId: state.parseResult!.importId,
-        format: state.parseResult!.format,
-        sourceFile: state.parseResult!.sourceFile,
-        devices: devices,
-        unmappedAddresses: state.parseResult!.unmappedAddresses,
-        warnings: state.parseResult!.warnings,
-        statistics: state.parseResult!.statistics,
-      ),
+      parseResult: _copyParseResultWithDevices(devices),
+    );
+  }
+
+  /// Helper to copy the current parse result with updated devices,
+  /// preserving locations and all other fields.
+  ETSParseResult _copyParseResultWithDevices(List<ETSDetectedDevice> devices) {
+    return ETSParseResult(
+      importId: state.parseResult!.importId,
+      format: state.parseResult!.format,
+      sourceFile: state.parseResult!.sourceFile,
+      devices: devices,
+      unmappedAddresses: state.parseResult!.unmappedAddresses,
+      warnings: state.parseResult!.warnings,
+      statistics: state.parseResult!.statistics,
+      locations: state.parseResult!.locations,
     );
   }
 
@@ -228,6 +203,7 @@ class ETSImportNotifier extends Notifier<ETSImportState> {
       final request = ETSImportRequest(
         importId: state.parseResult!.importId,
         devices: state.parseResult!.devices.where((d) => d.import).toList(),
+        locations: state.parseResult!.locations,
         options: ETSImportOptions(
           skipExisting: skipExisting,
           updateExisting: updateExisting,

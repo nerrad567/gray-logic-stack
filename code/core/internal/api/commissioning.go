@@ -243,6 +243,15 @@ func (s *Server) handleETSImport(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.logger.Info("ETS import request received",
+		"import_id", req.ImportID,
+		"devices", len(req.Devices),
+		"locations", len(req.Locations),
+		"skip_existing", req.Options.SkipExisting,
+		"update_existing", req.Options.UpdateExisting,
+		"dry_run", req.Options.DryRun,
+	)
+
 	response := s.processETSImport(r.Context(), &req)
 
 	s.logger.Info("ETS import completed",
