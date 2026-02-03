@@ -150,7 +150,8 @@ so you don't need to recompile the Go binary after Flutter changes.
 ```bash
 cd code/ui/wallpanel
 flutter build web --release --base-href="/panel/"
-cp -r build/web ../../core/internal/panel/web
+rm -rf ../../core/internal/panel/web && cp -r build/web ../../core/internal/panel/web
+# Or simply: cd code/core && make build-panel
 ```
 
 ### How it works

@@ -141,7 +141,8 @@ cd code/core && make dev-run         # builds + runs Go core natively (~2-3s)
 Flutter panel (no Go recompile needed):
 ```bash
 cd code/ui/wallpanel && flutter build web --base-href="/panel/"
-cp -r build/web ../../core/internal/panel/web
+rm -rf ../../core/internal/panel/web && cp -r build/web ../../core/internal/panel/web
+# Or simply: cd code/core && make build-panel-dev
 # Panel refreshes in browser — Go core serves from filesystem via GRAYLOGIC_PANEL_DIR
 ```
 
