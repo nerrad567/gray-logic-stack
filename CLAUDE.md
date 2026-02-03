@@ -214,6 +214,8 @@ cd code/core && make docker-down        # Stop full stack
 
 These are available in `.claude/commands/`:
 
+### Workflow Commands
+
 | Command | Purpose |
 |---------|---------|
 | `/pre-commit` | Run lint + tests + principles check before committing |
@@ -222,6 +224,27 @@ These are available in `.claude/commands/`:
 | `/health-check` | Verify dev environment (Go, Docker, services) |
 | `/new-bridge` | Scaffold a new protocol bridge |
 | `/nuke-rebuild` | Scorched-earth teardown, rebuild, and fresh stack launch |
+
+### Specialist Review Agents
+
+Focused code reviewers for targeted analysis. Each reviews against our documented standards.
+
+| Command | Agent | Purpose |
+|---------|-------|---------|
+| `/standards` | Standards Validator | KNX 3.00 compliance + internal principles + MQTT topics |
+| `/security` | Security Auditor | Auth, injection, secrets, MQTT security, protocol attack surfaces |
+| `/optimise` | Performance Analyst | Efficiency, memory, concurrency, real-time latency |
+| `/stability` | Stability Reviewer | Error handling, recovery, race conditions, fault tolerance |
+| `/review-all` | Orchestrator | Runs all 4 specialists sequentially with consolidated report |
+
+**Usage:** `/standards internal/bridges/knx/` or `/review-all internal/api/`
+
+**When to use which:**
+- `/standards`, `/security`, `/optimise`, `/stability` — Quick focused review of a specific concern during development
+- `/review-all` — Comprehensive review of a file or package across all 4 dimensions
+- `/code-audit` — Full milestone-grade audit that also runs tools (tests, lint, vulncheck)
+
+**Orchestration:** When any single specialist completes, it will offer to run the remaining specialists. Track which have run to avoid duplicates within a session.
 
 ## Current Focus
 
