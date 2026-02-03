@@ -4,6 +4,58 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.17 – Flutter Dependency Upgrade & Riverpod v3 Migration (2026-02-03)
+
+**Focus: Upgrade all outdated Flutter deps, migrate Riverpod v2→v3, fix all pre-existing test failures**
+
+### Changed
+
+- **flutter_riverpod**: ^2.6.1 → ^3.2.0 — Full StateNotifier→Notifier migration across 6 provider classes
+- **dio**: ^5.7.0 → ^5.9.1
+- **file_picker**: ^5.5.0 → ^10.3.10 — Eliminated ~24s analysis overhead from old transitive dependencies
+- **Riverpod migration pattern** (applied to all 6 notifiers):
+  - `StateNotifier<T>` → `Notifier<T>` with `build()` override returning initial state
+  - Removed explicit `Ref` field — using built-in `ref` on `Notifier`
+  - `dispose()` → `ref.onDispose()` in `build()`
+  - `mounted` → `ref.mounted`
+  - `AsyncValue.valueOrNull` → `.value` (returns `T?` in Riverpod v3)
+  - `StateProvider` imports from `package:flutter_riverpod/legacy.dart`
+
+### Fixed
+
+- **ETS import `dart:html` removal**: Removed obsolete web-specific file picker using `dart:html` `FileUploadInputElement`/`FileReader`. `file_picker` v10 handles web natively — unified `_pickFile()` works on all platforms. Eliminates `dart:html` compile failure on Dart VM test runner.
+- **WebSocket test invalid port**: Changed port 99999 (exceeds TCP max 65535) → port 19. Added try/catch for rethrown exception. Strengthened assertion to verify full `connecting→disconnected` lifecycle.
+- **Device provider tests**: Fixed 2 tests that incorrectly expected optimistic state updates — code uses pending-confirmation pattern. Tests now verify device marked as pending while awaiting WebSocket confirmation.
+- **Test results**: 51/55 → **55/55 passing** (4 pre-existing failures fixed)
+- **Analysis**: 32s → **~3s** (file_picker v10 eliminates heavy transitive dependency crawl)
+
+### Added
+
+- **`build-panel-dev` Makefile target**: Quick Flutter web build with `--no-tree-shake-icons` for faster dev iteration
+- **`/nuke-rebuild` Claude command**: Scorched-earth stack teardown and rebuild (5 phases: Kill → Purge → Rebuild → Launch → Verify)
+- **`.gitignore` for panel build output**: `internal/panel/web/` excluded from git tracking
+
+### Files Modified
+
+- `code/ui/wallpanel/pubspec.yaml` — 3 dependency version bumps
+- `code/ui/wallpanel/lib/providers/device_provider.dart` — 2 StateNotifiers → Notifiers + dispose→onDispose
+- `code/ui/wallpanel/lib/providers/auth_provider.dart` — StateNotifier → Notifier
+- `code/ui/wallpanel/lib/providers/location_provider.dart` — StateNotifier → Notifier + legacy import
+- `code/ui/wallpanel/lib/providers/ets_import_provider.dart` — StateNotifier → Notifier
+- `code/ui/wallpanel/lib/providers/scene_provider.dart` — StateNotifier → Notifier + mounted fix
+- `code/ui/wallpanel/lib/screens/ets_import_screen.dart` — Removed dart:html, unified file picker, valueOrNull→value
+- `code/ui/wallpanel/lib/screens/room_view.dart` — valueOrNull→value
+- `code/ui/wallpanel/lib/screens/admin/devices_tab.dart` — valueOrNull→value
+- `code/ui/wallpanel/lib/screens/app_shell.dart` — valueOrNull→value
+- `code/ui/wallpanel/test/providers/device_provider_test.dart` — Fixed optimistic update expectations
+- `code/ui/wallpanel/test/services/websocket_service_test.dart` — Fixed port + exception handling
+- `code/ui/wallpanel/test/widgets/scene_button_test.dart` — Removed unused import
+- `code/core/Makefile` — Added build-panel-dev target
+- `code/core/.gitignore` — Added panel web output
+- `.claude/commands/nuke-rebuild.md` — New command (created in prior session, updated build flag)
+
+---
+
 ## 1.0.16 – Registry-Only Devices & ETS Auto Location (2026-02-03)
 
 **Focus: Single source of truth for devices; zero-intervention ETS import**

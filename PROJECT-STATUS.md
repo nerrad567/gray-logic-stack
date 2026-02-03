@@ -7,7 +7,7 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 25 - Registry-Only Devices & ETS Auto Location)
+**Last session:** 2026-02-03 (Session 26 - Flutter Dependency Upgrade & Riverpod v3 Migration)
 **Current milestone:** Year 1 Foundation Complete + Dev Environment Operational
 
 **What's done:**
@@ -29,6 +29,7 @@
 - Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
 - MQTT Topic Scheme Unification ✅ (flat scheme, fixed scene routing bug, 23 files updated)
 - Dev Environment Fixes ✅ (knxd→knxsim, localhost API bind, bridge device mappings, end-to-end state flow)
+- Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
 - Fix knxsim thermal simulation tunnel sends (proactive UDP telegrams not reaching knxd reliably)
@@ -731,6 +732,39 @@ Switched to native Go development with containerised support services. Go core n
 
 **Files Modified**: 15+ across Go, Docker, docs
 **See**: CHANGELOG.md v1.0.13 for full details
+
+---
+
+### Session 26: 2026-02-03 — Flutter Dependency Upgrade & Riverpod v3 Migration
+
+**Goal:** Upgrade all outdated Flutter dependencies and migrate Riverpod v2→v3; fix all pre-existing test failures
+
+**Part 1 — Stack Recovery & Nuke-Rebuild Command** (`ce2dead`):
+- Recovered from crashed session — brought down stale services, purged databases
+- Diagnosed GLCore "crash" as shell timeout issue (must use `nohup` + `&`)
+- Created `/nuke-rebuild` Claude command — 5-phase scorched-earth stack reset
+- Rebuilt and verified full stack from scratch (all services healthy, API responding)
+
+**Part 2 — Flutter Dependency Upgrade** (`4f41654`):
+- Upgraded: `flutter_riverpod` ^2.6.1→^3.2.0, `dio` ^5.7.0→^5.9.1, `file_picker` ^5.5.0→^10.3.10
+- Migrated 6 StateNotifier classes to Riverpod v3 Notifier pattern:
+  - `PendingDevicesNotifier`, `RoomDevicesNotifier` (most complex — WebSocket lifecycle in `build()`)
+  - `AuthNotifier`, `LocationDataNotifier`, `ETSImportNotifier`, `RoomScenesNotifier`
+- Fixed 10 `AsyncValue.valueOrNull` → `.value` occurrences across 5 screen files
+- Fixed 2 device_provider tests (expected wrong optimistic update behaviour)
+- Added `build-panel-dev` Makefile target (`--no-tree-shake-icons` for faster builds)
+- Added `internal/panel/web/` to `.gitignore` (caught generated build output before it stayed in repo)
+- Analysis time: 32s → ~3s (file_picker v10 eliminates heavy transitive dependency crawl)
+
+**Part 3 — Pre-existing Test Failures** (`4c057a0`):
+- Removed `dart:html` import and 80-line `_pickFileWeb()` from `ets_import_screen.dart` — `file_picker` v10 handles web natively, making the `dart:html` workaround redundant
+- Fixed websocket test: port 99999 (exceeds TCP max) → port 19, added exception handling, strengthened lifecycle assertion
+- Test results: 51/55 → **55/55 passing**
+
+**Result:** All Flutter dependencies current, Riverpod v3 fully migrated, zero analyzer errors, 55/55 tests passing, production web build verified.
+
+**Files Modified**: 16 Dart/config files + Makefile + .gitignore
+**Commits**: 3
 
 ---
 
