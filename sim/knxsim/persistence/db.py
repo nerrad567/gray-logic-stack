@@ -196,7 +196,9 @@ def _guess_dpt_for_ga(device_type: str, ga_name: str) -> str:
         return "9.004"
 
     # HVAC mode
-    if "mode" in ga_lower and ("hvac" in device_type.lower() or "thermostat" in device_type.lower()):
+    if "mode" in ga_lower and (
+        "hvac" in device_type.lower() or "thermostat" in device_type.lower()
+    ):
         return "20.102"
 
     # Default to switch for unknown
@@ -212,7 +214,10 @@ def _guess_flags_for_ga(ga_name: str) -> str:
         return "CRT"
 
     # Command objects are typically write + update
-    if any(cmd in ga_lower for cmd in ["switch", "brightness", "position", "move", "stop", "setpoint", "mode"]):
+    if any(
+        cmd in ga_lower
+        for cmd in ["switch", "brightness", "position", "move", "stop", "setpoint", "mode"]
+    ):
         return "CWU"
 
     # Sensor outputs are read + transmit
@@ -280,38 +285,38 @@ MULTI_CHANNEL_TEMPLATES = {
         ],
         "state_fields": {"on": False},
     },
-    # Heating actuators (valve control for UFH manifolds)
+    # Heating actuators (proportional valve control for UFH manifolds)
     "heating_actuator_2fold": {
         "channel_count": 2,
         "group_objects": [
-            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
-            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+            {"name": "valve", "dpt": "5.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "5.001", "flags": "CRT"},
         ],
-        "state_fields": {"on": False},
+        "state_fields": {"position": 0},
     },
     "heating_actuator_4fold": {
         "channel_count": 4,
         "group_objects": [
-            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
-            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+            {"name": "valve", "dpt": "5.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "5.001", "flags": "CRT"},
         ],
-        "state_fields": {"on": False},
+        "state_fields": {"position": 0},
     },
     "heating_actuator_6fold": {
         "channel_count": 6,
         "group_objects": [
-            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
-            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+            {"name": "valve", "dpt": "5.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "5.001", "flags": "CRT"},
         ],
-        "state_fields": {"on": False},
+        "state_fields": {"position": 0},
     },
     "heating_actuator_8fold": {
         "channel_count": 8,
         "group_objects": [
-            {"name": "valve", "dpt": "1.001", "flags": "CWU"},
-            {"name": "valve_status", "dpt": "1.001", "flags": "CRT"},
+            {"name": "valve", "dpt": "5.001", "flags": "CWU"},
+            {"name": "valve_status", "dpt": "5.001", "flags": "CRT"},
         ],
-        "state_fields": {"on": False},
+        "state_fields": {"position": 0},
     },
     "dimmer_actuator_2fold": {
         "channel_count": 2,
@@ -395,20 +400,20 @@ CHANNEL_LABELS = ["A", "B", "C", "D", "E", "F", "G", "H"]
 
 def _generate_channels_from_template(device_type: str, group_addresses: dict = None) -> list[dict]:
     """Generate channel structure from multi-channel template.
-    
+
     If group_addresses is provided (from config.yaml), distributes them across channels.
     Otherwise creates channels with empty GA assignments.
     """
     template = MULTI_CHANNEL_TEMPLATES.get(device_type)
     if not template:
         return None  # Not a multi-channel type
-    
+
     channel_count = template["channel_count"]
     channels = []
-    
+
     for i in range(channel_count):
         label = CHANNEL_LABELS[i] if i < len(CHANNEL_LABELS) else str(i + 1)
-        
+
         # Build group_objects for this channel
         group_objects = {}
         for go in template["group_objects"]:
@@ -421,14 +426,14 @@ def _generate_channels_from_template(device_type: str, group_addresses: dict = N
                     f"channel_{label.lower()}_{go['name']}",
                     f"{label.lower()}_{go['name']}",
                     f"{go['name']}_{label.lower()}",
-                    f"{go['name']}_{i+1}",
-                    f"button_{i+1}" if go['name'] == 'switch' else None,
-                    f"led_{i+1}" if go['name'] == 'switch_status' else None,
+                    f"{go['name']}_{i + 1}",
+                    f"button_{i + 1}" if go["name"] == "switch" else None,
+                    f"led_{i + 1}" if go["name"] == "switch_status" else None,
                 ]:
                     if key_pattern and key_pattern in group_addresses:
                         ga = group_addresses[key_pattern]
                         break
-            
+
             # Handle extended GA format: {"ga": "1/2/3", "dpt": "5.001"}
             if isinstance(ga, dict):
                 ga_str = ga.get("ga")
@@ -436,22 +441,24 @@ def _generate_channels_from_template(device_type: str, group_addresses: dict = N
             else:
                 ga_str = ga
                 dpt = go["dpt"]
-            
+
             group_objects[go["name"]] = {
                 "ga": ga_str,
                 "dpt": dpt,
                 "flags": go["flags"],
             }
-        
-        channels.append({
-            "id": label,
-            "name": f"Channel {label}",
-            "group_objects": group_objects,
-            "state": dict(template.get("state_fields", {})),
-            "initial_state": dict(template.get("state_fields", {})),
-            "parameters": {},
-        })
-    
+
+        channels.append(
+            {
+                "id": label,
+                "name": f"Channel {label}",
+                "group_objects": group_objects,
+                "state": dict(template.get("state_fields", {})),
+                "initial_state": dict(template.get("state_fields", {})),
+                "parameters": {},
+            }
+        )
+
     return channels
 
 
@@ -637,7 +644,9 @@ class Database:
                 )
 
             self.conn.commit()
-            logger.info("Migration: linked %d devices to topology in premise %s", len(devices), premise_id)
+            logger.info(
+                "Migration: linked %d devices to topology in premise %s", len(devices), premise_id
+            )
 
     def _migrate_devices_to_channels(self):
         """Migrate existing devices to channel-based structure.
@@ -717,9 +726,7 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_premise(self, premise_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM premises WHERE id = ?", (premise_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM premises WHERE id = ?", (premise_id,)).fetchone()
         return dict(row) if row else None
 
     def create_premise(self, data: dict) -> dict:
@@ -768,9 +775,7 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_area(self, area_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM areas WHERE id = ?", (area_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM areas WHERE id = ?", (area_id,)).fetchone()
         return dict(row) if row else None
 
     def get_area_by_number(self, premise_id: str, area_number: int) -> dict | None:
@@ -826,10 +831,13 @@ class Database:
         area = self.get_area_by_number(premise_id, area_number)
         if area:
             return area
-        return self.create_area(premise_id, {
-            "area_number": area_number,
-            "name": name or f"Area {area_number}",
-        })
+        return self.create_area(
+            premise_id,
+            {
+                "area_number": area_number,
+                "name": name or f"Area {area_number}",
+            },
+        )
 
     # ------------------------------------------------------------------
     # Lines (Topology)
@@ -855,9 +863,7 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_line(self, line_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM lines WHERE id = ?", (line_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM lines WHERE id = ?", (line_id,)).fetchone()
         return dict(row) if row else None
 
     def get_line_by_number(self, area_id: str, line_number: int) -> dict | None:
@@ -916,10 +922,13 @@ class Database:
         # Get area info for naming
         area = self.get_area(area_id)
         area_num = area["area_number"] if area else 0
-        return self.create_line(area_id, {
-            "line_number": line_number,
-            "name": name or f"Line {area_num}.{line_number}",
-        })
+        return self.create_line(
+            area_id,
+            {
+                "line_number": line_number,
+                "name": name or f"Line {area_num}.{line_number}",
+            },
+        )
 
     # ------------------------------------------------------------------
     # Topology helpers
@@ -939,7 +948,9 @@ class Database:
                 line["devices"] = [_parse_device_row(d) for d in devices]
         return {"areas": areas}
 
-    def ensure_topology_for_ia(self, premise_id: str, individual_address: str) -> tuple[str, int] | None:
+    def ensure_topology_for_ia(
+        self, premise_id: str, individual_address: str
+    ) -> tuple[str, int] | None:
         """Ensure Area/Line exist for an individual address, return (line_id, device_number).
 
         Creates Area and Line if they don't exist. Returns None if IA is invalid.
@@ -1033,15 +1044,20 @@ class Database:
         self.conn.commit()
         return cur.rowcount > 0
 
-    def get_or_create_main_group(self, premise_id: str, group_number: int, name: str = None) -> dict:
+    def get_or_create_main_group(
+        self, premise_id: str, group_number: int, name: str = None
+    ) -> dict:
         """Get main group by number, creating it if it doesn't exist."""
         group = self.get_main_group_by_number(premise_id, group_number)
         if group:
             return group
-        return self.create_main_group(premise_id, {
-            "group_number": group_number,
-            "name": name or f"Main Group {group_number}",
-        })
+        return self.create_main_group(
+            premise_id,
+            {
+                "group_number": group_number,
+                "name": name or f"Main Group {group_number}",
+            },
+        )
 
     # ------------------------------------------------------------------
     # Middle Groups (Group Address hierarchy)
@@ -1129,16 +1145,21 @@ class Database:
         self.conn.commit()
         return cur.rowcount > 0
 
-    def get_or_create_middle_group(self, main_group_id: str, group_number: int, name: str = None, floor_id: str = None) -> dict:
+    def get_or_create_middle_group(
+        self, main_group_id: str, group_number: int, name: str = None, floor_id: str = None
+    ) -> dict:
         """Get middle group by number, creating it if it doesn't exist."""
         group = self.get_middle_group_by_number(main_group_id, group_number)
         if group:
             return group
-        return self.create_middle_group(main_group_id, {
-            "group_number": group_number,
-            "name": name or f"Middle Group {group_number}",
-            "floor_id": floor_id,
-        })
+        return self.create_middle_group(
+            main_group_id,
+            {
+                "group_number": group_number,
+                "name": name or f"Middle Group {group_number}",
+                "floor_id": floor_id,
+            },
+        )
 
     # ------------------------------------------------------------------
     # Group Address helpers
@@ -1198,9 +1219,7 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_floor(self, floor_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM floors WHERE id = ?", (floor_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM floors WHERE id = ?", (floor_id,)).fetchone()
         return dict(row) if row else None
 
     def create_floor(self, premise_id: str, data: dict) -> dict:
@@ -1253,9 +1272,7 @@ class Database:
         return [dict(r) for r in rows]
 
     def get_room(self, room_id: str) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM rooms WHERE id = ?", (room_id,)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM rooms WHERE id = ?", (room_id,)).fetchone()
         return dict(row) if row else None
 
     def create_room(self, floor_id: str, data: dict) -> dict:
@@ -1315,9 +1332,7 @@ class Database:
 
     def get_device(self, device_id: str) -> dict | None:
         with self._lock:
-            row = self.conn.execute(
-                "SELECT * FROM devices WHERE id = ?", (device_id,)
-            ).fetchone()
+            row = self.conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
             return _parse_device_row(row) if row else None
 
     def create_device(self, premise_id: str, data: dict) -> dict:
@@ -1344,7 +1359,7 @@ class Database:
 
             # Check if this is a multi-channel device type
             multi_channels = _generate_channels_from_template(device_type, group_addresses)
-            
+
             if multi_channels:
                 # Use auto-generated multi-channel structure
                 channels = multi_channels
@@ -1362,14 +1377,16 @@ class Database:
                     elif isinstance(ga_value, dict):
                         group_objects[ga_name] = ga_value
 
-                channels = [{
-                    "id": "A",
-                    "name": _default_channel_name(device_type),
-                    "group_objects": group_objects,
-                    "state": state,
-                    "initial_state": initial_state,
-                    "parameters": {},
-                }]
+                channels = [
+                    {
+                        "id": "A",
+                        "name": _default_channel_name(device_type),
+                        "group_objects": group_objects,
+                        "state": state,
+                        "initial_state": initial_state,
+                        "parameters": {},
+                    }
+                ]
 
         self.conn.execute(
             """INSERT INTO devices (id, premise_id, line_id, device_number, room_id, type, individual_address,
@@ -1410,7 +1427,9 @@ class Database:
         if "individual_address" in data and "line_id" not in data:
             device = self.get_device(device_id)
             if device:
-                topology = self.ensure_topology_for_ia(device["premise_id"], data["individual_address"])
+                topology = self.ensure_topology_for_ia(
+                    device["premise_id"], data["individual_address"]
+                )
                 if topology:
                     sets.append("line_id = ?")
                     vals.append(topology[0])
@@ -1432,14 +1451,14 @@ class Database:
 
     def update_device_state(self, device_id: str, state: dict):
         """Update device state and sync to channels.
-        
+
         For single-channel devices, updates channels[0].state.
         For multi-channel devices, updates all channels with matching state keys.
         Called frequently by scenarios/telegrams.
         """
         with self._lock:
             now = _now()
-            
+
             # Get current device to access channels
             device = self.get_device(device_id)
             if device and device.get("channels"):
@@ -1456,7 +1475,7 @@ class Database:
                             if key in channel_state:
                                 channel_state[key] = value
                         channel["state"] = channel_state
-                
+
                 # Update both state and channels
                 self.conn.execute(
                     "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
@@ -1472,7 +1491,7 @@ class Database:
 
     def find_device_channel_by_ga(self, premise_id: str, ga: str) -> tuple[dict, dict, str] | None:
         """Find device and channel that owns a group address.
-        
+
         Returns (device, channel, group_object_name) or None if not found.
         Searches through all devices' channels' group_objects.
         """
@@ -1488,20 +1507,22 @@ class Database:
 
     def update_channel_state(self, device_id: str, channel_id: str, state_updates: dict):
         """Update a specific channel's state within a device.
-        
+
         Args:
             device_id: Device ID
             channel_id: Channel ID (e.g., "A", "B")
             state_updates: Dict of state keys to update
         """
-        logger.debug("update_channel_state: device=%s ch=%s updates=%s", device_id, channel_id, state_updates)
+        logger.debug(
+            "update_channel_state: device=%s ch=%s updates=%s", device_id, channel_id, state_updates
+        )
         device = self.get_device(device_id)
         if not device or not device.get("channels"):
             return
-        
+
         channels = device["channels"]
         updated = False
-        
+
         for channel in channels:
             if channel.get("id") == channel_id:
                 channel_state = channel.get("state", {})
@@ -1510,12 +1531,12 @@ class Database:
                 updated = True
                 logger.debug("update_channel_state: ch %s now %s", channel_id, channel_state)
                 break
-        
+
         if updated:
             # Also update top-level state for compatibility
             device_state = device.get("state", {})
             device_state.update(state_updates)
-            
+
             self.conn.execute(
                 "UPDATE devices SET state = ?, channels = ?, updated_at = ? WHERE id = ?",
                 (json.dumps(device_state), json.dumps(channels), _now(), device_id),
@@ -1524,10 +1545,10 @@ class Database:
 
     def update_channel_state_by_ga(self, device_id: str, ga: int, state_updates: dict):
         """Update a channel's state based on which GA was written to.
-        
+
         Finds the channel whose group_objects contain the given GA,
         then updates that channel's state.
-        
+
         Args:
             device_id: Device ID
             ga: Group address (as integer) that was written to
@@ -1538,34 +1559,41 @@ class Database:
             if not device or not device.get("channels"):
                 logger.debug("update_channel_state_by_ga: no device/channels for %s", device_id)
                 return
-            
+
             channels = device["channels"]
             ga_str = self._format_ga(ga)
-            
-            logger.info("update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
-                         device_id, ga, ga_str, state_updates)
-            
+
+            logger.info(
+                "update_channel_state_by_ga: device=%s, ga=%s (%s), state=%s",
+                device_id,
+                ga,
+                ga_str,
+                state_updates,
+            )
+
             # Find which channel has this GA
             target_channel = None
             for channel in channels:
                 for go_name, go_data in channel.get("group_objects", {}).items():
                     if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
                         target_channel = channel
-                        logger.debug("Found target channel: %s (via %s)", channel.get("id"), go_name)
+                        logger.debug(
+                            "Found target channel: %s (via %s)", channel.get("id"), go_name
+                        )
                         break
                 if target_channel:
                     break
-            
+
             if not target_channel:
                 logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
                 return
-            
+
             # Normalize state field names for consistency
             # Runtime devices may use button_1/button_2, but channels use 'pressed'
             # Also handle case where runtime state has both button_X AND pressed (stale)
             normalized_updates = {}
             has_button_key = any(k.startswith("button_") for k in state_updates)
-            
+
             for key, value in state_updates.items():
                 if key.startswith("button_"):
                     # Map button_X to 'pressed' for channel state
@@ -1575,22 +1603,24 @@ class Database:
                     pass
                 else:
                     normalized_updates[key] = value
-            
+
             # Update the channel's state (don't carry over stale button_X keys)
             channel_state = target_channel.get("state", {})
             # Remove any button_X keys that may have leaked in previously
             channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
             channel_state.update(normalized_updates)
             target_channel["state"] = channel_state
-            
-            logger.info("update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state)
-            
+
+            logger.info(
+                "update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state
+            )
+
             self.conn.execute(
                 "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
                 (json.dumps(channels), _now(), device_id),
             )
             self.conn.commit()
-    
+
     def _format_ga(self, ga: int) -> str:
         """Convert GA integer to 3-level string format."""
         main = (ga >> 11) & 0x1F
@@ -1632,9 +1662,7 @@ class Database:
             ),
         )
         self.conn.commit()
-        row = self.conn.execute(
-            "SELECT * FROM scenarios WHERE id = ?", (data["id"],)
-        ).fetchone()
+        row = self.conn.execute("SELECT * FROM scenarios WHERE id = ?", (data["id"],)).fetchone()
         return _parse_scenario_row(row)
 
     def delete_scenario(self, scenario_id: str) -> bool:
@@ -1649,7 +1677,7 @@ class Database:
     def list_loads(self, premise_id: str) -> list[dict]:
         """List all loads in a premise with their linked actuator info."""
         rows = self.conn.execute(
-            """SELECT l.*, 
+            """SELECT l.*,
                       d.type as actuator_type,
                       d.individual_address as actuator_address
                FROM loads l
@@ -1663,7 +1691,7 @@ class Database:
     def list_loads_by_room(self, room_id: str) -> list[dict]:
         """List all loads in a specific room."""
         rows = self.conn.execute(
-            """SELECT l.*, 
+            """SELECT l.*,
                       d.type as actuator_type,
                       d.individual_address as actuator_address
                FROM loads l
@@ -1677,7 +1705,7 @@ class Database:
     def get_load(self, load_id: str) -> dict | None:
         """Get a single load by ID with actuator info."""
         row = self.conn.execute(
-            """SELECT l.*, 
+            """SELECT l.*,
                       d.type as actuator_type,
                       d.individual_address as actuator_address
                FROM loads l
@@ -1689,28 +1717,28 @@ class Database:
 
     def get_load_state(self, load_id: str) -> dict | None:
         """Get a load's current state by reading its linked actuator channel.
-        
+
         Returns the channel's state dict, or None if load or link not found.
         """
         load = self.get_load(load_id)
         if not load or not load.get("actuator_device_id") or not load.get("actuator_channel_id"):
             return None
-        
+
         device = self.get_device(load["actuator_device_id"])
         if not device or not device.get("channels"):
             return None
-        
+
         for channel in device["channels"]:
             if channel.get("id") == load["actuator_channel_id"]:
                 return channel.get("state", {})
-        
+
         return None
 
     def create_load(self, premise_id: str, data: dict) -> dict:
         """Create a new load (physical equipment)."""
         now = _now()
         load_id = data.get("id") or f"load-{data['name'].lower().replace(' ', '-')}"
-        
+
         self.conn.execute(
             """INSERT INTO loads (id, premise_id, room_id, name, type, icon,
                                   actuator_device_id, actuator_channel_id, created_at, updated_at)
@@ -1736,19 +1764,19 @@ class Database:
         sets = []
         vals = []
         now = _now()
-        
+
         for key in ("room_id", "name", "type", "icon", "actuator_device_id", "actuator_channel_id"):
             if key in data:
                 sets.append(f"{key} = ?")
                 vals.append(data[key])
-        
+
         if not sets:
             return self.get_load(load_id)
-        
+
         sets.append("updated_at = ?")
         vals.append(now)
         vals.append(load_id)
-        
+
         self.conn.execute(f"UPDATE loads SET {', '.join(sets)} WHERE id = ?", vals)
         self.conn.commit()
         return self.get_load(load_id)
@@ -1764,7 +1792,7 @@ class Database:
         rows = self.conn.execute(
             """SELECT l.* FROM loads l
                WHERE l.premise_id = ?
-               AND (l.actuator_device_id IS NULL 
+               AND (l.actuator_device_id IS NULL
                     OR l.actuator_device_id NOT IN (SELECT id FROM devices))
                ORDER BY l.name""",
             (premise_id,),
