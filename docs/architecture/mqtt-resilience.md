@@ -103,9 +103,9 @@ max_queued_bytes 0          # 0 = use max_queued_messages only
 
 | Topic Pattern | Required QoS | Enforcement |
 |---------------|--------------|-------------|
-| `graylogic/bridge/*/command/*` | QoS 1 | Core publishes QoS 1; bridges must subscribe QoS 1 |
-| `graylogic/bridge/*/state/*` | QoS 1 | Bridges must publish QoS 1 |
-| `graylogic/bridge/*/health` | QoS 1 | Retained, QoS 1 |
+| `graylogic/command/+/+` | QoS 1 | Core publishes QoS 1; bridges must subscribe QoS 1 |
+| `graylogic/state/+/+` | QoS 1 | Bridges must publish QoS 1 |
+| `graylogic/health/+` | QoS 1 | Retained, QoS 1 |
 | `graylogic/core/device/*/state` | QoS 1 | Retained, QoS 1 |
 | `graylogic/system/time` | QoS 0 | Loss acceptable |
 | `graylogic/system/status` | QoS 1 | Retained |
@@ -182,7 +182,7 @@ func (b *Bridge) reconnectLoop() {
 
 func (b *Bridge) onConnected() {
     // 1. Re-subscribe to command topics
-    b.mqtt.Subscribe("graylogic/bridge/"+b.id+"/command/+", b.handleCommand)
+    b.mqtt.Subscribe("graylogic/command/"+b.protocol+"/+", b.handleCommand)
 
     // 2. Publish online status (overwrites LWT offline status)
     b.publishHealth(StatusOnline)

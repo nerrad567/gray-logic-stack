@@ -2,7 +2,7 @@
 title: MQTT Protocol Specification
 version: 1.0.0
 status: active
-last_updated: 2026-01-12
+last_updated: 2026-02-03
 depends_on:
   - architecture/system-overview.md
   - architecture/bridge-interface.md
@@ -132,9 +132,9 @@ keepalive_interval 60
 
 ```
 graylogic-core:<hashed_password>
-knx-bridge-01:<hashed_password>
-dali-bridge-01:<hashed_password>
-modbus-bridge-01:<hashed_password>
+knx:<hashed_password>
+dali:<hashed_password>
+modbus:<hashed_password>
 ```
 
 ### Access Control
@@ -146,17 +146,38 @@ modbus-bridge-01:<hashed_password>
 user graylogic-core
 topic readwrite graylogic/#
 
-# Bridges - access to their own topics
-user knx-bridge-01
-topic readwrite graylogic/bridge/knx-bridge-01/#
+# Bridges - access to their protocol topics
+user knx
+topic readwrite graylogic/state/knx/#
+topic readwrite graylogic/command/knx/#
+topic readwrite graylogic/response/knx/#
+topic readwrite graylogic/ack/knx/#
+topic readwrite graylogic/health/knx
+topic readwrite graylogic/discovery/knx
+topic readwrite graylogic/config/knx
+topic readwrite graylogic/request/knx/#
 topic read graylogic/system/#
 
-user dali-bridge-01
-topic readwrite graylogic/bridge/dali-bridge-01/#
+user dali
+topic readwrite graylogic/state/dali/#
+topic readwrite graylogic/command/dali/#
+topic readwrite graylogic/response/dali/#
+topic readwrite graylogic/ack/dali/#
+topic readwrite graylogic/health/dali
+topic readwrite graylogic/discovery/dali
+topic readwrite graylogic/config/dali
+topic readwrite graylogic/request/dali/#
 topic read graylogic/system/#
 
-user modbus-bridge-01
-topic readwrite graylogic/bridge/modbus-bridge-01/#
+user modbus
+topic readwrite graylogic/state/modbus/#
+topic readwrite graylogic/command/modbus/#
+topic readwrite graylogic/response/modbus/#
+topic readwrite graylogic/ack/modbus/#
+topic readwrite graylogic/health/modbus
+topic readwrite graylogic/discovery/modbus
+topic readwrite graylogic/config/modbus
+topic readwrite graylogic/request/modbus/#
 topic read graylogic/system/#
 ```
 
@@ -168,13 +189,14 @@ topic read graylogic/system/#
 
 ```
 graylogic/
-├── bridge/
-│   └── {bridge_id}/
-│       ├── state/{device_id}       # Device state updates
-│       ├── command/{device_id}     # Commands to devices
-│       ├── response/{request_id}   # Command responses
-│       ├── health                  # Bridge health status
-│       └── discovery               # Device discovery
+├── state/{protocol}/{address}       # Device state updates (Bridge → Core)
+├── command/{protocol}/{address}     # Commands to devices (Core → Bridge)
+├── response/{protocol}/{request_id} # Command responses (Bridge → Core)
+├── ack/{protocol}/{address}         # Command acknowledgements (Bridge → Core)
+├── health/{protocol}                # Bridge health status
+├── discovery/{protocol}             # Device discovery (Bridge → Core)
+├── config/{protocol}                # Bridge configuration (Core → Bridge)
+├── request/{protocol}/{request_id}  # Ad-hoc requests (Core → Bridge)
 ├── core/
 │   ├── device/{device_id}/state    # Canonical device state
 │   ├── event/{event_type}          # System events
@@ -197,11 +219,50 @@ graylogic/
 
 | Rule | Example |
 |------|---------|
-| Lowercase only | `graylogic/bridge/knx-bridge-01` |
-| Hyphens for word separation | `knx-bridge-01`, `living-room` |
+| Lowercase only | `graylogic/state/knx/light-living-main` |
+| Hyphens for word separation | `light-living-main`, `living-room` |
 | No spaces | Never use spaces |
-| Meaningful hierarchy | `bridge/{id}/state/{device}` |
-| Device IDs are slugs | `light-living-main` |
+| Meaningful hierarchy | `{category}/{protocol}/{address}` |
+| Protocol names are bare | `knx`, `dali`, `modbus` |
+| Device addresses are slugs | `light-living-main` |
+
+### Topic Helper Functions
+
+Go helper functions for constructing topic strings:
+
+```go
+// BridgeState returns the state topic for a device on a protocol.
+// Example: BridgeState("knx", "light-living-main") → "graylogic/state/knx/light-living-main"
+func BridgeState(protocol, address string) string
+
+// BridgeCommand returns the command topic for a device on a protocol.
+// Example: BridgeCommand("knx", "light-living-main") → "graylogic/command/knx/light-living-main"
+func BridgeCommand(protocol, address string) string
+
+// BridgeResponse returns the response topic for a request on a protocol.
+// Example: BridgeResponse("knx", "req-abc123") → "graylogic/response/knx/req-abc123"
+func BridgeResponse(protocol, requestID string) string
+
+// BridgeAck returns the acknowledgement topic for a device on a protocol.
+// Example: BridgeAck("knx", "light-living-main") → "graylogic/ack/knx/light-living-main"
+func BridgeAck(protocol, address string) string
+
+// BridgeHealth returns the health topic for a protocol bridge.
+// Example: BridgeHealth("knx") → "graylogic/health/knx"
+func BridgeHealth(protocol string) string
+
+// BridgeDiscovery returns the discovery topic for a protocol bridge.
+// Example: BridgeDiscovery("knx") → "graylogic/discovery/knx"
+func BridgeDiscovery(protocol string) string
+
+// BridgeConfig returns the configuration topic for a protocol bridge.
+// Example: BridgeConfig("knx") → "graylogic/config/knx"
+func BridgeConfig(protocol string) string
+
+// BridgeRequest returns the request topic for an ad-hoc request on a protocol.
+// Example: BridgeRequest("knx", "req-xyz789") → "graylogic/request/knx/req-xyz789"
+func BridgeRequest(protocol, requestID string) string
+```
 
 ---
 
@@ -214,19 +275,19 @@ All messages are JSON-encoded. Timestamps use ISO 8601 format with timezone.
 When a bridge receives a state change from a physical device:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/state/light-living-main
+topic: graylogic/state/knx/light-living-main
 qos: 1
 retain: false
 payload:
   device_id: "light-living-main"
   timestamp: "2026-01-12T14:30:00.123Z"
   source: "knx"
-  
+
   state:
     on: true
     brightness: 75
     # Domain-specific state properties
-    
+
   raw:
     # Protocol-specific raw data (optional, for debugging)
     - ga: "6/0/1"
@@ -239,7 +300,7 @@ payload:
 When Core needs to control a device:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/command/light-living-main
+topic: graylogic/command/knx/light-living-main
 qos: 1
 retain: false
 payload:
@@ -263,7 +324,7 @@ payload:
 Bridge acknowledges command execution:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/response/req-abc123
+topic: graylogic/response/knx/req-abc123
 qos: 1
 retain: false
 payload:
@@ -283,26 +344,26 @@ payload:
 Periodic health status from each bridge:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/health
+topic: graylogic/health/knx
 qos: 1
 retain: true
 payload:
-  bridge_id: "knx-bridge-01"
+  protocol: "knx"
   status: "online"  # online | degraded | offline
   timestamp: "2026-01-12T14:30:00Z"
-  
+
   metrics:
     uptime_seconds: 86400
     messages_rx: 15432
     messages_tx: 8721
     errors_last_hour: 0
     queue_depth: 0
-    
-  protocol:
+
+  protocol_info:
     connected: true
     last_activity: "2026-01-12T14:29:55Z"
     # Protocol-specific metrics
-    
+
   devices:
     total: 45
     online: 44
@@ -315,14 +376,14 @@ payload:
 When a bridge discovers new devices:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/discovery
+topic: graylogic/discovery/knx
 qos: 1
 retain: false
 payload:
-  bridge_id: "knx-bridge-01"
+  protocol: "knx"
   timestamp: "2026-01-12T14:30:00Z"
   action: "discovered"  # discovered | lost | updated
-  
+
   devices:
     - protocol_address: "1/2/3"
       type: "unknown"  # Or detected type
@@ -511,7 +572,7 @@ payload:
 
   actions:                            # Suggested remediation
     - label: "Restart bridge"
-      api: "POST /api/v1/bridges/dali-bridge-01/restart"
+      api: "POST /api/v1/bridges/dali/restart"
     - label: "Contact support"
       url: "tel:+441onal23456789"
 ```
@@ -535,11 +596,11 @@ payload:
   uptime_seconds: 604800
   
   bridges:
-    - id: "knx-bridge-01"
+    - protocol: "knx"
       status: "online"
-    - id: "dali-bridge-01"
+    - protocol: "dali"
       status: "online"
-    - id: "modbus-bridge-01"
+    - protocol: "modbus"
       status: "degraded"
       
   mode: "home"
@@ -596,9 +657,14 @@ payload:
 
 | Topic Pattern | QoS | Rationale |
 |---------------|-----|-----------|
-| `bridge/*/state/*` | 1 | State must arrive |
-| `bridge/*/command/*` | 1 | Commands must execute |
-| `bridge/*/health` | 1 | Health is important |
+| `state/+/+` | 1 | State must arrive |
+| `command/+/+` | 1 | Commands must execute |
+| `response/+/+` | 1 | Responses confirm execution |
+| `ack/+/+` | 1 | Acknowledgements confirm receipt |
+| `health/+` | 1 | Health is important |
+| `discovery/+` | 1 | Discovery is important |
+| `config/+` | 1 | Config must be delivered |
+| `request/+/+` | 1 | Requests must arrive |
 | `core/device/*/state` | 1 | UI needs accurate state |
 | `core/event/*` | 1 | Events trigger automation |
 | `core/scene/*/activated` | 1 | Scene activation is important |
@@ -616,14 +682,19 @@ Retained messages persist on the broker and are delivered to new subscribers:
 
 | Topic Pattern | Retained | Rationale |
 |---------------|----------|-----------|
-| `bridge/*/health` | Yes | New Core sees bridge status |
+| `health/+` | Yes | New Core sees bridge status |
+| `config/+` | Yes | Bridges get config on reconnect |
 | `core/device/*/state` | Yes | UI gets current state on connect |
 | `core/mode` | Yes | Mode is persistent state |
 | `core/alert/*` | Yes | Active alerts persist until cleared |
 | `system/status` | Yes | New clients see system state |
 | `system/time` | Yes | Time reference for new clients |
-| `bridge/*/state/*` | No | Historical states not needed |
-| `bridge/*/command/*` | No | Commands are ephemeral |
+| `state/+/+` | No | Historical states not needed |
+| `command/+/+` | No | Commands are ephemeral |
+| `response/+/+` | No | Responses are ephemeral |
+| `ack/+/+` | No | Acknowledgements are ephemeral |
+| `discovery/+` | No | Discovery events are transient |
+| `request/+/+` | No | Requests are ephemeral |
 | `core/event/*` | No | Events are transient |
 | `core/scene/*/activated` | No | Scene events are transient |
 | `core/scene/*/progress` | No | Progress is ephemeral |
@@ -637,9 +708,9 @@ Bridges use LWT to notify Core if they disconnect unexpectedly:
 
 ```yaml
 # Bridge connection with LWT
-will_topic: graylogic/bridge/knx-bridge-01/health
+will_topic: graylogic/health/knx
 will_payload:
-  bridge_id: "knx-bridge-01"
+  protocol: "knx"
   status: "offline"
   timestamp: ""  # Will be stale
   reason: "unexpected_disconnect"
@@ -660,7 +731,7 @@ will_retain: true
 2. Core validates request, checks authorization
 
 3. Core publishes to MQTT:
-   Topic: graylogic/bridge/knx-bridge-01/command/light-living-main
+   Topic: graylogic/command/knx/light-living-main
    Payload: { device_id, command: "set", parameters: { on: true, brightness: 100 }, request_id }
 
 4. KNX Bridge receives command
@@ -672,7 +743,7 @@ will_retain: true
 7. Actuator sends status telegram
 
 8. KNX Bridge publishes to MQTT:
-   Topic: graylogic/bridge/knx-bridge-01/state/light-living-main
+   Topic: graylogic/state/knx/light-living-main
    Payload: { device_id, state: { on: true, brightness: 100 } }
 
 9. Core receives state update
@@ -700,7 +771,7 @@ will_retain: true
 4. Actuator sends status telegram
 
 5. KNX Bridge publishes to MQTT:
-   Topic: graylogic/bridge/knx-bridge-01/state/light-living-main
+   Topic: graylogic/state/knx/light-living-main
    Payload: { device_id, state: { on: true, brightness: 100 } }
 
 6. Core receives state update
@@ -726,9 +797,9 @@ will_retain: true
 3. Core loads scene definition
 
 4. Core publishes commands to each bridge:
-   - graylogic/bridge/knx-bridge-01/command/light-bedroom-main
-   - graylogic/bridge/knx-bridge-01/command/blind-bedroom-01
-   - graylogic/bridge/dali-bridge-01/command/light-bathroom-01
+   - graylogic/command/knx/light-bedroom-main
+   - graylogic/command/knx/blind-bedroom-01
+   - graylogic/command/dali/light-bathroom-01
 
 5. Bridges execute commands in parallel
 
@@ -754,23 +825,25 @@ will_retain: true
 func (b *Bridge) Start() {
     // 1. Connect to MQTT broker
     client := mqtt.Connect(brokerURL, clientID, credentials)
-    
+
     // 2. Set LWT
-    client.SetWill(healthTopic, offlinePayload, QoS1, Retained)
-    
+    client.SetWill(BridgeHealth(protocol), offlinePayload, QoS1, Retained)
+
     // 3. Subscribe to command topics
-    client.Subscribe("graylogic/bridge/{id}/command/+", handleCommand)
+    client.Subscribe("graylogic/command/"+protocol+"/+", handleCommand)
+    client.Subscribe("graylogic/config/"+protocol, handleConfig)
+    client.Subscribe("graylogic/request/"+protocol+"/+", handleRequest)
     client.Subscribe("graylogic/system/#", handleSystem)
-    
+
     // 4. Publish online status
-    client.Publish(healthTopic, onlinePayload, QoS1, Retained)
-    
+    client.Publish(BridgeHealth(protocol), onlinePayload, QoS1, Retained)
+
     // 5. Start protocol connection
     protocol.Connect()
-    
+
     // 6. Start health reporting
     go reportHealth()
-    
+
     // 7. Request initial state from devices
     protocol.QueryAllDevices()
 }
@@ -778,10 +851,10 @@ func (b *Bridge) Start() {
 func (b *Bridge) Shutdown() {
     // 1. Stop protocol polling
     protocol.Stop()
-    
+
     // 2. Publish offline status (graceful)
-    client.Publish(healthTopic, gracefulOfflinePayload, QoS1, Retained)
-    
+    client.Publish(BridgeHealth(protocol), gracefulOfflinePayload, QoS1, Retained)
+
     // 3. Disconnect MQTT
     client.Disconnect()
 }
@@ -815,12 +888,12 @@ func handleStateChange(device Device, state State) {
     payload := StateUpdate{
         DeviceID:  device.ID,
         Timestamp: time.Now().UTC(),
-        Source:    "knx",
+        Source:    protocol,
         State:     state,
     }
-    
+
     client.Publish(
-        fmt.Sprintf("graylogic/bridge/%s/state/%s", bridgeID, device.ID),
+        BridgeState(protocol, device.ID),
         json.Marshal(payload),
         QoS1,
         NotRetained,
@@ -833,18 +906,18 @@ func handleStateChange(device Device, state State) {
 ```go
 func reportHealth() {
     ticker := time.NewTicker(30 * time.Second)
-    
+
     for range ticker.C {
         health := HealthStatus{
-            BridgeID:  bridgeID,
-            Status:    calculateStatus(),
-            Timestamp: time.Now().UTC(),
-            Metrics:   collectMetrics(),
-            Protocol:  protocolStatus(),
-            Devices:   deviceCounts(),
+            Protocol:     protocol,
+            Status:       calculateStatus(),
+            Timestamp:    time.Now().UTC(),
+            Metrics:      collectMetrics(),
+            ProtocolInfo: protocolStatus(),
+            Devices:      deviceCounts(),
         }
-        
-        client.Publish(healthTopic, json.Marshal(health), QoS1, Retained)
+
+        client.Publish(BridgeHealth(protocol), json.Marshal(health), QoS1, Retained)
     }
 }
 
@@ -898,11 +971,17 @@ mosquitto_ctrl dynamic-security setDefaultACLAction publish allow
 # Subscribe to all topics
 mosquitto_sub -h localhost -u graylogic-core -P password -t "graylogic/#" -v
 
-# Subscribe to bridge states
-mosquitto_sub -h localhost -t "graylogic/bridge/+/state/+" -v
+# Subscribe to all state updates across protocols
+mosquitto_sub -h localhost -t "graylogic/state/+/+" -v
+
+# Subscribe to all commands across protocols
+mosquitto_sub -h localhost -t "graylogic/command/+/+" -v
+
+# Subscribe to all bridge health
+mosquitto_sub -h localhost -t "graylogic/health/+" -v
 
 # Publish test command
-mosquitto_pub -h localhost -t "graylogic/bridge/knx-bridge-01/command/light-test" \
+mosquitto_pub -h localhost -t "graylogic/command/knx/light-test" \
   -m '{"device_id":"light-test","command":"set","parameters":{"on":true},"request_id":"test-1"}'
 
 # View retained messages

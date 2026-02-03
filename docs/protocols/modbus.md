@@ -466,12 +466,12 @@ registers:
 
 **State updates (periodic polling):**
 ```
-graylogic/bridge/modbus-bridge-01/state/{device_id}
+graylogic/state/modbus/{address}
 ```
 
 **Commands (write to registers):**
 ```
-graylogic/bridge/modbus-bridge-01/command/{device_id}
+graylogic/command/modbus/{address}
 ```
 
 ### Message Formats
@@ -479,7 +479,7 @@ graylogic/bridge/modbus-bridge-01/command/{device_id}
 **State update (polled values):**
 
 ```yaml
-topic: graylogic/bridge/modbus-bridge-01/state/meter-main
+topic: graylogic/state/modbus/meter-main
 payload:
   device_id: "meter-main"
   timestamp: "2026-01-12T14:30:00Z"
@@ -508,7 +508,7 @@ payload:
 **Command message:**
 
 ```yaml
-topic: graylogic/bridge/modbus-bridge-01/command/heat-pump-01
+topic: graylogic/command/modbus/heat-pump-01
 payload:
   device_id: "heat-pump-01"
   command: "set"
@@ -521,7 +521,7 @@ payload:
 **Command response:**
 
 ```yaml
-topic: graylogic/bridge/modbus-bridge-01/response/req-99999
+topic: graylogic/response/modbus/req-99999
 payload:
   request_id: "req-99999"
   device_id: "heat-pump-01"

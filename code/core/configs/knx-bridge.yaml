@@ -22,7 +22,7 @@ bridge:
   id: "knx-bridge-01"
 
   # How often to publish health status (seconds).
-  # Health is published to: graylogic/bridge/knx-bridge-01/health
+  # Health is published to: graylogic/health/knx
   health_interval: 30
 
 # ============================================================================

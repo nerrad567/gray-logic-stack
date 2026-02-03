@@ -61,7 +61,7 @@ sequenceDiagram
     participant WS as WebSocket (future)
 
     Device->>Bridge: KNX telegram / DALI status
-    Bridge->>Broker: Publish to graylogic/bridge/knx-01/state/light-living
+    Bridge->>Broker: Publish to graylogic/state/knx/light-living
     Broker->>Core: Deliver to subscribed handler
     
     Core->>Core: Parse state, validate
@@ -90,7 +90,7 @@ sequenceDiagram
     
     Core->>Core: Validate, check permissions
     Core->>DB: Log command to audit_logs
-    Core->>Broker: Publish to graylogic/core/command/light-living
+    Core->>Broker: Publish to graylogic/command/knx/light-living
     
     Broker->>Bridge: Deliver to KNX bridge
     Bridge->>Device: Send KNX telegram
@@ -132,12 +132,16 @@ All MQTT topics follow the `graylogic/` prefix:
 graylogic/
 ├── system/
 │   └── status              # Core online/offline status
-├── bridge/
-│   └── {bridge-id}/
-│       ├── state/{device}  # Device state from bridge
-│       └── command/{device} # Commands to bridge
+├── state/
+│   └── {protocol}/{device} # Device state from bridge → Core
+├── command/
+│   └── {protocol}/{device} # Commands from Core → bridge
+├── health/
+│   └── {protocol}          # Bridge health (retained)
+├── discovery/
+│   └── {protocol}          # Discovered devices
 └── core/
-    ├── command/{device}    # Commands from Core
+    ├── device/{id}/state   # Canonical state (Core → UIs)
     └── event/{type}        # System events
 ```
 

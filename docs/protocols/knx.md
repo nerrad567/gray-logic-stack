@@ -421,13 +421,13 @@ The bridge requires a mapping of KNX group addresses to Gray Logic devices:
 ```yaml
 # knx-bridge-config.yaml
 bridge:
-  id: "knx-bridge-01"
+  protocol: "knx"
   knxd:
     connection: "unix:///run/knxd"
     # Or: connection: "tcp://localhost:6720"
   mqtt:
     broker: "tcp://localhost:1883"
-    client_id: "knx-bridge-01"
+    client_id: "knx-bridge"
     topic_prefix: "graylogic"
 
 # Group address mappings
@@ -503,17 +503,17 @@ See [MQTT Protocol Specification](mqtt.md) for full topic structure. KNX Bridge 
 
 **State updates (KNX → Core):**
 ```
-graylogic/bridge/knx-bridge-01/state/{device_id}
+graylogic/state/knx/{device_id}
 ```
 
 **Commands (Core → KNX):**
 ```
-graylogic/bridge/knx-bridge-01/command/{device_id}
+graylogic/command/knx/{device_id}
 ```
 
 **Bridge status:**
 ```
-graylogic/bridge/knx-bridge-01/status
+graylogic/status/knx
 ```
 
 ### Message Formats
@@ -521,7 +521,7 @@ graylogic/bridge/knx-bridge-01/status
 **State update message (KNX → MQTT):**
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/state/light-living-main
+topic: graylogic/state/knx/light-living-main
 payload:
   device_id: "light-living-main"
   timestamp: "2026-01-12T14:30:00Z"
@@ -541,7 +541,7 @@ payload:
 **Command message (MQTT → KNX):**
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/command/light-living-main
+topic: graylogic/command/knx/light-living-main
 payload:
   device_id: "light-living-main"
   command: "set"
@@ -589,9 +589,9 @@ This ensures the user never sees a "Success" state that is not actually backed b
 Bridge publishes health status every 30 seconds:
 
 ```yaml
-topic: graylogic/bridge/knx-bridge-01/health
+topic: graylogic/health/knx
 payload:
-  bridge_id: "knx-bridge-01"
+  protocol: "knx"
   status: "online"  # online | degraded | offline
   timestamp: "2026-01-12T14:30:00Z"
   metrics:

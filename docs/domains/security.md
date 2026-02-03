@@ -567,7 +567,7 @@ ArmDisarmFlow:
 
 ```yaml
 # Partition state
-topic: graylogic/bridge/security-bridge/state/partition/{partition_id}
+topic: graylogic/state/security/partition/{partition_id}
 payload:
   partition_id: "partition-1"
   timestamp: "2026-01-12T14:30:00Z"
@@ -580,7 +580,7 @@ payload:
     alarm_active: false
 
 # Zone state
-topic: graylogic/bridge/security-bridge/state/zone/{zone_id}
+topic: graylogic/state/security/zone/{zone_id}
 payload:
   zone_id: "zone-front-door"
   timestamp: "2026-01-12T14:30:00Z"
@@ -589,7 +589,7 @@ payload:
     last_change: "2026-01-12T14:25:00Z"
 
 # Event
-topic: graylogic/bridge/security-bridge/event
+topic: graylogic/event/security
 payload:
   panel_id: "alarm-panel-1"
   partition_id: "partition-1"
@@ -605,7 +605,7 @@ payload:
 
 ```yaml
 # Arm command
-topic: graylogic/bridge/security-bridge/command
+topic: graylogic/command/security
 payload:
   command: "arm"
   parameters:
@@ -615,7 +615,7 @@ payload:
   request_id: "req-12345"
 
 # Response
-topic: graylogic/bridge/security-bridge/response
+topic: graylogic/response/security
 payload:
   request_id: "req-12345"
   success: true

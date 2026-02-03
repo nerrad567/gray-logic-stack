@@ -203,8 +203,8 @@ graylogic/command/bacnet/{device_instance}/{object_type}/{object_instance}
 # Discovery
 graylogic/discovery/bacnet/device/{device_instance}
 
-# Bridge status
-graylogic/bridge/bacnet/status
+# Bridge health
+graylogic/health/bacnet
 ```
 
 ### Example Messages

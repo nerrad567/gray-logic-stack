@@ -24,8 +24,8 @@ From `docs/CONSTRAINTS.md` and DALI protocol spec:
 ## 2) Repository Observations That Shape the Design
 
 - Only KNX bridge exists in code: `code/core/internal/bridges/knx`.
-- KNX bridge uses an internal MQTT topic scheme: `graylogic/command/knx/{address}` etc.
-- Infrastructure MQTT helpers use another scheme: `graylogic/bridge/{bridge_id}/...`.
+- KNX bridge uses the flat MQTT topic scheme: `graylogic/command/knx/{address}` etc.
+- Infrastructure MQTT helpers use the same flat scheme: `graylogic/{category}/{protocol}/{address}`.
 - DALI spec document uses the bridge scheme (per `docs/protocols/dali.md`).
 - Config system includes `DALIConfig` stub in `internal/infrastructure/config`.
 - Device registry provides a standard protocol address map (example DALI address fields listed).
@@ -64,10 +64,10 @@ Additional (outside package):
 
 Current sources conflict:
 - KNX bridge code: `graylogic/command/knx/{address}`.
-- MQTT helpers (`internal/infrastructure/mqtt/topics.go`): `graylogic/bridge/{bridge_id}/command/{device_id}`.
-- DALI spec: `graylogic/bridge/dali-bridge-01/...`.
+- MQTT helpers (`internal/infrastructure/mqtt/topics.go`): `graylogic/command/{protocol}/{device_id}`.
+- DALI spec: `graylogic/command/dali/{address}` etc.
 
-**Plan assumption (recommended):** follow `internal/infrastructure/mqtt/topics.go` and `docs/protocols/mqtt.md` for the DALI bridge. If that is canonical, KNX should be migrated later or a compatibility layer added. This must be decided before implementation.
+**Resolved:** All bridges use the flat topic scheme `graylogic/{category}/{protocol}/{address}` as defined in `internal/infrastructure/mqtt/topics.go` and `docs/protocols/mqtt.md`. KNX bridge already follows this pattern. DALI bridge should use the same scheme (e.g. `graylogic/command/dali/{address}`, `graylogic/state/dali/{address}`, `graylogic/health/dali`).
 
 ---
 

@@ -69,7 +69,7 @@ if err != nil {
 defer client.Close()
 
 // 2. Subscribe to topics
-err = client.Subscribe(mqtt.Topics{}.AllBridgeStates(), 1,
+err = client.Subscribe(mqtt.Topics{}.AllStates(), 1,
     func(topic string, payload []byte) error {
         log.Printf("Received: %s = %s", topic, payload)
         return nil
@@ -87,23 +87,23 @@ err = client.Subscribe(mqtt.Topics{}.AllBridgeStates(), 1,
 
 **Publishing:**
 ```go
-topic := mqtt.Topics{}.BridgeCommand("knx-bridge-01", "light-living")
+topic := mqtt.Topics{}.Command("knx", "light-living")
 err := client.Publish(topic, []byte(`{"on":true}`), 1, false)
 ```
 
 **Subscribing:**
 ```go
 // Subscribe is tracked for automatic restoration on reconnect
-err := client.Subscribe("graylogic/bridge/+/state/+", 1, handler)
+err := client.Subscribe("graylogic/state/+/+", 1, handler)
 ```
 
 **Topic builders:**
 ```go
-mqtt.Topics{}.BridgeState("knx-bridge-01", "light-living")
-// → "graylogic/bridge/knx-bridge-01/state/light-living"
+mqtt.Topics{}.State("knx", "light-living")
+// → "graylogic/state/knx/light-living"
 
-mqtt.Topics{}.AllBridgeStates()
-// → "graylogic/bridge/+/state/+"
+mqtt.Topics{}.AllStates()
+// → "graylogic/state/+/+"
 
 mqtt.Topics{}.SystemStatus()
 // → "graylogic/system/status"

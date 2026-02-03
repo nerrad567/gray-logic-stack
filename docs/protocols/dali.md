@@ -377,17 +377,17 @@ groups:
 
 **State updates (DALI → Core):**
 ```
-graylogic/bridge/dali-bridge-01/state/{device_id}
+graylogic/state/dali/{device_id}
 ```
 
 **Commands (Core → DALI):**
 ```
-graylogic/bridge/dali-bridge-01/command/{device_id}
+graylogic/command/dali/{device_id}
 ```
 
 **Group commands:**
 ```
-graylogic/bridge/dali-bridge-01/command/group/{group_id}
+graylogic/command/dali/group/{group_id}
 ```
 
 ### Message Formats
@@ -395,7 +395,7 @@ graylogic/bridge/dali-bridge-01/command/group/{group_id}
 **State update:**
 
 ```yaml
-topic: graylogic/bridge/dali-bridge-01/state/light-living-ceiling
+topic: graylogic/state/dali/light-living-ceiling
 payload:
   device_id: "light-living-ceiling"
   timestamp: "2026-01-12T14:30:00Z"
@@ -413,7 +413,7 @@ payload:
 **Command message:**
 
 ```yaml
-topic: graylogic/bridge/dali-bridge-01/command/light-living-ceiling
+topic: graylogic/command/dali/light-living-ceiling
 payload:
   device_id: "light-living-ceiling"
   command: "set"
@@ -428,7 +428,7 @@ payload:
 **Scene recall command:**
 
 ```yaml
-topic: graylogic/bridge/dali-bridge-01/command/group/group-living-all
+topic: graylogic/command/dali/group/group-living-all
 payload:
   group_id: "group-living-all"
   command: "scene"

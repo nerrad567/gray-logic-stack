@@ -837,7 +837,7 @@ EmergencyAudio:
 ### Zone State (Bridge → Core)
 
 ```yaml
-topic: graylogic/bridge/audio-bridge/state/{zone_id}
+topic: graylogic/state/audio/{zone_id}
 payload:
   zone_id: "zone-kitchen"
   timestamp: "2026-01-12T14:30:00Z"
@@ -855,7 +855,7 @@ payload:
 ### Zone Command (Core → Bridge)
 
 ```yaml
-topic: graylogic/bridge/audio-bridge/command/{zone_id}
+topic: graylogic/command/audio/{zone_id}
 payload:
   zone_id: "zone-kitchen"
   command: "volume"
@@ -867,7 +867,7 @@ payload:
 ### Announcement Command
 
 ```yaml
-topic: graylogic/bridge/audio-bridge/command/announce
+topic: graylogic/command/audio/announce
 payload:
   command: "announce"
   parameters:

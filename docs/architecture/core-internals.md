@@ -447,9 +447,9 @@ type Client struct {
 type MessageHandler func(topic string, payload []byte) error
 
 // Subscribe patterns:
-// graylogic/state/+/+     - All device states
-// graylogic/health/+      - Bridge health
-// graylogic/discovery/+   - Device discovery
+// graylogic/state/+/+       - All device states
+// graylogic/health/+        - Bridge health
+// graylogic/discovery/+     - Device discovery
 ```
 
 ---
@@ -508,7 +508,7 @@ Core mediates ALL device state. Bridges do not update state directly — they re
 │   Physical Device                                                            │
 │        │                                                                     │
 │        ▼                                                                     │
-│   Protocol Bridge ──▶ MQTT: graylogic/bridge/{id}/state/{device}            │
+│   Protocol Bridge ──▶ MQTT: graylogic/state/{protocol}/{device}             │
 │                               │                                              │
 │                               ▼                                              │
 │                          CORE STATE MANAGER                                  │
@@ -561,7 +561,7 @@ func (m *Manager) Subscribe(listener StateChangeListener)
 
 **State Change Flow:**
 ```
-MQTT message received (graylogic/state/knx/1.2.3)
+MQTT message received (graylogic/state/knx/1/2/3)
     │
     ▼
 State Manager receives state update

@@ -419,7 +419,7 @@ The HTTP API server and WebSocket real-time layer are fully implemented, tested,
 
 ```
 Client → PUT /api/v1/devices/{id}/state
-    → API validates + publishes to MQTT: graylogic/bridge/{bridgeID}/command/{deviceID}
+    → API validates + publishes to MQTT: graylogic/command/{protocol}/{deviceID}
     → KNX Bridge receives command, sends KNX telegram
     → Physical device responds → KNX telegram back
     → Bridge publishes state update to MQTT

@@ -236,16 +236,15 @@ Actions are grouped by `Parallel` flag and executed:
 
 ```
 graylogic/
-├── bridge/{bridge_id}/
-│   ├── state/{device_id}      # Bridge → Core (device state)
-│   ├── command/{device_id}    # Core → Bridge (commands)
-│   ├── health                 # Bridge health (retained)
-│   └── discovery              # Discovered devices
+├── state/{protocol}/{device_id}    # Bridge → Core (device state)
+├── command/{protocol}/{device_id}  # Core → Bridge (commands)
+├── health/{protocol}               # Bridge health (retained)
+├── discovery/{protocol}            # Discovered devices
 ├── core/
-│   ├── device/{id}/state      # Canonical state
-│   └── scene/{id}/activated   # Scene events
+│   ├── device/{id}/state           # Canonical state
+│   └── scene/{id}/activated        # Scene events
 └── system/
-    └── status                 # System status
+    └── status                      # System status
 ```
 
 ---
@@ -262,7 +261,7 @@ graylogic/
 5. For each action group:
    - Lookup device → get protocol/gateway
    - Build MQTT payload with command
-   - Publish to: graylogic/bridge/{bridge}/command/{device}
+   - Publish to: graylogic/command/{protocol}/{device}
 6. KNX Bridge receives MQTT message
 7. Bridge translates to KNX telegram, sends via knxd
 8. Device responds with status telegram
@@ -278,7 +277,7 @@ graylogic/
 2. Actuator sends status telegram on bus
 3. knxd receives, forwards to Bridge
 4. Bridge decodes DPT, builds state object
-5. Bridge publishes: graylogic/bridge/knx/state/{device}
+5. Bridge publishes: graylogic/state/knx/{device}
 6. Core receives, calls registry.SetDeviceState()
 7. Registry updates cache + DB
 8. WebSocket hub broadcasts state change
