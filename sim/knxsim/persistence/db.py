@@ -1608,7 +1608,12 @@ class Database:
             channel_state = target_channel.get("state", {})
             # Remove any button_X keys that may have leaked in previously
             channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
-            channel_state.update(normalized_updates)
+            # Only update keys that already exist in the channel state template.
+            # This prevents device-level derived keys (e.g. "on" from ValveActuator)
+            # from leaking into proportional-only channel state.
+            for key, value in normalized_updates.items():
+                if key in channel_state:
+                    channel_state[key] = value
             target_channel["state"] = channel_state
 
             logger.info(

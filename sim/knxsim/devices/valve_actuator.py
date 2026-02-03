@@ -95,13 +95,15 @@ class ValveActuator(BaseDevice):
             # Either explicitly a position GA, or value > 1 indicates percentage
             position = decode_dpt5(payload)
             self.state["position"] = position
-            self.state["on"] = position > 0
+            # Only derive 'on' if the device was initialised with it (binary valves).
+            # Proportional-only devices (heating actuator channels) use position only.
+            if "on" in self.state:
+                self.state["on"] = position > 0
 
             logger.info(
-                "%s ← position = %d%% (on=%s)",
+                "%s ← position = %d%%",
                 self.device_id,
                 position,
-                self.state["on"],
             )
 
             # Send position status if available
@@ -109,10 +111,13 @@ class ValveActuator(BaseDevice):
             if status_ga:
                 responses.append(self._make_response(status_ga, encode_dpt5(position)))
 
-            # Also send binary status if available
-            binary_status_ga = self._get_status_ga(for_position=False)
-            if binary_status_ga and binary_status_ga != status_ga:
-                responses.append(self._make_response(binary_status_ga, encode_dpt1(self.state["on"])))
+            # Also send binary status if available (only for devices with binary state)
+            if "on" in self.state:
+                binary_status_ga = self._get_status_ga(for_position=False)
+                if binary_status_ga and binary_status_ga != status_ga:
+                    responses.append(
+                        self._make_response(binary_status_ga, encode_dpt1(self.state["on"]))
+                    )
 
         else:
             # Binary input (DPT 1.001)
