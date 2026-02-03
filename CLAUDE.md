@@ -221,6 +221,7 @@ These are available in `.claude/commands/`:
 | `/milestone-audit` | End-of-milestone quality gate with coverage enforcement |
 | `/health-check` | Verify dev environment (Go, Docker, services) |
 | `/new-bridge` | Scaffold a new protocol bridge |
+| `/nuke-rebuild` | Scorched-earth teardown, rebuild, and fresh stack launch |
 
 ## Current Focus
 
