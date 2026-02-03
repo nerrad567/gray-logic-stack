@@ -247,16 +247,16 @@ class _ChannelIndicator extends StatelessWidget {
     final prefix = 'ch_${channel.letter.toLowerCase()}';
 
     if (isValveType) {
-      // Look for valve percentage — try status first, then command
-      for (final suffix in ['_valve_status', '_valve']) {
+      // Look for valve percentage — prefer command (immediate) over status (delayed feedback)
+      for (final suffix in ['_valve', '_valve_status']) {
         final val = deviceState['$prefix$suffix'];
         if (val is num) return '${val.toInt()}%';
       }
       return '?';
     }
 
-    // Switch/dimmer actuator — try status first, then command
-    for (final suffix in ['_switch_status', '_switch']) {
+    // Switch/dimmer actuator — prefer command over status
+    for (final suffix in ['_switch', '_switch_status']) {
       final sw = deviceState['$prefix$suffix'];
       if (sw == true) return 'ON';
       if (sw == false) return 'OFF';
@@ -271,14 +271,14 @@ class _ChannelIndicator extends StatelessWidget {
     final prefix = 'ch_${channel.letter.toLowerCase()}';
 
     if (isValveType) {
-      for (final suffix in ['_valve_status', '_valve']) {
+      for (final suffix in ['_valve', '_valve_status']) {
         final val = deviceState['$prefix$suffix'];
         if (val is num) return val > 0;
       }
       return false;
     }
 
-    for (final suffix in ['_switch_status', '_switch']) {
+    for (final suffix in ['_switch', '_switch_status']) {
       final sw = deviceState['$prefix$suffix'];
       if (sw is bool) return sw;
     }
