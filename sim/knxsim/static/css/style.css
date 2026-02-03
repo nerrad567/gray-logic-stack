@@ -86,18 +86,31 @@ body {
 /* App Layout */
 #app {
   display: grid;
-  grid-template-rows:
-    var(--header-height) auto auto 1fr auto var(--stats-height);
+  grid-template-rows: var(--header-height) auto auto 1fr auto var(
+      --stats-height
+    );
   height: 100vh;
 }
 
 /* Explicit grid row assignments for consistent layout */
-.header { grid-row: 1; }
-.view-switcher { grid-row: 2; }
-.floor-nav { grid-row: 3; }
-.main-content { grid-row: 4; }
-.telegram-inspector { grid-row: 5; }
-.stats-bar { grid-row: 6; }
+.header {
+  grid-row: 1;
+}
+.view-switcher {
+  grid-row: 2;
+}
+.floor-nav {
+  grid-row: 3;
+}
+.main-content {
+  grid-row: 4;
+}
+.telegram-inspector {
+  grid-row: 5;
+}
+.stats-bar {
+  grid-row: 6;
+}
 
 /* View sections: topology and groups use flex:1 to fill space */
 
@@ -499,6 +512,25 @@ select:focus {
     rgba(255, 200, 50, 0.15) 100%
   );
   border-left: 3px solid var(--status-on);
+}
+
+/* Warm colour scheme for active valve/heater loads */
+.load-tile.load-valve.load-on {
+  background: linear-gradient(
+    135deg,
+    var(--bg-tertiary) 0%,
+    rgba(255, 87, 34, 0.2) 100%
+  );
+  border-left: 3px solid #ff5722;
+}
+
+.load-tile.load-valve.load-on .state-indicator.on {
+  background: #ff5722;
+  box-shadow: 0 0 6px rgba(255, 87, 34, 0.5);
+}
+
+.load-tile.load-valve.load-on .state-value {
+  color: #ff8a65;
 }
 
 .load-tile.load-orphan {
@@ -1202,7 +1234,8 @@ select:focus {
   color: var(--text-muted);
 }
 
-.go-dpt, .go-flags {
+.go-dpt,
+.go-flags {
   font-family: var(--font-mono);
   font-size: 11px;
   color: var(--text-muted);

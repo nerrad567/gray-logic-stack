@@ -64,7 +64,7 @@ export function initStores() {
     floors: [],
     currentFloorId: null,
     devices: [],
-    loads: [],  // Physical equipment controlled by actuators (lights, motors, valves)
+    loads: [], // Physical equipment controlled by actuators (lights, motors, valves)
     templates: [],
     templateDomains: [],
 
@@ -303,12 +303,10 @@ export function initStores() {
       try {
         this.topology = await API.getTopology(this.currentPremiseId);
         // Expand all areas by default
-        this.expandedAreas = new Set(
-          this.topology.areas.map((a) => a.id)
-        );
+        this.expandedAreas = new Set(this.topology.areas.map((a) => a.id));
         // Expand all lines by default
         this.expandedLines = new Set(
-          this.topology.areas.flatMap((a) => a.lines.map((l) => l.id))
+          this.topology.areas.flatMap((a) => a.lines.map((l) => l.id)),
         );
       } catch (err) {
         console.error("Failed to load topology:", err);
@@ -512,8 +510,14 @@ export function initStores() {
     async sendChannelCommand(deviceId, channelId, command, value) {
       if (!this.currentPremiseId) return;
       try {
-        await API.sendChannelCommand(this.currentPremiseId, deviceId, channelId, command, value);
-        
+        await API.sendChannelCommand(
+          this.currentPremiseId,
+          deviceId,
+          channelId,
+          command,
+          value,
+        );
+
         // Update local channel state immediately for responsive UI
         const device = this.devices.find((d) => d.id === deviceId);
         if (device && device.channels) {
@@ -529,7 +533,10 @@ export function initStores() {
               state: "active",
             };
             // For push buttons, 'switch' command maps to 'pressed' state
-            if (device.type?.includes("push_button") || device.type?.includes("pushbutton")) {
+            if (
+              device.type?.includes("push_button") ||
+              device.type?.includes("pushbutton")
+            ) {
               if (command === "switch") {
                 channel.state.pressed = value;
               } else {
@@ -628,13 +635,15 @@ export function initStores() {
       if (!load.actuator_device_id || !load.actuator_channel_id) {
         return null;
       }
-      
-      const device = this.devices.find(d => d.id === load.actuator_device_id);
+
+      const device = this.devices.find((d) => d.id === load.actuator_device_id);
       if (!device || !device.channels) {
         return null;
       }
-      
-      const channel = device.channels.find(c => c.id === load.actuator_channel_id);
+
+      const channel = device.channels.find(
+        (c) => c.id === load.actuator_channel_id,
+      );
       return channel ? channel.state : null;
     },
 
@@ -644,7 +653,21 @@ export function initStores() {
     isLoadOn(load) {
       const state = this.getLoadState(load);
       if (!state) return false;
-      return state.on === true;
+      // Proportional valves don't have 'on' — treat position > 0 as active
+      if (state.on !== undefined) return state.on === true;
+      if (state.position !== undefined) return state.position > 0;
+      return false;
+    },
+
+    /**
+     * Get a load's display value (percentage for valves, ON/OFF for switches)
+     */
+    getLoadDisplayValue(load) {
+      const state = this.getLoadState(load);
+      if (!state) return "-";
+      if (state.position !== undefined) return Math.round(state.position) + "%";
+      if (state.on !== undefined) return state.on ? "ON" : "OFF";
+      return "-";
     },
 
     /**
@@ -671,12 +694,12 @@ export function initStores() {
       if (!load.actuator_device_id) {
         return { linked: false, text: "Not linked" };
       }
-      
-      const device = this.devices.find(d => d.id === load.actuator_device_id);
+
+      const device = this.devices.find((d) => d.id === load.actuator_device_id);
       if (!device) {
         return { linked: false, text: "⚠️ Actuator missing" };
       }
-      
+
       return {
         linked: true,
         text: `${device.id} Ch ${load.actuator_channel_id}`,
@@ -689,17 +712,17 @@ export function initStores() {
      * Control a load by sending command to its actuator channel
      */
     async controlLoad(loadId, command, value) {
-      const load = this.loads.find(l => l.id === loadId);
+      const load = this.loads.find((l) => l.id === loadId);
       if (!load || !load.actuator_device_id || !load.actuator_channel_id) {
         console.error("Load not linked to actuator:", loadId);
         return;
       }
-      
+
       await this.sendChannelCommand(
         load.actuator_device_id,
         load.actuator_channel_id,
         command,
-        value
+        value,
       );
     },
 
@@ -707,9 +730,9 @@ export function initStores() {
      * Toggle a load on/off
      */
     async toggleLoad(loadId) {
-      const load = this.loads.find(l => l.id === loadId);
+      const load = this.loads.find((l) => l.id === loadId);
       if (!load) return;
-      
+
       const isOn = this.isLoadOn(load);
       await this.controlLoad(loadId, "switch", !isOn);
     },
@@ -914,7 +937,9 @@ export function initStores() {
         await this.selectPremise(this.currentPremiseId);
         this.selectedDeviceId = null;
         // Mark setup as complete locally
-        const premise = this.premises.find((p) => p.id === this.currentPremiseId);
+        const premise = this.premises.find(
+          (p) => p.id === this.currentPremiseId,
+        );
         if (premise) premise.setup_complete = true;
       } catch (err) {
         console.error("Failed to reset to sample:", err);
@@ -928,7 +953,9 @@ export function initStores() {
       try {
         await API.markSetupComplete(this.currentPremiseId);
         // Mark locally
-        const premise = this.premises.find((p) => p.id === this.currentPremiseId);
+        const premise = this.premises.find(
+          (p) => p.id === this.currentPremiseId,
+        );
         if (premise) premise.setup_complete = true;
       } catch (err) {
         console.error("Failed to mark setup complete:", err);
@@ -1118,7 +1145,9 @@ export function initStores() {
       if (!device.channels || device.channels.length <= 1) {
         return null;
       }
-      const onCount = device.channels.filter((ch) => ch.state?.on === true).length;
+      const onCount = device.channels.filter(
+        (ch) => ch.state?.on === true,
+      ).length;
       const total = device.channels.length;
       return {
         onCount,
@@ -1517,14 +1546,14 @@ export function initStores() {
 
     // Get main group by number
     getMainGroupByNumber(num) {
-      return this.mainGroups.find(g => g.group_number === num);
+      return this.mainGroups.find((g) => g.group_number === num);
     },
 
     // Get middle group by main group ID and number
     getMiddleGroupByNumber(mainGroupId, num) {
-      const main = this.mainGroups.find(g => g.id === mainGroupId);
+      const main = this.mainGroups.find((g) => g.id === mainGroupId);
       if (!main || !main.middle_groups) return null;
-      return main.middle_groups.find(g => g.group_number === num);
+      return main.middle_groups.find((g) => g.group_number === num);
     },
 
     // Check if a GA is used
@@ -1537,7 +1566,9 @@ export function initStores() {
       const devices = Alpine.store("app").devices || [];
       const result = [];
       for (const dev of devices) {
-        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+        for (const [name, gaData] of Object.entries(
+          dev.group_addresses || {},
+        )) {
           const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
           if (gaStr === ga) {
             result.push({ device: dev, function: name });
@@ -1554,7 +1585,9 @@ export function initStores() {
       const gas = [];
 
       for (const dev of devices) {
-        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+        for (const [name, gaData] of Object.entries(
+          dev.group_addresses || {},
+        )) {
           const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
           if (gaStr && gaStr.startsWith(prefix)) {
             gas.push({
@@ -1724,7 +1757,7 @@ export function initStores() {
         (d) =>
           d.id.toLowerCase().includes(q) ||
           d.name.toLowerCase().includes(q) ||
-          d.use_case.toLowerCase().includes(q)
+          d.use_case.toLowerCase().includes(q),
       );
     },
 
@@ -1828,7 +1861,9 @@ export function initStores() {
       const gas = new Map(); // ga string -> { devices: [], names: [] }
 
       for (const dev of devices) {
-        for (const [name, gaData] of Object.entries(dev.group_addresses || {})) {
+        for (const [name, gaData] of Object.entries(
+          dev.group_addresses || {},
+        )) {
           const gaStr = typeof gaData === "object" ? gaData.ga : gaData;
           if (!gaStr) continue;
 
@@ -1839,7 +1874,12 @@ export function initStores() {
           if (!entry.devices.includes(dev.id)) {
             entry.devices.push(dev.id);
           }
-          entry.usages.push({ device: dev.id, name, dpt: gaData?.dpt, flags: gaData?.flags });
+          entry.usages.push({
+            device: dev.id,
+            name,
+            dpt: gaData?.dpt,
+            flags: gaData?.flags,
+          });
         }
       }
 
@@ -1856,7 +1896,9 @@ export function initStores() {
 
     // Suggest next available GA in a given main/middle group
     suggestNextGA(mainMiddle = "1/1") {
-      const [main, middle] = mainMiddle.split("/").map((x) => parseInt(x, 10) || 0);
+      const [main, middle] = mainMiddle
+        .split("/")
+        .map((x) => parseInt(x, 10) || 0);
       const usedGAs = this.getAllUsedGAs();
 
       // Find max sub address in this main/middle group
