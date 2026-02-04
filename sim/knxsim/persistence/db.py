@@ -13,6 +13,7 @@ from datetime import UTC, datetime
 
 from devices.channel_templates import _default_channel_name, _generate_channels_from_template
 from devices.dpt_inference import _guess_dpt_for_ga, _guess_flags_for_ga
+from devices.ga import normalise_group_addresses
 
 logger = logging.getLogger("knxsim.persistence")
 
@@ -1134,11 +1135,16 @@ class Database:
             if existing_line:
                 raise ConflictError("Device number already in use on this line")
 
+        group_addresses = normalise_group_addresses(
+            data.get("group_addresses", {}),
+            data["type"],
+        )
+        data["group_addresses"] = group_addresses
+
         # Handle channels: if provided, use them; otherwise auto-generate
         channels = data.get("channels")
         if channels is None:
             device_type = data["type"]
-            group_addresses = data.get("group_addresses", {})
             state = data.get("state", data.get("initial_state", {}))
             initial_state = data.get("initial_state", {})
 
@@ -1249,6 +1255,13 @@ class Database:
             existing_line = self.get_device_by_line_device(line_id, device_number)
             if existing_line and existing_line["id"] != device_id:
                 raise ConflictError("Device number already in use on this line")
+
+        if "group_addresses" in data:
+            device_type = data.get("type", device.get("type", ""))
+            data["group_addresses"] = normalise_group_addresses(
+                data.get("group_addresses"),
+                device_type,
+            )
 
         # Handle topology fields
         for key in ("room_id", "type", "individual_address", "line_id", "device_number"):

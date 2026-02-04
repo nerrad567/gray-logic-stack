@@ -8,6 +8,7 @@ dynamic device/premise management via the API.
 import logging
 from collections.abc import Callable
 
+from devices.ga import normalise_group_addresses
 from persistence.db import Database
 
 from .premise import Premise
@@ -235,8 +236,15 @@ class PremiseManager:
         if not premise:
             return None
 
+        device_data = dict(data)
+        if "group_addresses" in device_data:
+            device_data["group_addresses"] = normalise_group_addresses(
+                device_data.get("group_addresses"),
+                device_data.get("type", ""),
+            )
+
         # Persist
-        result = self.db.create_device(premise_id, data)
+        result = self.db.create_device(premise_id, device_data)
 
         # Add to live premise
         premise.add_device(
@@ -263,7 +271,19 @@ class PremiseManager:
         If group_addresses are changed, the running device is also updated
         so that changes take effect immediately without restart.
         """
-        result = self.db.update_device(device_id, data)
+        update_data = dict(data)
+        if "group_addresses" in update_data:
+            device_type = update_data.get("type", "")
+            if not device_type:
+                existing = self.db.get_device(device_id)
+                if existing:
+                    device_type = existing.get("type", "")
+            update_data["group_addresses"] = normalise_group_addresses(
+                update_data.get("group_addresses"),
+                device_type,
+            )
+
+        result = self.db.update_device(device_id, update_data)
 
         if result:
             premise = self.premises.get(premise_id)
@@ -271,7 +291,7 @@ class PremiseManager:
                 device = premise.devices.get(device_id)
                 if device:
                     # Update individual address if changed
-                    if "individual_address" in data:
+                    if "individual_address" in update_data:
                         from knxip import frames
 
                         device.individual_address = frames.parse_individual_address(
@@ -279,8 +299,8 @@ class PremiseManager:
                         )
 
                     # If group_addresses changed, update the running device
-                    if "group_addresses" in data:
-                        new_gas = data["group_addresses"]
+                    if "group_addresses" in update_data:
+                        new_gas = update_data["group_addresses"]
                         old_gas = device.group_addresses.copy()
 
                         # Remove old GA mappings from premise._ga_map
