@@ -40,6 +40,12 @@ def create_premise(body: PremiseCreate):
     # Check for duplicate
     if manager.get_premise(body.id):
         raise HTTPException(status_code=409, detail="Premise already exists")
+    # Check for port conflict
+    for p in manager.list_premises():
+        if p["port"] == body.port:
+            raise HTTPException(
+                status_code=409, detail=f"Port {body.port} already in use by '{p['name']}'"
+            )
     result = manager.create_premise(body.model_dump())
     result["running"] = True
     result["device_count"] = 0
@@ -187,6 +193,8 @@ def reset_to_sample(premise_id: str):
     devices_created = 0
     # Map from bare device ID → prefixed device ID (for scenarios/loads)
     device_id_map = {}
+    premise_area = premise.get("area_number", 1)
+    premise_line = premise.get("line_number", 1)
 
     for dev_config in config.get("devices", []):
         bare_id = dev_config["id"]
@@ -203,14 +211,29 @@ def reset_to_sample(premise_id: str):
                 dev_config.get("group_addresses", {}),
             )
 
+        raw_ia = dev_config.get("individual_address", "")
+        remapped_ia = raw_ia
+        device_number = None
+        if raw_ia:
+            parts = raw_ia.split(".")
+            if len(parts) == 3:
+                try:
+                    device_number = int(parts[2])
+                except ValueError:
+                    device_number = None
+                if device_number is not None:
+                    remapped_ia = f"{premise_area}.{premise_line}.{device_number}"
+
         device_data = {
             "id": prefixed_id,
             "type": dev_config["type"],
-            "individual_address": dev_config["individual_address"],
+            "individual_address": remapped_ia,
             "group_addresses": dev_config.get("group_addresses", {}),
             "initial_state": dev_config.get("initial", {}),
             "room_id": resolved_room_id,
         }
+        if device_number is not None:
+            device_data["device_number"] = device_number
 
         # Handle template devices
         if dev_config.get("template"):

@@ -12,8 +12,8 @@ def _create_premise(db, premise_id: str = "premise-1") -> dict:
         {
             "id": premise_id,
             "name": "Test Premise",
-            "gateway_address": "1.0.0",
-            "client_address": "1.0.255",
+            "area_number": 1,
+            "line_number": 1,
             "port": 3671,
         }
     )
@@ -30,9 +30,7 @@ def test_premise_device_floor_room_load_crud(db):
     premise = _create_premise(db)
     premise_id = premise["id"]
 
-    floor = db.create_floor(
-        premise_id, {"id": "floor-1", "name": "Ground Floor", "sort_order": 0}
-    )
+    floor = db.create_floor(premise_id, {"id": "floor-1", "name": "Ground Floor", "sort_order": 0})
     room = db.create_room(
         floor["id"], {"id": "room-1", "name": "Living Room", "room_type": "living"}
     )
@@ -75,15 +73,14 @@ def test_topology_and_groups_crud(db):
     premise = _create_premise(db, premise_id="premise-2")
     premise_id = premise["id"]
 
-    area = db.create_area(premise_id, {"area_number": 1, "name": "Area 1"})
-    assert area["area_number"] == 1
+    # Topology is now derived from premise area/line numbers
+    topo = db.get_topology(premise_id)
+    assert topo["area_number"] == 1
+    assert topo["line_number"] == 1
+    assert topo["gateway"] == "1.1.0"
+    assert isinstance(topo["devices"], list)
 
-    line = db.create_line(area["id"], {"line_number": 1, "name": "Line 1"})
-    assert line["line_number"] == 1
-
-    main_group = db.create_main_group(
-        premise_id, {"group_number": 1, "name": "Lighting"}
-    )
+    main_group = db.create_main_group(premise_id, {"group_number": 1, "name": "Lighting"})
     middle_group = db.create_middle_group(
         main_group["id"], {"group_number": 1, "name": "Ground Floor"}
     )
@@ -98,12 +95,8 @@ def test_delete_premise_cascades(db):
     premise = _create_premise(db, premise_id="premise-3")
     premise_id = premise["id"]
 
-    floor = db.create_floor(
-        premise_id, {"id": "floor-3", "name": "Floor", "sort_order": 0}
-    )
-    room = db.create_room(
-        floor["id"], {"id": "room-3", "name": "Room", "room_type": "other"}
-    )
+    floor = db.create_floor(premise_id, {"id": "floor-3", "name": "Floor", "sort_order": 0})
+    room = db.create_room(floor["id"], {"id": "room-3", "name": "Room", "room_type": "other"})
     device = db.create_device(
         premise_id,
         {

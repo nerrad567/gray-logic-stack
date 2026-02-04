@@ -58,8 +58,8 @@ def sample_premise(premise_manager, db):
         {
             "id": premise_id,
             "name": "Test Premise",
-            "gateway_address": "1.0.0",
-            "client_address": "1.0.255",
+            "area_number": 1,
+            "line_number": 1,
             "port": 3671,
         }
     )
@@ -122,15 +122,18 @@ def app(premise_manager, ws_hub, telegram_inspector):
 
 
 @pytest.fixture
-def client(app):
-    """Create a FastAPI TestClient for HTTP testing."""
+async def client(app):
+    """Create an AsyncClient for HTTP testing against the ASGI app."""
     try:
-        import httpx  # noqa: F401
+        import httpx
     except ModuleNotFoundError:
         pytest.skip("httpx not installed in venv; skipping API client tests")
-    from fastapi.testclient import TestClient
 
-    return TestClient(app)
+    transport = httpx.ASGITransport(app=app)
+    async with httpx.AsyncClient(
+        transport=transport, base_url="http://testserver"
+    ) as client:
+        yield client
 
 
 _PORT_COUNTER = itertools.count(40000)
@@ -149,6 +152,23 @@ def _disable_knxip_server(monkeypatch):
 
     monkeypatch.setattr(KNXIPServer, "start", _start)
     monkeypatch.setattr(KNXIPServer, "stop", _stop)
+
+
+@pytest.fixture(autouse=True)
+def _run_sync_endpoints_inline(monkeypatch):
+    """Run sync FastAPI endpoints inline to avoid AnyIO threadpool hangs."""
+    import fastapi.concurrency as fastapi_concurrency
+    import fastapi.dependencies.utils as fastapi_dep_utils
+    import fastapi.routing as fastapi_routing
+    import starlette.concurrency as starlette_concurrency
+
+    async def _run_inline(func, *args, **kwargs):
+        return func(*args, **kwargs)
+
+    monkeypatch.setattr(starlette_concurrency, "run_in_threadpool", _run_inline)
+    monkeypatch.setattr(fastapi_concurrency, "run_in_threadpool", _run_inline)
+    monkeypatch.setattr(fastapi_routing, "run_in_threadpool", _run_inline)
+    monkeypatch.setattr(fastapi_dep_utils, "run_in_threadpool", _run_inline)
 
 
 @pytest.fixture

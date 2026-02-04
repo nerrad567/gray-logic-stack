@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=27" />
+    <link rel="stylesheet" href="css/style.css?v=32" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -84,18 +84,28 @@
               @click.outside="showCreate = false"
               x-data="{
               name: '',
-              port: 3672,
+              areaNumber: 1,
+              lineNumber: 1,
+              get nextPort() {
+                const ports = $store.app.premises.map(p => p.port || 3671);
+                return Math.max(...ports, 3671) + 1;
+              },
+              port: null,
               creating: false,
+              init() { this.port = this.nextPort; },
               async create() {
                 if (!this.name.trim()) return;
                 this.creating = true;
                 try {
                   const id = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
-                  await API.createPremise({ id, name: this.name.trim(), port: this.port });
+                  await API.createPremise({ id, name: this.name.trim(), area_number: this.areaNumber, line_number: this.lineNumber, port: this.port });
+                  // Suppress welcome modal flicker during premise switch
+                  $store.app.connecting = true;
                   await $store.app.loadPremises();
                   await $store.app.selectPremise(id);
+                  $store.app.connecting = false;
                   this.name = '';
-                  this.port = this.port + 1;
+                  this.port = this.nextPort;
                   showCreate = false;
                 } catch (e) {
                   alert('Failed to create: ' + e.message);
@@ -113,6 +123,35 @@
                 placeholder="e.g. Guest House"
                 @keydown.enter="create()"
               />
+              <div style="display: flex; gap: 8px">
+                <div style="flex: 1">
+                  <label>Area</label>
+                  <input
+                    type="number"
+                    x-model.number="areaNumber"
+                    min="0"
+                    max="15"
+                  />
+                </div>
+                <div style="flex: 1">
+                  <label>Line</label>
+                  <input
+                    type="number"
+                    x-model.number="lineNumber"
+                    min="0"
+                    max="15"
+                  />
+                </div>
+              </div>
+              <label
+                style="
+                  margin-top: 4px;
+                  font-size: 10px;
+                  color: var(--text-muted);
+                "
+                >Gateway:
+                <span x-text="areaNumber + '.' + lineNumber + '.0'"></span
+              ></label>
               <label>KNXnet/IP Port</label>
               <input
                 type="number"
@@ -308,208 +347,73 @@
             <p>Loading topology...</p>
           </div>
 
-          <!-- Topology tree -->
+          <!-- Topology: flat device list for this premise's TP line -->
           <div class="topology-tree" x-show="$store.app.topology">
-            <!-- Add Area button (Engineer Mode) -->
+            <!-- Info banner -->
+            <div class="info-banner">
+              <strong
+                >TP Line
+                <span
+                  x-text="$store.app.topology?.area_number + '.' + $store.app.topology?.line_number"
+                ></span
+              ></strong>
+              &mdash; Gateway
+              <span x-text="$store.app.topology?.gateway"></span>
+              &mdash;
+              <span
+                x-text="($store.app.topology?.devices?.length || 0) + ' device(s)'"
+              ></span>
+              <p class="info-banner-detail">
+                Each premise simulates one KNXnet/IP interface serving a single
+                TP line. In ETS, you would see all areas and lines in one
+                project &mdash; here, each line is a separate premise with its
+                own KNXnet/IP port.
+              </p>
+            </div>
+
+            <!-- Add Device button (Engineer Mode) -->
             <div class="topology-actions" x-show="$store.app.engineerMode">
               <button
                 class="btn btn-primary"
-                @click="$store.modal.show('area', 'create')"
+                @click="$store.modal.show('device', 'create', { suggested_ia: $store.app.topology?.area_number + '.' + $store.app.topology?.line_number + '.' + $store.app.getNextDeviceNumber() })"
               >
-                + Add Area
+                + Add Device
               </button>
             </div>
 
             <!-- Empty state -->
             <div
               class="topology-empty"
-              x-show="$store.app.topology?.areas?.length === 0"
+              x-show="$store.app.topology?.devices?.length === 0"
             >
-              <p>
-                No areas configured. Add an area to organize your KNX topology.
-              </p>
+              <p>No devices on this line. Add a device to get started.</p>
             </div>
 
-            <!-- Areas -->
+            <!-- Flat device list -->
             <template
-              x-for="area in $store.app.topology?.areas || []"
-              :key="area.id"
+              x-for="device in $store.app.topology?.devices || []"
+              :key="device.id"
             >
-              <div class="topology-area">
-                <div
-                  class="topology-area-header"
-                  @click="$store.app.toggleArea(area.id)"
-                >
-                  <span
-                    class="topology-expand-icon"
-                    x-text="$store.app.isAreaExpanded(area.id) ? '▼' : '▶'"
-                  ></span>
-                  <span
-                    class="topology-area-number"
-                    x-text="'Area ' + area.area_number"
-                  ></span>
-                  <span class="topology-area-name" x-text="area.name"></span>
-                  <span
-                    class="topology-area-count"
-                    x-text="area.lines?.length + ' line(s)'"
-                  ></span>
-                  <!-- Area actions (Engineer Mode) -->
-                  <div
-                    class="topology-actions-inline"
-                    x-show="$store.app.engineerMode"
-                    @click.stop
-                  >
-                    <button
-                      class="btn-icon"
-                      @click="$store.modal.show('line', 'create', { area_id: area.id, area_number: area.area_number })"
-                      title="Add line"
-                    >
-                      ➕
-                    </button>
-                    <button
-                      class="btn-icon"
-                      @click="$store.modal.show('area', 'edit', area)"
-                      title="Edit area"
-                    >
-                      ✏️
-                    </button>
-                    <button
-                      class="btn-icon btn-danger"
-                      @click="$store.modal.confirm('Delete Area', `Delete '${area.name}' and all its lines?`, () => $store.app.deleteArea(area.id))"
-                      title="Delete area"
-                    >
-                      🗑️
-                    </button>
-                  </div>
-                </div>
-
-                <!-- Lines (collapsible) -->
-                <div
-                  class="topology-lines"
-                  x-show="$store.app.isAreaExpanded(area.id)"
-                  x-collapse
-                >
-                  <template x-for="line in area.lines || []" :key="line.id">
-                    <div class="topology-line">
-                      <div
-                        class="topology-line-header"
-                        @click="$store.app.toggleLine(line.id)"
-                      >
-                        <span
-                          class="topology-expand-icon"
-                          x-text="$store.app.isLineExpanded(line.id) ? '▼' : '▶'"
-                        ></span>
-                        <span
-                          class="topology-line-number"
-                          x-text="area.area_number + '.' + line.line_number"
-                        ></span>
-                        <span
-                          class="topology-line-name"
-                          x-text="line.name"
-                        ></span>
-                        <span
-                          class="topology-line-count"
-                          x-text="line.devices?.length + ' device(s)'"
-                        ></span>
-                        <!-- Line actions (Engineer Mode) -->
-                        <div
-                          class="topology-actions-inline"
-                          x-show="$store.app.engineerMode"
-                          @click.stop
-                        >
-                          <button
-                            class="btn-icon"
-                            @click="$store.modal.show('device', 'create', { line_id: line.id, suggested_ia: area.area_number + '.' + line.line_number + '.' + $store.app.getNextDeviceNumber(line.id) })"
-                            title="Add device"
-                          >
-                            ➕
-                          </button>
-                          <button
-                            class="btn-icon"
-                            @click="$store.modal.show('line', 'edit', { ...line, area_id: area.id, area_number: area.area_number })"
-                            title="Edit line"
-                          >
-                            ✏️
-                          </button>
-                          <button
-                            class="btn-icon btn-danger"
-                            @click="$store.modal.confirm('Delete Line', `Delete '${line.name}'? Devices will become unlinked.`, () => $store.app.deleteLine(area.id, line.id))"
-                            title="Delete line"
-                          >
-                            🗑️
-                          </button>
-                        </div>
-                      </div>
-
-                      <!-- Devices on this line (collapsible) -->
-                      <div
-                        class="topology-devices"
-                        x-show="$store.app.isLineExpanded(line.id)"
-                        x-collapse
-                      >
-                        <template
-                          x-for="device in line.devices || []"
-                          :key="device.id"
-                        >
-                          <div
-                            class="topology-device"
-                            :class="{ 'selected': device.id === $store.app.selectedDeviceId }"
-                            @click="$store.app.selectDevice(device.id)"
-                          >
-                            <span
-                              class="topology-device-addr"
-                              x-text="device.individual_address"
-                            ></span>
-                            <span
-                              class="topology-device-icon"
-                              x-text="$store.app.getDeviceIcon(device.type)"
-                            ></span>
-                            <span
-                              class="topology-device-name"
-                              x-text="device.id"
-                            ></span>
-                            <span
-                              class="topology-device-type"
-                              x-text="device.type"
-                            ></span>
-                            <span
-                              class="topology-device-room"
-                              x-show="device.room_id"
-                              x-text="'📍 ' + device.room_id"
-                            ></span>
-                          </div>
-                        </template>
-
-                        <!-- Empty line -->
-                        <div
-                          class="topology-empty-line"
-                          x-show="!line.devices?.length"
-                        >
-                          <span>No devices on this line</span>
-                          <button
-                            class="btn btn-small"
-                            x-show="$store.app.engineerMode"
-                            @click="$store.modal.show('device', 'create', { line_id: line.id, suggested_ia: area.area_number + '.' + line.line_number + '.1' })"
-                          >
-                            + Add Device
-                          </button>
-                        </div>
-                      </div>
-                    </div>
-                  </template>
-
-                  <!-- Empty area -->
-                  <div class="topology-empty-area" x-show="!area.lines?.length">
-                    <span>No lines in this area</span>
-                    <button
-                      class="btn btn-small"
-                      x-show="$store.app.engineerMode"
-                      @click="$store.modal.show('line', 'create', { area_id: area.id, area_number: area.area_number })"
-                    >
-                      + Add Line
-                    </button>
-                  </div>
-                </div>
+              <div
+                class="topology-device"
+                :class="{ 'selected': device.id === $store.app.selectedDeviceId }"
+                @click="$store.app.selectDevice(device.id)"
+              >
+                <span
+                  class="topology-device-addr"
+                  x-text="device.individual_address"
+                ></span>
+                <span
+                  class="topology-device-icon"
+                  x-text="$store.app.getDeviceIcon(device.type)"
+                ></span>
+                <span class="topology-device-name" x-text="device.id"></span>
+                <span class="topology-device-type" x-text="device.type"></span>
+                <span
+                  class="topology-device-room"
+                  x-show="device.room_id"
+                  x-text="'&#x1f4cd; ' + device.room_id"
+                ></span>
               </div>
             </template>
           </div>
@@ -2611,7 +2515,9 @@ BIDIRECTIONAL (control point):
             <p>
               Every KNX device has a unique individual address (IA) that
               identifies it on the bus. Unlike group addresses (which are
-              logical), the IA is the device's "name".
+              logical),
+              <strong>the IA encodes the device's physical location</strong>
+              in the installation.
             </p>
 
             <h4>Format: Area.Line.Device</h4>
@@ -2620,29 +2526,64 @@ BIDIRECTIONAL (control point):
                 <th>Component</th>
                 <th>Range</th>
                 <th>Bits</th>
-                <th>Description</th>
+                <th>Physical Meaning</th>
               </tr>
               <tr>
                 <td>Area</td>
                 <td>0-15</td>
                 <td>4 bits</td>
-                <td>Backbone segment / building area</td>
+                <td>Building / Campus zone (e.g., "South Wing")</td>
               </tr>
               <tr>
                 <td>Line</td>
                 <td>0-15</td>
                 <td>4 bits</td>
-                <td>Line within the area</td>
+                <td>Physical TP bus cable (e.g., "Ground Floor")</td>
               </tr>
               <tr>
                 <td>Device</td>
                 <td>0-255</td>
                 <td>8 bits</td>
-                <td>Device on the line</td>
+                <td>Device number on that cable</td>
               </tr>
             </table>
             <p>
-              <em>Example: <code>1.2.15</code> = Area 1, Line 2, Device 15</em>
+              <em
+                >Example: <code>2.1.15</code> = South Wing (Area 2), Ground
+                Floor (Line 1), Device 15</em
+              >
+            </p>
+
+            <h4>The Address IS the Location</h4>
+            <p>
+              This is one of the most elegant aspects of KNX — the individual
+              address tells you
+              <strong>exactly where to find the device physically</strong>:
+            </p>
+            <table class="help-table">
+              <tr>
+                <th>Address</th>
+                <th>Physical Location</th>
+              </tr>
+              <tr>
+                <td><code>1.1.5</code></td>
+                <td>Main Building → First Floor → Device 5</td>
+              </tr>
+              <tr>
+                <td><code>2.3.42</code></td>
+                <td>South Wing → Basement → Device 42</td>
+              </tr>
+              <tr>
+                <td><code>3.1.1</code></td>
+                <td>Sports Centre → Main Hall → Device 1</td>
+              </tr>
+            </table>
+            <p>
+              <em
+                >When a device isn't responding, the address tells the engineer
+                exactly which building, which floor, and which cable run to
+                check — no database lookup required.</em
+              >
             </p>
 
             <h4>Reserved Addresses</h4>
@@ -2674,7 +2615,45 @@ BIDIRECTIONAL (control point):
               </tr>
             </table>
 
-            <h4>Topology Structure</h4>
+            <h4>Physical Topology — What Each Part Really Is</h4>
+            <p>
+              <strong>Each "Line" is a physical TP cable</strong> — a separate
+              green twisted-pair bus wire with its own power supply. This is
+              real hardware, not just software organisation:
+            </p>
+            <pre class="help-code">
+ELECTRICAL CABINET (Area 2: South Wing)
+┌─────────────────────────────────────────────────────────┐
+│                                                         │
+│  ┌──────────────┐  ┌──────────────┐  ┌──────────────┐  │
+│  │ Line Coupler │  │ Line Coupler │  │ Line Coupler │  │
+│  │    2.1.0     │  │    2.2.0     │  │    2.3.0     │  │
+│  └──────┬───────┘  └──────┬───────┘  └──────┬───────┘  │
+│         │                 │                 │          │
+│    TP Cable #1       TP Cable #2       TP Cable #3     │
+│         │                 │                 │          │
+└─────────│─────────────────│─────────────────│──────────┘
+          ▼                 ▼                 ▼
+     Ground Floor      First Floor        Basement
+     (64 devices)      (64 devices)      (30 devices)</pre
+            >
+
+            <p>Each physical TP cable:</p>
+            <ul>
+              <li>
+                <strong>Has its own power supply</strong> (29V DC, typically
+                640mA)
+              </li>
+              <li>
+                <strong>Maximum 64 devices</strong> (electrical constraint)
+              </li>
+              <li><strong>Maximum 1000m total cable length</strong></li>
+              <li>
+                <strong>Connected via line coupler</strong> to other lines
+              </li>
+            </ul>
+
+            <h4>Logical Topology Structure</h4>
             <pre class="help-code">
 BACKBONE (connects areas)
 │
@@ -2693,6 +2672,48 @@ BACKBONE (connects areas)
         ├── 2.1.1  Device
         └── 2.1.2  Device</pre
             >
+
+            <h4>⚠️ What Happens If Address Doesn't Match Physical Location?</h4>
+            <p>
+              The TP bus is just a wire — it doesn't check addresses.
+              <strong
+                >Any device connected can hear every telegram on that physical
+                cable.</strong
+              >
+              The individual address is software configuration only.
+            </p>
+            <p>
+              If you connect a device programmed as <code>2.3.5</code> to Line
+              1.1:
+            </p>
+            <table class="help-table">
+              <tr>
+                <th>What</th>
+                <th>Result</th>
+              </tr>
+              <tr>
+                <td>Group telegrams</td>
+                <td>✅ Work — device still responds to GAs</td>
+              </tr>
+              <tr>
+                <td>Direct addressing (ETS)</td>
+                <td>❌ Fails — telegrams route to real Line 2.3</td>
+              </tr>
+              <tr>
+                <td>Programming</td>
+                <td>❌ Fails — ETS can't reach device</td>
+              </tr>
+              <tr>
+                <td>Diagnostics</td>
+                <td>❌ "Device offline" in wrong location</td>
+              </tr>
+            </table>
+            <p>
+              <strong>The Golden Rule:</strong> A device's individual address
+              MUST match the physical line it's connected to.
+              <code>1.1.x</code> devices go on Line 1.1's cable,
+              <code>2.3.x</code> devices go on Line 2.3's cable.
+            </p>
 
             <h4>Practical Limits</h4>
             <table class="help-table">
@@ -2780,6 +2801,93 @@ STRATEGY 3: By Room Type (Commercial)
   Line 1.3 = Common Areas
   Line 1.4 = Server Room / Technical</pre
             >
+
+            <h4>How This Maps to KNXSim</h4>
+            <p>
+              In KNXSim,
+              <strong
+                >each premise represents one KNXnet/IP interface serving one
+                physical TP line</strong
+              >. This matches real hardware — each KNXnet/IP interface (like a
+              Weinzierl 730 or MDT SCN-IP100) bridges exactly one TP line to IP.
+            </p>
+            <table class="help-table">
+              <tr>
+                <th>KNXSim Premise</th>
+                <th>Area</th>
+                <th>Line</th>
+                <th>Gateway</th>
+                <th>Represents</th>
+              </tr>
+              <tr>
+                <td>main-house</td>
+                <td>1</td>
+                <td>1</td>
+                <td>1.1.0</td>
+                <td>Ground floor TP cable</td>
+              </tr>
+              <tr>
+                <td>main-house-upper</td>
+                <td>1</td>
+                <td>2</td>
+                <td>1.2.0</td>
+                <td>Upper floor TP cable (same area)</td>
+              </tr>
+              <tr>
+                <td>guest-house</td>
+                <td>2</td>
+                <td>1</td>
+                <td>2.1.0</td>
+                <td>Separate building (different area)</td>
+              </tr>
+            </table>
+            <p>
+              <em
+                >For a typical home with one TP line, you need just one premise
+                (Area 1, Line 1). Multi-line installations use multiple
+                premises, each with a unique UDP port.</em
+              >
+            </p>
+
+            <h4>KNXSim vs Real Hardware: Port vs IP</h4>
+            <table class="help-table">
+              <tr>
+                <th></th>
+                <th>Real World</th>
+                <th>KNXSim</th>
+              </tr>
+              <tr>
+                <td><strong>Ground Floor</strong></td>
+                <td><code>192.168.1.50:3671</code></td>
+                <td><code>localhost:3671</code></td>
+              </tr>
+              <tr>
+                <td><strong>Upper Floor</strong></td>
+                <td><code>192.168.1.51:3671</code></td>
+                <td><code>localhost:3672</code></td>
+              </tr>
+              <tr>
+                <td><strong>Guest House</strong></td>
+                <td><code>192.168.1.52:3671</code></td>
+                <td><code>localhost:3673</code></td>
+              </tr>
+            </table>
+            <p>
+              In real installations, each KNXnet/IP interface is a
+              <strong>separate physical device with its own IP address</strong>,
+              all using the standard port 3671. KNXSim runs as a single process,
+              so we use <strong>different UDP ports</strong> on the same IP to
+              achieve the same result — each "interface" is independently
+              addressable by your KNX client (ETS, knxd, Gray Logic Core).
+            </p>
+            <p>
+              <em
+                >Future architecture note: A more realistic simulation could
+                spawn separate container instances per premise, each with its
+                own virtual IP — truly mirroring how multiple KNXnet/IP
+                interfaces appear on a real network.</em
+              >
+            </p>
           </div>
 
           <!-- DPTs -->
@@ -3559,204 +3667,6 @@ STRATEGY 3: By Room Type (Commercial)
         </div>
 
         <!-- Area Modal -->
-        <div
-          class="modal"
-          x-show="$store.modal.type === 'area'"
-          @click.stop
-          x-data="{
-            form: {
-              area_number: 0,
-              name: '',
-              description: ''
-            },
-            init() {
-              if ($store.modal.mode === 'edit' && $store.modal.data) {
-                this.form = {
-                  area_number: $store.modal.data.area_number,
-                  name: $store.modal.data.name || '',
-                  description: $store.modal.data.description || ''
-                };
-              } else {
-                // Suggest next available area number
-                const areas = $store.app.topology?.areas || [];
-                const usedNumbers = areas.map(a => a.area_number);
-                for (let i = 1; i <= 15; i++) {
-                  if (!usedNumbers.includes(i)) {
-                    this.form.area_number = i;
-                    break;
-                  }
-                }
-                this.form.name = 'Area ' + this.form.area_number;
-              }
-            },
-            async submit() {
-              if ($store.modal.mode === 'create') {
-                await $store.app.createArea(this.form);
-              } else {
-                await $store.app.updateArea($store.modal.data.id, this.form);
-              }
-            }
-          }"
-        >
-          <div class="modal-header">
-            <h3
-              x-text="$store.modal.mode === 'create' ? 'Add Area' : 'Edit Area'"
-            ></h3>
-            <button class="btn-close" @click="$store.modal.close()">
-              &times;
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label for="area-number">Area Number</label>
-              <input
-                type="number"
-                id="area-number"
-                x-model.number="form.area_number"
-                min="0"
-                max="15"
-                :disabled="$store.modal.mode === 'edit'"
-              />
-              <small class="form-hint">0-15 (KNX topology limit)</small>
-            </div>
-            <div class="form-group">
-              <label for="area-name">Name</label>
-              <input
-                type="text"
-                id="area-name"
-                x-model="form.name"
-                placeholder="e.g., Main Building, Ground Floor Zone"
-              />
-            </div>
-            <div class="form-group">
-              <label for="area-desc">Description (optional)</label>
-              <textarea
-                id="area-desc"
-                x-model="form.description"
-                rows="2"
-                placeholder="Optional description"
-              ></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn" @click="$store.modal.close()">Cancel</button>
-            <button
-              class="btn btn-primary"
-              @click="submit()"
-              :disabled="!form.name"
-            >
-              <span
-                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
-              ></span>
-            </button>
-          </div>
-        </div>
-
-        <!-- Line Modal -->
-        <div
-          class="modal"
-          x-show="$store.modal.type === 'line'"
-          @click.stop
-          x-data="{
-            form: {
-              line_number: 0,
-              name: '',
-              description: ''
-            },
-            init() {
-              if ($store.modal.mode === 'edit' && $store.modal.data) {
-                this.form = {
-                  line_number: $store.modal.data.line_number,
-                  name: $store.modal.data.name || '',
-                  description: $store.modal.data.description || ''
-                };
-              } else {
-                // Suggest next available line number for this area
-                const areaId = $store.modal.data.area_id;
-                const areaNum = $store.modal.data.area_number || 1;
-                const area = $store.app.topology?.areas?.find(a => a.id === areaId);
-                const usedNumbers = (area?.lines || []).map(l => l.line_number);
-                for (let i = 1; i <= 15; i++) {
-                  if (!usedNumbers.includes(i)) {
-                    this.form.line_number = i;
-                    break;
-                  }
-                }
-                this.form.name = 'Line ' + areaNum + '.' + this.form.line_number;
-              }
-            },
-            async submit() {
-              const areaId = $store.modal.data.area_id;
-              if ($store.modal.mode === 'create') {
-                await $store.app.createLine(areaId, this.form);
-              } else {
-                await $store.app.updateLine(areaId, $store.modal.data.id, this.form);
-              }
-            }
-          }"
-        >
-          <div class="modal-header">
-            <h3
-              x-text="$store.modal.mode === 'create' ? 'Add Line' : 'Edit Line'"
-            ></h3>
-            <button class="btn-close" @click="$store.modal.close()">
-              &times;
-            </button>
-          </div>
-          <div class="modal-body">
-            <div class="form-group">
-              <label>Area</label>
-              <input
-                type="text"
-                :value="'Area ' + ($store.modal.data.area_number || 1)"
-                disabled
-              />
-            </div>
-            <div class="form-group">
-              <label for="line-number">Line Number</label>
-              <input
-                type="number"
-                id="line-number"
-                x-model.number="form.line_number"
-                min="0"
-                max="15"
-                :disabled="$store.modal.mode === 'edit'"
-              />
-              <small class="form-hint">0-15 (KNX topology limit)</small>
-            </div>
-            <div class="form-group">
-              <label for="line-name">Name</label>
-              <input
-                type="text"
-                id="line-name"
-                x-model="form.name"
-                placeholder="e.g., Lighting, Sensors, HVAC"
-              />
-            </div>
-            <div class="form-group">
-              <label for="line-desc">Description (optional)</label>
-              <textarea
-                id="line-desc"
-                x-model="form.description"
-                rows="2"
-                placeholder="Optional description"
-              ></textarea>
-            </div>
-          </div>
-          <div class="modal-footer">
-            <button class="btn" @click="$store.modal.close()">Cancel</button>
-            <button
-              class="btn btn-primary"
-              @click="submit()"
-              :disabled="!form.name"
-            >
-              <span
-                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
-              ></span>
-            </button>
-          </div>
-        </div>
-
         <!-- Room Modal -->
         <div
           class="modal"
@@ -4215,63 +4125,7 @@ STRATEGY 3: By Room Type (Commercial)
                   >Free-form type identifier for your custom device</small
                 >
               </div>
-              <div class="form-group">
-                <label>Addressing</label>
-                <div class="address-mode">
-                  <label class="address-mode-option">
-                    <input
-                      type="radio"
-                      name="addressing"
-                      value="topology"
-                      x-model="addressMode"
-                      @change="setAddressMode('topology')"
-                    />
-                    <span>Topology</span>
-                  </label>
-                  <label class="address-mode-option">
-                    <input
-                      type="radio"
-                      name="addressing"
-                      value="manual"
-                      x-model="addressMode"
-                      @change="setAddressMode('manual')"
-                    />
-                    <span>Manual</span>
-                  </label>
-                </div>
-                <small class="form-hint"
-                  >Topology mode links devices to Area/Line and computes the
-                  individual address automatically.</small
-                >
-              </div>
-
-              <div class="form-row" x-show="addressMode === 'topology'">
-                <div class="form-group">
-                  <label for="device-line">Line</label>
-                  <select
-                    id="device-line"
-                    x-model="form.line_id"
-                    @change="onLineChange()"
-                  >
-                    <option value="">Select line</option>
-                    <template
-                      x-for="area in $store.app.topology?.areas || []"
-                      :key="area.id"
-                    >
-                      <optgroup :label="'Area ' + area.area_number">
-                        <template
-                          x-for="line in area.lines || []"
-                          :key="line.id"
-                        >
-                          <option
-                            :value="line.id"
-                            x-text="`Line ${area.area_number}.${line.line_number} - ${line.name}`"
-                          ></option>
-                        </template>
-                      </optgroup>
-                    </template>
-                  </select>
-                </div>
+              <div class="form-row">
                 <div class="form-group">
                   <label for="device-number">Device #</label>
                   <div class="input-with-button">
@@ -4281,7 +4135,6 @@ STRATEGY 3: By Room Type (Commercial)
                       x-model.number="form.device_number"
                       min="1"
                       max="255"
-                      :disabled="!form.line_id"
                       @input="syncIAFromTopology()"
                     />
                     <button
@@ -4297,34 +4150,22 @@ STRATEGY 3: By Room Type (Commercial)
                     >1-255 (0 reserved for couplers)</small
                   >
                 </div>
-              </div>
-
-              <div class="form-group">
-                <label for="device-addr">Individual Address</label>
-                <div class="input-with-button">
+                <div class="form-group">
+                  <label for="device-addr">Individual Address</label>
                   <input
                     type="text"
                     id="device-addr"
                     x-model="form.individual_address"
-                    placeholder="e.g., 1.1.1"
-                    pattern="\d+\.\d+\.\d+"
-                    :disabled="addressMode === 'topology'"
+                    disabled
+                    placeholder="Auto-computed"
                   />
-                  <button
-                    type="button"
-                    class="btn btn-small"
-                    @click="suggestIA()"
-                    title="Suggest next available address"
-                  >
-                    Suggest
-                  </button>
+                  <small class="form-hint" x-text="getIAHint()"></small>
+                  <small
+                    class="form-warning"
+                    x-show="getIAConflict()"
+                    x-text="getIAConflict()"
+                  ></small>
                 </div>
-                <small class="form-hint" x-text="getIAHint()"></small>
-                <small
-                  class="form-warning"
-                  x-show="getIAConflict()"
-                  x-text="getIAConflict()"
-                ></small>
               </div>
               <div class="form-group">
                 <label for="device-room">Room</label>
@@ -5496,7 +5337,6 @@ STRATEGY 3: By Room Type (Commercial)
             id: "",
             type: "",
             individual_address: "",
-            line_id: "",
             device_number: null,
             room_id: "",
             group_addresses: {},
@@ -5511,95 +5351,27 @@ STRATEGY 3: By Room Type (Commercial)
           helpTab: "all-devices",
           dptSearch: "",
           gaFilter: "",
-          addressMode: "manual",
-
-          getLineById(lineId) {
-            const topology = this.$store.app.topology;
-            if (!topology) return null;
-            for (const area of topology.areas || []) {
-              const line = (area.lines || []).find((l) => l.id === lineId);
-              if (line) {
-                return { ...line, area_number: area.area_number };
-              }
-            }
-            return null;
-          },
-
-          ensureLineSelected() {
-            if (this.form.line_id) return;
-            const topology = this.$store.app.topology;
-            const firstLine = topology?.areas?.[0]?.lines?.[0];
-            if (firstLine) {
-              this.form.line_id = firstLine.id;
-            }
-          },
 
           syncIAFromTopology() {
-            if (this.addressMode !== "topology") return;
-            if (!this.form.line_id || !this.form.device_number) return;
-            const line = this.getLineById(this.form.line_id);
-            if (!line) return;
-            this.form.individual_address = `${line.area_number}.${line.line_number}.${this.form.device_number}`;
-          },
-
-          setAddressMode(mode) {
-            this.addressMode = mode;
-            if (mode === "topology") {
-              this.ensureLineSelected();
-              if (this.form.line_id && !this.form.device_number) {
-                this.suggestDeviceNumber();
-              } else {
-                this.syncIAFromTopology();
-              }
-            }
-          },
-
-          async onLineChange() {
-            if (this.addressMode !== "topology") return;
-            if (this.form.line_id) {
-              await this.suggestDeviceNumber();
-            }
+            if (!this.form.device_number) return;
+            const topo = this.$store.app.topology;
+            if (!topo) return;
+            this.form.individual_address = `${topo.area_number}.${topo.line_number}.${this.form.device_number}`;
           },
 
           async suggestDeviceNumber() {
-            if (this.addressMode !== "topology") return;
-            this.ensureLineSelected();
-            if (this.form.line_id) {
-              const result = await this.$store.app.fetchNextDeviceNumber(
-                this.form.line_id,
-              );
-              if (result?.next_device_number) {
-                this.form.device_number = result.next_device_number;
-                if (result.individual_address) {
-                  this.form.individual_address = result.individual_address;
-                } else {
-                  this.syncIAFromTopology();
-                }
-                return;
+            const result = await this.$store.app.fetchNextDeviceNumber();
+            if (result?.next_device_number) {
+              this.form.device_number = result.next_device_number;
+              if (result.individual_address) {
+                this.form.individual_address = result.individual_address;
+              } else {
+                this.syncIAFromTopology();
               }
-              this.form.device_number = this.$store.app.getNextDeviceNumber(
-                this.form.line_id,
-              );
-              this.syncIAFromTopology();
+              return;
             }
-          },
-
-          applySuggestedLine(lineId, suggestedIA) {
-            if (!lineId) return false;
-            this.form.line_id = lineId;
-            const parsed = this.$store.reference.parseIA(suggestedIA || "");
-            if (parsed?.device) {
-              this.form.device_number = parsed.device;
-            } else if (this.$store.app.topology) {
-              this.form.device_number = this.$store.app.getNextDeviceNumber(
-                this.form.line_id,
-              );
-            } else {
-              this.form.device_number = null;
-            }
-            this.addressMode = "topology";
+            this.form.device_number = this.$store.app.getNextDeviceNumber();
             this.syncIAFromTopology();
-            return true;
           },
 
           get filteredPickerTemplates() {
@@ -5666,14 +5438,7 @@ STRATEGY 3: By Room Type (Commercial)
               this.$store.app.loadTopology();
             }
             this.$watch("$store.app.topology", () => {
-              if (this.addressMode === "topology") {
-                if (this.form.line_id && !this.form.device_number) {
-                  this.form.device_number = this.$store.app.getNextDeviceNumber(
-                    this.form.line_id,
-                  );
-                }
-                this.syncIAFromTopology();
-              }
+              this.syncIAFromTopology();
             });
 
             this.$watch("$store.modal.open", (open) => {
@@ -5684,10 +5449,8 @@ STRATEGY 3: By Room Type (Commercial)
                 this.dptSearch = "";
                 this.templateSearch = "";
                 this.templateDomain = null;
-                this.addressMode = "manual";
 
                 const suggestedIA = this.$store.modal.data?.suggested_ia || "";
-                const suggestedLineId = this.$store.modal.data?.line_id || "";
 
                 if (
                   this.$store.modal.mode === "edit" &&
@@ -5717,13 +5480,16 @@ STRATEGY 3: By Room Type (Commercial)
                     ...this.$store.modal.data,
                     group_addresses: normalizedGAs,
                   };
-                  this.addressMode = this.form.line_id ? "topology" : "manual";
-                  if (this.addressMode === "topology") {
-                    this.syncIAFromTopology();
-                  }
                 } else {
                   // Create mode
                   const template = this.$store.modal.data?.template;
+                  // Parse device_number from suggested IA
+                  let suggestedDevNum = null;
+                  if (suggestedIA) {
+                    const parts = suggestedIA.split(".");
+                    if (parts.length === 3)
+                      suggestedDevNum = parseInt(parts[2]) || null;
+                  }
 
                   if (template) {
                     // Coming from template browser or pre-selected — skip Stage 1
@@ -5745,14 +5511,10 @@ STRATEGY 3: By Room Type (Commercial)
                       id: `${template.id}-${Date.now().toString(36)}`,
                       type: template.id,
                       individual_address: suggestedIA,
-                      line_id: "",
-                      device_number: null,
+                      device_number: suggestedDevNum,
                       room_id: "",
                       group_addresses: templateGAs,
                     };
-                    if (this.applySuggestedLine(suggestedLineId, suggestedIA)) {
-                      this.addressMode = "topology";
-                    }
                     this.showHelp = true;
                     this.helpTab = "recommended";
                   } else {
@@ -5763,14 +5525,10 @@ STRATEGY 3: By Room Type (Commercial)
                       id: "",
                       type: "",
                       individual_address: suggestedIA,
-                      line_id: "",
-                      device_number: null,
+                      device_number: suggestedDevNum,
                       room_id: "",
                       group_addresses: {},
                     };
-                    if (this.applySuggestedLine(suggestedLineId, suggestedIA)) {
-                      this.addressMode = "topology";
-                    }
                   }
                 }
               }
@@ -5853,45 +5611,17 @@ STRATEGY 3: By Room Type (Commercial)
             return `${dpt.name}${dpt.unit ? " (" + dpt.unit + ")" : ""} - ${dpt.use_case}`;
           },
 
-          // Suggest next available IA
-          suggestIA() {
-            if (this.addressMode === "topology") {
-              this.suggestDeviceNumber();
-              return;
-            }
-            // If we have an existing address, suggest next on same line
-            if (this.form.individual_address) {
-              const parts = this.form.individual_address.split(".");
-              if (parts.length >= 2) {
-                this.form.individual_address =
-                  this.$store.reference.suggestNextIA(
-                    `${parts[0]}.${parts[1]}`,
-                  );
-                return;
-              }
-            }
-            // Otherwise suggest on line 1.1
-            this.form.individual_address =
-              this.$store.reference.suggestNextIA("1.1");
-          },
-
           // Get hint for IA field
           getIAHint() {
-            if (this.addressMode === "topology") {
-              const line = this.getLineById(this.form.line_id);
-              if (!line) return "Select a line to compute IA";
-              return `Computed from Area ${line.area_number} Line ${line.line_number}`;
-            }
-            const used = this.$store.reference.getAllUsedIAs();
-            const base = "Format: area.line.device (e.g., 1.1.1)";
-            if (used.length === 0) return `${base} — No devices yet`;
-            return `${base} — ${used.length} addresses in use`;
+            const topo = this.$store.app.topology;
+            if (!topo) return "Loading...";
+            return `Derived from premise line ${topo.area_number}.${topo.line_number}`;
           },
 
           // Check if IA is already used by another device
           getIAConflict() {
             const ia = this.form.individual_address;
-            if (!ia || this.addressMode === "topology") return null;
+            if (!ia) return null;
             const editingId =
               this.$store.modal.mode === "edit" ? this.form.id : null;
             const conflict = this.$store.app.devices.find(
@@ -5905,23 +5635,14 @@ STRATEGY 3: By Room Type (Commercial)
 
           async submit() {
             try {
-              const useTopology = this.addressMode === "topology";
-              if (useTopology) {
-                if (!this.form.line_id || !this.form.device_number) {
-                  alert("Select a line and device number.");
-                  return;
-                }
-              } else if (!this.form.individual_address) {
-                alert("Individual address is required.");
+              if (!this.form.device_number) {
+                alert("Device number is required.");
                 return;
               }
 
-              const addressing = useTopology
-                ? {
-                    line_id: this.form.line_id,
-                    device_number: this.form.device_number,
-                  }
-                : { individual_address: this.form.individual_address };
+              const addressing = {
+                device_number: this.form.device_number,
+              };
 
               if (this.$store.modal.mode === "create") {
                 if (this.selectedTemplate && !this.isCustomDevice) {

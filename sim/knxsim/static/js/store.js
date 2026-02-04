@@ -143,15 +143,12 @@ export function initStores() {
     floorPlanMode: false,
     viewMode: "building", // 'building', 'topology', or 'groups'
 
-    // Topology data
+    // Topology data (flat device list per premise)
     topology: null,
-    expandedAreas: new Set(),
-    expandedLines: new Set(),
 
     // Drag-and-drop state
     draggingDeviceId: null,
     dragOverRoomId: null,
-    dragOverLineId: null,
 
     // Stats
     telegramCount: 0,
@@ -297,6 +294,8 @@ export function initStores() {
     async selectPremise(premiseId) {
       if (!premiseId) return;
       this.currentPremiseId = premiseId;
+      // Reset lazy-loaded views so they reload for the new premise
+      this.topology = null;
 
       try {
         const [floors, devices, loads] = await Promise.all([
@@ -398,145 +397,19 @@ export function initStores() {
       if (!this.currentPremiseId) return;
       try {
         this.topology = await API.getTopology(this.currentPremiseId);
-        // Expand all areas by default
-        this.expandedAreas = new Set(this.topology.areas.map((a) => a.id));
-        // Expand all lines by default
-        this.expandedLines = new Set(
-          this.topology.areas.flatMap((a) => a.lines.map((l) => l.id)),
-        );
       } catch (err) {
         console.error("Failed to load topology:", err);
       }
     },
 
-    toggleArea(areaId) {
-      if (this.expandedAreas.has(areaId)) {
-        this.expandedAreas.delete(areaId);
-      } else {
-        this.expandedAreas.add(areaId);
-      }
-      // Trigger reactivity
-      this.expandedAreas = new Set(this.expandedAreas);
-    },
-
-    toggleLine(lineId) {
-      if (this.expandedLines.has(lineId)) {
-        this.expandedLines.delete(lineId);
-      } else {
-        this.expandedLines.add(lineId);
-      }
-      // Trigger reactivity
-      this.expandedLines = new Set(this.expandedLines);
-    },
-
-    isAreaExpanded(areaId) {
-      return this.expandedAreas.has(areaId);
-    },
-
-    isLineExpanded(lineId) {
-      return this.expandedLines.has(lineId);
-    },
-
-    async createArea(data) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.createArea(this.currentPremiseId, data);
-        await this.loadTopology();
-        Alpine.store("modal").close();
-      } catch (err) {
-        console.error("Failed to create area:", err);
-        alert("Failed to create area: " + err.message);
-      }
-    },
-
-    async updateArea(areaId, data) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.updateArea(this.currentPremiseId, areaId, data);
-        await this.loadTopology();
-        Alpine.store("modal").close();
-      } catch (err) {
-        console.error("Failed to update area:", err);
-        alert("Failed to update area: " + err.message);
-      }
-    },
-
-    async deleteArea(areaId) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.deleteArea(this.currentPremiseId, areaId);
-        await this.loadTopology();
-      } catch (err) {
-        console.error("Failed to delete area:", err);
-        alert("Failed to delete area: " + err.message);
-      }
-    },
-
-    async createLine(areaId, data) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.createLine(this.currentPremiseId, areaId, data);
-        await this.loadTopology();
-        Alpine.store("modal").close();
-      } catch (err) {
-        console.error("Failed to create line:", err);
-        alert("Failed to create line: " + err.message);
-      }
-    },
-
-    async updateLine(areaId, lineId, data) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.updateLine(this.currentPremiseId, areaId, lineId, data);
-        await this.loadTopology();
-        Alpine.store("modal").close();
-      } catch (err) {
-        console.error("Failed to update line:", err);
-        alert("Failed to update line: " + err.message);
-      }
-    },
-
-    async deleteLine(areaId, lineId) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.deleteLine(this.currentPremiseId, areaId, lineId);
-        await this.loadTopology();
-      } catch (err) {
-        console.error("Failed to delete line:", err);
-        alert("Failed to delete line: " + err.message);
-      }
-    },
-
-    // Move device to a different line (topology)
-    async moveDeviceToLine(deviceId, lineId, deviceNumber) {
-      if (!this.currentPremiseId) return;
-      try {
-        await API.updateDevice(this.currentPremiseId, deviceId, {
-          line_id: lineId,
-          device_number: deviceNumber,
-        });
-        // Reload both topology and devices
-        await Promise.all([
-          this.loadTopology(),
-          API.getDevices(this.currentPremiseId).then((d) => (this.devices = d)),
-        ]);
-      } catch (err) {
-        console.error("Failed to move device:", err);
-        alert("Failed to move device: " + err.message);
-      }
-    },
-
-    // Get next available device number on a line
-    getNextDeviceNumber(lineId) {
-      if (!this.topology) return 1;
-      for (const area of this.topology.areas) {
-        const line = area.lines.find((l) => l.id === lineId);
-        if (line) {
-          const usedNumbers = line.devices.map((d) => d.device_number || 0);
-          for (let i = 1; i <= 255; i++) {
-            if (!usedNumbers.includes(i)) return i;
-          }
-        }
+    // Get next available device number on this premise's line
+    getNextDeviceNumber() {
+      if (!this.topology || !this.topology.devices) return 1;
+      const usedNumbers = this.topology.devices.map(
+        (d) => d.device_number || 0,
+      );
+      for (let i = 1; i <= 255; i++) {
+        if (!usedNumbers.includes(i)) return i;
       }
       return 1;
     },
@@ -1029,10 +902,10 @@ export function initStores() {
       }
     },
 
-    async fetchNextDeviceNumber(lineId) {
-      if (!this.currentPremiseId || !lineId) return null;
+    async fetchNextDeviceNumber() {
+      if (!this.currentPremiseId) return null;
       try {
-        return await API.getNextDeviceNumber(this.currentPremiseId, lineId);
+        return await API.getNextDeviceNumber(this.currentPremiseId);
       } catch (err) {
         console.error("Failed to fetch next device number:", err);
         return null;

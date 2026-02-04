@@ -42,7 +42,7 @@ def _parse_yaml_minimal(text: str) -> dict:
     Only supports: scalars, lists of dicts, nested dicts (2 levels).
     Good enough for config.yaml without requiring pip install pyyaml.
     """
-    result = {"gateway": {}, "devices": [], "scenarios": []}
+    result = {"topology": {}, "devices": [], "scenarios": []}
     current_section = None
     current_item = None
     current_sub = None
@@ -93,8 +93,8 @@ def _parse_yaml_minimal(text: str) -> dict:
                     else:
                         current_sub = k
                         current_item[k] = {}
-            elif current_section == "gateway":
-                result["gateway"][k] = _parse_value(v)
+            elif current_section == "topology":
+                result["topology"][k] = _parse_value(v)
 
     return result
 

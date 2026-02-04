@@ -23,7 +23,6 @@ class FromTemplateRequest(BaseModel):
         min_length=3,
         description="KNX individual address (e.g., 1.1.10)",
     )
-    line_id: str | None = Field(default=None, description="Topology line ID")
     device_number: int | None = Field(
         default=None, ge=1, le=255, description="Device number on line"
     )
@@ -34,16 +33,8 @@ class FromTemplateRequest(BaseModel):
 
     @model_validator(mode="after")
     def _validate_addressing(self):
-        has_ia = bool(self.individual_address)
-        has_line = self.line_id is not None
-        has_device = self.device_number is not None
-
-        if not has_ia and not (has_line and has_device):
-            raise ValueError("Provide individual_address or line_id + device_number")
-
-        if has_line != has_device:
-            raise ValueError("line_id and device_number must be provided together")
-
+        if not self.individual_address and self.device_number is None:
+            raise ValueError("Provide individual_address or device_number")
         return self
 
 
@@ -162,7 +153,6 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
         "id": body.device_id,
         "type": "template_device",
         "individual_address": body.individual_address,
-        "line_id": body.line_id,
         "device_number": body.device_number,
         "group_addresses": merged_gas,
         "initial_state": dict(template.initial_state),

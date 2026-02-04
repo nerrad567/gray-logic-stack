@@ -446,12 +446,14 @@ def _build_knxproj_xml(
     topology = ET.SubElement(installation, "Topology")
     area = ET.SubElement(topology, "Area")
     area.set("Id", _make_id("A"))
-    area.set("Address", "1")
-    area.set("Name", "Backbone")
+    area_number = premise.get("area_number", 1)
+    line_number = premise.get("line_number", 1)
+    area.set("Address", str(area_number))
+    area.set("Name", f"Area {area_number}")
     line = ET.SubElement(area, "Line")
     line.set("Id", _make_id("L"))
-    line.set("Address", "1")
-    line.set("Name", "Main Line")
+    line.set("Address", str(line_number))
+    line.set("Name", f"Line {line_number}")
 
     for device in devices:
         config = device.get("config") or {}

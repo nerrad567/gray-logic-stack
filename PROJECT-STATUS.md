@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-04 (Session 30 - KNXSim Phase 2 Complete)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 Complete
+**Last session:** 2026-02-04 (Session 31 - KNXSim Topology Refactor)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 Complete + Topology Refactor
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -24,6 +24,14 @@
   - 2.4 Technical Inspection (device panel, telegram inspector, bus stats, filtering)
   - 2.5 Device/Room Management (full CRUD, template browser, topology, GA hierarchy, conflict detection)
   - Codex consolidation (107 tests: DPT codec, cEMI frames, GA normalisation)
+- **KNXSim Topology Refactor ✅ NEW** — One Premise = One TP Line:
+  - Premise now stores `area_number`/`line_number`, gateway/client addresses derived
+  - Removed Area/Line CRUD (20+ methods, 12 API endpoints, UI modals)
+  - Flat topology view with educational info banner
+  - IA remapping on sample load (Codex fix)
+  - ETS export uses premise area/line (Codex fix)
+  - Reference guide expanded: physical topology, address meaning, port vs IP
+  - 146 tests passing, async httpx client (Codex improvement)
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - KNX Pipeline Robustness ✅ (structured DPT storage, canonical function registry, import normalisation, pipeline integration tests)
@@ -35,10 +43,10 @@
 - Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
-- **Priority 1**: Smoke tests for KNXSim (FastAPI TestClient end-to-end — good Codex task)
-- **Priority 2**: Auth hardening (production JWT, refresh tokens, role-based access)
-- **Priority 3**: Year 2 kick-off (M2.1 Area/Room hierarchy, M2.2 advanced scenes)
+- **Priority 1**: Auth hardening (production JWT, refresh tokens, role-based access)
+- **Priority 2**: Year 2 kick-off (M2.1 Area/Room hierarchy, M2.2 advanced scenes)
 - **Parking lot**: ETS domain filter i18n, KNXSim config.yaml schema validation
+- **Future architecture**: KNXSim multi-container mode (one container per premise = separate IPs like real hardware)
 
 ---
 

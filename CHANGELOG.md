@@ -4,6 +4,48 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.22 – KNXSim Topology Refactor: One Premise = One TP Line (2026-02-04)
+
+**Focus: Align KNXSim's topology model with real-world KNX hardware**
+
+Refactored KNXSim so each premise represents exactly one physical KNX TP line with its own KNXnet/IP interface — matching how real hardware works. Removed the ability to create multiple areas/lines within a single premise. The individual address now correctly encodes physical location (Area.Line.Device).
+
+### Added
+
+- **`area_number` / `line_number` fields on Premise**: Stored on creation, `gateway_address` and `client_address` now derived automatically (e.g., area=2, line=1 → gateway `2.1.0`, client `2.1.255`)
+- **Flat topology view**: Replaced Area→Line→Device tree with a simple device list + educational info banner explaining the one-line-per-premise model
+- **IA remapping on sample load**: When loading sample devices onto a premise, IAs are remapped from `1.1.x` to match the target premise's `{area}.{line}.x`
+- **Comprehensive reference guide updates**: "Individual Address" section now explains physical topology, what each part means (Area=building zone, Line=physical TP cable), what happens when addresses don't match physical location, and how KNXSim maps to real hardware (port vs IP distinction)
+- **Create premise form**: Area and Line number inputs with live gateway address preview
+
+### Changed
+
+- **`config.yaml`**: `gateway:` section renamed to `topology:` with `area_number`/`line_number` fields (Codex fix)
+- **`premise_manager.py`**: Bootstrap reads `topology.area_number`/`topology.line_number` instead of gateway/client addresses
+- **`routes_export.py`**: ETS XML export now uses `premise.area_number`/`premise.line_number` instead of hardcoded "1"/"1" (Codex fix)
+- **`routes_premises.py`**: `reset_to_sample()` remaps device IAs to target premise's line (Codex fix)
+- **`routes_topology.py`**: Gutted from ~230 lines to ~40 lines — only `GET /topology` and `GET /next-device-number` remain
+- **`db.py`**: Removed ~20 area/line CRUD methods, simplified `get_topology()` to return flat structure, `create_device()` no longer requires `line_id`
+- **`api/models.py`**: `PremiseCreate` uses `area_number`/`line_number` instead of `gateway_address`/`client_address`; removed `line_id` from device models
+- **Frontend (`api.js`, `store.js`, `index.html`)**: Removed all area/line CRUD methods (~180 lines), simplified topology state management
+- **CSS**: Removed old `.topology-area`, `.topology-line` styles; added `.info-banner` for educational content
+- **Tests**: Updated 6 test files to use new premise payload format and topology assertions; Codex switched to async httpx client to fix threadpool issues
+
+### Removed
+
+- **Area/Line CRUD endpoints**: `POST/GET/PATCH/DELETE /premises/{id}/areas`, `/areas/{id}/lines` — all removed
+- **Area/Line UI**: "Add Area", "Add Line" buttons and modals removed from topology view
+- **`line_id` on devices**: No longer stored or required — device number is sufficient within a premise
+- **`gateway_address`/`client_address` in `PremiseCreate`**: Now derived from area/line numbers
+
+### Technical Notes
+
+- Database migration adds `area_number`/`line_number` columns to existing premises (defaults to 1/1)
+- For fresh installations, simply nuke the Docker volume: `docker compose -f docker-compose.dev.yml down knxsim -v`
+- 146 tests passing
+
+---
+
 ## 1.0.21 – KNXSim Phase 2 Complete (2026-02-04)
 
 **Focus: Close out all remaining KNXSim Phase 2 dashboard items**

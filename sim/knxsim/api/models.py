@@ -64,14 +64,16 @@ class Channel(BaseModel):
 class PremiseCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     name: str = Field(..., min_length=1, max_length=128)
-    gateway_address: str = Field(default="1.0.0")
-    client_address: str = Field(default="1.0.255")
+    area_number: int = Field(default=1, ge=0, le=15)
+    line_number: int = Field(default=1, ge=0, le=15)
     port: int = Field(..., ge=1024, le=65535)
 
 
 class PremiseResponse(BaseModel):
     id: str
     name: str
+    area_number: int = 1
+    line_number: int = 1
     gateway_address: str
     client_address: str
     port: int
@@ -91,7 +93,6 @@ class DeviceCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     type: str = Field(..., min_length=1)
     individual_address: str | None = Field(default=None, min_length=3)
-    line_id: str | None = None
     device_number: int | None = Field(default=None, ge=1, le=255)
     group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
@@ -102,23 +103,14 @@ class DeviceCreate(BaseModel):
 
     @model_validator(mode="after")
     def _validate_addressing(self):
-        has_ia = bool(self.individual_address)
-        has_line = self.line_id is not None
-        has_device_num = self.device_number is not None
-
-        if not has_ia and not (has_line and has_device_num):
-            raise ValueError("Provide individual_address or line_id + device_number")
-
-        if has_line != has_device_num:
-            raise ValueError("line_id and device_number must be provided together")
-
+        if not self.individual_address and self.device_number is None:
+            raise ValueError("Provide individual_address or device_number")
         return self
 
 
 class DeviceUpdate(BaseModel):
     room_id: str | None = None
     individual_address: str | None = None
-    line_id: str | None = None
     device_number: int | None = Field(default=None, ge=1, le=255)
     group_addresses: dict[str, GroupAddressValue] | None = None
     channels: list[Channel | dict[str, Any]] | None = Field(
@@ -149,7 +141,6 @@ class DeviceResponse(BaseModel):
     channels: list[Channel | dict[str, Any]] | None = Field(
         default=None, description="Channel configuration for multi-channel devices"
     )
-    line_id: str | None = Field(default=None, description="Topology line reference")
     device_number: int | None = Field(default=None, description="Device number on line")
     created_at: str | None = None
     updated_at: str | None = None

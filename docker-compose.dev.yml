@@ -51,8 +51,8 @@ services:
       context: ./sim/knxsim
     container_name: graylogic-knxsim
     ports:
-      - "127.0.0.1:3671:3671/udp" # KNXnet/IP — Go core connects here
-      - "127.0.0.1:9090:9090"     # Web UI
+      - "127.0.0.1:3671-3680:3671-3680/udp" # KNXnet/IP — up to 10 premises
+      - "127.0.0.1:9090:9090" # Web UI
     volumes:
       - knxsim_data:/app/data
       - ./sim/knxsim/static:/app/static

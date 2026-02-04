@@ -47,16 +47,16 @@ class PremiseManager:
             return
 
         # First run: create empty premise (user chooses via welcome modal)
-        gw_cfg = config.get("gateway", {})
-        gateway_addr = gw_cfg.get("individual_address", "1.0.0")
-        client_addr = gw_cfg.get("client_address", "1.0.255")
+        topo_cfg = config.get("topology", {})
+        area_number = topo_cfg.get("area_number", 1)
+        line_number = topo_cfg.get("line_number", 1)
 
         self.db.create_premise(
             {
                 "id": DEFAULT_PREMISE_ID,
                 "name": "Default Installation",
-                "gateway_address": gateway_addr,
-                "client_address": client_addr,
+                "area_number": area_number,
+                "line_number": line_number,
                 "port": 3671,
                 "setup_complete": False,  # User hasn't made a choice yet
             }

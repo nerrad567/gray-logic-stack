@@ -10,8 +10,8 @@ def _premise_data(port: int) -> dict:
     return {
         "id": pid,
         "name": "Test Premise",
-        "gateway_address": "1.0.0",
-        "client_address": "1.0.255",
+        "area_number": 1,
+        "line_number": 1,
         "port": port,
     }
 

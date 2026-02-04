@@ -4,51 +4,57 @@ from __future__ import annotations
 
 import uuid
 
+import pytest
+
+pytestmark = pytest.mark.anyio
+
 
 def _premise_payload(port: int) -> dict:
     premise_id = f"premise-{uuid.uuid4().hex[:8]}"
     return {
         "id": premise_id,
         "name": "Test Premise",
-        "gateway_address": "1.0.0",
-        "client_address": "1.0.255",
+        "area_number": 1,
+        "line_number": 1,
         "port": port,
     }
 
 
-def _create_premise(client, port: int) -> str:
+async def _create_premise(client, port: int) -> str:
     payload = _premise_payload(port)
-    resp = client.post("/api/v1/premises", json=payload)
+    resp = await client.post("/api/v1/premises", json=payload)
     assert resp.status_code == 201
     return resp.json()["id"]
 
 
-def test_premises_crud(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_premises_crud(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
-        resp = client.get("/api/v1/premises")
+        resp = await client.get("/api/v1/premises")
         assert resp.status_code == 200
         assert any(p["id"] == premise_id for p in resp.json())
 
-        resp = client.get(f"/api/v1/premises/{premise_id}")
+        resp = await client.get(f"/api/v1/premises/{premise_id}")
         assert resp.status_code == 200
         assert resp.json()["id"] == premise_id
     finally:
-        resp = client.delete(f"/api/v1/premises/{premise_id}")
+        resp = await client.delete(f"/api/v1/premises/{premise_id}")
         assert resp.status_code == 204
 
 
-def test_devices_crud(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_devices_crud(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
         # Create a floor and room first (needed for device room assignment)
         floor_payload = {"id": "floor-1", "name": "Ground Floor", "sort_order": 0}
-        resp = client.post(f"/api/v1/premises/{premise_id}/floors", json=floor_payload)
+        resp = await client.post(
+            f"/api/v1/premises/{premise_id}/floors", json=floor_payload
+        )
         assert resp.status_code == 201
         floor_id = resp.json()["id"]
 
         room_payload = {"id": "room-1", "name": "Living Room", "room_type": "living"}
-        resp = client.post(
+        resp = await client.post(
             f"/api/v1/premises/{premise_id}/floors/{floor_id}/rooms", json=room_payload
         )
         assert resp.status_code == 201
@@ -63,40 +69,46 @@ def test_devices_crud(client, free_udp_port):
             },
             "initial_state": {"on": False},
         }
-        resp = client.post(f"/api/v1/premises/{premise_id}/devices", json=device_payload)
+        resp = await client.post(
+            f"/api/v1/premises/{premise_id}/devices", json=device_payload
+        )
         assert resp.status_code == 201
         device_id = resp.json()["id"]
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/devices")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/devices")
         assert resp.status_code == 200
         assert any(d["id"] == device_id for d in resp.json())
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/devices/{device_id}")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/devices/{device_id}")
         assert resp.status_code == 200
         assert resp.json()["id"] == device_id
 
-        resp = client.patch(
+        resp = await client.patch(
             f"/api/v1/premises/{premise_id}/devices/{device_id}",
             json={"room_id": "room-1"},
         )
         assert resp.status_code == 200
         assert resp.json()["room_id"] == "room-1"
 
-        resp = client.delete(f"/api/v1/premises/{premise_id}/devices/{device_id}")
+        resp = await client.delete(
+            f"/api/v1/premises/{premise_id}/devices/{device_id}"
+        )
         assert resp.status_code == 204
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_floors_and_rooms_smoke(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_floors_and_rooms_smoke(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
         floor_payload = {"id": "floor-1", "name": "Ground Floor", "sort_order": 0}
-        resp = client.post(f"/api/v1/premises/{premise_id}/floors", json=floor_payload)
+        resp = await client.post(
+            f"/api/v1/premises/{premise_id}/floors", json=floor_payload
+        )
         assert resp.status_code == 201
         floor_id = resp.json()["id"]
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/floors")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/floors")
         assert resp.status_code == 200
         assert any(f["id"] == floor_id for f in resp.json())
 
@@ -105,133 +117,136 @@ def test_floors_and_rooms_smoke(client, free_udp_port):
             "name": "Living Room",
             "room_type": "living",
         }
-        resp = client.post(
+        resp = await client.post(
             f"/api/v1/premises/{premise_id}/floors/{floor_id}/rooms",
             json=room_payload,
         )
         assert resp.status_code == 201
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/floors/{floor_id}/rooms")
+        resp = await client.get(
+            f"/api/v1/premises/{premise_id}/floors/{floor_id}/rooms"
+        )
         assert resp.status_code == 200
         assert any(r["id"] == "room-1" for r in resp.json())
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_loads_smoke(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_loads_smoke(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
         load_payload = {"name": "Test Load", "type": "light"}
-        resp = client.post(f"/api/v1/premises/{premise_id}/loads", json=load_payload)
+        resp = await client.post(
+            f"/api/v1/premises/{premise_id}/loads", json=load_payload
+        )
         assert resp.status_code == 201
         load_id = resp.json()["id"]
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/loads")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/loads")
         assert resp.status_code == 200
         assert any(l["id"] == load_id for l in resp.json())
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/loads/{load_id}")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/loads/{load_id}")
         assert resp.status_code == 200
         assert resp.json()["id"] == load_id
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_topology_smoke(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_topology_smoke(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
-        area_payload = {"area_number": 1, "name": "Area 1"}
-        resp = client.post(f"/api/v1/premises/{premise_id}/areas", json=area_payload)
-        assert resp.status_code == 201
-        area_id = resp.json()["id"]
-
-        resp = client.get(f"/api/v1/premises/{premise_id}/areas")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/topology")
         assert resp.status_code == 200
-        assert any(a["id"] == area_id for a in resp.json())
+        data = resp.json()
+        assert data["area_number"] == 1
+        assert data["line_number"] == 1
+        assert data["gateway"] == "1.1.0"
+        assert isinstance(data["devices"], list)
 
-        line_payload = {"line_number": 1, "name": "Line 1"}
-        resp = client.post(
-            f"/api/v1/premises/{premise_id}/areas/{area_id}/lines",
-            json=line_payload,
+        resp = await client.get(
+            f"/api/v1/premises/{premise_id}/next-device-number"
         )
-        assert resp.status_code == 201
-        line_id = resp.json()["id"]
-
-        resp = client.get(f"/api/v1/premises/{premise_id}/areas/{area_id}/lines")
         assert resp.status_code == 200
-        assert any(l["id"] == line_id for l in resp.json())
+        assert resp.json()["next_device_number"] == 1
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_groups_smoke(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_groups_smoke(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
         mg_payload = {"group_number": 1, "name": "Lighting"}
-        resp = client.post(f"/api/v1/premises/{premise_id}/main-groups", json=mg_payload)
+        resp = await client.post(
+            f"/api/v1/premises/{premise_id}/main-groups", json=mg_payload
+        )
         assert resp.status_code == 201
         main_group_id = resp.json()["id"]
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/main-groups")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/main-groups")
         assert resp.status_code == 200
         assert any(mg["id"] == main_group_id for mg in resp.json())
 
         middle_payload = {"group_number": 1, "name": "Ground Floor"}
-        resp = client.post(
+        resp = await client.post(
             f"/api/v1/main-groups/{main_group_id}/middle-groups",
             json=middle_payload,
         )
         assert resp.status_code == 201
 
-        resp = client.get(f"/api/v1/main-groups/{main_group_id}/middle-groups")
+        resp = await client.get(
+            f"/api/v1/main-groups/{main_group_id}/middle-groups"
+        )
         assert resp.status_code == 200
         assert len(resp.json()) == 1
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/groups")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/groups")
         assert resp.status_code == 200
         assert "main_groups" in resp.json()
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_templates_smoke(client):
-    resp = client.get("/api/v1/templates")
+async def test_templates_smoke(client):
+    resp = await client.get("/api/v1/templates")
     assert resp.status_code == 200
     data = resp.json()
     assert data["count"] > 0
     template_id = data["templates"][0]["id"]
 
-    resp = client.get(f"/api/v1/templates/{template_id}")
+    resp = await client.get(f"/api/v1/templates/{template_id}")
     assert resp.status_code == 200
     assert resp.json()["id"] == template_id
 
 
-def test_telegrams_smoke(client, free_udp_port):
-    premise_id = _create_premise(client, free_udp_port)
+async def test_telegrams_smoke(client, free_udp_port):
+    premise_id = await _create_premise(client, free_udp_port)
     try:
-        resp = client.get(f"/api/v1/premises/{premise_id}/telegrams")
+        resp = await client.get(f"/api/v1/premises/{premise_id}/telegrams")
         assert resp.status_code == 200
         assert resp.json()["count"] == 0
 
-        resp = client.get(f"/api/v1/premises/{premise_id}/telegrams/stats")
+        resp = await client.get(
+            f"/api/v1/premises/{premise_id}/telegrams/stats"
+        )
         assert resp.status_code == 200
         assert resp.json()["premise_id"] == premise_id
     finally:
-        client.delete(f"/api/v1/premises/{premise_id}")
+        await client.delete(f"/api/v1/premises/{premise_id}")
 
 
-def test_reference_smoke(client):
-    resp = client.get("/api/v1/reference/dpts")
+async def test_reference_smoke(client):
+    resp = await client.get("/api/v1/reference/dpts")
     assert resp.status_code == 200
 
-    resp = client.get("/api/v1/reference/device-templates")
+    resp = await client.get("/api/v1/reference/device-templates")
     assert resp.status_code == 200
 
-    resp = client.get("/api/v1/reference/individual-address")
+    resp = await client.get("/api/v1/reference/individual-address")
     assert resp.status_code == 200
 
 
-def test_health_smoke(client):
-    resp = client.get("/api/v1/health")
+async def test_health_smoke(client):
+    resp = await client.get("/api/v1/health")
     assert resp.status_code == 200
     assert resp.json()["status"] == "ok"

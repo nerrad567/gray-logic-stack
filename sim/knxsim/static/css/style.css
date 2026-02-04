@@ -3254,19 +3254,11 @@ select:focus {
   overflow-y: auto;
 }
 
-.topology-tree {
-  display: flex;
-  flex-direction: column;
-  gap: var(--spacing-sm);
-}
-
 .topology-actions {
   margin-bottom: var(--spacing-md);
 }
 
-.topology-empty,
-.topology-empty-area,
-.topology-empty-line {
+.topology-empty {
   padding: var(--spacing-md);
   color: var(--text-muted);
   font-style: italic;
@@ -3275,108 +3267,26 @@ select:focus {
   gap: var(--spacing-sm);
 }
 
-/* Area */
-.topology-area {
-  background: var(--bg-secondary);
-  border-radius: 6px;
-  border: 1px solid var(--border-primary);
-  overflow: hidden;
-}
-
-.topology-area-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
+/* Info Banner — educational context for single-line topology */
+.info-banner {
+  background: rgba(88, 166, 255, 0.08);
+  border: 1px solid rgba(88, 166, 255, 0.25);
+  border-radius: 8px;
   padding: var(--spacing-sm) var(--spacing-md);
-  background: var(--bg-tertiary);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s ease;
-}
-
-.topology-area-header:hover {
-  background: var(--bg-hover);
-}
-
-.topology-expand-icon {
-  font-size: 10px;
-  color: var(--text-muted);
-  width: 12px;
-  text-align: center;
-}
-
-.topology-area-number {
-  font-weight: 600;
-  color: var(--accent-orange);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 2px 6px;
-  background: rgba(255, 152, 0, 0.1);
-  border-radius: 3px;
-}
-
-.topology-area-name {
+  margin-bottom: var(--spacing-md);
+  font-size: 13px;
   color: var(--text-primary);
-  font-weight: 500;
-  flex: 1;
+  line-height: 1.5;
 }
 
-.topology-area-count {
-  color: var(--text-muted);
-  font-size: 12px;
-}
-
-.topology-actions-inline {
-  display: flex;
-  gap: 4px;
-  margin-left: auto;
-}
-
-/* Line */
-.topology-lines {
-  padding: 0 var(--spacing-sm) var(--spacing-sm);
-}
-
-.topology-line {
-  margin-top: var(--spacing-xs);
-  background: var(--bg-primary);
-  border-radius: 4px;
-  border: 1px solid var(--border-secondary);
-  overflow: hidden;
-}
-
-.topology-line-header {
-  display: flex;
-  align-items: center;
-  gap: var(--spacing-sm);
-  padding: var(--spacing-xs) var(--spacing-sm);
-  cursor: pointer;
-  user-select: none;
-  transition: background 0.15s ease;
-}
-
-.topology-line-header:hover {
-  background: var(--bg-hover);
-}
-
-.topology-line-number {
-  font-weight: 600;
+.info-banner strong {
   color: var(--accent-blue);
-  font-family: var(--font-mono);
-  font-size: 12px;
-  padding: 2px 6px;
-  background: rgba(88, 166, 255, 0.1);
-  border-radius: 3px;
 }
 
-.topology-line-name {
-  color: var(--text-primary);
-  flex: 1;
-}
-
-.topology-line-count {
-  color: var(--text-muted);
+.info-banner-detail {
+  margin: var(--spacing-xs) 0 0 0;
   font-size: 11px;
+  color: var(--text-secondary);
 }
 
 /* Devices */

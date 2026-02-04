@@ -26,6 +26,8 @@ SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS premises (
     id TEXT PRIMARY KEY,
     name TEXT NOT NULL,
+    area_number INTEGER NOT NULL DEFAULT 1,
+    line_number INTEGER NOT NULL DEFAULT 1,
     gateway_address TEXT NOT NULL,
     client_address TEXT NOT NULL,
     port INTEGER NOT NULL UNIQUE,
@@ -78,8 +80,8 @@ CREATE TABLE IF NOT EXISTS rooms (
     grid_height INTEGER NOT NULL DEFAULT 1
 );
 
--- Devices with optional topology and building placement
--- Note: line_id, device_number, channels added via migration for existing DBs
+-- Devices with optional building placement
+-- Note: device_number, channels added via migration for existing DBs
 CREATE TABLE IF NOT EXISTS devices (
     id TEXT PRIMARY KEY,
     premise_id TEXT NOT NULL REFERENCES premises(id) ON DELETE CASCADE,
@@ -148,7 +150,7 @@ CREATE TABLE IF NOT EXISTS loads (
     updated_at TEXT NOT NULL
 );
 
--- Index for topology queries (line_id index created in migration after column exists)
+-- Legacy topology tables kept for migration compatibility
 CREATE INDEX IF NOT EXISTS idx_lines_area ON lines(area_id);
 CREATE INDEX IF NOT EXISTS idx_areas_premise ON areas(premise_id);
 CREATE INDEX IF NOT EXISTS idx_main_groups_premise ON main_groups(premise_id);
@@ -203,20 +205,30 @@ class Database:
             )
             self.conn.commit()
 
-        # Check if line_id column exists in devices (topology migration)
+        # Check if device_number column exists in devices (topology migration)
         cursor = self.conn.execute("PRAGMA table_info(devices)")
         device_columns = [row[1] for row in cursor.fetchall()]
 
-        if "line_id" not in device_columns:
-            logger.info("Applying migration: adding topology columns to devices")
-            self.conn.execute("ALTER TABLE devices ADD COLUMN line_id TEXT")
+        if "device_number" not in device_columns:
+            logger.info("Applying migration: adding device_number column to devices")
             self.conn.execute("ALTER TABLE devices ADD COLUMN device_number INTEGER")
-            # Create index for topology queries
-            self.conn.execute("CREATE INDEX IF NOT EXISTS idx_devices_line ON devices(line_id)")
             self.conn.commit()
-
-            # Migrate existing devices: parse their individual_address to create topology
-            self._migrate_devices_to_topology()
+            # Populate device_number from individual_address for existing devices
+            devices = self.conn.execute(
+                "SELECT id, individual_address FROM devices WHERE individual_address IS NOT NULL"
+            ).fetchall()
+            for dev in devices:
+                parts = dev["individual_address"].split(".")
+                if len(parts) == 3:
+                    try:
+                        dev_num = int(parts[2])
+                        self.conn.execute(
+                            "UPDATE devices SET device_number = ? WHERE id = ?",
+                            (dev_num, dev["id"]),
+                        )
+                    except ValueError:
+                        pass
+            self.conn.commit()
 
         # Check if channels column exists in devices (channel support migration)
         cursor = self.conn.execute("PRAGMA table_info(devices)")
@@ -240,6 +252,56 @@ class Database:
                 "ALTER TABLE premises ADD COLUMN setup_complete INTEGER NOT NULL DEFAULT 1"
             )
             self.conn.commit()
+
+        # Check if area_number/line_number columns exist on premises (one-premise-one-line migration)
+        cursor = self.conn.execute("PRAGMA table_info(premises)")
+        premise_columns = [row[1] for row in cursor.fetchall()]
+
+        if "area_number" not in premise_columns:
+            logger.info("Applying migration: adding area_number/line_number to premises")
+            self.conn.execute(
+                "ALTER TABLE premises ADD COLUMN area_number INTEGER NOT NULL DEFAULT 1"
+            )
+            self.conn.execute(
+                "ALTER TABLE premises ADD COLUMN line_number INTEGER NOT NULL DEFAULT 1"
+            )
+            # Populate from existing topology data (first area/line found)
+            premises = self.conn.execute("SELECT id FROM premises").fetchall()
+            for p in premises:
+                pid = p["id"]
+                row = self.conn.execute(
+                    """SELECT a.area_number, l.line_number
+                       FROM areas a
+                       JOIN lines l ON l.area_id = a.id
+                       WHERE a.premise_id = ?
+                       ORDER BY a.area_number, l.line_number
+                       LIMIT 1""",
+                    (pid,),
+                ).fetchone()
+                if row:
+                    a_num, l_num = row["area_number"], row["line_number"]
+                    gw = f"{a_num}.{l_num}.0"
+                    cl = f"{a_num}.{l_num}.255"
+                    self.conn.execute(
+                        """UPDATE premises
+                           SET area_number = ?, line_number = ?,
+                               gateway_address = ?, client_address = ?
+                           WHERE id = ?""",
+                        (a_num, l_num, gw, cl, pid),
+                    )
+                    # Renumber devices sequentially within the premise
+                    devices = self.conn.execute(
+                        "SELECT id FROM devices WHERE premise_id = ? ORDER BY individual_address",
+                        (pid,),
+                    ).fetchall()
+                    for idx, dev in enumerate(devices, start=1):
+                        ia = f"{a_num}.{l_num}.{idx}"
+                        self.conn.execute(
+                            "UPDATE devices SET individual_address = ?, device_number = ? WHERE id = ?",
+                            (ia, idx, dev["id"]),
+                        )
+            self.conn.commit()
+            logger.info("Migration complete: premises now have area_number/line_number")
 
         # Check if loads table exists (physical equipment controlled by actuators)
         cursor = self.conn.execute(
@@ -276,85 +338,6 @@ class Database:
         if not self._conn:
             raise RuntimeError("Database not connected")
         return self._conn
-
-    def _migrate_devices_to_topology(self):
-        """Migrate existing devices to topology structure.
-
-        Parses individual_address, creates Areas/Lines as needed,
-        and links devices to their topology location.
-        """
-        # Get all premises
-        premises = self.list_premises()
-        for premise in premises:
-            premise_id = premise["id"]
-            devices = self.conn.execute(
-                "SELECT id, individual_address FROM devices WHERE premise_id = ?",
-                (premise_id,),
-            ).fetchall()
-
-            for device in devices:
-                device_id = device["id"]
-                ia = device["individual_address"]
-                if not ia:
-                    continue
-
-                parts = ia.split(".")
-                if len(parts) != 3:
-                    continue
-
-                try:
-                    area_num = int(parts[0])
-                    line_num = int(parts[1])
-                    device_num = int(parts[2])
-                except ValueError:
-                    continue
-
-                # Find or create area
-                area = self.conn.execute(
-                    "SELECT id FROM areas WHERE premise_id = ? AND area_number = ?",
-                    (premise_id, area_num),
-                ).fetchone()
-
-                if not area:
-                    area_id = f"area-{premise_id}-{area_num}"
-                    now = _now()
-                    self.conn.execute(
-                        """INSERT INTO areas (id, premise_id, area_number, name, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?)""",
-                        (area_id, premise_id, area_num, f"Area {area_num}", now, now),
-                    )
-                    logger.info("Migration: created Area %d for premise %s", area_num, premise_id)
-                else:
-                    area_id = area["id"]
-
-                # Find or create line
-                line = self.conn.execute(
-                    "SELECT id FROM lines WHERE area_id = ? AND line_number = ?",
-                    (area_id, line_num),
-                ).fetchone()
-
-                if not line:
-                    line_id = f"line-{area_id}-{line_num}"
-                    now = _now()
-                    self.conn.execute(
-                        """INSERT INTO lines (id, area_id, line_number, name, created_at, updated_at)
-                           VALUES (?, ?, ?, ?, ?, ?)""",
-                        (line_id, area_id, line_num, f"Line {area_num}.{line_num}", now, now),
-                    )
-                    logger.info("Migration: created Line %d.%d", area_num, line_num)
-                else:
-                    line_id = line["id"]
-
-                # Update device with topology reference
-                self.conn.execute(
-                    "UPDATE devices SET line_id = ?, device_number = ? WHERE id = ?",
-                    (line_id, device_num, device_id),
-                )
-
-            self.conn.commit()
-            logger.info(
-                "Migration: linked %d devices to topology in premise %s", len(devices), premise_id
-            )
 
     def _migrate_devices_to_channels(self):
         """Migrate existing devices to channel-based structure.
@@ -439,14 +422,20 @@ class Database:
 
     def create_premise(self, data: dict) -> dict:
         now = _now()
+        area = data.get("area_number", 1)
+        line = data.get("line_number", 1)
+        gateway = f"{area}.{line}.0"
+        client = f"{area}.{line}.255"
         self.conn.execute(
-            """INSERT INTO premises (id, name, gateway_address, client_address, port, setup_complete, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?)""",
+            """INSERT INTO premises (id, name, area_number, line_number, gateway_address, client_address, port, setup_complete, created_at, updated_at)
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data["id"],
                 data["name"],
-                data["gateway_address"],
-                data["client_address"],
+                area,
+                line,
+                gateway,
+                client,
                 data["port"],
                 1 if data.get("setup_complete") else 0,
                 now,
@@ -472,242 +461,43 @@ class Database:
         return cur.rowcount > 0
 
     # ------------------------------------------------------------------
-    # Areas (Topology)
-    # ------------------------------------------------------------------
-
-    def list_areas(self, premise_id: str) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM areas WHERE premise_id = ? ORDER BY area_number",
-            (premise_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def get_area(self, area_id: str) -> dict | None:
-        row = self.conn.execute("SELECT * FROM areas WHERE id = ?", (area_id,)).fetchone()
-        return dict(row) if row else None
-
-    def get_area_by_number(self, premise_id: str, area_number: int) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM areas WHERE premise_id = ? AND area_number = ?",
-            (premise_id, area_number),
-        ).fetchone()
-        return dict(row) if row else None
-
-    def create_area(self, premise_id: str, data: dict) -> dict:
-        now = _now()
-        area_id = data.get("id") or f"area-{premise_id}-{data['area_number']}"
-        self.conn.execute(
-            """INSERT INTO areas (id, premise_id, area_number, name, description, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (
-                area_id,
-                premise_id,
-                data["area_number"],
-                data["name"],
-                data.get("description"),
-                now,
-                now,
-            ),
-        )
-        self.conn.commit()
-        return self.get_area(area_id)
-
-    def update_area(self, area_id: str, data: dict) -> dict | None:
-        sets = []
-        vals = []
-        now = _now()
-        for key in ("name", "description"):
-            if key in data:
-                sets.append(f"{key} = ?")
-                vals.append(data[key])
-        if not sets:
-            return self.get_area(area_id)
-        sets.append("updated_at = ?")
-        vals.append(now)
-        vals.append(area_id)
-        self.conn.execute(f"UPDATE areas SET {', '.join(sets)} WHERE id = ?", vals)
-        self.conn.commit()
-        return self.get_area(area_id)
-
-    def delete_area(self, area_id: str) -> bool:
-        cur = self.conn.execute("DELETE FROM areas WHERE id = ?", (area_id,))
-        self.conn.commit()
-        return cur.rowcount > 0
-
-    def get_or_create_area(self, premise_id: str, area_number: int, name: str = None) -> dict:
-        """Get area by number, creating it if it doesn't exist."""
-        area = self.get_area_by_number(premise_id, area_number)
-        if area:
-            return area
-        return self.create_area(
-            premise_id,
-            {
-                "area_number": area_number,
-                "name": name or f"Area {area_number}",
-            },
-        )
-
-    # ------------------------------------------------------------------
-    # Lines (Topology)
-    # ------------------------------------------------------------------
-
-    def list_lines(self, area_id: str) -> list[dict]:
-        rows = self.conn.execute(
-            "SELECT * FROM lines WHERE area_id = ? ORDER BY line_number",
-            (area_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def list_lines_by_premise(self, premise_id: str) -> list[dict]:
-        """List all lines in a premise, across all areas."""
-        rows = self.conn.execute(
-            """SELECT l.*, a.area_number, a.name as area_name
-               FROM lines l
-               JOIN areas a ON l.area_id = a.id
-               WHERE a.premise_id = ?
-               ORDER BY a.area_number, l.line_number""",
-            (premise_id,),
-        ).fetchall()
-        return [dict(r) for r in rows]
-
-    def get_line(self, line_id: str) -> dict | None:
-        row = self.conn.execute("SELECT * FROM lines WHERE id = ?", (line_id,)).fetchone()
-        return dict(row) if row else None
-
-    def get_line_by_number(self, area_id: str, line_number: int) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM lines WHERE area_id = ? AND line_number = ?",
-            (area_id, line_number),
-        ).fetchone()
-        return dict(row) if row else None
-
-    def create_line(self, area_id: str, data: dict) -> dict:
-        now = _now()
-        line_id = data.get("id") or f"line-{area_id}-{data['line_number']}"
-        self.conn.execute(
-            """INSERT INTO lines (id, area_id, line_number, name, description, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?)""",
-            (
-                line_id,
-                area_id,
-                data["line_number"],
-                data["name"],
-                data.get("description"),
-                now,
-                now,
-            ),
-        )
-        self.conn.commit()
-        return self.get_line(line_id)
-
-    def update_line(self, line_id: str, data: dict) -> dict | None:
-        sets = []
-        vals = []
-        now = _now()
-        for key in ("name", "description"):
-            if key in data:
-                sets.append(f"{key} = ?")
-                vals.append(data[key])
-        if not sets:
-            return self.get_line(line_id)
-        sets.append("updated_at = ?")
-        vals.append(now)
-        vals.append(line_id)
-        self.conn.execute(f"UPDATE lines SET {', '.join(sets)} WHERE id = ?", vals)
-        self.conn.commit()
-        return self.get_line(line_id)
-
-    def delete_line(self, line_id: str) -> bool:
-        cur = self.conn.execute("DELETE FROM lines WHERE id = ?", (line_id,))
-        self.conn.commit()
-        return cur.rowcount > 0
-
-    def get_or_create_line(self, area_id: str, line_number: int, name: str = None) -> dict:
-        """Get line by number, creating it if it doesn't exist."""
-        line = self.get_line_by_number(area_id, line_number)
-        if line:
-            return line
-        # Get area info for naming
-        area = self.get_area(area_id)
-        area_num = area["area_number"] if area else 0
-        return self.create_line(
-            area_id,
-            {
-                "line_number": line_number,
-                "name": name or f"Line {area_num}.{line_number}",
-            },
-        )
-
-    # ------------------------------------------------------------------
     # Topology helpers
     # ------------------------------------------------------------------
 
     def get_topology(self, premise_id: str) -> dict:
-        """Get full topology tree for a premise."""
-        areas = self.list_areas(premise_id)
-        for area in areas:
-            area["lines"] = self.list_lines(area["id"])
-            for line in area["lines"]:
-                # Get devices on this line
-                devices = self.conn.execute(
-                    "SELECT * FROM devices WHERE line_id = ? ORDER BY device_number",
-                    (line["id"],),
-                ).fetchall()
-                line["devices"] = [_parse_device_row(d) for d in devices]
-        return {"areas": areas}
+        """Get flat topology for a premise (one premise = one TP line)."""
+        premise = self.get_premise(premise_id)
+        if not premise:
+            return {}
+        devices = self.conn.execute(
+            "SELECT * FROM devices WHERE premise_id = ? ORDER BY device_number, individual_address",
+            (premise_id,),
+        ).fetchall()
+        return {
+            "area_number": premise["area_number"],
+            "line_number": premise["line_number"],
+            "gateway": f"{premise['area_number']}.{premise['line_number']}.0",
+            "devices": [_parse_device_row(d) for d in devices],
+        }
 
-    def ensure_topology_for_ia(
-        self, premise_id: str, individual_address: str
-    ) -> tuple[str, int] | None:
-        """Ensure Area/Line exist for an individual address, return (line_id, device_number).
+    def get_next_device_number(self, premise_id: str) -> int | None:
+        """Return the next available device number on this premise's line (1-255)."""
+        rows = self.conn.execute(
+            "SELECT device_number FROM devices WHERE premise_id = ? AND device_number IS NOT NULL",
+            (premise_id,),
+        ).fetchall()
+        used = {int(r["device_number"]) for r in rows if r["device_number"] is not None}
+        for number in range(1, 256):
+            if number not in used:
+                return number
+        return None
 
-        Creates Area and Line if they don't exist. Returns None if IA is invalid.
-        """
-        if not individual_address:
+    def compute_individual_address(self, premise_id: str, device_number: int) -> str | None:
+        """Compute individual address from premise's area/line + device number."""
+        premise = self.get_premise(premise_id)
+        if not premise:
             return None
-
-        parts = individual_address.split(".")
-        if len(parts) != 3:
-            return None
-
-        try:
-            area_num = int(parts[0])
-            line_num = int(parts[1])
-            device_num = int(parts[2])
-        except ValueError:
-            return None
-
-        if not (0 <= area_num <= 15 and 0 <= line_num <= 15 and 0 <= device_num <= 255):
-            return None
-
-        # Get or create area
-        area = self.get_or_create_area(premise_id, area_num)
-        # Get or create line
-        line = self.get_or_create_line(area["id"], line_num)
-
-        return (line["id"], device_num)
-
-    def get_line_with_area(self, line_id: str) -> dict | None:
-        """Get line details with area number and premise ID."""
-        row = self.conn.execute(
-            """SELECT l.id AS line_id,
-                      l.area_id,
-                      l.line_number,
-                      a.area_number AS area_number,
-                      a.premise_id AS premise_id
-               FROM lines l
-               JOIN areas a ON l.area_id = a.id
-               WHERE l.id = ?""",
-            (line_id,),
-        ).fetchone()
-        return dict(row) if row else None
-
-    def compute_individual_address(self, line_id: str, device_number: int) -> str | None:
-        """Compute individual address from topology (Area.Line.Device)."""
-        line = self.get_line_with_area(line_id)
-        if not line:
-            return None
-        return f"{line['area_number']}.{line['line_number']}.{device_number}"
+        return f"{premise['area_number']}.{premise['line_number']}.{device_number}"
 
     # ------------------------------------------------------------------
     # Main Groups (Group Address hierarchy)
@@ -1074,66 +864,51 @@ class Database:
         ).fetchone()
         return _parse_device_row(row) if row else None
 
-    def get_device_by_line_device(self, line_id: str, device_number: int) -> dict | None:
-        row = self.conn.execute(
-            "SELECT * FROM devices WHERE line_id = ? AND device_number = ?",
-            (line_id, device_number),
-        ).fetchone()
-        return _parse_device_row(row) if row else None
-
-    def get_next_device_number(self, line_id: str) -> int | None:
-        """Return the next available device number on a line (1-255)."""
-        rows = self.conn.execute(
-            "SELECT device_number FROM devices WHERE line_id = ? AND device_number IS NOT NULL",
-            (line_id,),
-        ).fetchall()
-        used = {int(r["device_number"]) for r in rows if r["device_number"] is not None}
-        for number in range(1, 256):
-            if number not in used:
-                return number
-        return None
-
     def create_device(self, premise_id: str, data: dict) -> dict:
         now = _now()
 
-        # Handle topology: either line_id+device_number provided, or parse from individual_address
-        line_id = data.get("line_id")
+        # Resolve device_number and individual_address
         device_number = data.get("device_number")
         individual_address = (data.get("individual_address") or "").strip()
 
-        if line_id is not None or device_number is not None:
-            if not line_id or device_number is None:
-                raise ValueError("line_id and device_number are required together")
+        if device_number is not None:
             if not (1 <= device_number <= 255):
                 raise ValueError("device_number must be between 1 and 255")
-            line = self.get_line_with_area(line_id)
-            if not line or line.get("premise_id") != premise_id:
-                raise ValueError("Line not found in premise")
-            computed = self.compute_individual_address(line_id, device_number)
+            computed = self.compute_individual_address(premise_id, device_number)
             if not computed:
-                raise ValueError("Unable to compute individual_address from topology")
+                raise ValueError("Premise not found")
             if individual_address and individual_address != computed:
-                raise ValueError("individual_address does not match line_id + device_number")
+                raise ValueError(
+                    f"individual_address '{individual_address}' does not match "
+                    f"premise topology (expected '{computed}')"
+                )
             individual_address = computed
         elif individual_address:
-            # Auto-create topology from individual address
-            topology = self.ensure_topology_for_ia(premise_id, individual_address)
-            if not topology:
-                raise ValueError("Invalid individual_address")
-            line_id, device_number = topology
+            # Parse device_number from individual_address and validate against premise
+            parts = individual_address.split(".")
+            if len(parts) != 3:
+                raise ValueError("Invalid individual_address format (expected A.L.D)")
+            try:
+                device_number = int(parts[2])
+            except ValueError:
+                raise ValueError("Invalid device number in individual_address")
             if device_number == 0:
                 raise ValueError("device_number 0 is reserved for couplers")
+            # Verify area/line match the premise
+            premise = self.get_premise(premise_id)
+            if premise:
+                expected_prefix = f"{premise['area_number']}.{premise['line_number']}."
+                if not individual_address.startswith(expected_prefix):
+                    raise ValueError(
+                        f"individual_address must match premise line (expected {expected_prefix}X)"
+                    )
         else:
-            raise ValueError("individual_address or line_id + device_number required")
+            raise ValueError("individual_address or device_number required")
 
         # Conflict checks
         existing_ia = self.get_device_by_individual_address(premise_id, individual_address)
         if existing_ia:
             raise ConflictError("Device with this individual_address already exists")
-        if line_id and device_number is not None:
-            existing_line = self.get_device_by_line_device(line_id, device_number)
-            if existing_line:
-                raise ConflictError("Device number already in use on this line")
 
         group_addresses = normalise_group_addresses(
             data.get("group_addresses", {}),
@@ -1180,13 +955,12 @@ class Database:
                 ]
 
         self.conn.execute(
-            """INSERT INTO devices (id, premise_id, line_id, device_number, room_id, type, individual_address,
+            """INSERT INTO devices (id, premise_id, device_number, room_id, type, individual_address,
                group_addresses, state, initial_state, config, channels, created_at, updated_at)
-               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
+               VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)""",
             (
                 data["id"],
                 premise_id,
-                line_id,
                 device_number,
                 data.get("room_id"),
                 data["type"],
@@ -1213,37 +987,40 @@ class Database:
             return None
 
         premise_id = device["premise_id"]
-        line_id = data.get("line_id", device.get("line_id"))
         device_number = data.get("device_number", device.get("device_number"))
         individual_address = data.get("individual_address")
 
-        if "line_id" in data or "device_number" in data:
-            if not line_id or device_number is None:
-                raise ValueError("line_id and device_number are required together")
+        if "device_number" in data:
             if not (1 <= device_number <= 255):
                 raise ValueError("device_number must be between 1 and 255")
-            line = self.get_line_with_area(line_id)
-            if not line or line.get("premise_id") != premise_id:
-                raise ValueError("Line not found in premise")
-            computed = self.compute_individual_address(line_id, device_number)
+            computed = self.compute_individual_address(premise_id, device_number)
             if not computed:
-                raise ValueError("Unable to compute individual_address from topology")
+                raise ValueError("Premise not found")
             if individual_address and individual_address != computed:
-                raise ValueError("individual_address does not match line_id + device_number")
+                raise ValueError(
+                    f"individual_address does not match premise topology (expected '{computed}')"
+                )
             individual_address = computed
-            data["line_id"] = line_id
-            data["device_number"] = device_number
             data["individual_address"] = individual_address
         elif "individual_address" in data:
             if not individual_address:
                 raise ValueError("individual_address cannot be empty")
-            topology = self.ensure_topology_for_ia(premise_id, individual_address)
-            if not topology:
-                raise ValueError("Invalid individual_address")
-            line_id, device_number = topology
+            parts = individual_address.split(".")
+            if len(parts) != 3:
+                raise ValueError("Invalid individual_address format")
+            try:
+                device_number = int(parts[2])
+            except ValueError:
+                raise ValueError("Invalid device number in individual_address")
             if device_number == 0:
                 raise ValueError("device_number 0 is reserved for couplers")
-            data["line_id"] = line_id
+            premise = self.get_premise(premise_id)
+            if premise:
+                expected_prefix = f"{premise['area_number']}.{premise['line_number']}."
+                if not individual_address.startswith(expected_prefix):
+                    raise ValueError(
+                        f"individual_address must match premise line (expected {expected_prefix}X)"
+                    )
             data["device_number"] = device_number
 
         # Conflict checks
@@ -1251,10 +1028,6 @@ class Database:
             existing_ia = self.get_device_by_individual_address(premise_id, individual_address)
             if existing_ia and existing_ia["id"] != device_id:
                 raise ConflictError("Device with this individual_address already exists")
-        if line_id and device_number is not None:
-            existing_line = self.get_device_by_line_device(line_id, device_number)
-            if existing_line and existing_line["id"] != device_id:
-                raise ConflictError("Device number already in use on this line")
 
         if "group_addresses" in data:
             device_type = data.get("type", device.get("type", ""))
@@ -1263,8 +1036,7 @@ class Database:
                 device_type,
             )
 
-        # Handle topology fields
-        for key in ("room_id", "type", "individual_address", "line_id", "device_number"):
+        for key in ("room_id", "type", "individual_address", "device_number"):
             if key in data:
                 sets.append(f"{key} = ?")
                 vals.append(data[key])
