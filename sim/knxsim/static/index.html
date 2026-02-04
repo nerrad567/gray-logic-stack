@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=23" />
+    <link rel="stylesheet" href="css/style.css?v=24" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -4711,26 +4711,20 @@ STRATEGY 3: By Room Type (Commercial)
                             x-text="'(' + $store.reference.gaStructure.bits + ')'"
                           ></span>
                         </div>
-                        <template
-                          x-for="conv in $store.reference.gaStructure.conventions.slice(0, 2)"
-                          :key="conv.name"
-                        >
-                          <div class="ga-convention">
-                            <h5 x-text="conv.name"></h5>
-                            <p x-text="conv.description"></p>
-                            <div class="ga-examples">
-                              <template
-                                x-for="ex in conv.example_addresses || []"
-                                :key="ex.ga"
-                              >
-                                <div class="ga-example">
-                                  <code x-text="ex.ga"></code>
-                                  <span x-text="ex.meaning"></span>
-                                </div>
-                              </template>
-                            </div>
+                        <div class="ga-convention">
+                          <h5>Example Addresses</h5>
+                          <div class="ga-examples">
+                            <template
+                              x-for="ex in $store.reference.gaStructure.example_addresses || []"
+                              :key="ex.ga"
+                            >
+                              <div class="ga-example">
+                                <code x-text="ex.ga"></code>
+                                <span x-text="ex.meaning"></span>
+                              </div>
+                            </template>
                           </div>
-                        </template>
+                        </div>
                         <div class="ga-tips">
                           <h5>Tips</h5>
                           <ul>
@@ -5586,8 +5580,8 @@ STRATEGY 3: By Room Type (Commercial)
           },
 
           init() {
-            if (!$store.app.topology && $store.app.currentPremiseId) {
-              $store.app.loadTopology();
+            if (!this.$store.app.topology && this.$store.app.currentPremiseId) {
+              this.$store.app.loadTopology();
             }
             this.$watch("$store.app.topology", () => {
               if (this.addressMode === "topology") {
