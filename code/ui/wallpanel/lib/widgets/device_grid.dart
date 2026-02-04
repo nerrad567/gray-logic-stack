@@ -17,7 +17,13 @@ class DeviceGrid extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    if (devices.isEmpty) {
+    // Filter out per-room heating actuators (UFH valves) — their status is
+    // shown on the thermostat tile and the Distribution Board actuator tile.
+    final visibleDevices = devices
+        .where((d) => !(d.type == 'heating_actuator' && d.domain != 'infrastructure'))
+        .toList();
+
+    if (visibleDevices.isEmpty) {
       return Center(
         child: Column(
           mainAxisAlignment: MainAxisAlignment.center,
@@ -49,8 +55,8 @@ class DeviceGrid extends StatelessWidget {
             mainAxisSpacing: 12,
             childAspectRatio: 0.85,
           ),
-          itemCount: devices.length,
-          itemBuilder: (context, index) => _buildTile(devices[index]),
+          itemCount: visibleDevices.length,
+          itemBuilder: (context, index) => _buildTile(visibleDevices[index]),
         );
       },
     );

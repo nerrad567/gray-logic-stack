@@ -73,6 +73,12 @@ class ThermostatTile extends ConsumerWidget {
               ],
             ),
 
+            // Valve output indicator (heating_output from thermostat PID)
+            if (_getHeatingOutput(device.state) != null) ...[
+              const SizedBox(height: 4),
+              _ValveIndicator(percent: _getHeatingOutput(device.state)!),
+            ],
+
             const Spacer(),
 
             // Setpoint controls
@@ -102,6 +108,12 @@ class ThermostatTile extends ConsumerWidget {
 
   double? _getTemperature(Map<String, dynamic> state, String key) {
     final value = state[key];
+    if (value is num) return value.toDouble();
+    return null;
+  }
+
+  double? _getHeatingOutput(Map<String, dynamic> state) {
+    final value = state['heating_output'];
     if (value is num) return value.toDouble();
     return null;
   }
@@ -231,5 +243,55 @@ class _AdjustButton extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+/// Compact valve output indicator showing a flame icon with warm colour
+/// gradient based on the heating output percentage (0-100%).
+class _ValveIndicator extends StatelessWidget {
+  final double percent;
+
+  const _ValveIndicator({required this.percent});
+
+  @override
+  Widget build(BuildContext context) {
+    final t = (percent / 100).clamp(0.0, 1.0);
+    final color = _heatColor(t);
+    final isActive = percent > 0;
+
+    return Row(
+      mainAxisAlignment: MainAxisAlignment.center,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(
+          Icons.local_fire_department,
+          size: 14,
+          color: isActive ? color : Colors.grey.shade700,
+        ),
+        const SizedBox(width: 3),
+        Text(
+          '${percent.toInt()}%',
+          style: TextStyle(
+            fontSize: 11,
+            fontWeight: FontWeight.w600,
+            color: isActive ? color : Colors.grey.shade600,
+          ),
+        ),
+      ],
+    );
+  }
+
+  /// Warm colour gradient: cold steel → amber → deep orange → red.
+  static Color _heatColor(double t) {
+    const stops = [
+      Color(0xFF5C7A99), //  0% — cool steel blue
+      Color(0xFFFFA726), // 33% — amber
+      Color(0xFFFF5722), // 66% — deep orange
+      Color(0xFFD32F2F), // 100% — red
+    ];
+    final scaled = t * (stops.length - 1);
+    final i = scaled.floor().clamp(0, stops.length - 2);
+    final frac = scaled - i;
+    return Color.lerp(stops[i], stops[i + 1], frac)!;
   }
 }
