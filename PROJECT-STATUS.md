@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-04 (Session 29 - KNX Pipeline Robustness Refactor)
-**Current milestone:** Year 1 Foundation Complete + Commissioning Pipeline Upgraded
+**Last session:** 2026-02-04 (Session 30 - KNXSim Phase 2 Complete)
+**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 Complete
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
@@ -17,12 +17,13 @@
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
 - M1.5 Flutter Wall Panel (Riverpod, Dio, WebSocket, optimistic UI, embedded web serving) ✅
 - M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
-- KNXSim Phase 2.3 Device Controls ✅ (lights, blinds, presence, sensors)
-- KNXSim Phase 2.4 Engineer Mode ✅ (telegram inspector, device panel, GA inspection)
-- KNXSim Phase 2.6 Alpine.js Refactor ✅ (reactive UI, global store, export endpoints)
-- KNXSim Phase 2.7 Wall Switch Support ✅ (push buttons, shared GA handling, live GA editing)
-- KNXSim Phase 2.8 Topology Restructure ✅ Phase 1 complete (Areas/Lines schema, API, Reference data, UI)
-- KNXSim Phase 2.9 Thermostats ✅ (PID control, valve actuators, thermal simulation)
+- KNXSim Phase 1 ✅ (KNXnet/IP tunnelling, 57 templates, DPT codec, scenarios, multi-premise)
+- KNXSim Phase 2 ✅ COMPLETE — Web Dashboard:
+  - 2.1 Building Overview (premise selector, floor nav, room grid, building summary stats)
+  - 2.3 Device Controls (entity tiles, quick controls, multi-channel)
+  - 2.4 Technical Inspection (device panel, telegram inspector, bus stats, filtering)
+  - 2.5 Device/Room Management (full CRUD, template browser, topology, GA hierarchy, conflict detection)
+  - Codex consolidation (107 tests: DPT codec, cEMI frames, GA normalisation)
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - KNX Pipeline Robustness ✅ (structured DPT storage, canonical function registry, import normalisation, pipeline integration tests)
@@ -34,10 +35,10 @@
 - Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
-- Extend ETS domain filter list for other languages (French, Italian, etc.)
-- KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
-- Auth hardening (production JWT, refresh tokens, role-based access)
-- Year 2 planning (M2.1 Area/Room hierarchy, M2.2 advanced scenes, M2.5 DALI bridge)
+- **Priority 1**: Smoke tests for KNXSim (FastAPI TestClient end-to-end — good Codex task)
+- **Priority 2**: Auth hardening (production JWT, refresh tokens, role-based access)
+- **Priority 3**: Year 2 kick-off (M2.1 Area/Room hierarchy, M2.2 advanced scenes)
+- **Parking lot**: ETS domain filter i18n, KNXSim config.yaml schema validation
 
 ---
 
@@ -987,6 +988,48 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 
 **Files Modified**: 3 (ets_import.dart, ets_import_provider.dart, commissioning.go) + panel web assets
 **Commits**: 2 (`2fbe1f7`, `8321a07`)
+
+---
+
+### Session 30: 2026-02-04 — KNXSim Phase 2 Complete
+
+**Goal:** Finish remaining KNXSim Phase 2 dashboard items and close out the simulator milestone
+
+**Part 1 — VISION.md Audit & Correction:**
+- Cross-referenced VISION.md checkboxes against actual codebase (JS stores, HTML, backend routes)
+- Found Phase 2 was ~95% complete but VISION.md showed it as ~50% — massive checkbox debt
+- Corrected all Phase 2.1, 2.4, 2.5 checkboxes to reflect true state
+- Moved low-priority items (sparklines, bulk ops, custom templates) to Phase 3 backlog
+
+**Part 2 — Bus Statistics Panel (2.4):**
+- Backend: Enhanced `TelegramInspector` with per-premise TX/RX counters and GA frequency maps
+- Backend: `get_stats()` now returns `total_recorded`, `rx_count`, `tx_count`, `unique_gas`, `top_gas` (top 5)
+- Frontend: Collapsible stats panel in telegram inspector with 5 stat cards + busiest GA chips
+- Auto-refreshes every 5s while visible via `setInterval`
+
+**Part 3 — Telegram Filtering (2.4):**
+- Backend: Added `direction`, `device`, `ga` query params to `GET /telegrams` endpoint
+- Backend: `get_history()` filters by direction, device_id substring, GA substring server-side
+- Frontend: Added debounced text search input (300ms) filtering across device, GA, source, value
+- Two-tier filtering: server-side for REST API, client-side for live WebSocket stream
+
+**Part 4 — Building Summary Stats (2.1):**
+- Added `getBuildingSummary()` to app store — aggregates lights on, avg temp, presence rooms, blinds open
+- Computed client-side from existing device state (reactive, no new endpoint)
+- Enhanced footer stats bar with live building status + visual separators
+
+**Part 5 — Address Conflict Warnings (2.5):**
+- Device ID conflict: proactive warning in create modal when ID already exists
+- IA conflict: proactive warning in create/edit modal when individual address in use
+- Client-side validation using in-memory store (instant feedback, no round-trip)
+- Backend already had `ConflictError` on save — these warnings prevent the user reaching that point
+
+**Files Modified**: 6 (`VISION.md`, `telegram_inspector.py`, `routes_telegrams.py`, `store.js`, `index.html`, `style.css`)
+**Lines Changed**: +479, -70
+**Tests**: 107 passing (all existing tests unaffected)
+**Commit**: `24efb2d`
+
+**Result**: KNXSim Phase 2 Web Dashboard is now complete. All checklist items done. Phase 3 (scenarios, thermal models, testing tools) is next when KNXSim work resumes.
 
 ---
 

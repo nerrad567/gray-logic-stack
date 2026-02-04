@@ -4,6 +4,28 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.21 – KNXSim Phase 2 Complete (2026-02-04)
+
+**Focus: Close out all remaining KNXSim Phase 2 dashboard items**
+
+KNXSim Phase 2 (Web Dashboard) is now fully complete. The VISION.md checklist was significantly out of date — a cross-reference audit revealed most Phase 2.1 and 2.5 items were already built. The remaining gaps (bus statistics, telegram filtering, building summary, conflict warnings) have been implemented.
+
+### Added
+
+- **Bus Statistics Panel** (Phase 2.4): Collapsible panel in telegram inspector showing total telegrams, TX/RX split, TPS, unique GAs, and top 5 busiest GAs. Backend tracks per-premise direction counts and GA frequency maps. Auto-refreshes every 5s while visible
+- **Telegram Filtering** (Phase 2.4): Backend accepts `direction`, `device`, `ga` query params on history endpoint. Frontend adds debounced text search (300ms) filtering across device ID, GA, source address, and decoded value
+- **Building Summary Stats** (Phase 2.1): Footer bar shows lights on, average temperature, presence rooms, and blinds open — computed reactively from live device state, no new endpoint needed
+- **Address Conflict Warnings** (Phase 2.5): Proactive warnings in device create/edit modal for duplicate individual addresses and device IDs. Client-side validation against in-memory store for instant feedback
+
+### Changed
+
+- **VISION.md**: Full audit and correction of all Phase 2 checkboxes. Phase 2 marked complete. Low-priority items (sparklines, bulk ops, custom templates, template import/export, address range view) deferred to Phase 3
+- **Stats bar**: Redesigned with building status indicators and visual separators between static counts and live metrics
+- **TelegramInspector.get_stats()**: Now returns `total_recorded`, `rx_count`, `tx_count`, `unique_gas`, `top_gas` for per-premise queries
+- **TelegramInspector.clear()**: Resets direction counters and GA frequency maps alongside ring buffer
+
+---
+
 ## 1.0.20 – KNX Pipeline Robustness Refactor (2026-02-04)
 
 **Focus: Eliminate fragile DPT inference and function name coupling across the KNX mapping pipeline**
