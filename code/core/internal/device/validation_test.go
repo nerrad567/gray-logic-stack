@@ -371,36 +371,43 @@ func TestValidateAddress(t *testing.T) {
 		address  Address
 		wantErr  error
 	}{
-		// KNX addresses
+		// KNX addresses (new structured functions format)
 		{
-			name:     "valid KNX address",
+			name:     "valid KNX address with functions",
 			protocol: ProtocolKNX,
-			address:  Address{"group_address": "1/2/3"},
-			wantErr:  nil,
+			address: Address{"functions": map[string]any{
+				"switch": map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+			}},
+			wantErr: nil,
 		},
 		{
-			name:     "KNX with feedback address",
+			name:     "KNX with multiple functions",
 			protocol: ProtocolKNX,
-			address:  Address{"group_address": "1/2/3", "feedback_address": "1/2/4"},
-			wantErr:  nil,
+			address: Address{"functions": map[string]any{
+				"switch":        map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+				"switch_status": map[string]any{"ga": "1/2/4", "dpt": "1.001", "flags": []any{"read", "transmit"}},
+			}},
+			wantErr: nil,
 		},
 		{
-			name:     "KNX missing group_address",
+			name:     "KNX missing functions map",
 			protocol: ProtocolKNX,
-			address:  Address{"feedback_address": "1/2/4"},
+			address:  Address{"individual_address": "1.1.1"},
 			wantErr:  ErrInvalidAddress,
 		},
 		{
-			name:     "KNX empty group_address",
+			name:     "KNX empty functions map",
 			protocol: ProtocolKNX,
-			address:  Address{"group_address": ""},
+			address:  Address{"functions": map[string]any{}},
 			wantErr:  ErrInvalidAddress,
 		},
 		{
-			name:     "KNX non-string group_address",
+			name:     "KNX function with empty ga",
 			protocol: ProtocolKNX,
-			address:  Address{"group_address": 123},
-			wantErr:  ErrInvalidAddress,
+			address: Address{"functions": map[string]any{
+				"switch": map[string]any{"ga": "", "dpt": "1.001", "flags": []any{"write"}},
+			}},
+			wantErr: ErrInvalidAddress,
 		},
 
 		// DALI addresses
@@ -509,12 +516,15 @@ func TestValidateAddress(t *testing.T) {
 func TestValidateDevice(t *testing.T) {
 	validDevice := func() *Device {
 		return &Device{
-			Name:         "Living Room Dimmer",
-			Slug:         "living-room-dimmer",
-			Type:         DeviceTypeLightDimmer,
-			Domain:       DomainLighting,
-			Protocol:     ProtocolKNX,
-			Address:      Address{"group_address": "1/2/3"},
+			Name:     "Living Room Dimmer",
+			Slug:     "living-room-dimmer",
+			Type:     DeviceTypeLightDimmer,
+			Domain:   DomainLighting,
+			Protocol: ProtocolKNX,
+			Address: Address{"functions": map[string]any{
+				"switch":     map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+				"brightness": map[string]any{"ga": "1/2/4", "dpt": "5.001", "flags": []any{"write"}},
+			}},
 			Capabilities: []Capability{CapOnOff, CapDim},
 			HealthStatus: HealthStatusOnline,
 		}

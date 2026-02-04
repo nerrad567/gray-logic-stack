@@ -4,10 +4,13 @@ import 'package:dio/dio.dart';
 
 import '../config/constants.dart';
 import '../models/area.dart';
+import '../models/audit_log.dart';
 import '../models/auth.dart';
 import '../models/device.dart';
 import '../models/ets_import.dart';
 import '../models/discovery.dart';
+import '../models/factory_reset.dart';
+import '../models/site.dart';
 import '../models/metrics.dart';
 import '../models/room.dart';
 import '../models/scene.dart';
@@ -110,6 +113,23 @@ class ApiClient {
     return AreaListResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
+  /// Create a new area.
+  Future<Area> createArea(Map<String, dynamic> data) async {
+    final response = await _dio.post('/areas', data: data);
+    return Area.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Update an area (PATCH semantics).
+  Future<Area> updateArea(String id, Map<String, dynamic> data) async {
+    final response = await _dio.patch('/areas/$id', data: data);
+    return Area.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Delete an area. Fails with 409 if rooms still reference it.
+  Future<void> deleteArea(String id) async {
+    await _dio.delete('/areas/$id');
+  }
+
   // --- Rooms ---
 
   Future<RoomListResponse> getRooms({String? areaId}) async {
@@ -117,6 +137,23 @@ class ApiClient {
     if (areaId != null) params['area_id'] = areaId;
     final response = await _dio.get('/rooms', queryParameters: params);
     return RoomListResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Create a new room.
+  Future<Room> createRoom(Map<String, dynamic> data) async {
+    final response = await _dio.post('/rooms', data: data);
+    return Room.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Update a room (PATCH semantics).
+  Future<Room> updateRoom(String id, Map<String, dynamic> data) async {
+    final response = await _dio.patch('/rooms/$id', data: data);
+    return Room.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Delete a room.
+  Future<void> deleteRoom(String id) async {
+    await _dio.delete('/rooms/$id');
   }
 
   // --- Health ---
@@ -146,6 +183,12 @@ class ApiClient {
 
   // --- Device Management ---
 
+  /// Create a new device.
+  Future<Device> createDevice(Map<String, dynamic> data) async {
+    final response = await _dio.post('/devices', data: data);
+    return Device.fromJson(response.data as Map<String, dynamic>);
+  }
+
   /// Update a device's properties (name, room, etc.).
   Future<Device> updateDevice(String id, Map<String, dynamic> updates) async {
     final response = await _dio.patch('/devices/$id', data: updates);
@@ -155,6 +198,72 @@ class ApiClient {
   /// Delete a device from the registry.
   Future<void> deleteDevice(String id) async {
     await _dio.delete('/devices/$id');
+  }
+
+  // --- Site Management ---
+
+  /// Get the site record. Returns null if no site exists (setup needed).
+  Future<Site?> getSite() async {
+    try {
+      final response = await _dio.get('/site');
+      return Site.fromJson(response.data as Map<String, dynamic>);
+    } on DioException catch (e) {
+      if (e.response?.statusCode == 404) return null;
+      rethrow;
+    }
+  }
+
+  /// Create a new site record (used during initial setup).
+  Future<Site> createSite(Map<String, dynamic> data) async {
+    final response = await _dio.post('/site', data: data);
+    return Site.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  /// Update the existing site record (PATCH semantics — only send changed fields).
+  Future<Site> updateSite(Map<String, dynamic> data) async {
+    final response = await _dio.patch('/site', data: data);
+    return Site.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // --- Audit Logs ---
+
+  /// Get paginated audit logs with optional filters.
+  Future<AuditLogResponse> getAuditLogs({
+    String? action,
+    String? entityType,
+    int limit = 50,
+    int offset = 0,
+  }) async {
+    final params = <String, dynamic>{
+      'limit': limit,
+      'offset': offset,
+    };
+    if (action != null) params['action'] = action;
+    if (entityType != null) params['entity_type'] = entityType;
+
+    final response = await _dio.get('/audit-logs', queryParameters: params);
+    return AuditLogResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // --- System Management ---
+
+  /// Perform a factory reset, clearing selected data categories.
+  Future<FactoryResetResponse> factoryReset({
+    bool clearDevices = true,
+    bool clearScenes = true,
+    bool clearLocations = true,
+    bool clearDiscovery = false,
+    bool clearSite = false,
+  }) async {
+    final response = await _dio.post('/system/factory-reset', data: {
+      'clear_devices': clearDevices,
+      'clear_scenes': clearScenes,
+      'clear_locations': clearLocations,
+      'clear_discovery': clearDiscovery,
+      'clear_site': clearSite,
+      'confirm': 'FACTORY RESET',
+    });
+    return FactoryResetResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   // --- ETS Import (Commissioning) ---

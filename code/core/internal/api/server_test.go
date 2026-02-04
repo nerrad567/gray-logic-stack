@@ -258,7 +258,7 @@ func TestCreateAndGetDevice(t *testing.T) {
 		"type": "light_dimmer",
 		"domain": "lighting",
 		"protocol": "knx",
-		"address": {"group_address": "1/2/3"},
+		"address": {"functions": {"switch": {"ga": "1/2/3", "dpt": "1.001", "flags": ["write"]}, "brightness": {"ga": "1/2/4", "dpt": "5.001", "flags": ["write"]}}},
 		"capabilities": ["on_off", "dim"]
 	}`
 
@@ -320,11 +320,13 @@ func TestUpdateDevice(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "Original",
-		Type:         device.DeviceTypeLightDimmer,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/3"},
+		Name:     "Original",
+		Type:     device.DeviceTypeLightDimmer,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -356,11 +358,13 @@ func TestDeleteDevice(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "ToDelete",
-		Type:         device.DeviceTypeLightSwitch,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/4"},
+		Name:     "ToDelete",
+		Type:     device.DeviceTypeLightSwitch,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": "1/2/4", "dpt": "1.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -390,11 +394,14 @@ func TestListDevices_FilterByDomain(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "Kitchen Light",
-		Type:         device.DeviceTypeLightDimmer,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/5"},
+		Name:     "Kitchen Light",
+		Type:     device.DeviceTypeLightDimmer,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch":     map[string]any{"ga": "1/2/5", "dpt": "1.001", "flags": []any{"write"}},
+			"brightness": map[string]any{"ga": "1/2/6", "dpt": "5.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff, device.CapDim},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -440,11 +447,14 @@ func TestGetDeviceState(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "Stateful Light",
-		Type:         device.DeviceTypeLightDimmer,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/6"},
+		Name:     "Stateful Light",
+		Type:     device.DeviceTypeLightDimmer,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch":     map[string]any{"ga": "1/2/6", "dpt": "1.001", "flags": []any{"write"}},
+			"brightness": map[string]any{"ga": "1/2/7", "dpt": "5.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -484,11 +494,13 @@ func TestSetDeviceState_MissingCommand(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "No Command",
-		Type:         device.DeviceTypeLightSwitch,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/9"},
+		Name:     "No Command",
+		Type:     device.DeviceTypeLightSwitch,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": "1/2/9", "dpt": "1.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -526,11 +538,13 @@ func TestDeviceStats(t *testing.T) {
 	router := srv.buildRouter()
 
 	dev := &device.Device{
-		Name:         "Stats Device",
-		Type:         device.DeviceTypeLightSwitch,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/7"},
+		Name:     "Stats Device",
+		Type:     device.DeviceTypeLightSwitch,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": "1/2/7", "dpt": "1.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff},
 	}
 	if err := registry.CreateDevice(context.Background(), dev); err != nil {
@@ -843,6 +857,50 @@ func (m *mockLocationRepo) GetRoom(_ context.Context, id string) (*location.Room
 		}
 	}
 	return nil, location.ErrRoomNotFound
+}
+
+func (m *mockLocationRepo) UpdateArea(_ context.Context, _ *location.Area) error {
+	return nil
+}
+
+func (m *mockLocationRepo) DeleteArea(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockLocationRepo) UpdateRoom(_ context.Context, _ *location.Room) error {
+	return nil
+}
+
+func (m *mockLocationRepo) DeleteRoom(_ context.Context, _ string) error {
+	return nil
+}
+
+func (m *mockLocationRepo) DeleteAllAreas(_ context.Context) (int64, error) {
+	n := int64(len(m.areas))
+	m.areas = nil
+	return n, nil
+}
+
+func (m *mockLocationRepo) DeleteAllRooms(_ context.Context) (int64, error) {
+	n := int64(len(m.rooms))
+	m.rooms = nil
+	return n, nil
+}
+
+func (m *mockLocationRepo) GetAnySite(_ context.Context) (*location.Site, error) {
+	return nil, location.ErrSiteNotFound
+}
+
+func (m *mockLocationRepo) CreateSite(_ context.Context, _ *location.Site) error {
+	return nil
+}
+
+func (m *mockLocationRepo) UpdateSite(_ context.Context, _ *location.Site) error {
+	return nil
+}
+
+func (m *mockLocationRepo) DeleteAllSites(_ context.Context) (int64, error) {
+	return 0, nil
 }
 
 // testServerWithLocation creates a Server with location repo for testing.

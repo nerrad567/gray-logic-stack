@@ -55,7 +55,10 @@
 //	    Type:     device.DeviceTypeLightDimmer,
 //	    Domain:   device.DomainLighting,
 //	    Protocol: device.ProtocolKNX,
-//	    Address:  device.Address{"group_address": "1/2/3"},
+//	    Address:  device.Address{"functions": map[string]any{
+//	        "switch":     map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+//	        "brightness": map[string]any{"ga": "1/2/4", "dpt": "5.001", "flags": []any{"write"}},
+//	    }},
 //	    Capabilities: []device.Capability{
 //	        device.CapOnOff,
 //	        device.CapDim,

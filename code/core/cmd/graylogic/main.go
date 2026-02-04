@@ -23,6 +23,7 @@ import (
 	_ "github.com/nerrad567/gray-logic-core/migrations"
 
 	"github.com/nerrad567/gray-logic-core/internal/api"
+	"github.com/nerrad567/gray-logic-core/internal/audit"
 	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/device"
@@ -128,12 +129,15 @@ func run(ctx context.Context) error {
 	}
 	log.Info("database migrations complete")
 
-	// Ensure site record exists (required for areas FK constraint)
-	if _, siteErr := db.DB.ExecContext(ctx,
-		`INSERT OR IGNORE INTO sites (id, name, slug, timezone) VALUES (?, ?, ?, ?)`,
-		cfg.Site.ID, cfg.Site.Name, cfg.Site.ID, cfg.Site.Timezone,
-	); siteErr != nil {
-		return fmt.Errorf("seeding site: %w", siteErr)
+	// Check if a site record exists. If not, the system is in "setup needed"
+	// mode — the admin panel will detect this via GET /api/v1/site and prompt
+	// the user to create one. Property data is user-owned, not config-seeded.
+	var siteCount int
+	if err := db.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites").Scan(&siteCount); err != nil {
+		return fmt.Errorf("checking site: %w", err)
+	}
+	if siteCount == 0 {
+		log.Info("no site configured — create one via the admin panel")
 	}
 
 	// Initialise device registry
@@ -145,6 +149,13 @@ func run(ctx context.Context) error {
 		return fmt.Errorf("loading device registry: %w", refreshErr)
 	}
 	log.Info("device registry initialised", "devices", deviceRegistry.GetDeviceCount())
+
+	// Migrate KNX devices from old flat address format to structured functions format.
+	// This is a one-time migration that adds DPT and flags to existing devices.
+	if migErr := deviceRegistry.MigrateKNXAddressFormat(ctx); migErr != nil {
+		log.Error("KNX address format migration failed", "error", migErr)
+		// Non-fatal: devices will still work via inference fallback
+	}
 
 	// Connect to MQTT broker
 	mqttClient, err := mqtt.Connect(cfg.MQTT)
@@ -184,6 +195,10 @@ func run(ctx context.Context) error {
 	locationRepo := location.NewSQLiteRepository(db.DB)
 	log.Info("location repository initialised")
 
+	// Initialise audit log repository
+	auditRepo := audit.NewSQLiteRepository(db.DB)
+	log.Info("audit log repository initialised")
+
 	// Create WebSocket hub (shared between engine and API server)
 	wsHub := api.NewHub(cfg.WebSocket, log)
 	go wsHub.Run(ctx)
@@ -207,6 +222,7 @@ func run(ctx context.Context) error {
 		SceneRegistry: sceneRegistry,
 		SceneRepo:     sceneRepo,
 		LocationRepo:  locationRepo,
+		AuditRepo:     auditRepo,
 		DevMode:       cfg.DevMode,
 		PanelDir:      cfg.PanelDir,
 		ExternalHub:   wsHub,
@@ -449,14 +465,13 @@ func startKNXD(ctx context.Context, cfg *config.Config, log *logging.Logger) (*k
 //   - *knx.Bridge: Running KNX bridge
 //   - error: If bridge fails to start
 func startKNXBridge(ctx context.Context, cfg *config.Config, knxdManager *knxd.Manager, mqttClient *mqtt.Client, log *logging.Logger, deviceRegistry *device.Registry, gaRecorder *knx.GARecorder) (*knx.Bridge, error) {
-	// Load KNX bridge configuration (devices, group addresses, mappings)
+	// Load KNX bridge configuration (connection settings, MQTT, logging)
 	knxBridgeCfg, err := knx.LoadConfig(cfg.Protocols.KNX.ConfigFile)
 	if err != nil {
 		return nil, fmt.Errorf("loading KNX bridge config: %w", err)
 	}
 	log.Info("KNX bridge config loaded",
 		"path", cfg.Protocols.KNX.ConfigFile,
-		"devices", len(knxBridgeCfg.Devices),
 	)
 
 	// Determine connection URL:
@@ -610,18 +625,25 @@ func (a *deviceRegistryAdapter) GetKNXDevices(ctx context.Context) ([]knx.Regist
 		for j, c := range dev.Capabilities {
 			caps[j] = string(c)
 		}
-		addr := make(map[string]string, len(dev.Address))
-		for k, v := range dev.Address {
-			if s, ok := v.(string); ok {
-				addr[k] = s
+
+		// Parse structured functions map from device address
+		functions := make(map[string]knx.FunctionMapping)
+		if knxFuncs := device.GetKNXFunctions(dev.Address); knxFuncs != nil {
+			for name, fc := range knxFuncs {
+				functions[name] = knx.FunctionMapping{
+					GA:    fc.GA,
+					DPT:   fc.DPT,
+					Flags: fc.Flags,
+				}
 			}
 		}
+
 		result[i] = knx.RegistryDevice{
 			ID:           dev.ID,
 			Name:         dev.Name,
 			Type:         string(dev.Type),
 			Domain:       string(dev.Domain),
-			Address:      addr,
+			Functions:    functions,
 			Capabilities: caps,
 		}
 	}

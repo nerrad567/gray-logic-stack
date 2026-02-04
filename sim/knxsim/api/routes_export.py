@@ -760,20 +760,33 @@ def _build_knxproj_xml(
 
 
 def _guess_dpt(device_type: str, ga_name: str) -> str:
-    """Guess DPT based on device type and GA function name."""
+    """Guess DPT based on device type and GA function name.
+
+    This is a fallback for devices that don't have explicit DPT in their config.
+    With Phase A (structured functions format), most devices will have DPT stored
+    directly — this is only used for old-format or manually-created devices.
+    """
     ga_lower = ga_name.lower()
 
     # Switch/status commands
     if "switch" in ga_lower or "on_off" in ga_lower:
         return "1.001"
-    if "status" in ga_lower and "switch" in ga_lower:
-        return "1.001"
+
+    # Color temperature (must come before "temperature" check)
+    if "color_temp" in ga_lower or "colour_temp" in ga_lower:
+        return "7.600"
+
+    # RGB / RGBW
+    if "rgbw" in ga_lower:
+        return "251.600"
+    if "rgb" in ga_lower:
+        return "232.600"
 
     # Dimming
+    if "dimming_control" in ga_lower or "relative_dimming" in ga_lower:
+        return "3.007"
     if "brightness" in ga_lower or "dimm" in ga_lower or "level" in ga_lower:
         return "5.001"
-    if "dimming" in ga_lower:
-        return "3.007"
 
     # Blinds/Shutters
     if "position" in ga_lower:
@@ -782,28 +795,64 @@ def _guess_dpt(device_type: str, ga_name: str) -> str:
         return "5.001"
     if "move" in ga_lower or "up_down" in ga_lower:
         return "1.008"
-    if "stop" in ga_lower:
-        return "1.010"
+    if "stop" in ga_lower or "step" in ga_lower:
+        return "1.007"
+    if "blind_control" in ga_lower or "relative_position" in ga_lower:
+        return "3.008"
+
+    # Scenes
+    if "scene_control" in ga_lower:
+        return "18.001"
+    if "scene" in ga_lower:
+        return "17.001"
 
     # Sensors
     if "temperature" in ga_lower or "temp" in ga_lower:
         return "9.001"
     if "humidity" in ga_lower:
         return "9.007"
-    if "lux" in ga_lower or "brightness" in ga_lower:
+    if "lux" in ga_lower or "illuminance" in ga_lower:
         return "9.004"
     if "co2" in ga_lower:
         return "9.008"
-    if "presence" in ga_lower or "motion" in ga_lower:
+    if "wind" in ga_lower:
+        return "9.005"
+    if "rain" in ga_lower:
+        return "1.005"
+    if "presence" in ga_lower or "motion" in ga_lower or "occupi" in ga_lower:
         return "1.018"
 
+    # Energy / Metering
+    if "power" in ga_lower or "active_power" in ga_lower:
+        return "14.056"
+    if "voltage" in ga_lower:
+        return "14.027"
+    if "current" in ga_lower and "electric" in ga_lower:
+        return "14.019"
+    if "energy" in ga_lower:
+        return "13.010"
+
     # Climate / Heating
-    if "valve" in ga_lower or "heating" in ga_lower:
+    if "valve" in ga_lower or "heating_output" in ga_lower:
         return "5.001"
+    if "heating" in ga_lower or "cooling" in ga_lower:
+        return "1.001"
     if "setpoint" in ga_lower:
         return "9.001"
     if "mode" in ga_lower and "hvac" in ga_lower:
         return "20.102"
+
+    # Boolean control
+    if "alarm" in ga_lower or "fault" in ga_lower:
+        return "1.005"
+    if "enable" in ga_lower:
+        return "1.003"
+    if "trigger" in ga_lower:
+        return "1.017"
+    if "button" in ga_lower:
+        return "1.001"
+    if "percentage" in ga_lower:
+        return "5.004"
 
     # Default based on device type
     type_defaults = {

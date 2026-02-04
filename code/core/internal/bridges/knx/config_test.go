@@ -80,36 +80,6 @@ devices:
 		t.Errorf("MQTT.ClientID = %q, want test-knx-mqtt", cfg.MQTT.ClientID)
 	}
 
-	// Verify devices
-	if len(cfg.Devices) != 1 {
-		t.Fatalf("len(Devices) = %d, want 1", len(cfg.Devices))
-	}
-
-	dev := cfg.Devices[0]
-	if dev.DeviceID != "light-living-main" {
-		t.Errorf("Device.DeviceID = %q, want light-living-main", dev.DeviceID)
-	}
-	if dev.Type != "light_dimmer" {
-		t.Errorf("Device.Type = %q, want light_dimmer", dev.Type)
-	}
-	if len(dev.Addresses) != 3 {
-		t.Errorf("len(Device.Addresses) = %d, want 3", len(dev.Addresses))
-	}
-
-	// Verify address config
-	switchAddr, ok := dev.Addresses["switch"]
-	if !ok {
-		t.Fatal("Device.Addresses[switch] not found")
-	}
-	if switchAddr.GA != "1/0/1" {
-		t.Errorf("switch.GA = %q, want 1/0/1", switchAddr.GA)
-	}
-	if switchAddr.DPT != "1.001" {
-		t.Errorf("switch.DPT = %q, want 1.001", switchAddr.DPT)
-	}
-	if !switchAddr.HasFlag("write") {
-		t.Error("switch should have write flag")
-	}
 }
 
 func TestLoadConfigDefaults(t *testing.T) {
@@ -121,15 +91,6 @@ func TestLoadConfigDefaults(t *testing.T) {
 	configContent := `
 bridge:
   id: "minimal-bridge"
-
-devices:
-  - device_id: "test-device"
-    type: "light_switch"
-    addresses:
-      switch:
-        ga: "1/0/1"
-        dpt: "1.001"
-        flags: ["write", "transmit"]
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -165,15 +126,6 @@ func TestLoadConfigEnvOverrides(t *testing.T) {
 	configContent := `
 bridge:
   id: "env-test-bridge"
-
-devices:
-  - device_id: "test-device"
-    type: "light_switch"
-    addresses:
-      switch:
-        ga: "1/0/1"
-        dpt: "1.001"
-        flags: ["write"]
 `
 	if err := os.WriteFile(configPath, []byte(configContent), 0600); err != nil {
 		t.Fatalf("Failed to write test config: %v", err)
@@ -221,7 +173,6 @@ func TestConfigValidation(t *testing.T) {
 				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
 				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
 				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001"}}}},
 			},
 			wantError: "bridge.id is required",
 		},
@@ -232,7 +183,6 @@ func TestConfigValidation(t *testing.T) {
 				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
 				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
 				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001"}}}},
 			},
 			wantError: "health_interval must be at least 1",
 		},
@@ -243,49 +193,8 @@ func TestConfigValidation(t *testing.T) {
 				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
 				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 3},
 				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001"}}}},
 			},
 			wantError: "mqtt.qos must be 0, 1, or 2",
-		},
-		{
-			name: "duplicate device ID",
-			config: Config{
-				Bridge:  BridgeConfig{ID: "test", HealthInterval: 30},
-				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
-				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
-				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{
-					{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001"}}},
-					{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/2", DPT: "1.001"}}},
-				},
-			},
-			wantError: "is duplicate",
-		},
-		{
-			name: "invalid GA format",
-			config: Config{
-				Bridge:  BridgeConfig{ID: "test", HealthInterval: 30},
-				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
-				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
-				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{
-					{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "invalid", DPT: "1.001"}}},
-				},
-			},
-			wantError: "is invalid",
-		},
-		{
-			name: "invalid flag",
-			config: Config{
-				Bridge:  BridgeConfig{ID: "test", HealthInterval: 30},
-				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
-				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
-				Logging: LoggingConfig{Level: "info", Format: "json"},
-				Devices: []DeviceConfig{
-					{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001", Flags: []string{"invalid"}}}},
-				},
-			},
-			wantError: "invalid value",
 		},
 		{
 			name: "invalid log level",
@@ -294,7 +203,6 @@ func TestConfigValidation(t *testing.T) {
 				KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30},
 				MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
 				Logging: LoggingConfig{Level: "verbose", Format: "json"},
-				Devices: []DeviceConfig{{DeviceID: "d1", Type: "light", Addresses: map[string]AddressConfig{"s": {GA: "1/0/1", DPT: "1.001"}}}},
 			},
 			wantError: "logging.level",
 		},
@@ -319,17 +227,6 @@ func TestConfigValidationSuccess(t *testing.T) {
 		KNXD:    KNXDSettings{Connection: "tcp://localhost:6720", ConnectTimeout: 10, ReadTimeout: 30, ReconnectInterval: 5},
 		MQTT:    MQTTSettings{Broker: "tcp://localhost:1883", QoS: 1},
 		Logging: LoggingConfig{Level: "info", Format: "json"},
-		Devices: []DeviceConfig{
-			{
-				DeviceID: "light-1",
-				Type:     "light_dimmer",
-				Addresses: map[string]AddressConfig{
-					"switch":     {GA: "1/0/1", DPT: "1.001", Flags: []string{"write"}},
-					"status":     {GA: "6/0/1", DPT: "1.001", Flags: []string{"transmit"}},
-					"brightness": {GA: "1/0/2", DPT: "5.001", Flags: []string{"read", "write"}},
-				},
-			},
-		},
 	}
 
 	if err := cfg.Validate(); err != nil {
@@ -381,30 +278,28 @@ func TestGetMQTTClientID(t *testing.T) {
 }
 
 func TestBuildDeviceIndex(t *testing.T) {
-	cfg := Config{
-		Devices: []DeviceConfig{
-			{
-				DeviceID: "light-living",
-				Type:     "light_dimmer",
-				Addresses: map[string]AddressConfig{
-					"switch":            {GA: "1/0/1", DPT: "1.001", Flags: []string{"write"}},
-					"brightness":        {GA: "1/0/2", DPT: "5.001", Flags: []string{"write"}},
-					"switch_status":     {GA: "6/0/1", DPT: "1.001", Flags: []string{"transmit"}},
-					"brightness_status": {GA: "6/0/2", DPT: "5.001", Flags: []string{"read", "transmit"}},
-				},
+	devices := []DeviceConfig{
+		{
+			DeviceID: "light-living",
+			Type:     "light_dimmer",
+			Addresses: map[string]AddressConfig{
+				"switch":            {GA: "1/0/1", DPT: "1.001", Flags: []string{"write"}},
+				"brightness":        {GA: "1/0/2", DPT: "5.001", Flags: []string{"write"}},
+				"switch_status":     {GA: "6/0/1", DPT: "1.001", Flags: []string{"transmit"}},
+				"brightness_status": {GA: "6/0/2", DPT: "5.001", Flags: []string{"read", "transmit"}},
 			},
-			{
-				DeviceID: "blind-bedroom",
-				Type:     "blind",
-				Addresses: map[string]AddressConfig{
-					"position":        {GA: "2/0/1", DPT: "5.001", Flags: []string{"write"}},
-					"position_status": {GA: "7/0/1", DPT: "5.001", Flags: []string{"transmit"}},
-				},
+		},
+		{
+			DeviceID: "blind-bedroom",
+			Type:     "blind",
+			Addresses: map[string]AddressConfig{
+				"position":        {GA: "2/0/1", DPT: "5.001", Flags: []string{"write"}},
+				"position_status": {GA: "7/0/1", DPT: "5.001", Flags: []string{"transmit"}},
 			},
 		},
 	}
 
-	gaToDevice, deviceToGAs := cfg.BuildDeviceIndex()
+	gaToDevice, deviceToGAs := BuildDeviceIndex(devices)
 
 	// Check gaToDevice (only transmit GAs should be indexed)
 	if len(gaToDevice) != 3 {

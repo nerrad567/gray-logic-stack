@@ -75,6 +75,7 @@ class ETSDetectedDevice {
   final String? suggestedRoom;
   final String? suggestedArea;
   final String sourceLocation;
+  final String? functionComment;
   final List<ETSDeviceAddress> addresses;
 
   // Mutable fields for user editing during preview
@@ -93,6 +94,7 @@ class ETSDetectedDevice {
     this.suggestedRoom,
     this.suggestedArea,
     required this.sourceLocation,
+    this.functionComment,
     this.addresses = const [],
     this.import = true,
     String? editedId,
@@ -114,6 +116,7 @@ class ETSDetectedDevice {
       suggestedRoom: suggestedRoom,
       suggestedArea: suggestedArea,
       sourceLocation: (json['source_location'] as String?) ?? '',
+      functionComment: json['function_comment'] as String?,
       addresses: _parseAddresses(json['addresses']),
       // Pre-populate selections from suggestions
       selectedRoomId: suggestedRoom,
@@ -151,6 +154,7 @@ class ETSDetectedDevice {
       if (suggestedRoom != null) 'suggested_room': suggestedRoom,
       if (suggestedArea != null) 'suggested_area': suggestedArea,
       'addresses': addresses.map((a) => a.toJson()).toList(),
+      if (functionComment != null) 'function_comment': functionComment,
     };
   }
 }

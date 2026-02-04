@@ -67,13 +67,16 @@ func setupTestDB(t *testing.T) *sql.DB {
 // testDevice creates a device for testing.
 func testDevice(id, name string) *Device {
 	return &Device{
-		ID:           id,
-		Name:         name,
-		Slug:         GenerateSlug(name),
-		Type:         DeviceTypeLightDimmer,
-		Domain:       DomainLighting,
-		Protocol:     ProtocolKNX,
-		Address:      Address{"group_address": "1/2/3"},
+		ID:       id,
+		Name:     name,
+		Slug:     GenerateSlug(name),
+		Type:     DeviceTypeLightDimmer,
+		Domain:   DomainLighting,
+		Protocol: ProtocolKNX,
+		Address: Address{"functions": map[string]any{
+			"switch":     map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+			"brightness": map[string]any{"ga": "1/2/4", "dpt": "5.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []Capability{CapOnOff, CapDim},
 		Config:       Config{},
 		State:        State{},

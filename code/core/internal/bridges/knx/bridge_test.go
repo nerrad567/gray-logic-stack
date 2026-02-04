@@ -199,7 +199,7 @@ func (m *MockConnector) SetSendError(err error) {
 	m.sendError = err
 }
 
-// createTestConfig creates a test configuration with sample devices.
+// createTestConfig creates a test configuration (no devices — those come from the registry).
 func createTestConfig() *Config {
 	return &Config{
 		Bridge: BridgeConfig{
@@ -221,80 +221,85 @@ func createTestConfig() *Config {
 			Level:  "info",
 			Format: "json",
 		},
-		Devices: []DeviceConfig{
-			{
-				DeviceID: "light-living-main",
-				Type:     "light_dimmer",
-				Addresses: map[string]AddressConfig{
-					"switch": {
-						GA:    "1/2/3",
-						DPT:   "1.001",
-						Flags: []string{"write", "read"},
-					},
-					"switch_status": {
-						GA:    "1/2/4",
-						DPT:   "1.001",
-						Flags: []string{"transmit"},
-					},
-					"brightness": {
-						GA:    "1/2/5",
-						DPT:   "5.001",
-						Flags: []string{"write"},
-					},
-					"brightness_status": {
-						GA:    "1/2/6",
-						DPT:   "5.001",
-						Flags: []string{"transmit"},
-					},
+	}
+}
+
+// createTestDevices returns sample device configs for testing.
+// In production, devices come from the device registry.
+func createTestDevices() []DeviceConfig {
+	return []DeviceConfig{
+		{
+			DeviceID: "light-living-main",
+			Type:     "light_dimmer",
+			Addresses: map[string]AddressConfig{
+				"switch": {
+					GA:    "1/2/3",
+					DPT:   "1.001",
+					Flags: []string{"write", "read"},
+				},
+				"switch_status": {
+					GA:    "1/2/4",
+					DPT:   "1.001",
+					Flags: []string{"transmit"},
+				},
+				"brightness": {
+					GA:    "1/2/5",
+					DPT:   "5.001",
+					Flags: []string{"write"},
+				},
+				"brightness_status": {
+					GA:    "1/2/6",
+					DPT:   "5.001",
+					Flags: []string{"transmit"},
 				},
 			},
-			{
-				DeviceID: "blind-living",
-				Type:     "blind",
-				Addresses: map[string]AddressConfig{
-					"position": {
-						GA:    "2/1/1",
-						DPT:   "5.001",
-						Flags: []string{"write"},
-					},
-					"position_status": {
-						GA:    "2/1/2",
-						DPT:   "5.001",
-						Flags: []string{"transmit", "read"},
-					},
-					"stop": {
-						GA:    "2/1/3",
-						DPT:   "1.007",
-						Flags: []string{"write"},
-					},
+		},
+		{
+			DeviceID: "blind-living",
+			Type:     "blind",
+			Addresses: map[string]AddressConfig{
+				"position": {
+					GA:    "2/1/1",
+					DPT:   "5.001",
+					Flags: []string{"write"},
+				},
+				"position_status": {
+					GA:    "2/1/2",
+					DPT:   "5.001",
+					Flags: []string{"transmit", "read"},
+				},
+				"stop": {
+					GA:    "2/1/3",
+					DPT:   "1.007",
+					Flags: []string{"write"},
 				},
 			},
-			{
-				DeviceID: "sensor-temp",
-				Type:     "sensor",
-				Addresses: map[string]AddressConfig{
-					"temperature": {
-						GA:    "6/0/1",
-						DPT:   "9.001",
-						Flags: []string{"transmit"},
-					},
+		},
+		{
+			DeviceID: "sensor-temp",
+			Type:     "sensor",
+			Addresses: map[string]AddressConfig{
+				"temperature": {
+					GA:    "6/0/1",
+					DPT:   "9.001",
+					Flags: []string{"transmit"},
 				},
 			},
 		},
 	}
 }
 
-// createTestBridge creates a bridge and pre-loads device maps from config.
+// createTestBridge creates a bridge and pre-loads device maps.
 // In production, device maps come from the registry; in tests we load them
-// directly from config using BuildDeviceIndex for convenience.
+// from createTestDevices() using BuildDeviceIndex for convenience.
 func createTestBridge(t *testing.T, opts BridgeOptions) *Bridge {
 	t.Helper()
 	b, err := NewBridge(opts)
 	if err != nil {
 		t.Fatalf("NewBridge() error: %v", err)
 	}
-	// Pre-load device maps from config (simulates what the registry would provide)
-	gaToDevice, deviceToGAs := opts.Config.BuildDeviceIndex()
+	// Pre-load device maps (simulates what the registry would provide)
+	gaToDevice, deviceToGAs := BuildDeviceIndex(createTestDevices())
 	b.mappingMu.Lock()
 	b.gaToDevice = gaToDevice
 	b.deviceToGAs = deviceToGAs
@@ -1252,34 +1257,50 @@ func TestBridgeDimMissingLevel(t *testing.T) {
 	}
 }
 
-func TestFunctionToStateKeyMapping(t *testing.T) {
+func TestBridge_StateKeyForFunction(t *testing.T) {
 	tests := []struct {
 		function string
 		wantKey  string
-		known    bool
 	}{
-		{"switch", "on", true},
-		{"switch_status", "on", true},
-		{"brightness", "level", true},
-		{"brightness_status", "level", true},
-		{"position", "position", true},
-		{"position_status", "position", true},
-		{"tilt", "tilt", true},
-		{"tilt_status", "tilt", true},
-		{"temperature", "temperature", true},
-		{"humidity", "humidity", true},
-		{"motion", "motion", true},
-		{"unknown_function", "", false},
+		// Canonical names
+		{"switch", "on"},
+		{"switch_status", "on"},
+		{"brightness", "level"},
+		{"brightness_status", "level"},
+		{"position", "position"},
+		{"position_status", "position"},
+		{"slat", "tilt"},
+		{"slat_status", "tilt"},
+		{"temperature", "temperature"},
+		{"humidity", "humidity"},
+		{"presence", "presence"},
+		{"valve", "valve"},
+		{"valve_status", "valve"},
+		{"setpoint", "setpoint"},
+		{"heating_output", "heating_output"},
+		{"lux", "lux"},
+		{"button_1", "button_1"},
+		{"scene_number", "scene"},
+
+		// Aliases
+		{"motion", "presence"},
+		{"actual_temperature", "temperature"},
+		{"tilt", "tilt"},
+		{"dim", "level"},
+
+		// Channel prefixed
+		{"ch_a_switch", "ch_a_on"},
+		{"ch_b_valve_status", "ch_b_valve"},
+
+		// Unknown fallback (returns function name as-is)
+		{"unknown_function", "unknown_function"},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.function, func(t *testing.T) {
-			key, known := functionToStateKey[tt.function]
-			if known != tt.known {
-				t.Errorf("functionToStateKey[%q] known = %v, want %v", tt.function, known, tt.known)
-			}
-			if known && key != tt.wantKey {
-				t.Errorf("functionToStateKey[%q] = %q, want %q", tt.function, key, tt.wantKey)
+			key := StateKeyForFunction(tt.function)
+			if key != tt.wantKey {
+				t.Errorf("StateKeyForFunction(%q) = %q, want %q", tt.function, key, tt.wantKey)
 			}
 		})
 	}

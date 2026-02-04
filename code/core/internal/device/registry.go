@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"sort"
+	"strings"
 	"sync"
 	"time"
 )
@@ -446,4 +447,123 @@ func (r *Registry) GetStats() Stats {
 	}
 
 	return stats
+}
+
+// MigrateKNXAddressFormat converts KNX devices from the old flat address format
+// to the new structured "functions" format. This is a one-time data migration
+// that runs on startup. Devices already in the new format are skipped.
+//
+// Old format: {"group_address": "1/0/1", "switch": "1/0/1", "switch_status": "1/0/2"}
+// New format: {"functions": {"switch": {"ga": "1/0/1", "dpt": "1.001", "flags": ["write"]}, ...}}
+func (r *Registry) MigrateKNXAddressFormat(ctx context.Context) error {
+	devices, err := r.GetDevicesByProtocol(ctx, ProtocolKNX)
+	if err != nil {
+		return fmt.Errorf("loading KNX devices for migration: %w", err)
+	}
+
+	migrated := 0
+	for _, dev := range devices {
+		// Skip devices already in the new format
+		if _, hasFunctions := dev.Address["functions"]; hasFunctions {
+			continue
+		}
+
+		// Convert old flat format to new structured format
+		functions := make(map[string]any)
+		for key, val := range dev.Address {
+			// Skip metadata keys
+			if key == "group_address" || key == "individual_address" || key == "application_program" || key == "" {
+				continue
+			}
+			ga, ok := val.(string)
+			if !ok || ga == "" {
+				continue
+			}
+
+			functions[key] = map[string]any{
+				"ga":    ga,
+				"dpt":   migrateInferDPT(key),
+				"flags": migrateInferFlags(key),
+			}
+		}
+
+		if len(functions) == 0 {
+			continue
+		}
+
+		// Build new address map, preserving metadata keys
+		newAddr := make(Address)
+		newAddr["functions"] = functions
+		if v, ok := dev.Address["individual_address"]; ok {
+			newAddr["individual_address"] = v
+		}
+		if v, ok := dev.Address["application_program"]; ok {
+			newAddr["application_program"] = v
+		}
+
+		dev.Address = newAddr
+		if err := r.UpdateDevice(ctx, &dev); err != nil {
+			r.logger.Error("migration: failed to update device", "id", dev.ID, "error", err)
+			continue
+		}
+		migrated++
+	}
+
+	if migrated > 0 {
+		r.logger.Info("migrated KNX devices to structured address format", "count", migrated)
+	}
+	return nil
+}
+
+// migrateInferDPT is a best-effort DPT inference used only during one-time
+// data migration. After migration, DPTs come from the registry, not inference.
+func migrateInferDPT(fn string) string {
+	fn = strings.ToLower(fn)
+
+	switch {
+	case strings.Contains(fn, "temperature"), strings.Contains(fn, "setpoint"):
+		return "9.001"
+	case strings.Contains(fn, "humidity"):
+		return "9.007"
+	case strings.Contains(fn, "lux"):
+		return "9.004"
+	case strings.Contains(fn, "brightness"), strings.Contains(fn, "level"),
+		strings.Contains(fn, "position"), strings.Contains(fn, "slat"),
+		strings.Contains(fn, "valve"), strings.Contains(fn, "heating_output"):
+		return "5.001"
+	case strings.Contains(fn, "switch"), strings.Contains(fn, "on"),
+		strings.Contains(fn, "button"), strings.Contains(fn, "led"):
+		return "1.001"
+	case strings.Contains(fn, "presence"), strings.Contains(fn, "motion"):
+		return "1.018"
+	case strings.Contains(fn, "move"):
+		return "1.008"
+	case strings.Contains(fn, "stop"):
+		return "1.007"
+	default:
+		return ""
+	}
+}
+
+// migrateInferFlags is a best-effort flag inference used only during one-time
+// data migration. After migration, flags come from the registry, not inference.
+func migrateInferFlags(fn string) []string {
+	fn = strings.ToLower(fn)
+
+	if strings.Contains(fn, "status") || strings.Contains(fn, "feedback") {
+		return []string{"read", "transmit"}
+	}
+	if strings.Contains(fn, "temperature") || strings.Contains(fn, "humidity") ||
+		strings.Contains(fn, "lux") || strings.Contains(fn, "presence") ||
+		strings.Contains(fn, "co2") || strings.Contains(fn, "wind") ||
+		strings.Contains(fn, "rain") {
+		return []string{"read", "transmit"}
+	}
+	if strings.Contains(fn, "switch") || strings.Contains(fn, "valve") ||
+		strings.Contains(fn, "brightness") || strings.Contains(fn, "position") ||
+		strings.Contains(fn, "slat") || strings.Contains(fn, "move") ||
+		strings.Contains(fn, "stop") || strings.Contains(fn, "scene") {
+		return []string{"write", "transmit"}
+	}
+	return []string{"write"}
 }

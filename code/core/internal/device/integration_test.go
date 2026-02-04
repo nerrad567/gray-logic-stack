@@ -85,11 +85,14 @@ func TestIntegration_FullDeviceLifecycle(t *testing.T) {
 
 	// Create a KNX dimmer
 	dev := &device.Device{
-		Name:         "Living Room Dimmer",
-		Type:         device.DeviceTypeLightDimmer,
-		Domain:       device.DomainLighting,
-		Protocol:     device.ProtocolKNX,
-		Address:      device.Address{"group_address": "1/2/3"},
+		Name:     "Living Room Dimmer",
+		Type:     device.DeviceTypeLightDimmer,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch":     map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+			"brightness": map[string]any{"ga": "1/2/4", "dpt": "5.001", "flags": []any{"write"}},
+		}},
 		Capabilities: []device.Capability{device.CapOnOff, device.CapDim},
 		Config:       device.Config{"transition_time": 500},
 		State:        device.State{},
@@ -201,11 +204,14 @@ func TestIntegration_MultipleDevicesAndQueries(t *testing.T) {
 
 	devices := []*device.Device{
 		{
-			Name:         "Living Light",
-			Type:         device.DeviceTypeLightDimmer,
-			Domain:       device.DomainLighting,
-			Protocol:     device.ProtocolKNX,
-			Address:      device.Address{"group_address": "1/0/1"},
+			Name:     "Living Light",
+			Type:     device.DeviceTypeLightDimmer,
+			Domain:   device.DomainLighting,
+			Protocol: device.ProtocolKNX,
+			Address: device.Address{"functions": map[string]any{
+				"switch":     map[string]any{"ga": "1/0/1", "dpt": "1.001", "flags": []any{"write"}},
+				"brightness": map[string]any{"ga": "1/0/2", "dpt": "5.001", "flags": []any{"write"}},
+			}},
 			Capabilities: []device.Capability{device.CapOnOff, device.CapDim},
 			RoomID:       &roomLiving,
 		},
@@ -223,8 +229,11 @@ func TestIntegration_MultipleDevicesAndQueries(t *testing.T) {
 			Type:     device.DeviceTypeBlindPosition,
 			Domain:   device.DomainBlinds,
 			Protocol: device.ProtocolKNX,
-			Address:  device.Address{"group_address": "2/0/1"},
-			RoomID:   &roomBedroom,
+			Address: device.Address{"functions": map[string]any{
+				"position": map[string]any{"ga": "2/0/1", "dpt": "5.001", "flags": []any{"write"}},
+				"move":     map[string]any{"ga": "2/0/2", "dpt": "1.008", "flags": []any{"write"}},
+			}},
+			RoomID: &roomBedroom,
 		},
 	}
 
@@ -305,7 +314,9 @@ func TestIntegration_CacheConsistencyAfterRestart(t *testing.T) {
 		Type:     device.DeviceTypeLightSwitch,
 		Domain:   device.DomainLighting,
 		Protocol: device.ProtocolKNX,
-		Address:  device.Address{"group_address": "1/0/0"},
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": "1/0/0", "dpt": "1.001", "flags": []any{"write"}},
+		}},
 	}
 	if err := r1.CreateDevice(ctx, dev); err != nil {
 		t.Fatalf("CreateDevice() error: %v", err)
@@ -351,7 +362,10 @@ func TestIntegration_RapidStateUpdates(t *testing.T) {
 		Type:     device.DeviceTypeLightDimmer,
 		Domain:   device.DomainLighting,
 		Protocol: device.ProtocolKNX,
-		Address:  device.Address{"group_address": "1/1/1"},
+		Address: device.Address{"functions": map[string]any{
+			"switch":     map[string]any{"ga": "1/1/1", "dpt": "1.001", "flags": []any{"write"}},
+			"brightness": map[string]any{"ga": "1/1/2", "dpt": "5.001", "flags": []any{"write"}},
+		}},
 	}
 	if err := registry.CreateDevice(ctx, dev); err != nil {
 		t.Fatalf("CreateDevice() error: %v", err)

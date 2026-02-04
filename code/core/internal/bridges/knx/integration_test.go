@@ -547,6 +547,7 @@ func TestIntegrationGracefulShutdown(t *testing.T) {
 }
 
 // createIntegrationTestConfig creates a config for integration tests.
+// Devices are not configured here — they come from the device registry in production.
 func createIntegrationTestConfig() *Config {
 	return &Config{
 		Bridge: BridgeConfig{
@@ -567,45 +568,6 @@ func createIntegrationTestConfig() *Config {
 		Logging: LoggingConfig{
 			Level:  "debug",
 			Format: "json",
-		},
-		Devices: []DeviceConfig{
-			{
-				DeviceID: "int-light-main",
-				Type:     "light_dimmer",
-				Addresses: map[string]AddressConfig{
-					"switch": {
-						GA:    "1/0/1",
-						DPT:   "1.001",
-						Flags: []string{"write", "read"},
-					},
-					"switch_status": {
-						GA:    "1/0/2",
-						DPT:   "1.001",
-						Flags: []string{"transmit"},
-					},
-					"brightness": {
-						GA:    "1/0/3",
-						DPT:   "5.001",
-						Flags: []string{"write"},
-					},
-					"brightness_status": {
-						GA:    "1/0/4",
-						DPT:   "5.001",
-						Flags: []string{"transmit"},
-					},
-				},
-			},
-			{
-				DeviceID: "int-sensor-temp",
-				Type:     "sensor",
-				Addresses: map[string]AddressConfig{
-					"temperature": {
-						GA:    "3/0/1",
-						DPT:   "9.001",
-						Flags: []string{"transmit", "read"},
-					},
-				},
-			},
 		},
 	}
 }

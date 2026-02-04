@@ -113,8 +113,15 @@ type RegistryDevice struct {
 	Name         string
 	Type         string
 	Domain       string
-	Address      map[string]string // GA mappings: function -> GA
+	Functions    map[string]FunctionMapping // function -> {GA, DPT, Flags}
 	Capabilities []string
+}
+
+// FunctionMapping holds the GA, DPT, and flags for a single device function.
+type FunctionMapping struct {
+	GA    string
+	DPT   string
+	Flags []string
 }
 
 // DeviceSeed holds device fields derivable from bridge config.
@@ -290,17 +297,27 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 
 	loaded := 0
 	for _, dev := range devices {
-		// Convert registry device to address configs
+		// Convert registry device functions to address configs.
+		// Uses stored DPT and flags from the registry, falling back to
+		// inference only for legacy devices that lack structured data.
 		addresses := make(map[string]AddressConfig)
-		for fn, ga := range dev.Address {
-			// Skip metadata keys that are not GA function mappings
-			if fn == "group_address" || fn == "individual_address" || fn == "application_program" {
+		for fn, fm := range dev.Functions {
+			if fn == "" || fm.GA == "" {
 				continue
 			}
-			// Infer flags from function name
-			flags := inferFlagsFromFunction(fn)
+
+			dpt := fm.DPT
+			if dpt == "" {
+				dpt = inferDPTFromFunction(fn) // backward compat fallback
+			}
+			flags := fm.Flags
+			if len(flags) == 0 {
+				flags = inferFlagsFromFunction(fn) // backward compat fallback
+			}
+
 			addresses[fn] = AddressConfig{
-				GA:    ga,
+				GA:    fm.GA,
+				DPT:   dpt,
 				Flags: flags,
 			}
 		}
@@ -316,7 +333,7 @@ func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
 				DeviceID: dev.ID,
 				Function: fn,
 				Type:     dev.Type,
-				DPT:      inferDPTFromFunction(fn),
+				DPT:      addr.DPT,
 			})
 		}
 
@@ -396,80 +413,52 @@ func (b *Bridge) readAllDevices(ctx context.Context) {
 }
 
 // inferFlagsFromFunction returns appropriate flags based on the function name.
+// Uses the canonical function registry first, falling back to heuristics.
 func inferFlagsFromFunction(fn string) []string {
+	// Try canonical registry (handles names, aliases, and channel prefixes)
+	if flags := DefaultFlagsForFunction(fn); flags != nil {
+		return flags
+	}
+
+	// Heuristic fallback for truly unknown functions
 	fnLower := strings.ToLower(fn)
 
-	// Status/feedback addresses are read + transmit
 	if strings.Contains(fnLower, "status") || strings.Contains(fnLower, "feedback") {
 		return []string{"read", "transmit"}
 	}
 
-	// Sensor values are read + transmit
-	sensorFunctions := []string{"temperature", "humidity", "lux", "presence", "co2", "wind", "rain"}
-	for _, sf := range sensorFunctions {
-		if strings.Contains(fnLower, sf) {
-			return []string{"read", "transmit"}
-		}
-	}
-
-	// Command addresses are write
 	return []string{"write"}
 }
 
 // inferDPTFromFunction returns the appropriate DPT based on the function name.
-// This enables proper decoding of telegrams for devices loaded from the registry.
+// Uses the canonical function registry first, falling back to heuristics for
+// truly unknown function names.
 func inferDPTFromFunction(fn string) string {
+	// Try canonical registry (handles names, aliases, and channel prefixes)
+	if dpt := DefaultDPTForFunction(fn); dpt != "" {
+		return dpt
+	}
+
+	// Heuristic fallback for truly unknown functions
 	fnLower := strings.ToLower(fn)
 
-	// DPT 9.xxx - 2-byte float values
-	if strings.Contains(fnLower, "temperature") {
-		return "9.001" // Temperature in °C
+	if strings.Contains(fnLower, "temperature") || strings.Contains(fnLower, "setpoint") {
+		return "9.001"
 	}
 	if strings.Contains(fnLower, "humidity") {
-		return "9.007" // Humidity in %
+		return "9.007"
 	}
-	if strings.Contains(fnLower, "lux") || strings.Contains(fnLower, "brightness") && strings.Contains(fnLower, "sensor") {
-		return "9.004" // Lux
+	if strings.Contains(fnLower, "lux") {
+		return "9.004"
 	}
-	if strings.Contains(fnLower, "wind") && strings.Contains(fnLower, "speed") {
-		return "9.005" // Wind speed m/s
+	if strings.Contains(fnLower, "brightness") || strings.Contains(fnLower, "position") ||
+		strings.Contains(fnLower, "valve") || strings.Contains(fnLower, "slat") {
+		return "5.001"
 	}
-	if strings.Contains(fnLower, "setpoint") {
-		return "9.001" // Temperature setpoint in °C
-	}
-
-	// DPT 5.xxx - 1-byte unsigned (0-100% or 0-255)
-	if strings.Contains(fnLower, "brightness") || strings.Contains(fnLower, "level") || strings.Contains(fnLower, "dim") {
-		return "5.001" // Percentage 0-100%
-	}
-	if strings.Contains(fnLower, "position") || strings.Contains(fnLower, "slat") || strings.Contains(fnLower, "tilt") {
-		return "5.001" // Percentage 0-100%
-	}
-	if strings.Contains(fnLower, "valve") || strings.Contains(fnLower, "heating_output") {
-		return "5.001" // Valve position 0-100%
+	if strings.Contains(fnLower, "switch") || strings.Contains(fnLower, "button") {
+		return "1.001"
 	}
 
-	// DPT 1.xxx - Boolean values
-	if strings.Contains(fnLower, "switch") || strings.Contains(fnLower, "on") || strings.Contains(fnLower, "off") {
-		return "1.001" // Switch on/off
-	}
-	if strings.Contains(fnLower, "button") || strings.Contains(fnLower, "led") {
-		return "1.001" // Push button / LED feedback
-	}
-	if strings.Contains(fnLower, "presence") || strings.Contains(fnLower, "motion") || strings.Contains(fnLower, "occupied") {
-		return "1.018" // Occupancy
-	}
-	if strings.Contains(fnLower, "rain") || strings.Contains(fnLower, "alarm") || strings.Contains(fnLower, "fault") {
-		return "1.005" // Alarm
-	}
-	if strings.Contains(fnLower, "move") || strings.Contains(fnLower, "up") || strings.Contains(fnLower, "down") {
-		return "1.008" // Up/Down
-	}
-	if strings.Contains(fnLower, "stop") {
-		return "1.007" // Step
-	}
-
-	// Default: no DPT (will return raw bytes)
 	return ""
 }
 
@@ -964,12 +953,19 @@ func (b *Bridge) handleKNXTelegram(t Telegram) {
 		return
 	}
 
-	// Decode the value once using the first mapping's DPT
-	// (all mappings for the same GA share the same physical datapoint type)
-	value, err := b.decodeTelegramValue(t, mappings[0].DPT)
+	// Decode the value using the best available DPT from the mappings.
+	// Pick the first non-empty DPT (order may vary due to map iteration).
+	dpt := ""
+	for _, m := range mappings {
+		if m.DPT != "" {
+			dpt = m.DPT
+			break
+		}
+	}
+	value, err := b.decodeTelegramValue(t, dpt)
 	if err != nil {
 		b.logError("failed to decode telegram",
-			fmt.Errorf("ga=%s dpt=%s: %w", gaStr, mappings[0].DPT, err))
+			fmt.Errorf("ga=%s dpt=%s: %w", gaStr, dpt, err))
 		return
 	}
 
@@ -1028,57 +1024,22 @@ func (b *Bridge) decodeTelegramValue(t Telegram, dpt string) (any, error) {
 	}
 }
 
-// functionToStateKey maps KNX function names to normalised state keys.
-var functionToStateKey = map[string]string{
-	"switch":            "on",
-	"switch_status":     "on",
-	"brightness":        "level",
-	"brightness_status": "level",
-	"position":          "position",
-	"position_status":   "position",
-	"tilt":              "tilt",
-	"tilt_status":       "tilt",
-	"temperature":       "temperature",
-	"humidity":          "humidity",
-	"motion":            "motion",
-
-	// Climate: thermostats and heating actuators
-	"actual_temperature": "temperature",
-	"setpoint":           "setpoint",
-	"setpoint_status":    "setpoint",
-	"heating_output":     "heating_output",
-	"heating":            "heating",
-	"valve":              "valve",
-	"valve_status":       "valve",
-
-	// Presence and brightness sensors
-	"presence": "presence",
-	"lux":      "lux",
-
-	// Push-button interfaces
-	"button_1":     "on",
-	"button_1_led": "on",
-	"button_2":     "on",
-	"button_2_led": "on",
-}
-
 // buildStateUpdate builds a state object from the decoded value.
+// Uses the canonical function registry (functions.go) for state key lookup.
 func (b *Bridge) buildStateUpdate(mapping GAMapping, value any) map[string]any {
 	state := make(map[string]any)
 
-	// Look up the state key from the function name
-	stateKey, known := functionToStateKey[mapping.Function]
-	if !known {
-		// Generic: use function name as key
-		state[mapping.Function] = value
+	if mapping.Function == "" {
 		return state
 	}
 
-	// Set the state with the normalised key
+	// Look up the state key from the canonical function registry.
+	// This handles canonical names, aliases, and channel-prefixed functions.
+	stateKey := StateKeyForFunction(mapping.Function)
 	state[stateKey] = value
 
-	// Special handling for motion: add last_motion timestamp
-	if stateKey == "motion" {
+	// Special handling for presence: add last_motion timestamp
+	if stateKey == "presence" {
 		if v, ok := value.(bool); ok && v {
 			state["last_motion"] = time.Now().UTC().Format(time.RFC3339)
 		}

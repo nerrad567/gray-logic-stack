@@ -9,6 +9,7 @@ import (
 	"net/http"
 	"strings"
 
+	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/commissioning/etsimport"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/location"
@@ -346,8 +347,28 @@ func (s *Server) autoMapDeviceLocations(ctx context.Context, req *ETSImportReque
 
 // createLocationsFromETS creates areas and rooms from ETS location hierarchy.
 func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimport.Location, response *ETSImportResponse) {
-	// Get the site ID from config (required for areas)
+	// Ensure a site exists (areas have an FK to sites).
+	// If no site has been created yet, auto-create a default one so the
+	// import doesn't fail with a FOREIGN KEY constraint error.
 	siteID := s.getSiteID()
+	if _, err := s.locationRepo.GetAnySite(ctx); err != nil {
+		defaultSite := &location.Site{
+			ID:       siteID,
+			Name:     "My Home",
+			Slug:     "my-home",
+			Timezone: "UTC",
+		}
+		if createErr := s.locationRepo.CreateSite(ctx, defaultSite); createErr != nil {
+			s.logger.Warn("failed to auto-create default site for ETS import",
+				"site_id", siteID,
+				"error", createErr,
+			)
+		} else {
+			s.logger.Info("auto-created default site for ETS import",
+				"site_id", siteID,
+			)
+		}
+	}
 
 	// First pass: create areas (buildings, floors)
 	areaIDMap := make(map[string]string) // ETS location ID -> created area ID
@@ -462,12 +483,18 @@ func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimpo
 	}
 }
 
-// getSiteID returns the configured site ID.
+// getSiteID returns the active site ID by querying the database first,
+// falling back to the config-provided siteID or the hardcoded default.
 func (s *Server) getSiteID() string {
+	if s.locationRepo != nil {
+		if site, err := s.locationRepo.GetAnySite(context.Background()); err == nil {
+			return site.ID
+		}
+	}
 	if s.siteID != "" {
 		return s.siteID
 	}
-	return "site-001" // Default matching config.yaml
+	return "site-001"
 }
 
 // inferRoomType guesses the room type from its name.
@@ -666,33 +693,31 @@ func (s *Server) buildDeviceFromImport(imp ETSDeviceImport) *device.Device {
 		dev.Model = &imp.ProductModel
 	}
 
-	// Build addresses map for KNX protocol - stored in Address field
-	// KNX validation requires a top-level "group_address" key
+	// Build addresses map for KNX protocol - stored in Address field.
+	// Uses structured "functions" map to preserve DPT and flags from ETS import.
 	addresses := make(device.Address)
-	var primaryGA string
+	functions := make(map[string]any, len(imp.Addresses))
 
 	for _, addr := range imp.Addresses {
-		// Store each function's address details
-		addresses[addr.Function] = addr.GA
-
-		// Select primary GA (prefer write-flagged, or first one)
-		if primaryGA == "" {
-			primaryGA = addr.GA
-		}
-		for _, flag := range addr.Flags {
-			if flag == "write" && primaryGA == "" {
-				primaryGA = addr.GA
+		// Normalise function name to canonical form (e.g. "actual_temperature" → "temperature").
+		fnName, _ := knx.NormalizeFunction(addr.Function)
+		if fnName == addr.Function {
+			// Try channel prefix normalisation (e.g. "ch_a_on_off" → "ch_a_switch")
+			if prefix, canon, known := knx.NormalizeChannelFunction(addr.Function); prefix != "" && known {
+				fnName = prefix + canon
 			}
 		}
+
+		functions[fnName] = map[string]any{
+			"ga":    addr.GA,
+			"dpt":   addr.DPT,
+			"flags": addr.Flags,
+		}
 	}
 
-	// Add the required top-level group_address for KNX validation
-	if primaryGA != "" {
-		addresses["group_address"] = primaryGA
-	}
+	addresses["functions"] = functions
 
-	// Store application program and individual address in address map
-	// (protocol-specific metadata, not top-level columns)
+	// Store application program and individual address as top-level metadata
 	if imp.ApplicationProgram != "" {
 		addresses["application_program"] = imp.ApplicationProgram
 	}

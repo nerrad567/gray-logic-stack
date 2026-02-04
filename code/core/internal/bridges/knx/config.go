@@ -15,12 +15,14 @@ const DefaultKNXDConnection = "tcp://localhost:6720"
 
 // Config is the root configuration for the KNX bridge.
 // Loaded from YAML with environment variable overrides.
+//
+// Devices are NOT configured here — they come from the device registry
+// (populated via ETS import or manual entry in the admin panel).
 type Config struct {
-	Bridge  BridgeConfig   `yaml:"bridge"`
-	KNXD    KNXDSettings   `yaml:"knxd"`
-	MQTT    MQTTSettings   `yaml:"mqtt"`
-	Devices []DeviceConfig `yaml:"devices"`
-	Logging LoggingConfig  `yaml:"logging"`
+	Bridge  BridgeConfig  `yaml:"bridge"`
+	KNXD    KNXDSettings  `yaml:"knxd"`
+	MQTT    MQTTSettings  `yaml:"mqtt"`
+	Logging LoggingConfig `yaml:"logging"`
 }
 
 // BridgeConfig contains bridge identity and operational settings.
@@ -121,8 +123,7 @@ type LoggingConfig struct {
 }
 
 // DeviceConfig defines a device and its KNX group address mappings.
-// Typically empty — devices are managed via ETS import or the admin panel.
-// Kept for tests and potential future YAML-based bulk loading.
+// Used only in tests — production devices come from the device registry.
 type DeviceConfig struct {
 	// DeviceID is the Gray Logic device identifier.
 	DeviceID string `yaml:"device_id"`
@@ -214,7 +215,6 @@ func defaultConfig() *Config {
 			Level:  "info",
 			Format: "json",
 		},
-		Devices: []DeviceConfig{},
 	}
 }
 
@@ -253,7 +253,6 @@ func (c *Config) Validate() error {
 	errs = append(errs, c.validateBridge()...)
 	errs = append(errs, c.validateKNXD()...)
 	errs = append(errs, c.validateMQTT()...)
-	errs = append(errs, c.validateDevices()...)
 	errs = append(errs, c.validateLogging()...)
 
 	if len(errs) > 0 {
@@ -302,59 +301,6 @@ func (c *Config) validateMQTT() []string {
 	return errs
 }
 
-// validateDevices validates device configurations.
-func (c *Config) validateDevices() []string {
-	var errs []string
-	deviceIDs := make(map[string]bool)
-
-	for i, dev := range c.Devices {
-		if dev.DeviceID == "" {
-			errs = append(errs, fmt.Sprintf("devices[%d].device_id is required", i))
-			continue
-		}
-		if deviceIDs[dev.DeviceID] {
-			errs = append(errs, fmt.Sprintf("devices[%d].device_id %q is duplicate", i, dev.DeviceID))
-		}
-		deviceIDs[dev.DeviceID] = true
-
-		if dev.Type == "" {
-			errs = append(errs, fmt.Sprintf("devices[%d].type is required", i))
-		}
-		if len(dev.Addresses) == 0 {
-			errs = append(errs, fmt.Sprintf("devices[%d].addresses must have at least one entry", i))
-		}
-
-		errs = append(errs, validateDeviceAddresses(i, dev.Addresses)...)
-	}
-
-	return errs
-}
-
-// validateDeviceAddresses validates address configurations for a single device.
-func validateDeviceAddresses(deviceIdx int, addresses map[string]AddressConfig) []string {
-	var errs []string
-
-	for name, addr := range addresses {
-		if addr.GA == "" {
-			errs = append(errs, fmt.Sprintf("devices[%d].addresses.%s.ga is required", deviceIdx, name))
-		} else if _, err := ParseGroupAddress(addr.GA); err != nil {
-			errs = append(errs, fmt.Sprintf("devices[%d].addresses.%s.ga %q is invalid: %v", deviceIdx, name, addr.GA, err))
-		}
-
-		if addr.DPT == "" {
-			errs = append(errs, fmt.Sprintf("devices[%d].addresses.%s.dpt is required", deviceIdx, name))
-		}
-
-		for _, flag := range addr.Flags {
-			if flag != "read" && flag != "write" && flag != "transmit" {
-				errs = append(errs, fmt.Sprintf("devices[%d].addresses.%s.flags contains invalid value %q", deviceIdx, name, flag))
-			}
-		}
-	}
-
-	return errs
-}
-
 // validateLogging validates logging settings.
 func (c *Config) validateLogging() []string {
 	var errs []string
@@ -396,14 +342,15 @@ func (c *Config) GetMQTTClientID() string {
 }
 
 // BuildDeviceIndex creates lookup maps for efficient device/GA resolution.
+// Used only in tests — production uses loadDevicesFromRegistry().
 // Returns:
 //   - gaToDevice: Maps "ga" → (device_id, function_name)
 //   - deviceToGAs: Maps device_id → function_name → AddressConfig
-func (c *Config) BuildDeviceIndex() (gaToDevice map[string][]GAMapping, deviceToGAs map[string]map[string]AddressConfig) {
+func BuildDeviceIndex(devices []DeviceConfig) (gaToDevice map[string][]GAMapping, deviceToGAs map[string]map[string]AddressConfig) {
 	gaToDevice = make(map[string][]GAMapping)
 	deviceToGAs = make(map[string]map[string]AddressConfig)
 
-	for _, dev := range c.Devices {
+	for _, dev := range devices {
 		deviceToGAs[dev.DeviceID] = make(map[string]AddressConfig)
 
 		for funcName, addr := range dev.Addresses {

@@ -248,11 +248,13 @@ func TestRegistry_CreateDevice(t *testing.T) {
 
 	t.Run("creates device with generated ID and slug", func(t *testing.T) {
 		device := &Device{
-			Name:         "New Device",
-			Type:         DeviceTypeLightDimmer,
-			Domain:       DomainLighting,
-			Protocol:     ProtocolKNX,
-			Address:      Address{"group_address": "1/2/3"},
+			Name:     "New Device",
+			Type:     DeviceTypeLightDimmer,
+			Domain:   DomainLighting,
+			Protocol: ProtocolKNX,
+			Address: Address{"functions": map[string]any{
+				"switch": map[string]any{"ga": "1/2/3", "dpt": "1.001", "flags": []any{"write"}},
+			}},
 			Capabilities: []Capability{CapOnOff},
 		}
 

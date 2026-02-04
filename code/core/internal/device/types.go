@@ -116,10 +116,71 @@ func deepCopyValue(v any) any {
 // Address holds protocol-specific address information as a JSON map.
 //
 // Examples:
-//   - KNX: {"group_address": "1/2/3", "feedback_address": "1/2/4"}
-//   - DALI: {"gateway": "dali-gw-01", "short_address": 15, "group": 0}
-//   - Modbus: {"host": "192.168.1.100", "port": 502, "unit_id": 1, "registers": {...}}
+//
+//	KNX (structured functions with DPT and flags):
+//	  {
+//	    "individual_address": "1.1.1",
+//	    "application_program": "M-0001_...",
+//	    "functions": {
+//	      "switch":        {"ga": "1/0/1", "dpt": "1.001", "flags": ["write"]},
+//	      "switch_status": {"ga": "1/0/2", "dpt": "1.001", "flags": ["read", "transmit"]}
+//	    }
+//	  }
+//
+//	DALI: {"gateway": "dali-gw-01", "short_address": 15, "group": 0}
+//	Modbus: {"host": "192.168.1.100", "port": 502, "unit_id": 1, "registers": {...}}
 type Address map[string]any
+
+// KNXFunctionConfig represents a single KNX function's address configuration.
+// Stored inside the Address map under the "functions" key.
+type KNXFunctionConfig struct {
+	GA    string   `json:"ga"`
+	DPT   string   `json:"dpt"`
+	Flags []string `json:"flags"`
+}
+
+// GetKNXFunctions extracts the typed function map from a KNX Address.
+// Returns nil if the "functions" key is missing or not in the expected format.
+func GetKNXFunctions(addr Address) map[string]KNXFunctionConfig {
+	raw, ok := addr["functions"]
+	if !ok {
+		return nil
+	}
+
+	// The "functions" value is stored as map[string]any in JSON.
+	// Each value is itself a map[string]any with "ga", "dpt", "flags" keys.
+	funcMap, ok := raw.(map[string]any)
+	if !ok {
+		return nil
+	}
+
+	result := make(map[string]KNXFunctionConfig, len(funcMap))
+	for name, v := range funcMap {
+		entry, ok := v.(map[string]any)
+		if !ok {
+			continue
+		}
+
+		fc := KNXFunctionConfig{}
+		if ga, ok := entry["ga"].(string); ok {
+			fc.GA = ga
+		}
+		if dpt, ok := entry["dpt"].(string); ok {
+			fc.DPT = dpt
+		}
+		if flags, ok := entry["flags"].([]any); ok {
+			for _, f := range flags {
+				if s, ok := f.(string); ok {
+					fc.Flags = append(fc.Flags, s)
+				}
+			}
+		}
+
+		result[name] = fc
+	}
+
+	return result
+}
 
 // Config holds device-specific configuration as a JSON map.
 type Config map[string]any

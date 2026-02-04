@@ -346,18 +346,20 @@ func ValidateAddress(protocol Protocol, addr Address) error {
 }
 
 // validateKNXAddress validates a KNX address configuration.
+// KNX addresses must have a "functions" map with at least one entry,
+// each containing a non-empty "ga" (group address) string.
 func validateKNXAddress(addr Address) error {
-	// KNX requires at least a group_address
-	ga, ok := addr["group_address"]
-	if !ok {
-		return fmt.Errorf("%w: KNX address requires group_address", ErrInvalidAddress)
+	functions := GetKNXFunctions(addr)
+	if len(functions) == 0 {
+		return fmt.Errorf("%w: KNX address requires a \"functions\" map with at least one entry", ErrInvalidAddress)
 	}
-	gaStr, ok := ga.(string)
-	if !ok || gaStr == "" {
-		return fmt.Errorf("%w: KNX group_address must be a non-empty string", ErrInvalidAddress)
+
+	for name, fc := range functions {
+		if fc.GA == "" {
+			return fmt.Errorf("%w: KNX function %q has empty ga", ErrInvalidAddress, name)
+		}
 	}
-	// Basic format check (should be like "1/2/3" for 3-level or "1/234" for 2-level)
-	// Detailed validation is done by the KNX bridge
+
 	return nil
 }
 
