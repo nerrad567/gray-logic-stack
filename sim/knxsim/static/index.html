@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=22" />
+    <link rel="stylesheet" href="css/style.css?v=23" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -1513,6 +1513,16 @@
               <option value="rx">RX Only</option>
               <option value="tx">TX Only</option>
             </select>
+            <label for="telegram-search" class="visually-hidden"
+              >Search telegrams</label
+            >
+            <input
+              id="telegram-search"
+              type="text"
+              class="telegram-search"
+              placeholder="Filter by device, GA, value..."
+              x-model.debounce.300ms="$store.telegrams.searchQuery"
+            />
             <button
               class="btn btn-small"
               @click="$store.telegrams.copyToClipboard()"
@@ -1529,6 +1539,67 @@
               @click="$store.telegrams.togglePause()"
               x-text="$store.telegrams.paused ? 'Resume (' + $store.telegrams.bufferedCount + ')' : 'Pause'"
             ></button>
+            <button
+              class="btn btn-small"
+              :class="{ 'active': $store.telegrams.statsVisible }"
+              @click="$store.telegrams.toggleStats()"
+              title="Bus statistics"
+            >
+              📊 Stats
+            </button>
+          </div>
+        </div>
+        <!-- Bus Statistics Panel -->
+        <div
+          class="bus-stats-panel"
+          x-show="!collapsed && $store.telegrams.statsVisible"
+          x-collapse
+        >
+          <div class="bus-stats-grid">
+            <div class="bus-stat">
+              <span
+                class="bus-stat-value"
+                x-text="$store.telegrams.stats.totalRecorded"
+              ></span>
+              <span class="bus-stat-label">Total</span>
+            </div>
+            <div class="bus-stat">
+              <span
+                class="bus-stat-value rx"
+                x-text="$store.telegrams.stats.rxCount"
+              ></span>
+              <span class="bus-stat-label">RX (in)</span>
+            </div>
+            <div class="bus-stat">
+              <span
+                class="bus-stat-value tx"
+                x-text="$store.telegrams.stats.txCount"
+              ></span>
+              <span class="bus-stat-label">TX (out)</span>
+            </div>
+            <div class="bus-stat">
+              <span class="bus-stat-value" x-text="$store.app.tps"></span>
+              <span class="bus-stat-label">Telegrams/s</span>
+            </div>
+            <div class="bus-stat">
+              <span
+                class="bus-stat-value"
+                x-text="$store.telegrams.stats.uniqueGAs"
+              ></span>
+              <span class="bus-stat-label">Unique GAs</span>
+            </div>
+          </div>
+          <div
+            class="bus-stats-top-gas"
+            x-show="$store.telegrams.stats.topGAs.length > 0"
+          >
+            <span class="bus-stats-top-label">Busiest GAs:</span>
+            <template x-for="ga in $store.telegrams.stats.topGAs" :key="ga.ga">
+              <span class="bus-stats-ga-chip">
+                <span class="ga-addr" x-text="ga.ga"></span>
+                <span class="ga-count" x-text="ga.count"></span>
+              </span>
+            </template>
           </div>
         </div>
         <div class="telegram-feed" x-show="!collapsed">
@@ -1619,18 +1690,13 @@
       </section>
 
       <!-- Stats Bar -->
-      <footer class="stats-bar">
+      <footer
+        class="stats-bar"
+        x-data="{ get summary() { return $store.app.getBuildingSummary(); } }"
+      >
         <div class="stat">
           <span class="stat-label">Devices:</span>
           <span class="stat-value" x-text="$store.app.devices.length"></span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Loads:</span>
-          <span class="stat-value" x-text="$store.app.loads.length"></span>
-        </div>
-        <div class="stat">
-          <span class="stat-label">Telegrams/s:</span>
-          <span class="stat-value" x-text="$store.app.tps"></span>
         </div>
         <div class="stat">
           <span class="stat-label">Rooms:</span>
@@ -1638,6 +1704,34 @@
             class="stat-value"
             x-text="$store.app.roomsWithDevices.filter(r => r.id !== '_unassigned').length"
           ></span>
+        </div>
+        <div class="stat-separator"></div>
+        <div class="stat" x-show="summary.lightsOn > 0">
+          <span class="stat-label">💡</span>
+          <span
+            class="stat-value stat-highlight"
+            x-text="summary.lightsOn + ' on'"
+          ></span>
+        </div>
+        <div class="stat" x-show="summary.avgTemp !== null">
+          <span class="stat-label">🌡️</span>
+          <span class="stat-value" x-text="summary.avgTemp + '°C'"></span>
+        </div>
+        <div class="stat" x-show="summary.presenceCount > 0">
+          <span class="stat-label">👤</span>
+          <span
+            class="stat-value stat-highlight"
+            x-text="summary.presenceCount + ' room(s)'"
+          ></span>
+        </div>
+        <div class="stat" x-show="summary.blindsOpen > 0">
+          <span class="stat-label">🪟</span>
+          <span class="stat-value" x-text="summary.blindsOpen + ' open'"></span>
+        </div>
+        <div class="stat-separator"></div>
+        <div class="stat">
+          <span class="stat-label">Telegrams/s:</span>
+          <span class="stat-value" x-text="$store.app.tps"></span>
         </div>
       </footer>
 
@@ -4020,6 +4114,11 @@ STRATEGY 3: By Room Type (Commercial)
                   :disabled="$store.modal.mode === 'edit'"
                   placeholder="e.g., living-room-light-1"
                 />
+                <small
+                  class="form-warning"
+                  x-show="$store.modal.mode === 'create' && form.id && $store.app.devices.find(d => d.id === form.id)"
+                  x-text="'\u26a0 Device ID \'' + form.id + '\' already exists'"
+                ></small>
               </div>
               <!-- Custom device: editable type field -->
               <div class="form-group" x-show="isCustomDevice">
@@ -4139,6 +4238,11 @@ STRATEGY 3: By Room Type (Commercial)
                   </button>
                 </div>
                 <small class="form-hint" x-text="getIAHint()"></small>
+                <small
+                  class="form-warning"
+                  x-show="getIAConflict()"
+                  x-text="getIAConflict()"
+                ></small>
               </div>
               <div class="form-group">
                 <label for="device-room">Room</label>
@@ -5706,6 +5810,21 @@ STRATEGY 3: By Room Type (Commercial)
             const base = "Format: area.line.device (e.g., 1.1.1)";
             if (used.length === 0) return `${base} — No devices yet`;
             return `${base} — ${used.length} addresses in use`;
+          },
+
+          // Check if IA is already used by another device
+          getIAConflict() {
+            const ia = this.form.individual_address;
+            if (!ia || this.addressMode === "topology") return null;
+            const editingId =
+              this.$store.modal.mode === "edit" ? this.form.id : null;
+            const conflict = this.$store.app.devices.find(
+              (d) => d.individual_address === ia && d.id !== editingId,
+            );
+            if (conflict) {
+              return `\u26a0 Address ${ia} is already used by "${conflict.id}"`;
+            }
+            return null;
           },
 
           async submit() {

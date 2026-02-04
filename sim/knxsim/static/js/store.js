@@ -1180,6 +1180,48 @@ export function initStores() {
       this.telegramCount++;
     },
 
+    getBuildingSummary() {
+      let lightsOn = 0;
+      let temps = [];
+      let presenceCount = 0;
+      let blindsOpen = 0;
+
+      // Count from loads (physical fixtures)
+      this.loads.forEach((load) => {
+        if (load.type === "light" && this.isLoadOn(load)) lightsOn++;
+      });
+
+      // Count from devices
+      this.devices.forEach((d) => {
+        const state = d.state || {};
+        if (d.type.startsWith("light_") && state.on) lightsOn++;
+        if (
+          (d.type === "presence" || d.type === "presence_detector") &&
+          state.presence
+        )
+          presenceCount++;
+        if (
+          (d.type === "sensor" || d.type === "temperature_sensor") &&
+          state.temperature !== undefined
+        ) {
+          temps.push(state.temperature);
+        }
+        if (
+          d.type.startsWith("blind") &&
+          state.position !== undefined &&
+          state.position > 0
+        )
+          blindsOpen++;
+      });
+
+      const avgTemp =
+        temps.length > 0
+          ? (temps.reduce((a, b) => a + b, 0) / temps.length).toFixed(1)
+          : null;
+
+      return { lightsOn, avgTemp, presenceCount, blindsOpen };
+    },
+
     // ─────────────────────────────────────────────────────────
     // Helpers
     // ─────────────────────────────────────────────────────────
@@ -1470,12 +1512,23 @@ export function initStores() {
     items: [],
     buffer: [], // Buffer for telegrams while paused
     filter: "all", // 'all', 'rx', 'tx'
+    searchQuery: "", // Text search across device/GA/value
     paused: false,
     maxItems: 200,
     maxBuffer: 500, // Max buffered while paused
     loading: false,
     hasMore: false,
     totalBuffered: 0, // Total in backend ring buffer
+
+    // Bus statistics
+    stats: {
+      totalRecorded: 0,
+      rxCount: 0,
+      txCount: 0,
+      uniqueGAs: 0,
+      topGAs: [], // [{ga, count}, ...]
+    },
+    statsVisible: false,
 
     _formatTelegram(telegram) {
       // Format timestamp as HH:MM:SS.mmm
@@ -1518,8 +1571,24 @@ export function initStores() {
     },
 
     get filtered() {
-      if (this.filter === "all") return this.items;
-      return this.items.filter((t) => t.direction === this.filter);
+      let result = this.items;
+      if (this.filter !== "all") {
+        result = result.filter((t) => t.direction === this.filter);
+      }
+      if (this.searchQuery) {
+        const q = this.searchQuery.toLowerCase();
+        result = result.filter(
+          (t) =>
+            (t.device_id && t.device_id.toLowerCase().includes(q)) ||
+            (t.destination && t.destination.toLowerCase().includes(q)) ||
+            (t.ga_function && t.ga_function.toLowerCase().includes(q)) ||
+            (t.source && t.source.toLowerCase().includes(q)) ||
+            (t.decoded_value !== null &&
+              t.decoded_value !== undefined &&
+              String(t.decoded_value).toLowerCase().includes(q)),
+        );
+      }
+      return result;
     },
 
     async loadHistory(premiseId) {
@@ -1602,6 +1671,40 @@ export function initStores() {
 
     clear() {
       this.items = [];
+    },
+
+    _statsTimer: null,
+
+    toggleStats() {
+      this.statsVisible = !this.statsVisible;
+      if (this.statsVisible) {
+        this.loadStats(Alpine.store("app").currentPremiseId);
+        // Auto-refresh every 5s while visible
+        this._statsTimer = setInterval(() => {
+          if (this.statsVisible) {
+            this.loadStats(Alpine.store("app").currentPremiseId);
+          }
+        }, 5000);
+      } else if (this._statsTimer) {
+        clearInterval(this._statsTimer);
+        this._statsTimer = null;
+      }
+    },
+
+    async loadStats(premiseId) {
+      if (!premiseId) return;
+      try {
+        const data = await API.getTelegramStats(premiseId);
+        this.stats = {
+          totalRecorded: data.total_recorded || 0,
+          rxCount: data.rx_count || 0,
+          txCount: data.tx_count || 0,
+          uniqueGAs: data.unique_gas || 0,
+          topGAs: data.top_gas || [],
+        };
+      } catch (err) {
+        console.error("Failed to load telegram stats:", err);
+      }
     },
 
     copyToClipboard() {

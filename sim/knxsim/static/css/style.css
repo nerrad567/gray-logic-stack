@@ -1408,6 +1408,27 @@ select:focus {
 .inspector-controls {
   display: flex;
   gap: var(--spacing-sm);
+  align-items: center;
+}
+
+.telegram-search {
+  background: var(--bg-primary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  color: var(--text-primary);
+  font-size: 12px;
+  padding: 3px 8px;
+  width: 200px;
+}
+
+.telegram-search::placeholder {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.telegram-search:focus {
+  outline: none;
+  border-color: var(--accent-blue);
 }
 
 .filter-select {
@@ -1478,6 +1499,84 @@ select:focus {
   color: var(--text-muted);
   font-size: 11px;
   font-style: italic;
+}
+
+/* Bus Statistics Panel */
+.bus-stats-panel {
+  background: var(--bg-secondary);
+  border-bottom: 1px solid var(--border-primary);
+  padding: var(--spacing-sm) var(--spacing-md);
+  font-size: 12px;
+}
+
+.bus-stats-grid {
+  display: flex;
+  gap: var(--spacing-lg);
+  align-items: center;
+}
+
+.bus-stat {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  min-width: 60px;
+}
+
+.bus-stat-value {
+  font-family: var(--font-mono);
+  font-size: 16px;
+  font-weight: 600;
+  color: var(--text-primary);
+}
+
+.bus-stat-value.rx {
+  color: var(--accent-green);
+}
+
+.bus-stat-value.tx {
+  color: var(--accent-blue);
+}
+
+.bus-stat-label {
+  color: var(--text-muted);
+  font-size: 10px;
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.bus-stats-top-gas {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  flex-wrap: wrap;
+}
+
+.bus-stats-top-label {
+  color: var(--text-muted);
+  font-size: 11px;
+}
+
+.bus-stats-ga-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  background: var(--bg-tertiary);
+  border: 1px solid var(--border-secondary);
+  border-radius: 4px;
+  padding: 1px 6px;
+  font-size: 11px;
+}
+
+.bus-stats-ga-chip .ga-addr {
+  font-family: var(--font-mono);
+  color: var(--text-primary);
+}
+
+.bus-stats-ga-chip .ga-count {
+  font-family: var(--font-mono);
+  color: var(--text-muted);
+  font-size: 10px;
 }
 
 .telegram-row {
@@ -1595,6 +1694,16 @@ select:focus {
 .stat-value {
   color: var(--text-primary);
   font-family: var(--font-mono);
+}
+
+.stat-value.stat-highlight {
+  color: var(--accent-green);
+}
+
+.stat-separator {
+  width: 1px;
+  height: 14px;
+  background: var(--border-secondary);
 }
 
 /* Scrollbar */
@@ -2749,6 +2858,14 @@ select:focus {
   color: var(--text-muted);
   font-size: 11px;
   margin-top: 2px;
+}
+
+.form-warning {
+  color: var(--accent-orange, #f0a030);
+  font-size: 11px;
+  margin-top: 2px;
+  display: block;
+  font-weight: 500;
 }
 
 /* Address Comparison */

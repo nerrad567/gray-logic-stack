@@ -109,6 +109,10 @@ class TelegramInspector:
         self._buffers: dict[str, deque[TelegramEntry]] = {}
         self._lock = threading.Lock()
         self._total_count = 0
+        # Per-premise counters for stats
+        self._rx_count: dict[str, int] = {}
+        self._tx_count: dict[str, int] = {}
+        self._ga_count: dict[str, dict[str, int]] = {}  # premise -> {ga_str: count}
 
     def record(
         self,
@@ -153,11 +157,26 @@ class TelegramInspector:
             self._buffers[premise_id].append(entry)
             self._total_count += 1
 
+            # Track per-premise direction counts
+            if direction == "rx":
+                self._rx_count[premise_id] = self._rx_count.get(premise_id, 0) + 1
+            else:
+                self._tx_count[premise_id] = self._tx_count.get(premise_id, 0) + 1
+
+            # Track GA frequency
+            ga_str = frames.format_group_address(cemi_dict.get("dst", 0))
+            if premise_id not in self._ga_count:
+                self._ga_count[premise_id] = {}
+            self._ga_count[premise_id][ga_str] = self._ga_count[premise_id].get(ga_str, 0) + 1
+
     def get_history(
         self,
         premise_id: str,
         limit: int = 100,
         offset: int = 0,
+        direction: str | None = None,
+        device: str | None = None,
+        ga: str | None = None,
     ) -> list[dict]:
         """Get telegram history for a premise (newest first).
 
@@ -165,6 +184,9 @@ class TelegramInspector:
             premise_id: Which premise to query
             limit: Max entries to return (default 100)
             offset: Skip this many entries from the newest
+            direction: Filter by "rx" or "tx" (None = all)
+            device: Filter by device_id substring (case-insensitive)
+            ga: Filter by destination GA substring
         """
         with self._lock:
             buf = self._buffers.get(premise_id)
@@ -172,6 +194,18 @@ class TelegramInspector:
                 return []
             # Convert to list (newest first)
             entries = list(reversed(buf))
+
+            # Apply filters
+            if direction:
+                entries = [e for e in entries if e.direction == direction]
+            if device:
+                device_lower = device.lower()
+                entries = [
+                    e for e in entries if e.device_id and device_lower in e.device_id.lower()
+                ]
+            if ga:
+                entries = [e for e in entries if ga in frames.format_group_address(e.destination)]
+
             return [e.to_dict() for e in entries[offset : offset + limit]]
 
     def get_stats(self, premise_id: str | None = None) -> dict:
@@ -179,10 +213,22 @@ class TelegramInspector:
         with self._lock:
             if premise_id:
                 buf = self._buffers.get(premise_id)
+                rx = self._rx_count.get(premise_id, 0)
+                tx = self._tx_count.get(premise_id, 0)
+
+                # Top 5 busiest GAs
+                ga_counts = self._ga_count.get(premise_id, {})
+                top_gas = sorted(ga_counts.items(), key=lambda x: x[1], reverse=True)[:5]
+
                 return {
                     "premise_id": premise_id,
                     "buffered": len(buf) if buf else 0,
                     "buffer_max": self._max_size,
+                    "total_recorded": rx + tx,
+                    "rx_count": rx,
+                    "tx_count": tx,
+                    "unique_gas": len(ga_counts),
+                    "top_gas": [{"ga": ga, "count": count} for ga, count in top_gas],
                 }
             return {
                 "total_recorded": self._total_count,
@@ -195,6 +241,12 @@ class TelegramInspector:
         with self._lock:
             if premise_id:
                 self._buffers.pop(premise_id, None)
+                self._rx_count.pop(premise_id, None)
+                self._tx_count.pop(premise_id, None)
+                self._ga_count.pop(premise_id, None)
             else:
                 self._buffers.clear()
+                self._rx_count.clear()
+                self._tx_count.clear()
+                self._ga_count.clear()
                 self._total_count = 0

@@ -14,10 +14,26 @@ def get_telegram_history(
     premise_id: str,
     limit: int = Query(default=100, ge=1, le=1000),
     offset: int = Query(default=0, ge=0),
+    direction: str | None = Query(default=None, pattern="^(rx|tx)$"),
+    device: str | None = Query(default=None),
+    ga: str | None = Query(default=None),
 ):
-    """Get recent telegram history for a premise (newest first)."""
+    """Get recent telegram history for a premise (newest first).
+
+    Optional filters:
+        direction: "rx" or "tx"
+        device: device_id substring (case-insensitive)
+        ga: group address substring (e.g. "1/2" matches "1/2/3")
+    """
     inspector = router.app.state.telegram_inspector
-    entries = inspector.get_history(premise_id, limit=limit, offset=offset)
+    entries = inspector.get_history(
+        premise_id,
+        limit=limit,
+        offset=offset,
+        direction=direction,
+        device=device,
+        ga=ga,
+    )
     stats = inspector.get_stats(premise_id)
     return {
         "telegrams": entries,
