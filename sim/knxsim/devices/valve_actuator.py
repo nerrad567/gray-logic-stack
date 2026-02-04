@@ -41,10 +41,7 @@ class ValveActuator(BaseDevice):
         group_addresses: dict,
         initial_state: dict,
     ):
-        defaults = {
-            "on": False,
-            "position": 0,
-        }
+        defaults = {"position": 0}
         defaults.update(initial_state)
         super().__init__(device_id, individual_address, group_addresses, defaults)
 
