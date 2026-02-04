@@ -191,8 +191,8 @@ class Premise:
                 # Notify state change (include GA for channel state updates)
                 if self._on_state_change:
                     self._on_state_change(
-                        self.id, 
-                        device.device_id, 
+                        self.id,
+                        device.device_id,
                         dict(device.state),
                         dst_ga,  # Include GA that triggered the change
                     )
@@ -202,6 +202,13 @@ class Premise:
                         responses.append(result)
                     elif isinstance(result, list):
                         responses.extend(result)
+
+            # Locally dispatch response telegrams to other devices.
+            # Example: thermostat recalculates heating_output on GA 3/0/1
+            # and the valve actuator on the same GA needs to receive it.
+            for resp in responses:
+                self._dispatch_response_locally(resp)
+
             return responses if responses else None
 
         elif apci == C.APCI_GROUP_READ:
@@ -240,6 +247,48 @@ class Premise:
                 elif isinstance(result, list):
                     for r in result:
                         self._send_telegram_with_hook(r)
+
+    def _dispatch_response_locally(self, cemi: bytes):
+        """Dispatch a response telegram to local devices on its destination GA.
+
+        When a device (e.g. thermostat) handles a GroupWrite and returns a
+        response telegram targeting a *different* GA (e.g. heating_output),
+        other devices listening on that GA (e.g. valve actuator) need to
+        receive it — just as they would on a real KNX bus.
+        """
+        if len(cemi) < 8:
+            return
+        try:
+            decoded = frames.decode_cemi(cemi)
+            if not decoded:
+                return
+        except Exception:
+            return
+
+        from knxip import constants as C
+
+        apci = decoded.get("apci")
+        if apci not in (C.APCI_GROUP_WRITE, C.APCI_GROUP_RESPONSE):
+            return
+
+        resp_ga = decoded.get("dst")
+        payload = decoded.get("payload", b"")
+        if resp_ga is None:
+            return
+
+        devices = self._ga_map.get(resp_ga)
+        if not devices:
+            return
+
+        # Find the source device to avoid dispatching back to the sender
+        src_addr = decoded.get("src", 0)
+
+        for device in devices:
+            if device.individual_address == src_addr:
+                continue  # Don't echo back to sender
+            device.on_group_write(resp_ga, payload)
+            if self._on_state_change:
+                self._on_state_change(self.id, device.device_id, dict(device.state), resp_ga)
 
     def _send_telegram_with_hook(self, cemi: bytes):
         """Wrap server.send_telegram to also notify observers of outgoing telegrams."""

@@ -1,0 +1,37 @@
+id: valve_actuator
+name: Valve Actuator (Standalone)
+domain: climate
+description: Standalone thermal valve actuator for radiators. Supports on/off and proportional control. Common in retrofit installations.
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "VAA/S 4.230.2.1"
+  application_program: "Valve Actuator 4-fold"
+  hardware_type: "MDRC"
+group_addresses:
+  valve_switch:
+    dpt: "1.001"
+    direction: write
+    flags: "C-W-U-"
+    description: On/off valve control (true = open)
+  valve_position:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Proportional valve position 0-100%
+  valve_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Current valve position feedback
+  valve_error:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Valve error (true = stuck or motor fault)
+initial_state:
+  valve_switch: false
+  valve_position: 0
+  valve_status: 0
+  valve_error: false

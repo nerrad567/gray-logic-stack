@@ -1,0 +1,43 @@
+id: oled_display
+name: OLED Status Display
+domain: system
+description: DIN rail OLED display module showing room/system information. Receives display data via KNX group objects.
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-OLED55.01"
+  application_program: "OLED Display Module"
+  hardware_type: "MDRC"
+group_addresses:
+  display_line_1:
+    dpt: "16.001"
+    direction: write
+    flags: "C-W---"
+    description: Display line 1 text (14 chars max, ISO 8859-1)
+  display_line_2:
+    dpt: "16.001"
+    direction: write
+    flags: "C-W---"
+    description: Display line 2 text
+  display_temperature:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Temperature value shown on display
+  display_brightness:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Display backlight brightness 0-100%
+  page_select:
+    dpt: "5.010"
+    direction: write
+    flags: "C-W---"
+    description: Active display page number (0-255)
+initial_state:
+  display_line_1: "Gray Logic"
+  display_line_2: "Ready"
+  display_temperature: 21.5
+  display_brightness: 80
+  page_select: 0

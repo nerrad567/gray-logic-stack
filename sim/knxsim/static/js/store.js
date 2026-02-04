@@ -8,28 +8,93 @@ import { API } from "./api.js";
 
 // Device type to icon mapping
 const DEVICE_ICONS = {
+  // Lighting
   light_switch: "💡",
   light_dimmer: "💡",
   light_rgb: "🎨",
   light_colour_temp: "💡",
+  // Switch actuators (multi-channel)
+  switch_actuator_2fold: "💡",
+  switch_actuator_4fold: "💡",
+  switch_actuator_6fold: "💡",
+  switch_actuator_8fold: "💡",
+  switch_actuator_12fold: "💡",
+  switch_actuator_16fold: "💡",
+  switch_actuator_24fold: "💡",
+  switch_actuator_4ch: "💡",
+  switch_actuator_8ch: "💡",
+  switch_actuator_12ch: "💡",
+  // Dimmer actuators
+  dimmer_actuator_1fold: "💡",
+  dimmer_actuator_2fold: "💡",
+  dimmer_actuator_4fold: "💡",
+  dimmer_actuator_4ch: "💡",
+  dali_gateway: "💡",
+  // Blinds / Shutters
   blind: "🪟",
   blind_position: "🪟",
   blind_position_slat: "🪟",
+  blind_actuator_2fold: "🪟",
+  blind_actuator_4fold: "🪟",
+  blind_actuator_8fold: "🪟",
+  shutter_actuator_4ch: "🪟",
+  shutter_actuator_8ch: "🪟",
+  awning_controller: "🪟",
+  // Sensors
   sensor: "🌡️",
   temperature_sensor: "🌡️",
   humidity_sensor: "💧",
   co2_sensor: "🌬️",
   lux_sensor: "☀️",
+  brightness_sensor_facade: "☀️",
+  wind_sensor: "💨",
+  multi_sensor: "📡",
+  // Presence
   presence: "👤",
   presence_detector: "👤",
+  presence_detector_360: "👤",
+  motion_detector_outdoor: "👤",
+  // Climate / HVAC
   thermostat: "🌡️",
   hvac_unit: "❄️",
-  energy_meter: "⚡",
-  solar_inverter: "☀️",
+  fan_coil_controller: "❄️",
+  air_handling_unit: "🌬️",
+  weather_station: "🌤️",
+  // Heating actuators
+  heating_actuator_2fold: "🔥",
+  heating_actuator_4fold: "🔥",
+  heating_actuator_6fold: "🔥",
+  heating_actuator_8fold: "🔥",
+  heating_actuator_6ch: "🔥",
+  // Controls
   push_button_2: "🔘",
   push_button_4: "🔘",
+  push_button_2fold: "🔘",
+  push_button_4fold: "🔘",
+  push_button_6fold: "🔘",
+  push_button_8fold: "🔘",
+  glass_push_button_6: "🔘",
+  glass_push_button_8: "🔘",
   scene_controller: "🎬",
+  room_controller_display: "📟",
+  logic_module: "🧮",
+  // Binary inputs
   binary_input: "⏺️",
+  binary_input_4fold: "⏺️",
+  binary_input_8fold: "⏺️",
+  binary_input_16fold: "⏺️",
+  binary_input_8ch: "⏺️",
+  // Energy
+  energy_meter: "⚡",
+  energy_meter_3phase: "⚡",
+  solar_inverter: "☀️",
+  ev_charger: "🔌",
+  load_controller: "⚡",
+  // System
+  ip_router: "🌐",
+  line_coupler: "🔗",
+  power_supply: "🔋",
+  timer_switch: "⏱️",
 };
 
 // Room type options
@@ -705,14 +770,31 @@ export function initStores() {
       if (load.icon) return load.icon;
       const typeIcons = {
         light: "💡",
+        light_rgb: "🎨",
+        light_rgbw: "🎨",
         valve: "🔥",
+        valve_proportional: "🔥",
+        valve_thermal: "🔥",
+        valve_binary: "🔥",
+        valve_irrigation: "🌿",
         motor: "⚙️",
+        motor_blind: "🪟",
+        motor_venetian: "🪟",
+        motor_curtain: "🪟",
+        motor_awning: "🪟",
         fan: "🌀",
         heater: "🔥",
-        speaker: "🔊",
+        heater_towel: "🔥",
+        heater_ufh_electric: "🔥",
         pump: "💧",
+        speaker: "🔊",
+        socket: "🔌",
+        door_strike: "🚪",
       };
-      return typeIcons[load.type] || "🔌";
+      // Try exact match first, then prefix match
+      if (typeIcons[load.type]) return typeIcons[load.type];
+      const prefix = (load.type || "").split("_")[0];
+      return typeIcons[prefix] || "🔌";
     },
 
     /**
@@ -774,8 +856,8 @@ export function initStores() {
       const load = this.loads.find((l) => l.id === loadId);
       if (!load) return;
 
-      if (load.type === "valve" || load.type === "heater") {
-        // Proportional valves have no on/off — ignore click
+      if (load.type?.startsWith("valve") || load.type?.startsWith("heater")) {
+        // Valves and heaters have no simple on/off — ignore click
         return;
       }
 
@@ -915,6 +997,9 @@ export function initStores() {
       try {
         const device = await API.createDevice(this.currentPremiseId, data);
         this.devices.push(device);
+        if (this.topology) {
+          await this.loadTopology();
+        }
         return device;
       } catch (err) {
         console.error("Failed to create device:", err);
@@ -931,10 +1016,23 @@ export function initStores() {
           data,
         );
         this.devices.push(device);
+        if (this.topology) {
+          await this.loadTopology();
+        }
         return device;
       } catch (err) {
         console.error("Failed to create device from template:", err);
         throw err;
+      }
+    },
+
+    async fetchNextDeviceNumber(lineId) {
+      if (!this.currentPremiseId || !lineId) return null;
+      try {
+        return await API.getNextDeviceNumber(this.currentPremiseId, lineId);
+      } catch (err) {
+        console.error("Failed to fetch next device number:", err);
+        return null;
       }
     },
 
@@ -950,6 +1048,9 @@ export function initStores() {
         if (idx !== -1) {
           this.devices[idx] = { ...this.devices[idx], ...updated };
         }
+        if (this.topology) {
+          await this.loadTopology();
+        }
         return updated;
       } catch (err) {
         console.error("Failed to update device:", err);
@@ -964,6 +1065,9 @@ export function initStores() {
         this.devices = this.devices.filter((d) => d.id !== deviceId);
         if (this.selectedDeviceId === deviceId) {
           this.selectedDeviceId = null;
+        }
+        if (this.topology) {
+          await this.loadTopology();
         }
       } catch (err) {
         console.error("Failed to delete device:", err);

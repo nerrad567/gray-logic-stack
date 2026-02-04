@@ -240,12 +240,12 @@ class PremiseManager:
 
         # Add to live premise
         premise.add_device(
-            device_id=data["id"],
-            device_type=data["type"],
-            individual_address=data["individual_address"],
-            group_addresses=data.get("group_addresses", {}),
-            initial_state=data.get("initial_state", {}),
-            config=data.get("config"),
+            device_id=result["id"],
+            device_type=result["type"],
+            individual_address=result["individual_address"],
+            group_addresses=result.get("group_addresses", {}),
+            initial_state=result.get("initial_state", {}),
+            config=result.get("config"),
         )
 
         return result
@@ -265,89 +265,100 @@ class PremiseManager:
         """
         result = self.db.update_device(device_id, data)
 
-        # If group_addresses changed, update the running device
-        if result and "group_addresses" in data:
+        if result:
             premise = self.premises.get(premise_id)
             if premise:
                 device = premise.devices.get(device_id)
                 if device:
-                    # Update the device's group addresses
-                    new_gas = data["group_addresses"]
-                    old_gas = device.group_addresses.copy()
+                    # Update individual address if changed
+                    if "individual_address" in data:
+                        from knxip import frames
 
-                    # Remove old GA mappings from premise._ga_map
-                    for ga_int in old_gas.values():
-                        if ga_int in premise._ga_map:
-                            premise._ga_map[ga_int] = [
-                                d for d in premise._ga_map[ga_int] if d != device
-                            ]
-                            if not premise._ga_map[ga_int]:
-                                del premise._ga_map[ga_int]
+                        device.individual_address = frames.parse_individual_address(
+                            result["individual_address"]
+                        )
 
-                    # Parse new GAs and update device
-                    def _parse_ga(ga_value: str | dict) -> int | None:
-                        """Convert group address to integer.
+                    # If group_addresses changed, update the running device
+                    if "group_addresses" in data:
+                        new_gas = data["group_addresses"]
+                        old_gas = device.group_addresses.copy()
 
-                        Handles both legacy string format ('1/2/3') and
-                        extended object format ({'ga': '1/2/3', 'dpt': '1.001'}).
+                        # Remove old GA mappings from premise._ga_map
+                        for ga_int in old_gas.values():
+                            if ga_int in premise._ga_map:
+                                premise._ga_map[ga_int] = [
+                                    d for d in premise._ga_map[ga_int] if d != device
+                                ]
+                                if not premise._ga_map[ga_int]:
+                                    del premise._ga_map[ga_int]
 
-                        Returns None if the address is empty or invalid.
-                        """
-                        # Handle extended format: extract the 'ga' field
-                        if isinstance(ga_value, dict):
-                            ga_str = ga_value.get("ga", "")
-                        else:
-                            ga_str = ga_value
+                        # Parse new GAs and update device
+                        def _parse_ga(ga_value: str | dict) -> int | None:
+                            """Convert group address to integer.
 
-                        # Handle empty strings
-                        if not ga_str or not isinstance(ga_str, str):
-                            return None
-                        ga_str = ga_str.strip()
-                        if not ga_str:
-                            return None
+                            Handles both legacy string format ('1/2/3') and
+                            extended object format ({'ga': '1/2/3', 'dpt': '1.001'}).
 
-                        try:
-                            parts = ga_str.split("/")
-                            if len(parts) == 3:
-                                main, middle, sub = int(parts[0]), int(parts[1]), int(parts[2])
-                                return (main << 11) | (middle << 8) | sub
-                            elif len(parts) == 2:
-                                main, sub = int(parts[0]), int(parts[1])
-                                return (main << 11) | sub
+                            Returns None if the address is empty or invalid.
+                            """
+                            # Handle extended format: extract the 'ga' field
+                            if isinstance(ga_value, dict):
+                                ga_str = ga_value.get("ga", "")
                             else:
+                                ga_str = ga_value
+
+                            # Handle empty strings
+                            if not ga_str or not isinstance(ga_str, str):
+                                return None
+                            ga_str = ga_str.strip()
+                            if not ga_str:
+                                return None
+
+                            try:
+                                parts = ga_str.split("/")
+                                if len(parts) == 3:
+                                    main, middle, sub = (
+                                        int(parts[0]),
+                                        int(parts[1]),
+                                        int(parts[2]),
+                                    )
+                                    return (main << 11) | (middle << 8) | sub
+                                if len(parts) == 2:
+                                    main, sub = int(parts[0]), int(parts[1])
+                                    return (main << 11) | sub
                                 return int(parts[0])
-                        except (ValueError, IndexError):
-                            return None
+                            except (ValueError, IndexError):
+                                return None
 
-                    parsed_gas = {}
-                    for name, ga_str in new_gas.items():
-                        parsed = _parse_ga(ga_str)
-                        if parsed is not None:
-                            parsed_gas[name] = parsed
-                    device.group_addresses = parsed_gas
+                        parsed_gas = {}
+                        for name, ga_str in new_gas.items():
+                            parsed = _parse_ga(ga_str)
+                            if parsed is not None:
+                                parsed_gas[name] = parsed
+                        device.group_addresses = parsed_gas
 
-                    # Add new GA mappings to premise._ga_map
-                    for ga_int in parsed_gas.values():
-                        if ga_int not in premise._ga_map:
-                            premise._ga_map[ga_int] = []
-                        if device not in premise._ga_map[ga_int]:
-                            premise._ga_map[ga_int].append(device)
+                        # Add new GA mappings to premise._ga_map
+                        for ga_int in parsed_gas.values():
+                            if ga_int not in premise._ga_map:
+                                premise._ga_map[ga_int] = []
+                            if device not in premise._ga_map[ga_int]:
+                                premise._ga_map[ga_int].append(device)
 
-                    # For template devices, also rebuild _ga_info
-                    if hasattr(device, "_ga_info") and hasattr(device, "_template_def"):
-                        device._ga_info = {}
-                        for slot_name, ga_int in parsed_gas.items():
-                            slot_def = device._template_def.get(slot_name, {})
-                            dpt = slot_def.get("dpt", "1.001")
-                            direction = slot_def.get("direction", "write")
-                            # For buttons/leds, use slot name directly as field
-                            if slot_name.startswith("button_") or slot_name.startswith("led_"):
-                                field = slot_name
-                            else:
-                                field = device._slot_to_field(slot_name)
-                            if ga_int not in device._ga_info:
-                                device._ga_info[ga_int] = []
-                            device._ga_info[ga_int].append((slot_name, field, dpt, direction))
+                        # For template devices, also rebuild _ga_info
+                        if hasattr(device, "_ga_info") and hasattr(device, "_template_def"):
+                            device._ga_info = {}
+                            for slot_name, ga_int in parsed_gas.items():
+                                slot_def = device._template_def.get(slot_name, {})
+                                dpt = slot_def.get("dpt", "1.001")
+                                direction = slot_def.get("direction", "write")
+                                # For buttons/leds, use slot name directly as field
+                                if slot_name.startswith("button_") or slot_name.startswith("led_"):
+                                    field = slot_name
+                                else:
+                                    field = device._slot_to_field(slot_name)
+                                if ga_int not in device._ga_info:
+                                    device._ga_info[ga_int] = []
+                                device._ga_info[ga_int].append((slot_name, field, dpt, direction))
 
         return result
 

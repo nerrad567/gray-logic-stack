@@ -1,0 +1,57 @@
+id: weather_alarm
+name: Weather Alarm Module
+domain: sensors
+description: Wind, rain, and frost alarm module for blind/shutter safety (MDT SCN-WS3HW style). When alarms trigger, shutter actuators should force to safety position.
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-WS3HW.02"
+  application_program: "Weather Station 3-fold"
+  hardware_type: "surface"
+group_addresses:
+  wind_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Wind alarm active (true = high wind, blinds to safety)
+  rain_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Rain alarm active (true = rain detected, awnings retract)
+  frost_alarm:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Frost alarm active (true = freezing, blinds to safety)
+  wind_speed:
+    dpt: "9.005"
+    direction: status
+    flags: "CR-T--"
+    description: Current wind speed (m/s)
+  outdoor_temp:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Outdoor temperature for frost detection
+initial_state:
+  wind_alarm: false
+  rain_alarm: false
+  frost_alarm: false
+  wind_speed: 2.5
+  outdoor_temp: 12.0
+scenarios:
+  - field: wind_speed
+    type: random_walk
+    params:
+      center: 3.0
+      step: 1.5
+      min: 0.0
+      max: 30.0
+  - field: outdoor_temp
+    type: sine_wave
+    params:
+      center: 10.0
+      amplitude: 8.0
+      period: 3600

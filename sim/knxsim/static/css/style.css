@@ -1949,6 +1949,24 @@ select:focus {
   gap: var(--spacing-md);
 }
 
+.address-mode {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--spacing-md);
+  align-items: center;
+}
+
+.address-mode-option {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--spacing-xs);
+  font-weight: 500;
+}
+
+.address-mode-option input {
+  margin: 0;
+}
+
 /* Primary button */
 .btn-primary {
   background: var(--accent-blue);
@@ -2168,6 +2186,149 @@ select:focus {
   font-size: 10px;
   color: var(--text-muted);
   margin-top: 2px;
+}
+
+/* ─────────────────────────────────────────────────────────────────────────────
+   Inline Template Picker (Add Device modal — Stage 1)
+   ───────────────────────────────────────────────────────────────────────────── */
+
+.template-picker-inline {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.template-picker-inline > label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.template-search {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.template-search:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.template-search::placeholder {
+  color: var(--text-muted);
+}
+
+/* Compact domain tabs for inline picker */
+.domain-tabs-compact {
+  gap: var(--spacing-xs);
+  padding-bottom: var(--spacing-xs);
+  border-bottom: none;
+}
+
+.domain-tabs-compact .domain-tab {
+  padding: 3px var(--spacing-sm);
+  font-size: 11px;
+  border-radius: 12px;
+}
+
+/* Compact template grid for inline picker */
+.template-grid-compact {
+  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
+  gap: var(--spacing-sm);
+  max-height: 45vh;
+  overflow-y: auto;
+  padding: var(--spacing-xs);
+}
+
+.template-grid-compact .template-card {
+  padding: var(--spacing-sm) var(--spacing-md);
+  min-height: 56px;
+  gap: var(--spacing-sm);
+}
+
+.template-grid-compact .template-icon {
+  font-size: 22px;
+  width: 36px;
+  height: 36px;
+  border-radius: 6px;
+}
+
+.template-grid-compact .template-name {
+  font-size: 13px;
+}
+
+.template-grid-compact .template-desc {
+  font-size: 11px;
+  -webkit-line-clamp: 2;
+}
+
+/* Custom Device card — dashed border */
+.template-card-custom {
+  border-style: dashed;
+  border-color: var(--accent-purple);
+  background: transparent;
+}
+
+.template-card-custom:hover {
+  border-color: var(--accent-blue);
+  background: rgba(163, 113, 247, 0.08);
+}
+
+/* Empty state */
+.template-picker-empty {
+  padding: var(--spacing-lg);
+  text-align: center;
+  color: var(--text-muted);
+  font-size: 13px;
+}
+
+/* ─── Selected template badge (Stage 2 header) ─── */
+
+.selected-template-badge {
+  display: flex;
+  align-items: center;
+  gap: var(--spacing-sm);
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  margin-bottom: var(--spacing-md);
+}
+
+.template-badge-icon {
+  font-size: 20px;
+  width: 32px;
+  height: 32px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-tertiary);
+  border-radius: 6px;
+  flex-shrink: 0;
+}
+
+.template-badge-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--text-primary);
+  flex: 1;
+}
+
+.template-badge-domain {
+  font-size: 11px;
+  color: var(--accent-blue);
+  background: rgba(88, 166, 255, 0.1);
+  padding: 2px 8px;
+  border-radius: 10px;
+  text-transform: capitalize;
 }
 
 /* ─────────────────────────────────────────────────────────────────────────────
@@ -3591,4 +3752,73 @@ select:focus {
 .channel-led.led-off {
   background: var(--bg-tertiary, #374151);
   border: 1px solid var(--border-primary, #4b5563);
+}
+
+/* ─────────────────────────────────────────────────────────────
+   Load Modal & Type Picker
+   ───────────────────────────────────────────────────────────── */
+
+.load-type-picker {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.load-type-picker > label {
+  font-size: 12px;
+  font-weight: 500;
+  color: var(--text-secondary);
+  text-transform: uppercase;
+  letter-spacing: 0.5px;
+}
+
+.actuator-link-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--spacing-sm);
+}
+
+.actuator-link-section select {
+  width: 100%;
+  padding: var(--spacing-sm) var(--spacing-md);
+  background: var(--bg-primary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-primary);
+  font-size: 14px;
+  font-family: inherit;
+}
+
+.actuator-link-section select:focus {
+  outline: none;
+  border-color: var(--accent-blue);
+}
+
+.actuator-link-section select:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+
+/* Add Load button in room cards */
+.btn-add-load {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--spacing-xs);
+  width: 100%;
+  padding: var(--spacing-xs) var(--spacing-sm);
+  margin-top: var(--spacing-xs);
+  background: transparent;
+  border: 1px dashed var(--border-primary);
+  border-radius: 6px;
+  color: var(--text-muted);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.btn-add-load:hover {
+  border-color: var(--accent-green);
+  color: var(--accent-green);
+  background: rgba(63, 185, 80, 0.05);
 }

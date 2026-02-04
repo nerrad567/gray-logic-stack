@@ -1,0 +1,19 @@
+id: door_contact
+name: Door/Window Contact
+domain: sensors
+description: Binary reed contact for doors and windows (DPT 1.009)
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "SCN-BWM55.G2"
+  application_program: "Binary Input 2-fold"
+  hardware_type: "flush"
+group_addresses:
+  contact_status:
+    dpt: "1.009"
+    direction: status
+    flags: "CR-T--"
+    description: Open/closed state (true = open, false = closed)
+initial_state:
+  contact_status: false

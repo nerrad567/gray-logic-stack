@@ -3,7 +3,9 @@
 from typing import Any
 
 from fastapi import APIRouter, HTTPException, Query
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
+
+from persistence.db import ConflictError
 
 router = APIRouter(tags=["templates"])
 
@@ -16,13 +18,33 @@ router = APIRouter(tags=["templates"])
 class FromTemplateRequest(BaseModel):
     template_id: str = Field(..., description="Template type to instantiate")
     device_id: str = Field(..., min_length=1, max_length=64, description="Unique device ID")
-    individual_address: str = Field(
-        ..., min_length=3, description="KNX individual address (e.g., 1.1.10)"
+    individual_address: str | None = Field(
+        default=None,
+        min_length=3,
+        description="KNX individual address (e.g., 1.1.10)",
+    )
+    line_id: str | None = Field(default=None, description="Topology line ID")
+    device_number: int | None = Field(
+        default=None, ge=1, le=255, description="Device number on line"
     )
     group_addresses: dict[str, str] = Field(
         ..., description="Mapping of template GA slots to actual group addresses"
     )
     room_id: str | None = Field(default=None, description="Room to place device in")
+
+    @model_validator(mode="after")
+    def _validate_addressing(self):
+        has_ia = bool(self.individual_address)
+        has_line = self.line_id is not None
+        has_device = self.device_number is not None
+
+        if not has_ia and not (has_line and has_device):
+            raise ValueError("Provide individual_address or line_id + device_number")
+
+        if has_line != has_device:
+            raise ValueError("line_id and device_number must be provided together")
+
+        return self
 
 
 def _merge_ga_with_template(
@@ -140,13 +162,20 @@ def create_device_from_template(premise_id: str, body: FromTemplateRequest):
         "id": body.device_id,
         "type": "template_device",
         "individual_address": body.individual_address,
+        "line_id": body.line_id,
+        "device_number": body.device_number,
         "group_addresses": merged_gas,
         "initial_state": dict(template.initial_state),
         "room_id": body.room_id,
         "config": config,
     }
 
-    result = manager.add_device(premise_id, device_data)
+    try:
+        result = manager.add_device(premise_id, device_data)
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=500, detail="Failed to create device")
 

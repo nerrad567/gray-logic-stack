@@ -5,7 +5,7 @@ Defines request/response schemas for premises, devices, floors, and rooms.
 
 from typing import Any
 
-from pydantic import BaseModel, Field
+from pydantic import BaseModel, Field, model_validator
 
 # ---------------------------------------------------------------------------
 # Group Address with metadata
@@ -48,8 +48,13 @@ class Channel(BaseModel):
         default_factory=dict, description="Named group objects with GA assignments"
     )
     state: dict[str, Any] = Field(default_factory=dict, description="Current channel state")
-    initial_state: dict[str, Any] = Field(default_factory=dict, description="Initial state on startup")
-    parameters: dict[str, Any] = Field(default_factory=dict, description="Channel-specific parameters")
+    initial_state: dict[str, Any] = Field(
+        default_factory=dict, description="Initial state on startup"
+    )
+    parameters: dict[str, Any] = Field(
+        default_factory=dict, description="Channel-specific parameters"
+    )
+
 
 # ---------------------------------------------------------------------------
 # Premises
@@ -85,7 +90,9 @@ class PremiseResponse(BaseModel):
 class DeviceCreate(BaseModel):
     id: str = Field(..., min_length=1, max_length=64)
     type: str = Field(..., min_length=1)
-    individual_address: str = Field(..., min_length=3)
+    individual_address: str | None = Field(default=None, min_length=3)
+    line_id: str | None = None
+    device_number: int | None = Field(default=None, ge=1, le=255)
     group_addresses: dict[str, GroupAddressValue] = Field(default_factory=dict)
     initial_state: dict[str, Any] = Field(default_factory=dict)
     channels: list[Channel | dict[str, Any]] | None = Field(
@@ -93,10 +100,26 @@ class DeviceCreate(BaseModel):
     )
     room_id: str | None = None
 
+    @model_validator(mode="after")
+    def _validate_addressing(self):
+        has_ia = bool(self.individual_address)
+        has_line = self.line_id is not None
+        has_device_num = self.device_number is not None
+
+        if not has_ia and not (has_line and has_device_num):
+            raise ValueError("Provide individual_address or line_id + device_number")
+
+        if has_line != has_device_num:
+            raise ValueError("line_id and device_number must be provided together")
+
+        return self
+
 
 class DeviceUpdate(BaseModel):
     room_id: str | None = None
     individual_address: str | None = None
+    line_id: str | None = None
+    device_number: int | None = Field(default=None, ge=1, le=255)
     group_addresses: dict[str, GroupAddressValue] | None = None
     channels: list[Channel | dict[str, Any]] | None = Field(
         default=None, description="Channel configuration update"

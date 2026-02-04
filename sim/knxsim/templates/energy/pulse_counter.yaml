@@ -1,0 +1,44 @@
+id: pulse_counter
+name: Pulse Counter (Water/Gas Meter)
+domain: energy
+description: S0 pulse counter interface for water and gas meters (Zennio KCI style)
+
+manufacturer:
+  id: "M-0064"
+  name: "Zennio"
+  product_model: "KCI 4 S0"
+  application_program: "Consumption Interface 4-fold"
+  hardware_type: "MDRC"
+group_addresses:
+  counter_total:
+    dpt: "13.002"
+    direction: status
+    flags: "CR-T--"
+    description: Total accumulated pulses (litres or cubic metres)
+  flow_rate:
+    dpt: "9.025"
+    direction: status
+    flags: "CR-T--"
+    description: Current flow rate (volume per hour)
+  counter_reset:
+    dpt: "1.015"
+    direction: write
+    flags: "C-W---"
+    description: Reset counter to zero
+initial_state:
+  counter_total: 0
+  flow_rate: 0.0
+scenarios:
+  - field: counter_total
+    type: accumulate
+    params:
+      rate: 0.5
+      min: 0
+      max: 999999
+  - field: flow_rate
+    type: random_walk
+    params:
+      center: 2.0
+      step: 0.5
+      min: 0.0
+      max: 15.0

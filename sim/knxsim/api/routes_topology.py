@@ -237,3 +237,23 @@ def get_topology(premise_id: str):
     if not manager.get_premise(premise_id):
         raise HTTPException(status_code=404, detail="Premise not found")
     return manager.db.get_topology(premise_id)
+
+
+@router.get("/lines/{line_id}/next-device-number")
+def get_next_device_number(premise_id: str, line_id: str):
+    """Get next available device number on a line (1-255)."""
+    manager = router.app.state.manager
+    if not manager.get_premise(premise_id):
+        raise HTTPException(status_code=404, detail="Premise not found")
+    line = manager.db.get_line_with_area(line_id)
+    if not line or line.get("premise_id") != premise_id:
+        raise HTTPException(status_code=404, detail="Line not found")
+    next_number = manager.db.get_next_device_number(line_id)
+    if next_number is None:
+        raise HTTPException(status_code=409, detail="No available device numbers on this line")
+    individual_address = manager.db.compute_individual_address(line_id, next_number)
+    return {
+        "line_id": line_id,
+        "next_device_number": next_number,
+        "individual_address": individual_address,
+    }

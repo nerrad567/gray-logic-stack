@@ -1,0 +1,64 @@
+id: dmx_gateway
+name: DMX Gateway
+domain: lighting
+description: KNX-to-DMX512 gateway for architectural and stage lighting control (Ekinex style). Maps KNX group objects to DMX channels.
+
+manufacturer:
+  id: "M-0071"
+  name: "Ekinex"
+  product_model: "EK-DG1-TP"
+  application_program: "DMX Gateway 512ch"
+  hardware_type: "MDRC"
+channels: 4
+group_addresses:
+  ch1_level:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: DMX channel 1 level 0-100%
+  ch1_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: DMX channel 1 current level
+  ch2_level:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: DMX channel 2 level 0-100%
+  ch2_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: DMX channel 2 current level
+  ch3_level:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: DMX channel 3 level 0-100%
+  ch3_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: DMX channel 3 current level
+  ch4_level:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: DMX channel 4 level 0-100%
+  ch4_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: DMX channel 4 current level
+  master_dimmer:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Master dimmer for all DMX channels
+initial_state:
+  ch1: { level: 0 }
+  ch2: { level: 0 }
+  ch3: { level: 0 }
+  ch4: { level: 0 }
+  master_dimmer: 100

@@ -13,6 +13,11 @@ from datetime import UTC, datetime
 
 logger = logging.getLogger("knxsim.persistence")
 
+
+class ConflictError(Exception):
+    """Raised when a unique or allocation conflict is detected."""
+
+
 SCHEMA_SQL = """
 CREATE TABLE IF NOT EXISTS premises (
     id TEXT PRIMARY KEY,
@@ -979,6 +984,28 @@ class Database:
 
         return (line["id"], device_num)
 
+    def get_line_with_area(self, line_id: str) -> dict | None:
+        """Get line details with area number and premise ID."""
+        row = self.conn.execute(
+            """SELECT l.id AS line_id,
+                      l.area_id,
+                      l.line_number,
+                      a.area_number AS area_number,
+                      a.premise_id AS premise_id
+               FROM lines l
+               JOIN areas a ON l.area_id = a.id
+               WHERE l.id = ?""",
+            (line_id,),
+        ).fetchone()
+        return dict(row) if row else None
+
+    def compute_individual_address(self, line_id: str, device_number: int) -> str | None:
+        """Compute individual address from topology (Area.Line.Device)."""
+        line = self.get_line_with_area(line_id)
+        if not line:
+            return None
+        return f"{line['area_number']}.{line['line_number']}.{device_number}"
+
     # ------------------------------------------------------------------
     # Main Groups (Group Address hierarchy)
     # ------------------------------------------------------------------
@@ -1335,19 +1362,75 @@ class Database:
             row = self.conn.execute("SELECT * FROM devices WHERE id = ?", (device_id,)).fetchone()
             return _parse_device_row(row) if row else None
 
+    def get_device_by_individual_address(
+        self, premise_id: str, individual_address: str
+    ) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM devices WHERE premise_id = ? AND individual_address = ?",
+            (premise_id, individual_address),
+        ).fetchone()
+        return _parse_device_row(row) if row else None
+
+    def get_device_by_line_device(self, line_id: str, device_number: int) -> dict | None:
+        row = self.conn.execute(
+            "SELECT * FROM devices WHERE line_id = ? AND device_number = ?",
+            (line_id, device_number),
+        ).fetchone()
+        return _parse_device_row(row) if row else None
+
+    def get_next_device_number(self, line_id: str) -> int | None:
+        """Return the next available device number on a line (1-255)."""
+        rows = self.conn.execute(
+            "SELECT device_number FROM devices WHERE line_id = ? AND device_number IS NOT NULL",
+            (line_id,),
+        ).fetchall()
+        used = {int(r["device_number"]) for r in rows if r["device_number"] is not None}
+        for number in range(1, 256):
+            if number not in used:
+                return number
+        return None
+
     def create_device(self, premise_id: str, data: dict) -> dict:
         now = _now()
 
         # Handle topology: either line_id+device_number provided, or parse from individual_address
         line_id = data.get("line_id")
         device_number = data.get("device_number")
-        individual_address = data.get("individual_address", "")
+        individual_address = (data.get("individual_address") or "").strip()
 
-        if not line_id and individual_address:
+        if line_id is not None or device_number is not None:
+            if not line_id or device_number is None:
+                raise ValueError("line_id and device_number are required together")
+            if not (1 <= device_number <= 255):
+                raise ValueError("device_number must be between 1 and 255")
+            line = self.get_line_with_area(line_id)
+            if not line or line.get("premise_id") != premise_id:
+                raise ValueError("Line not found in premise")
+            computed = self.compute_individual_address(line_id, device_number)
+            if not computed:
+                raise ValueError("Unable to compute individual_address from topology")
+            if individual_address and individual_address != computed:
+                raise ValueError("individual_address does not match line_id + device_number")
+            individual_address = computed
+        elif individual_address:
             # Auto-create topology from individual address
             topology = self.ensure_topology_for_ia(premise_id, individual_address)
-            if topology:
-                line_id, device_number = topology
+            if not topology:
+                raise ValueError("Invalid individual_address")
+            line_id, device_number = topology
+            if device_number == 0:
+                raise ValueError("device_number 0 is reserved for couplers")
+        else:
+            raise ValueError("individual_address or line_id + device_number required")
+
+        # Conflict checks
+        existing_ia = self.get_device_by_individual_address(premise_id, individual_address)
+        if existing_ia:
+            raise ConflictError("Device with this individual_address already exists")
+        if line_id and device_number is not None:
+            existing_line = self.get_device_by_line_device(line_id, device_number)
+            if existing_line:
+                raise ConflictError("Device number already in use on this line")
 
         # Handle channels: if provided, use them; otherwise auto-generate
         channels = data.get("channels")
@@ -1417,24 +1500,59 @@ class Database:
         vals = []
         now = _now()
 
+        device = self.get_device(device_id)
+        if not device:
+            return None
+
+        premise_id = device["premise_id"]
+        line_id = data.get("line_id", device.get("line_id"))
+        device_number = data.get("device_number", device.get("device_number"))
+        individual_address = data.get("individual_address")
+
+        if "line_id" in data or "device_number" in data:
+            if not line_id or device_number is None:
+                raise ValueError("line_id and device_number are required together")
+            if not (1 <= device_number <= 255):
+                raise ValueError("device_number must be between 1 and 255")
+            line = self.get_line_with_area(line_id)
+            if not line or line.get("premise_id") != premise_id:
+                raise ValueError("Line not found in premise")
+            computed = self.compute_individual_address(line_id, device_number)
+            if not computed:
+                raise ValueError("Unable to compute individual_address from topology")
+            if individual_address and individual_address != computed:
+                raise ValueError("individual_address does not match line_id + device_number")
+            individual_address = computed
+            data["line_id"] = line_id
+            data["device_number"] = device_number
+            data["individual_address"] = individual_address
+        elif "individual_address" in data:
+            if not individual_address:
+                raise ValueError("individual_address cannot be empty")
+            topology = self.ensure_topology_for_ia(premise_id, individual_address)
+            if not topology:
+                raise ValueError("Invalid individual_address")
+            line_id, device_number = topology
+            if device_number == 0:
+                raise ValueError("device_number 0 is reserved for couplers")
+            data["line_id"] = line_id
+            data["device_number"] = device_number
+
+        # Conflict checks
+        if individual_address:
+            existing_ia = self.get_device_by_individual_address(premise_id, individual_address)
+            if existing_ia and existing_ia["id"] != device_id:
+                raise ConflictError("Device with this individual_address already exists")
+        if line_id and device_number is not None:
+            existing_line = self.get_device_by_line_device(line_id, device_number)
+            if existing_line and existing_line["id"] != device_id:
+                raise ConflictError("Device number already in use on this line")
+
         # Handle topology fields
         for key in ("room_id", "type", "individual_address", "line_id", "device_number"):
             if key in data:
                 sets.append(f"{key} = ?")
                 vals.append(data[key])
-
-        # If individual_address changed, update topology
-        if "individual_address" in data and "line_id" not in data:
-            device = self.get_device(device_id)
-            if device:
-                topology = self.ensure_topology_for_ia(
-                    device["premise_id"], data["individual_address"]
-                )
-                if topology:
-                    sets.append("line_id = ?")
-                    vals.append(topology[0])
-                    sets.append("device_number = ?")
-                    vals.append(topology[1])
 
         for json_key in ("group_addresses", "state", "initial_state", "config", "channels"):
             if json_key in data:

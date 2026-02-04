@@ -1,0 +1,37 @@
+id: smoke_detector
+name: Smoke/Heat Detector (Status)
+domain: sensors
+description: Read-only alarm status from certified fire detection system. Gray Logic observes but NEVER controls life safety devices.
+
+manufacturer:
+  id: "M-0083"
+  name: "ABB"
+  product_model: "6199/21"
+  application_program: "Smoke Detector Interface"
+  hardware_type: "flush"
+group_addresses:
+  alarm_status:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Alarm active (true = fire/smoke detected)
+  fault_status:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Detector fault (true = fault condition)
+  battery_low:
+    dpt: "1.005"
+    direction: status
+    flags: "CR-T--"
+    description: Battery low warning
+  test_alarm:
+    dpt: "1.003"
+    direction: status
+    flags: "CR-T--"
+    description: Test alarm triggered (read-only observation)
+initial_state:
+  alarm_status: false
+  fault_status: false
+  battery_low: false
+  test_alarm: false

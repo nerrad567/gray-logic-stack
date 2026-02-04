@@ -6,6 +6,8 @@ registers it on the live KNX bus — no restart required.
 
 from fastapi import APIRouter, HTTPException
 
+from persistence.db import ConflictError
+
 from .models import (
     DeviceCommand,
     DeviceCreate,
@@ -54,7 +56,12 @@ def create_device(premise_id: str, body: DeviceCreate):
     existing = manager.get_device(body.id)
     if existing:
         raise HTTPException(status_code=409, detail="Device ID already exists")
-    result = manager.add_device(premise_id, body.model_dump())
+    try:
+        result = manager.add_device(premise_id, body.model_dump())
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=500, detail="Failed to add device")
     return result
@@ -72,7 +79,12 @@ def update_device(premise_id: str, device_id: str, body: DeviceUpdate):
     updates = body.model_dump(exclude_none=True)
     if not updates:
         return device
-    result = manager.update_device(premise_id, device_id, updates)
+    try:
+        result = manager.update_device(premise_id, device_id, updates)
+    except ConflictError as exc:
+        raise HTTPException(status_code=409, detail=str(exc)) from exc
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc)) from exc
     if not result:
         raise HTTPException(status_code=500, detail="Failed to update device")
     return result

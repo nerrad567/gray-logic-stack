@@ -35,7 +35,7 @@ INDIVIDUAL_ADDRESS_GUIDE = {
             "description": "Topological area or backbone segment. Typically represents a building or major zone.",
         },
         "line": {
-            "bits": "4 (bits 11-8)", 
+            "bits": "4 (bits 11-8)",
             "range": "0-15",
             "description": "Line within the area. Typically represents a floor, wing, or functional section.",
         },
@@ -47,18 +47,36 @@ INDIVIDUAL_ADDRESS_GUIDE = {
     },
     "special_addresses": [
         {"address": "0.0.0", "meaning": "Reserved (invalid)", "note": "Never use"},
-        {"address": "x.0.0", "meaning": "Backbone coupler for area x", "note": "Connects areas to backbone"},
-        {"address": "x.y.0", "meaning": "Line coupler for line y in area x", "note": "Connects line to area"},
-        {"address": "15.15.255", "meaning": "Broadcast/programming address", "note": "Used during commissioning"},
+        {
+            "address": "x.0.0",
+            "meaning": "Backbone coupler for area x",
+            "note": "Connects areas to backbone",
+        },
+        {
+            "address": "x.y.0",
+            "meaning": "Line coupler for line y in area x",
+            "note": "Connects line to area",
+        },
+        {
+            "address": "15.15.255",
+            "meaning": "Broadcast/programming address",
+            "note": "Used during commissioning",
+        },
     ],
     "conventions": [
         {
             "name": "By Physical Location",
             "description": "Area = building/floor, Line = room/zone, Device = sequential",
             "examples": [
-                {"address": "1.1.1", "meaning": "Area 1, Line 1, Device 1 (first device on first line)"},
+                {
+                    "address": "1.1.1",
+                    "meaning": "Area 1, Line 1, Device 1 (first device on first line)",
+                },
                 {"address": "1.1.2", "meaning": "Area 1, Line 1, Device 2 (second device)"},
-                {"address": "1.2.1", "meaning": "Area 1, Line 2, Device 1 (first device on second line)"},
+                {
+                    "address": "1.2.1",
+                    "meaning": "Area 1, Line 2, Device 1 (first device on second line)",
+                },
                 {"address": "2.1.1", "meaning": "Area 2, Line 1, Device 1 (different area)"},
             ],
         },
@@ -212,11 +230,31 @@ FLAGS_GUIDE = {
         },
     ],
     "common_patterns": [
-        {"flags": "C-W-U-", "use_case": "Command input (switch, dimmer command)", "description": "Receives writes, updates from responses"},
-        {"flags": "CR-T--", "use_case": "Status output (switch status, sensor value)", "description": "Can be read, transmits on change"},
-        {"flags": "C--T--", "use_case": "Button/trigger (wall switch press)", "description": "Only transmits, doesn't receive"},
-        {"flags": "CRW-U-", "use_case": "Bidirectional (setpoint, scene)", "description": "Can be read, written, and updated"},
-        {"flags": "CRWTUI", "use_case": "Full (diagnostic/testing)", "description": "All capabilities enabled"},
+        {
+            "flags": "C-W-U-",
+            "use_case": "Command input (switch, dimmer command)",
+            "description": "Receives writes, updates from responses",
+        },
+        {
+            "flags": "CR-T--",
+            "use_case": "Status output (switch status, sensor value)",
+            "description": "Can be read, transmits on change",
+        },
+        {
+            "flags": "C--T--",
+            "use_case": "Button/trigger (wall switch press)",
+            "description": "Only transmits, doesn't receive",
+        },
+        {
+            "flags": "CRW-U-",
+            "use_case": "Bidirectional (setpoint, scene)",
+            "description": "Can be read, written, and updated",
+        },
+        {
+            "flags": "CRWTUI",
+            "use_case": "Full (diagnostic/testing)",
+            "description": "All capabilities enabled",
+        },
     ],
 }
 
@@ -236,181 +274,679 @@ DPT_CATALOG = {
             "name": "Boolean (1-bit) — DPT 1.xxx",
             "description": "Single bit values. Encoding: 0x00=0, 0x01=1",
             "dpts": [
-                {"id": "1.001", "name": "DPT_Switch", "values": "Off / On", "use_case": "Light switching, relay control"},
-                {"id": "1.002", "name": "DPT_Bool", "values": "False / True", "use_case": "Generic boolean"},
-                {"id": "1.003", "name": "DPT_Enable", "values": "Disable / Enable", "use_case": "Function enable/disable"},
-                {"id": "1.005", "name": "DPT_Alarm", "values": "No alarm / Alarm", "use_case": "Alarm status"},
-                {"id": "1.006", "name": "DPT_BinaryValue", "values": "Low / High", "use_case": "Binary input"},
-                {"id": "1.007", "name": "DPT_Step", "values": "Decrease / Increase", "use_case": "Step control"},
-                {"id": "1.008", "name": "DPT_UpDown", "values": "Up / Down", "use_case": "Blind direction"},
-                {"id": "1.009", "name": "DPT_OpenClose", "values": "Open / Close", "use_case": "Valve, contact, door"},
-                {"id": "1.010", "name": "DPT_Start", "values": "Stop / Start", "use_case": "Motor control"},
-                {"id": "1.011", "name": "DPT_State", "values": "Inactive / Active", "use_case": "Generic state"},
-                {"id": "1.015", "name": "DPT_Reset", "values": "No action / Reset", "use_case": "Reset trigger"},
-                {"id": "1.016", "name": "DPT_Ack", "values": "No action / Acknowledge", "use_case": "Acknowledgment"},
-                {"id": "1.017", "name": "DPT_Trigger", "values": "Trigger / Trigger", "use_case": "Scene trigger, pulse (both values same effect)"},
-                {"id": "1.018", "name": "DPT_Occupancy", "values": "Not occupied / Occupied", "use_case": "Presence detection"},
-                {"id": "1.019", "name": "DPT_Window_Door", "values": "Closed / Open", "use_case": "Window/door contact"},
-                {"id": "1.024", "name": "DPT_DayNight", "values": "Day / Night", "use_case": "Day/night mode"},
+                {
+                    "id": "1.001",
+                    "name": "DPT_Switch",
+                    "values": "Off / On",
+                    "use_case": "Light switching, relay control",
+                },
+                {
+                    "id": "1.002",
+                    "name": "DPT_Bool",
+                    "values": "False / True",
+                    "use_case": "Generic boolean",
+                },
+                {
+                    "id": "1.003",
+                    "name": "DPT_Enable",
+                    "values": "Disable / Enable",
+                    "use_case": "Function enable/disable",
+                },
+                {
+                    "id": "1.005",
+                    "name": "DPT_Alarm",
+                    "values": "No alarm / Alarm",
+                    "use_case": "Alarm status",
+                },
+                {
+                    "id": "1.006",
+                    "name": "DPT_BinaryValue",
+                    "values": "Low / High",
+                    "use_case": "Binary input",
+                },
+                {
+                    "id": "1.007",
+                    "name": "DPT_Step",
+                    "values": "Decrease / Increase",
+                    "use_case": "Step control",
+                },
+                {
+                    "id": "1.008",
+                    "name": "DPT_UpDown",
+                    "values": "Up / Down",
+                    "use_case": "Blind direction",
+                },
+                {
+                    "id": "1.009",
+                    "name": "DPT_OpenClose",
+                    "values": "Open / Close",
+                    "use_case": "Valve, contact, door",
+                },
+                {
+                    "id": "1.010",
+                    "name": "DPT_Start",
+                    "values": "Stop / Start",
+                    "use_case": "Motor control",
+                },
+                {
+                    "id": "1.011",
+                    "name": "DPT_State",
+                    "values": "Inactive / Active",
+                    "use_case": "Generic state",
+                },
+                {
+                    "id": "1.015",
+                    "name": "DPT_Reset",
+                    "values": "No action / Reset",
+                    "use_case": "Reset trigger",
+                },
+                {
+                    "id": "1.016",
+                    "name": "DPT_Ack",
+                    "values": "No action / Acknowledge",
+                    "use_case": "Acknowledgment",
+                },
+                {
+                    "id": "1.017",
+                    "name": "DPT_Trigger",
+                    "values": "Trigger / Trigger",
+                    "use_case": "Scene trigger, pulse (both values same effect)",
+                },
+                {
+                    "id": "1.018",
+                    "name": "DPT_Occupancy",
+                    "values": "Not occupied / Occupied",
+                    "use_case": "Presence detection",
+                },
+                {
+                    "id": "1.019",
+                    "name": "DPT_Window_Door",
+                    "values": "Closed / Open",
+                    "use_case": "Window/door contact",
+                },
+                {
+                    "id": "1.024",
+                    "name": "DPT_DayNight",
+                    "values": "Day / Night",
+                    "use_case": "Day/night mode",
+                },
             ],
         },
         {
             "name": "Control (2-4 bit) — DPT 2.xxx, 3.xxx",
             "description": "Control with direction and step. DPT 2: c+v bits, DPT 3: c+stepcode",
             "dpts": [
-                {"id": "2.001", "name": "DPT_Switch_Control", "values": "c=control bit, v=value", "use_case": "Priority switch (c=1 overrides)"},
-                {"id": "2.002", "name": "DPT_Bool_Control", "values": "c=control bit, v=value", "use_case": "Priority boolean"},
-                {"id": "3.007", "name": "DPT_Control_Dimming", "values": "c=0 decrease, c=1 increase", "use_case": "Relative dim up/down", "note": "stepcode 0=stop, 1=100%, 2=50%, 3=25%..."},
-                {"id": "3.008", "name": "DPT_Control_Blinds", "values": "c=0 up, c=1 down", "use_case": "Relative blind control", "note": "stepcode 0=stop, 1-7=step size"},
+                {
+                    "id": "2.001",
+                    "name": "DPT_Switch_Control",
+                    "values": "c=control bit, v=value",
+                    "use_case": "Priority switch (c=1 overrides)",
+                },
+                {
+                    "id": "2.002",
+                    "name": "DPT_Bool_Control",
+                    "values": "c=control bit, v=value",
+                    "use_case": "Priority boolean",
+                },
+                {
+                    "id": "3.007",
+                    "name": "DPT_Control_Dimming",
+                    "values": "c=0 decrease, c=1 increase",
+                    "use_case": "Relative dim up/down",
+                    "note": "stepcode 0=stop, 1=100%, 2=50%, 3=25%...",
+                },
+                {
+                    "id": "3.008",
+                    "name": "DPT_Control_Blinds",
+                    "values": "c=0 up, c=1 down",
+                    "use_case": "Relative blind control",
+                    "note": "stepcode 0=stop, 1-7=step size",
+                },
             ],
         },
         {
             "name": "Unsigned 8-bit — DPT 5.xxx",
             "description": "8-bit unsigned (0-255). Note: 5.001 is scaled, 5.004 is linear",
             "dpts": [
-                {"id": "5.001", "name": "DPT_Scaling", "unit": "%", "range": "0-100", "use_case": "Dimmer level, blind position", "note": "0x00=0%, 0x80=50%, 0xFF=100%"},
-                {"id": "5.003", "name": "DPT_Angle", "unit": "°", "range": "0-360", "use_case": "Blind slat angle", "note": "0x00=0°, 0xFF=360°"},
-                {"id": "5.004", "name": "DPT_Percent_U8", "unit": "%", "range": "0-255", "use_case": "Raw percentage (linear)", "note": "0x32=50%, 0x64=100%"},
-                {"id": "5.005", "name": "DPT_DecimalFactor", "unit": "ratio", "range": "0-255", "use_case": "Multiplication factor"},
-                {"id": "5.006", "name": "DPT_Tariff", "unit": "-", "range": "0-254", "use_case": "Tariff number (255=invalid)"},
-                {"id": "5.010", "name": "DPT_Value_1_Ucount", "unit": "pulses", "range": "0-255", "use_case": "Pulse counter"},
+                {
+                    "id": "5.001",
+                    "name": "DPT_Scaling",
+                    "unit": "%",
+                    "range": "0-100",
+                    "use_case": "Dimmer level, blind position",
+                    "note": "0x00=0%, 0x80=50%, 0xFF=100%",
+                },
+                {
+                    "id": "5.003",
+                    "name": "DPT_Angle",
+                    "unit": "°",
+                    "range": "0-360",
+                    "use_case": "Blind slat angle",
+                    "note": "0x00=0°, 0xFF=360°",
+                },
+                {
+                    "id": "5.004",
+                    "name": "DPT_Percent_U8",
+                    "unit": "%",
+                    "range": "0-255",
+                    "use_case": "Raw percentage (linear)",
+                    "note": "0x32=50%, 0x64=100%",
+                },
+                {
+                    "id": "5.005",
+                    "name": "DPT_DecimalFactor",
+                    "unit": "ratio",
+                    "range": "0-255",
+                    "use_case": "Multiplication factor",
+                },
+                {
+                    "id": "5.006",
+                    "name": "DPT_Tariff",
+                    "unit": "-",
+                    "range": "0-254",
+                    "use_case": "Tariff number (255=invalid)",
+                },
+                {
+                    "id": "5.010",
+                    "name": "DPT_Value_1_Ucount",
+                    "unit": "pulses",
+                    "range": "0-255",
+                    "use_case": "Pulse counter",
+                },
             ],
         },
         {
             "name": "Signed 8-bit — DPT 6.xxx",
             "description": "8-bit signed two's complement (-128 to +127)",
             "dpts": [
-                {"id": "6.001", "name": "DPT_Percent_V8", "unit": "%", "range": "-128 to 127", "use_case": "Relative adjustment"},
-                {"id": "6.010", "name": "DPT_Value_1_Count", "unit": "pulses", "range": "-128 to 127", "use_case": "Signed counter"},
+                {
+                    "id": "6.001",
+                    "name": "DPT_Percent_V8",
+                    "unit": "%",
+                    "range": "-128 to 127",
+                    "use_case": "Relative adjustment",
+                },
+                {
+                    "id": "6.010",
+                    "name": "DPT_Value_1_Count",
+                    "unit": "pulses",
+                    "range": "-128 to 127",
+                    "use_case": "Signed counter",
+                },
             ],
         },
         {
             "name": "Unsigned 16-bit — DPT 7.xxx",
             "description": "16-bit unsigned (0-65535), MSB first",
             "dpts": [
-                {"id": "7.001", "name": "DPT_Value_2_Ucount", "unit": "pulses", "range": "0-65535", "use_case": "Counter value"},
-                {"id": "7.002", "name": "DPT_TimePeriodMsec", "unit": "ms", "range": "0-65535", "use_case": "Millisecond timer"},
-                {"id": "7.005", "name": "DPT_TimePeriodSec", "unit": "s", "range": "0-65535", "use_case": "Second timer"},
-                {"id": "7.006", "name": "DPT_TimePeriodMin", "unit": "min", "range": "0-65535", "use_case": "Minute timer"},
-                {"id": "7.007", "name": "DPT_TimePeriodHrs", "unit": "h", "range": "0-65535", "use_case": "Hour timer"},
-                {"id": "7.011", "name": "DPT_Length_mm", "unit": "mm", "range": "0-65535", "use_case": "Length measurement"},
-                {"id": "7.012", "name": "DPT_UElCurrentmA", "unit": "mA", "range": "0-65535", "use_case": "Current measurement"},
-                {"id": "7.013", "name": "DPT_Brightness", "unit": "lux", "range": "0-65535", "use_case": "Brightness (integer lux)"},
-                {"id": "7.600", "name": "DPT_Absolute_Colour_Temperature", "unit": "K", "range": "0-65535", "use_case": "Color temperature (Kelvin)"},
+                {
+                    "id": "7.001",
+                    "name": "DPT_Value_2_Ucount",
+                    "unit": "pulses",
+                    "range": "0-65535",
+                    "use_case": "Counter value",
+                },
+                {
+                    "id": "7.002",
+                    "name": "DPT_TimePeriodMsec",
+                    "unit": "ms",
+                    "range": "0-65535",
+                    "use_case": "Millisecond timer",
+                },
+                {
+                    "id": "7.005",
+                    "name": "DPT_TimePeriodSec",
+                    "unit": "s",
+                    "range": "0-65535",
+                    "use_case": "Second timer",
+                },
+                {
+                    "id": "7.006",
+                    "name": "DPT_TimePeriodMin",
+                    "unit": "min",
+                    "range": "0-65535",
+                    "use_case": "Minute timer",
+                },
+                {
+                    "id": "7.007",
+                    "name": "DPT_TimePeriodHrs",
+                    "unit": "h",
+                    "range": "0-65535",
+                    "use_case": "Hour timer",
+                },
+                {
+                    "id": "7.011",
+                    "name": "DPT_Length_mm",
+                    "unit": "mm",
+                    "range": "0-65535",
+                    "use_case": "Length measurement",
+                },
+                {
+                    "id": "7.012",
+                    "name": "DPT_UElCurrentmA",
+                    "unit": "mA",
+                    "range": "0-65535",
+                    "use_case": "Current measurement",
+                },
+                {
+                    "id": "7.013",
+                    "name": "DPT_Brightness",
+                    "unit": "lux",
+                    "range": "0-65535",
+                    "use_case": "Brightness (integer lux)",
+                },
+                {
+                    "id": "7.600",
+                    "name": "DPT_Absolute_Colour_Temperature",
+                    "unit": "K",
+                    "range": "0-65535",
+                    "use_case": "Color temperature (Kelvin)",
+                },
             ],
         },
         {
             "name": "Signed 16-bit — DPT 8.xxx",
             "description": "16-bit signed two's complement, MSB first",
             "dpts": [
-                {"id": "8.001", "name": "DPT_Value_2_Count", "unit": "pulses", "range": "±32767", "use_case": "Signed counter"},
-                {"id": "8.005", "name": "DPT_DeltaTimeSec", "unit": "s", "range": "±32767", "use_case": "Time difference"},
-                {"id": "8.010", "name": "DPT_Percent_V16", "unit": "%", "range": "-327.68 to 327.67", "use_case": "Precise percentage", "note": "0x7FFF=invalid"},
-                {"id": "8.011", "name": "DPT_Rotation_Angle", "unit": "°", "range": "±32767", "use_case": "Rotation angle"},
+                {
+                    "id": "8.001",
+                    "name": "DPT_Value_2_Count",
+                    "unit": "pulses",
+                    "range": "±32767",
+                    "use_case": "Signed counter",
+                },
+                {
+                    "id": "8.005",
+                    "name": "DPT_DeltaTimeSec",
+                    "unit": "s",
+                    "range": "±32767",
+                    "use_case": "Time difference",
+                },
+                {
+                    "id": "8.010",
+                    "name": "DPT_Percent_V16",
+                    "unit": "%",
+                    "range": "-327.68 to 327.67",
+                    "use_case": "Precise percentage",
+                    "note": "0x7FFF=invalid",
+                },
+                {
+                    "id": "8.011",
+                    "name": "DPT_Rotation_Angle",
+                    "unit": "°",
+                    "range": "±32767",
+                    "use_case": "Rotation angle",
+                },
             ],
         },
         {
             "name": "2-byte Float — DPT 9.xxx",
             "description": "KNX 16-bit float: (0.01 × M) × 2^E. Resolution 0.01. 0x7FFF=invalid",
             "dpts": [
-                {"id": "9.001", "name": "DPT_Value_Temp", "unit": "°C", "range": "-273 to 670760", "use_case": "Temperature"},
-                {"id": "9.002", "name": "DPT_Value_Tempd", "unit": "K", "range": "±670760", "use_case": "Temperature difference"},
-                {"id": "9.003", "name": "DPT_Value_Tempa", "unit": "K/h", "range": "±670760", "use_case": "Temperature change rate"},
-                {"id": "9.004", "name": "DPT_Value_Lux", "unit": "lux", "range": "0-670760", "use_case": "Light level sensor"},
-                {"id": "9.005", "name": "DPT_Value_Wsp", "unit": "m/s", "range": "0-670760", "use_case": "Wind speed"},
-                {"id": "9.006", "name": "DPT_Value_Pres", "unit": "Pa", "range": "0-670760", "use_case": "Air pressure"},
-                {"id": "9.007", "name": "DPT_Value_Humidity", "unit": "%", "range": "0-670760", "use_case": "Relative humidity"},
-                {"id": "9.008", "name": "DPT_Value_AirQuality", "unit": "ppm", "range": "0-670760", "use_case": "CO2, VOC sensors"},
-                {"id": "9.009", "name": "DPT_Value_AirFlow", "unit": "m³/h", "range": "±670760", "use_case": "Ventilation airflow"},
-                {"id": "9.020", "name": "DPT_Value_Volt", "unit": "mV", "range": "±670760", "use_case": "Voltage measurement"},
-                {"id": "9.021", "name": "DPT_Value_Curr", "unit": "mA", "range": "±670760", "use_case": "Current measurement"},
-                {"id": "9.024", "name": "DPT_Power", "unit": "kW", "range": "±670760", "use_case": "Power measurement"},
-                {"id": "9.027", "name": "DPT_Value_Temp_F", "unit": "°F", "range": "-459.6 to 670760", "use_case": "Temperature (Fahrenheit)"},
-                {"id": "9.028", "name": "DPT_Value_Wsp_kmh", "unit": "km/h", "range": "0-670760", "use_case": "Wind speed (km/h)"},
+                {
+                    "id": "9.001",
+                    "name": "DPT_Value_Temp",
+                    "unit": "°C",
+                    "range": "-273 to 670760",
+                    "use_case": "Temperature",
+                },
+                {
+                    "id": "9.002",
+                    "name": "DPT_Value_Tempd",
+                    "unit": "K",
+                    "range": "±670760",
+                    "use_case": "Temperature difference",
+                },
+                {
+                    "id": "9.003",
+                    "name": "DPT_Value_Tempa",
+                    "unit": "K/h",
+                    "range": "±670760",
+                    "use_case": "Temperature change rate",
+                },
+                {
+                    "id": "9.004",
+                    "name": "DPT_Value_Lux",
+                    "unit": "lux",
+                    "range": "0-670760",
+                    "use_case": "Light level sensor",
+                },
+                {
+                    "id": "9.005",
+                    "name": "DPT_Value_Wsp",
+                    "unit": "m/s",
+                    "range": "0-670760",
+                    "use_case": "Wind speed",
+                },
+                {
+                    "id": "9.006",
+                    "name": "DPT_Value_Pres",
+                    "unit": "Pa",
+                    "range": "0-670760",
+                    "use_case": "Air pressure",
+                },
+                {
+                    "id": "9.007",
+                    "name": "DPT_Value_Humidity",
+                    "unit": "%",
+                    "range": "0-670760",
+                    "use_case": "Relative humidity",
+                },
+                {
+                    "id": "9.008",
+                    "name": "DPT_Value_AirQuality",
+                    "unit": "ppm",
+                    "range": "0-670760",
+                    "use_case": "CO2, VOC sensors",
+                },
+                {
+                    "id": "9.009",
+                    "name": "DPT_Value_AirFlow",
+                    "unit": "m³/h",
+                    "range": "±670760",
+                    "use_case": "Ventilation airflow",
+                },
+                {
+                    "id": "9.020",
+                    "name": "DPT_Value_Volt",
+                    "unit": "mV",
+                    "range": "±670760",
+                    "use_case": "Voltage measurement",
+                },
+                {
+                    "id": "9.021",
+                    "name": "DPT_Value_Curr",
+                    "unit": "mA",
+                    "range": "±670760",
+                    "use_case": "Current measurement",
+                },
+                {
+                    "id": "9.024",
+                    "name": "DPT_Power",
+                    "unit": "kW",
+                    "range": "±670760",
+                    "use_case": "Power measurement",
+                },
+                {
+                    "id": "9.027",
+                    "name": "DPT_Value_Temp_F",
+                    "unit": "°F",
+                    "range": "-459.6 to 670760",
+                    "use_case": "Temperature (Fahrenheit)",
+                },
+                {
+                    "id": "9.028",
+                    "name": "DPT_Value_Wsp_kmh",
+                    "unit": "km/h",
+                    "range": "0-670760",
+                    "use_case": "Wind speed (km/h)",
+                },
             ],
         },
         {
             "name": "Time & Date — DPT 10, 11, 19",
             "description": "Time (3 bytes), Date (3 bytes), DateTime (8 bytes)",
             "dpts": [
-                {"id": "10.001", "name": "DPT_TimeOfDay", "format": "DDD HHHHH : 00MMMMMM : 00SSSSSS", "use_case": "Time with weekday (0=no day, 1=Mon...7=Sun)"},
-                {"id": "11.001", "name": "DPT_Date", "format": "000DDDDD : 0000MMMM : 0YYYYYYY", "use_case": "Date (year: ≥90=19xx, <90=20xx)"},
-                {"id": "19.001", "name": "DPT_DateTime", "format": "8 bytes: Y,M,D,DH,M,S,flags", "use_case": "Full timestamp"},
+                {
+                    "id": "10.001",
+                    "name": "DPT_TimeOfDay",
+                    "format": "DDD HHHHH : 00MMMMMM : 00SSSSSS",
+                    "use_case": "Time with weekday (0=no day, 1=Mon...7=Sun)",
+                },
+                {
+                    "id": "11.001",
+                    "name": "DPT_Date",
+                    "format": "000DDDDD : 0000MMMM : 0YYYYYYY",
+                    "use_case": "Date (year: ≥90=19xx, <90=20xx)",
+                },
+                {
+                    "id": "19.001",
+                    "name": "DPT_DateTime",
+                    "format": "8 bytes: Y,M,D,DH,M,S,flags",
+                    "use_case": "Full timestamp",
+                },
             ],
         },
         {
             "name": "Scene — DPT 17, 18",
             "description": "Scene recall and control",
             "dpts": [
-                {"id": "17.001", "name": "DPT_SceneNumber", "range": "0-63", "use_case": "Scene recall (displayed as 1-64)"},
-                {"id": "18.001", "name": "DPT_SceneControl", "format": "L0SSSSSS", "use_case": "Scene control", "note": "L=0 activate, L=1 learn/store"},
+                {
+                    "id": "17.001",
+                    "name": "DPT_SceneNumber",
+                    "range": "0-63",
+                    "use_case": "Scene recall (displayed as 1-64)",
+                },
+                {
+                    "id": "18.001",
+                    "name": "DPT_SceneControl",
+                    "format": "L0SSSSSS",
+                    "use_case": "Scene control",
+                    "note": "L=0 activate, L=1 learn/store",
+                },
             ],
         },
         {
             "name": "HVAC Modes — DPT 20.xxx",
             "description": "8-bit enumeration for HVAC control",
             "dpts": [
-                {"id": "20.001", "name": "DPT_SCLOMode", "values": "0=Autonomous, 1=Slave", "use_case": "SCLO mode"},
-                {"id": "20.002", "name": "DPT_BuildingMode", "values": "0=In use, 1=Not used, 2=Protection", "use_case": "Building occupancy mode"},
-                {"id": "20.003", "name": "DPT_OccMode", "values": "0=Occupied, 1=Standby, 2=Not occupied", "use_case": "Room occupancy"},
-                {"id": "20.102", "name": "DPT_HVACMode", "values": "0=Auto, 1=Comfort, 2=Standby, 3=Economy, 4=Protection", "use_case": "HVAC operating mode"},
-                {"id": "20.105", "name": "DPT_HVACContrMode", "values": "0=Auto, 1=Heat, 2=Morning warmup, 3=Cool, 4=Night purge, 5=Precool, 6=Off...", "use_case": "HVAC control mode (20 values)"},
+                {
+                    "id": "20.001",
+                    "name": "DPT_SCLOMode",
+                    "values": "0=Autonomous, 1=Slave",
+                    "use_case": "SCLO mode",
+                },
+                {
+                    "id": "20.002",
+                    "name": "DPT_BuildingMode",
+                    "values": "0=In use, 1=Not used, 2=Protection",
+                    "use_case": "Building occupancy mode",
+                },
+                {
+                    "id": "20.003",
+                    "name": "DPT_OccMode",
+                    "values": "0=Occupied, 1=Standby, 2=Not occupied",
+                    "use_case": "Room occupancy",
+                },
+                {
+                    "id": "20.102",
+                    "name": "DPT_HVACMode",
+                    "values": "0=Auto, 1=Comfort, 2=Standby, 3=Economy, 4=Protection",
+                    "use_case": "HVAC operating mode",
+                },
+                {
+                    "id": "20.105",
+                    "name": "DPT_HVACContrMode",
+                    "values": "0=Auto, 1=Heat, 2=Morning warmup, 3=Cool, 4=Night purge, 5=Precool, 6=Off...",
+                    "use_case": "HVAC control mode (20 values)",
+                },
             ],
         },
         {
             "name": "Unsigned 32-bit — DPT 12.xxx",
             "description": "32-bit unsigned (0 to 4294967295), MSB first",
             "dpts": [
-                {"id": "12.001", "name": "DPT_Value_4_Ucount", "unit": "pulses", "range": "0-4294967295", "use_case": "Large counter"},
-                {"id": "12.100", "name": "DPT_LongTimePeriod_Sec", "unit": "s", "range": "0-4294967295", "use_case": "Long duration (seconds)"},
-                {"id": "12.101", "name": "DPT_LongTimePeriod_Min", "unit": "min", "range": "0-4294967295", "use_case": "Long duration (minutes)"},
+                {
+                    "id": "12.001",
+                    "name": "DPT_Value_4_Ucount",
+                    "unit": "pulses",
+                    "range": "0-4294967295",
+                    "use_case": "Large counter",
+                },
+                {
+                    "id": "12.100",
+                    "name": "DPT_LongTimePeriod_Sec",
+                    "unit": "s",
+                    "range": "0-4294967295",
+                    "use_case": "Long duration (seconds)",
+                },
+                {
+                    "id": "12.101",
+                    "name": "DPT_LongTimePeriod_Min",
+                    "unit": "min",
+                    "range": "0-4294967295",
+                    "use_case": "Long duration (minutes)",
+                },
             ],
         },
         {
             "name": "Signed 32-bit — DPT 13.xxx",
             "description": "32-bit signed two's complement, MSB first",
             "dpts": [
-                {"id": "13.001", "name": "DPT_Value_4_Count", "unit": "pulses", "range": "±2147483647", "use_case": "Signed counter"},
-                {"id": "13.002", "name": "DPT_FlowRate_m3/h", "unit": "0.0001 m³/h", "range": "±2147483647", "use_case": "Flow rate"},
-                {"id": "13.010", "name": "DPT_ActiveEnergy", "unit": "Wh", "range": "±2147483647", "use_case": "Energy meter (Wh)"},
-                {"id": "13.011", "name": "DPT_ApparantEnergy", "unit": "VAh", "range": "±2147483647", "use_case": "Apparent energy"},
-                {"id": "13.012", "name": "DPT_ReactiveEnergy", "unit": "VARh", "range": "±2147483647", "use_case": "Reactive energy"},
-                {"id": "13.013", "name": "DPT_ActiveEnergy_kWh", "unit": "kWh", "range": "±2147483647", "use_case": "Energy meter (kWh)"},
+                {
+                    "id": "13.001",
+                    "name": "DPT_Value_4_Count",
+                    "unit": "pulses",
+                    "range": "±2147483647",
+                    "use_case": "Signed counter",
+                },
+                {
+                    "id": "13.002",
+                    "name": "DPT_FlowRate_m3/h",
+                    "unit": "0.0001 m³/h",
+                    "range": "±2147483647",
+                    "use_case": "Flow rate",
+                },
+                {
+                    "id": "13.010",
+                    "name": "DPT_ActiveEnergy",
+                    "unit": "Wh",
+                    "range": "±2147483647",
+                    "use_case": "Energy meter (Wh)",
+                },
+                {
+                    "id": "13.011",
+                    "name": "DPT_ApparantEnergy",
+                    "unit": "VAh",
+                    "range": "±2147483647",
+                    "use_case": "Apparent energy",
+                },
+                {
+                    "id": "13.012",
+                    "name": "DPT_ReactiveEnergy",
+                    "unit": "VARh",
+                    "range": "±2147483647",
+                    "use_case": "Reactive energy",
+                },
+                {
+                    "id": "13.013",
+                    "name": "DPT_ActiveEnergy_kWh",
+                    "unit": "kWh",
+                    "range": "±2147483647",
+                    "use_case": "Energy meter (kWh)",
+                },
             ],
         },
         {
             "name": "4-byte Float — DPT 14.xxx",
             "description": "IEEE 754 single precision float",
             "dpts": [
-                {"id": "14.000", "name": "DPT_Value_Acceleration", "unit": "m/s²", "use_case": "Acceleration"},
-                {"id": "14.007", "name": "DPT_Value_AngleDeg", "unit": "°", "use_case": "Angle (degrees)"},
-                {"id": "14.019", "name": "DPT_Value_Electric_Current", "unit": "A", "use_case": "Current (high precision)"},
-                {"id": "14.027", "name": "DPT_Value_Electric_Potential", "unit": "V", "use_case": "Voltage (high precision)"},
-                {"id": "14.033", "name": "DPT_Value_Frequency", "unit": "Hz", "use_case": "Frequency"},
-                {"id": "14.056", "name": "DPT_Value_Power", "unit": "W", "use_case": "Power (high precision)"},
-                {"id": "14.057", "name": "DPT_Value_Power_Factor", "unit": "-", "use_case": "Power factor (cos φ)"},
+                {
+                    "id": "14.000",
+                    "name": "DPT_Value_Acceleration",
+                    "unit": "m/s²",
+                    "use_case": "Acceleration",
+                },
+                {
+                    "id": "14.007",
+                    "name": "DPT_Value_AngleDeg",
+                    "unit": "°",
+                    "use_case": "Angle (degrees)",
+                },
+                {
+                    "id": "14.019",
+                    "name": "DPT_Value_Electric_Current",
+                    "unit": "A",
+                    "use_case": "Current (high precision)",
+                },
+                {
+                    "id": "14.027",
+                    "name": "DPT_Value_Electric_Potential",
+                    "unit": "V",
+                    "use_case": "Voltage (high precision)",
+                },
+                {
+                    "id": "14.033",
+                    "name": "DPT_Value_Frequency",
+                    "unit": "Hz",
+                    "use_case": "Frequency",
+                },
+                {
+                    "id": "14.056",
+                    "name": "DPT_Value_Power",
+                    "unit": "W",
+                    "use_case": "Power (high precision)",
+                },
+                {
+                    "id": "14.057",
+                    "name": "DPT_Value_Power_Factor",
+                    "unit": "-",
+                    "use_case": "Power factor (cos φ)",
+                },
                 {"id": "14.065", "name": "DPT_Value_Speed", "unit": "m/s", "use_case": "Speed"},
-                {"id": "14.068", "name": "DPT_Value_Common_Temperature", "unit": "°C", "use_case": "Temperature (high precision)"},
+                {
+                    "id": "14.068",
+                    "name": "DPT_Value_Common_Temperature",
+                    "unit": "°C",
+                    "use_case": "Temperature (high precision)",
+                },
                 {"id": "14.076", "name": "DPT_Value_Volume", "unit": "m³", "use_case": "Volume"},
-                {"id": "14.077", "name": "DPT_Value_Volume_Flux", "unit": "m³/s", "use_case": "Volume flow"},
+                {
+                    "id": "14.077",
+                    "name": "DPT_Value_Volume_Flux",
+                    "unit": "m³/s",
+                    "use_case": "Volume flow",
+                },
             ],
         },
         {
             "name": "Text — DPT 4, 16",
             "description": "Character and string values",
             "dpts": [
-                {"id": "4.001", "name": "DPT_Char_ASCII", "size": "1 byte", "use_case": "Single ASCII character (0-127)"},
-                {"id": "4.002", "name": "DPT_Char_8859_1", "size": "1 byte", "use_case": "Single Latin-1 character (0-255)"},
-                {"id": "16.000", "name": "DPT_String_ASCII", "size": "14 bytes", "use_case": "Text display (ASCII, NUL-padded)"},
-                {"id": "16.001", "name": "DPT_String_8859_1", "size": "14 bytes", "use_case": "Text display (Latin-1)"},
+                {
+                    "id": "4.001",
+                    "name": "DPT_Char_ASCII",
+                    "size": "1 byte",
+                    "use_case": "Single ASCII character (0-127)",
+                },
+                {
+                    "id": "4.002",
+                    "name": "DPT_Char_8859_1",
+                    "size": "1 byte",
+                    "use_case": "Single Latin-1 character (0-255)",
+                },
+                {
+                    "id": "16.000",
+                    "name": "DPT_String_ASCII",
+                    "size": "14 bytes",
+                    "use_case": "Text display (ASCII, NUL-padded)",
+                },
+                {
+                    "id": "16.001",
+                    "name": "DPT_String_8859_1",
+                    "size": "14 bytes",
+                    "use_case": "Text display (Latin-1)",
+                },
             ],
         },
         {
             "name": "Color — DPT 232, 251",
             "description": "RGB and RGBW color values",
             "dpts": [
-                {"id": "232.600", "name": "DPT_Colour_RGB", "format": "R, G, B (0-255 each)", "use_case": "RGB LED control", "note": "3 bytes"},
-                {"id": "251.600", "name": "DPT_Colour_RGBW", "format": "R, G, B, W + validity", "use_case": "RGBW LED control", "note": "6 bytes (4 color + validity + reserved)"},
+                {
+                    "id": "232.600",
+                    "name": "DPT_Colour_RGB",
+                    "format": "R, G, B (0-255 each)",
+                    "use_case": "RGB LED control",
+                    "note": "3 bytes",
+                },
+                {
+                    "id": "251.600",
+                    "name": "DPT_Colour_RGBW",
+                    "format": "R, G, B, W + validity",
+                    "use_case": "RGBW LED control",
+                    "note": "6 bytes (4 color + validity + reserved)",
+                },
             ],
         },
     ],
@@ -432,7 +968,12 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
-                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
             ],
             "state_fields": {"on": False},
         },
@@ -444,7 +985,12 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
-                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
             ],
             "state_fields": {"on": False},
         },
@@ -456,7 +1002,12 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
-                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "Current state"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
             ],
             "state_fields": {"on": False},
         },
@@ -468,9 +1019,24 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
-                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "On/Off state"},
-                {"name": "brightness", "dpt": "5.001", "flags": "CWU", "description": "Brightness (0-100%)"},
-                {"name": "brightness_status", "dpt": "5.001", "flags": "CRT", "description": "Current brightness"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "On/Off state",
+                },
+                {
+                    "name": "brightness",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Brightness (0-100%)",
+                },
+                {
+                    "name": "brightness_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current brightness",
+                },
                 {"name": "dim", "dpt": "3.007", "flags": "CW", "description": "Relative dimming"},
             ],
             "state_fields": {"on": False, "brightness": 0},
@@ -483,9 +1049,24 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
-                {"name": "switch_status", "dpt": "1.001", "flags": "CRT", "description": "On/Off state"},
-                {"name": "brightness", "dpt": "5.001", "flags": "CWU", "description": "Brightness (0-100%)"},
-                {"name": "brightness_status", "dpt": "5.001", "flags": "CRT", "description": "Current brightness"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "On/Off state",
+                },
+                {
+                    "name": "brightness",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Brightness (0-100%)",
+                },
+                {
+                    "name": "brightness_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current brightness",
+                },
                 {"name": "dim", "dpt": "3.007", "flags": "CW", "description": "Relative dimming"},
             ],
             "state_fields": {"on": False, "brightness": 0},
@@ -499,8 +1080,18 @@ MULTI_CHANNEL_TEMPLATES = {
             "group_objects": [
                 {"name": "move", "dpt": "1.008", "flags": "CW", "description": "Up/Down command"},
                 {"name": "stop", "dpt": "1.017", "flags": "CW", "description": "Stop movement"},
-                {"name": "position", "dpt": "5.001", "flags": "CWU", "description": "Target position (0-100%)"},
-                {"name": "position_status", "dpt": "5.001", "flags": "CRT", "description": "Current position"},
+                {
+                    "name": "position",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Target position (0-100%)",
+                },
+                {
+                    "name": "position_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current position",
+                },
             ],
             "state_fields": {"position": 0, "moving": False},
         },
@@ -513,8 +1104,18 @@ MULTI_CHANNEL_TEMPLATES = {
             "group_objects": [
                 {"name": "move", "dpt": "1.008", "flags": "CW", "description": "Up/Down command"},
                 {"name": "stop", "dpt": "1.017", "flags": "CW", "description": "Stop movement"},
-                {"name": "position", "dpt": "5.001", "flags": "CWU", "description": "Target position (0-100%)"},
-                {"name": "position_status", "dpt": "5.001", "flags": "CRT", "description": "Current position"},
+                {
+                    "name": "position",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Target position (0-100%)",
+                },
+                {
+                    "name": "position_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current position",
+                },
             ],
             "state_fields": {"position": 0, "moving": False},
         },
@@ -525,8 +1126,18 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_count": 2,
         "channel_template": {
             "group_objects": [
-                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
-                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+                {
+                    "name": "switch",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Button toggle output",
+                },
+                {
+                    "name": "long_press",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Long press output",
+                },
             ],
             "state_fields": {"pressed": False},
         },
@@ -537,8 +1148,18 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_count": 4,
         "channel_template": {
             "group_objects": [
-                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
-                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+                {
+                    "name": "switch",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Button toggle output",
+                },
+                {
+                    "name": "long_press",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Long press output",
+                },
             ],
             "state_fields": {"pressed": False},
         },
@@ -549,8 +1170,18 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_count": 6,
         "channel_template": {
             "group_objects": [
-                {"name": "switch", "dpt": "1.001", "flags": "CRT", "description": "Button toggle output"},
-                {"name": "long_press", "dpt": "1.001", "flags": "CRT", "description": "Long press output"},
+                {
+                    "name": "switch",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Button toggle output",
+                },
+                {
+                    "name": "long_press",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Long press output",
+                },
             ],
             "state_fields": {"pressed": False},
         },
@@ -562,7 +1193,12 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "state", "dpt": "1.001", "flags": "CRT", "description": "Input state"},
-                {"name": "counter", "dpt": "12.001", "flags": "CRT", "description": "Pulse counter (optional)"},
+                {
+                    "name": "counter",
+                    "dpt": "12.001",
+                    "flags": "CRT",
+                    "description": "Pulse counter (optional)",
+                },
             ],
             "state_fields": {"active": False},
         },
@@ -574,7 +1210,267 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_template": {
             "group_objects": [
                 {"name": "state", "dpt": "1.001", "flags": "CRT", "description": "Input state"},
-                {"name": "counter", "dpt": "12.001", "flags": "CRT", "description": "Pulse counter (optional)"},
+                {
+                    "name": "counter",
+                    "dpt": "12.001",
+                    "flags": "CRT",
+                    "description": "Pulse counter (optional)",
+                },
+            ],
+            "state_fields": {"active": False},
+        },
+        "device_parameters": ["debounce_time", "invert_input"],
+    },
+    # --- Additional switch actuator variants ---
+    "switch_actuator_6fold": {
+        "description": "6-channel switch actuator (e.g., MDT AKS-0616.03)",
+        "channel_count": 6,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "switch_actuator_12fold": {
+        "description": "12-channel switch actuator (e.g., ABB SA/S 12.16.6.1)",
+        "channel_count": 12,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "switch_actuator_16fold": {
+        "description": "16-channel switch actuator (e.g., ABB SA/S 16.16.5.2)",
+        "channel_count": 16,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    "switch_actuator_24fold": {
+        "description": "24-channel switch actuator (e.g., MDT AKS-2416.03)",
+        "channel_count": 24,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Current state",
+                },
+            ],
+            "state_fields": {"on": False},
+        },
+        "device_parameters": ["power_on_state", "bus_voltage_failure"],
+    },
+    # --- Heating actuator variants ---
+    "heating_actuator_2fold": {
+        "description": "2-channel heating actuator for valve control (e.g., MDT AKH-0200.02)",
+        "channel_count": 2,
+        "channel_template": {
+            "group_objects": [
+                {
+                    "name": "valve_cmd",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Valve position command (0-100%)",
+                },
+                {
+                    "name": "valve_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current valve position",
+                },
+            ],
+            "state_fields": {"position": 0},
+        },
+        "device_parameters": ["power_on_state", "min_position", "max_position"],
+    },
+    "heating_actuator_4fold": {
+        "description": "4-channel heating actuator for valve control (e.g., MDT AKH-0400.02)",
+        "channel_count": 4,
+        "channel_template": {
+            "group_objects": [
+                {
+                    "name": "valve_cmd",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Valve position command (0-100%)",
+                },
+                {
+                    "name": "valve_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current valve position",
+                },
+            ],
+            "state_fields": {"position": 0},
+        },
+        "device_parameters": ["power_on_state", "min_position", "max_position"],
+    },
+    "heating_actuator_6fold": {
+        "description": "6-channel heating actuator for valve control (e.g., MDT AKH-0600.02)",
+        "channel_count": 6,
+        "channel_template": {
+            "group_objects": [
+                {
+                    "name": "valve_cmd",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Valve position command (0-100%)",
+                },
+                {
+                    "name": "valve_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current valve position",
+                },
+            ],
+            "state_fields": {"position": 0},
+        },
+        "device_parameters": ["power_on_state", "min_position", "max_position"],
+    },
+    "heating_actuator_8fold": {
+        "description": "8-channel heating actuator for valve control (e.g., MDT AKH-0800.02)",
+        "channel_count": 8,
+        "channel_template": {
+            "group_objects": [
+                {
+                    "name": "valve_cmd",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Valve position command (0-100%)",
+                },
+                {
+                    "name": "valve_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current valve position",
+                },
+            ],
+            "state_fields": {"position": 0},
+        },
+        "device_parameters": ["power_on_state", "min_position", "max_position"],
+    },
+    # --- Additional dimmer variant ---
+    "dimmer_actuator_1fold": {
+        "description": "1-channel dimmer actuator (e.g., ABB UD/S 1.315.2)",
+        "channel_count": 1,
+        "channel_template": {
+            "group_objects": [
+                {"name": "switch", "dpt": "1.001", "flags": "CWU", "description": "On/Off command"},
+                {
+                    "name": "switch_status",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "On/Off state",
+                },
+                {
+                    "name": "brightness",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Brightness (0-100%)",
+                },
+                {
+                    "name": "brightness_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current brightness",
+                },
+                {"name": "dim", "dpt": "3.007", "flags": "CW", "description": "Relative dimming"},
+            ],
+            "state_fields": {"on": False, "brightness": 0},
+        },
+        "device_parameters": ["min_brightness", "max_brightness", "dim_speed", "power_on_state"],
+    },
+    # --- Additional blind variant ---
+    "blind_actuator_8fold": {
+        "description": "8-channel blind/shutter actuator (e.g., ABB JRA/S 8.230.5.1)",
+        "channel_count": 8,
+        "channel_template": {
+            "group_objects": [
+                {"name": "move", "dpt": "1.008", "flags": "CW", "description": "Up/Down command"},
+                {"name": "stop", "dpt": "1.017", "flags": "CW", "description": "Stop movement"},
+                {
+                    "name": "position",
+                    "dpt": "5.001",
+                    "flags": "CWU",
+                    "description": "Target position (0-100%)",
+                },
+                {
+                    "name": "position_status",
+                    "dpt": "5.001",
+                    "flags": "CRT",
+                    "description": "Current position",
+                },
+            ],
+            "state_fields": {"position": 0, "moving": False},
+        },
+        "device_parameters": ["travel_time_up", "travel_time_down", "reverse_direction"],
+    },
+    # --- Additional push button variant ---
+    "push_button_8fold": {
+        "description": "8-button push button interface (e.g., Gira push button sensor 4)",
+        "channel_count": 8,
+        "channel_template": {
+            "group_objects": [
+                {
+                    "name": "switch",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Button toggle output",
+                },
+                {
+                    "name": "long_press",
+                    "dpt": "1.001",
+                    "flags": "CRT",
+                    "description": "Long press output",
+                },
+            ],
+            "state_fields": {"pressed": False},
+        },
+        "device_parameters": ["long_press_time", "led_feedback"],
+    },
+    # --- Additional binary input variant ---
+    "binary_input_16fold": {
+        "description": "16-channel binary input (e.g., MDT BE-16000.02)",
+        "channel_count": 16,
+        "channel_template": {
+            "group_objects": [
+                {"name": "state", "dpt": "1.001", "flags": "CRT", "description": "Input state"},
+                {
+                    "name": "counter",
+                    "dpt": "12.001",
+                    "flags": "CRT",
+                    "description": "Pulse counter (optional)",
+                },
             ],
             "state_fields": {"active": False},
         },
@@ -590,8 +1486,18 @@ DEVICE_GA_TEMPLATES = {
         "description": "Simple on/off light",
         "channel_count": 1,
         "recommended_gas": [
-            {"name": "switch", "dpt": "1.001", "flags": "C-W-U-", "description": "On/Off command input"},
-            {"name": "switch_status", "dpt": "1.001", "flags": "CR-T--", "description": "Current on/off state"},
+            {
+                "name": "switch",
+                "dpt": "1.001",
+                "flags": "C-W-U-",
+                "description": "On/Off command input",
+            },
+            {
+                "name": "switch_status",
+                "dpt": "1.001",
+                "flags": "CR-T--",
+                "description": "Current on/off state",
+            },
         ],
     },
     "light_dimmer": {
@@ -599,10 +1505,30 @@ DEVICE_GA_TEMPLATES = {
         "channel_count": 1,
         "recommended_gas": [
             {"name": "switch", "dpt": "1.001", "flags": "C-W-U-", "description": "On/Off command"},
-            {"name": "switch_status", "dpt": "1.001", "flags": "CR-T--", "description": "On/Off state"},
-            {"name": "brightness", "dpt": "5.001", "flags": "C-W-U-", "description": "Brightness command (0-100%)"},
-            {"name": "brightness_status", "dpt": "5.001", "flags": "CR-T--", "description": "Current brightness"},
-            {"name": "dim", "dpt": "3.007", "flags": "C-W---", "description": "Relative dimming (optional)"},
+            {
+                "name": "switch_status",
+                "dpt": "1.001",
+                "flags": "CR-T--",
+                "description": "On/Off state",
+            },
+            {
+                "name": "brightness",
+                "dpt": "5.001",
+                "flags": "C-W-U-",
+                "description": "Brightness command (0-100%)",
+            },
+            {
+                "name": "brightness_status",
+                "dpt": "5.001",
+                "flags": "CR-T--",
+                "description": "Current brightness",
+            },
+            {
+                "name": "dim",
+                "dpt": "3.007",
+                "flags": "C-W---",
+                "description": "Relative dimming (optional)",
+            },
         ],
     },
     "blind": {
@@ -611,8 +1537,18 @@ DEVICE_GA_TEMPLATES = {
         "recommended_gas": [
             {"name": "move", "dpt": "1.008", "flags": "C-W---", "description": "Up/Down command"},
             {"name": "stop", "dpt": "1.017", "flags": "C-W---", "description": "Stop movement"},
-            {"name": "position", "dpt": "5.001", "flags": "C-W-U-", "description": "Target position (0=open, 100=closed)"},
-            {"name": "position_status", "dpt": "5.001", "flags": "CR-T--", "description": "Current position"},
+            {
+                "name": "position",
+                "dpt": "5.001",
+                "flags": "C-W-U-",
+                "description": "Target position (0=open, 100=closed)",
+            },
+            {
+                "name": "position_status",
+                "dpt": "5.001",
+                "flags": "CR-T--",
+                "description": "Current position",
+            },
         ],
     },
     "blind_position_slat": {
@@ -621,26 +1557,66 @@ DEVICE_GA_TEMPLATES = {
         "recommended_gas": [
             {"name": "move", "dpt": "1.008", "flags": "C-W---", "description": "Up/Down command"},
             {"name": "stop", "dpt": "1.017", "flags": "C-W---", "description": "Stop movement"},
-            {"name": "position", "dpt": "5.001", "flags": "C-W-U-", "description": "Target position"},
-            {"name": "position_status", "dpt": "5.001", "flags": "CR-T--", "description": "Current position"},
-            {"name": "slat", "dpt": "5.001", "flags": "C-W-U-", "description": "Slat angle command"},
-            {"name": "slat_status", "dpt": "5.001", "flags": "CR-T--", "description": "Current slat angle"},
+            {
+                "name": "position",
+                "dpt": "5.001",
+                "flags": "C-W-U-",
+                "description": "Target position",
+            },
+            {
+                "name": "position_status",
+                "dpt": "5.001",
+                "flags": "CR-T--",
+                "description": "Current position",
+            },
+            {
+                "name": "slat",
+                "dpt": "5.001",
+                "flags": "C-W-U-",
+                "description": "Slat angle command",
+            },
+            {
+                "name": "slat_status",
+                "dpt": "5.001",
+                "flags": "CR-T--",
+                "description": "Current slat angle",
+            },
         ],
     },
     "sensor": {
         "description": "Temperature/environmental sensor",
         "channel_count": 1,
         "recommended_gas": [
-            {"name": "temperature", "dpt": "9.001", "flags": "CR-T--", "description": "Temperature reading"},
-            {"name": "humidity", "dpt": "9.007", "flags": "CR-T--", "description": "Humidity reading (optional)"},
+            {
+                "name": "temperature",
+                "dpt": "9.001",
+                "flags": "CR-T--",
+                "description": "Temperature reading",
+            },
+            {
+                "name": "humidity",
+                "dpt": "9.007",
+                "flags": "CR-T--",
+                "description": "Humidity reading (optional)",
+            },
         ],
     },
     "presence": {
         "description": "Presence/motion detector",
         "channel_count": 1,
         "recommended_gas": [
-            {"name": "presence", "dpt": "1.018", "flags": "CR-T--", "description": "Occupancy state"},
-            {"name": "lux", "dpt": "9.004", "flags": "CR-T--", "description": "Light level (if equipped)"},
+            {
+                "name": "presence",
+                "dpt": "1.018",
+                "flags": "CR-T--",
+                "description": "Occupancy state",
+            },
+            {
+                "name": "lux",
+                "dpt": "9.004",
+                "flags": "CR-T--",
+                "description": "Light level (if equipped)",
+            },
         ],
     },
     "thermostat": {
@@ -654,10 +1630,30 @@ DEVICE_GA_TEMPLATES = {
         ),
         "channel_count": 1,
         "recommended_gas": [
-            {"name": "current_temperature", "dpt": "9.001", "flags": "CR-T--", "description": "Measured room temperature"},
-            {"name": "setpoint", "dpt": "9.001", "flags": "CRW-U-", "description": "Target temperature (user dial / GLCore override)"},
-            {"name": "setpoint_status", "dpt": "9.001", "flags": "CR-T--", "description": "Current setpoint feedback"},
-            {"name": "heating_output", "dpt": "5.001", "flags": "CR-T--", "description": "Controller output: valve demand 0-100%"},
+            {
+                "name": "current_temperature",
+                "dpt": "9.001",
+                "flags": "CR-T--",
+                "description": "Measured room temperature",
+            },
+            {
+                "name": "setpoint",
+                "dpt": "9.001",
+                "flags": "CRW-U-",
+                "description": "Target temperature (user dial / GLCore override)",
+            },
+            {
+                "name": "setpoint_status",
+                "dpt": "9.001",
+                "flags": "CR-T--",
+                "description": "Current setpoint feedback",
+            },
+            {
+                "name": "heating_output",
+                "dpt": "5.001",
+                "flags": "CR-T--",
+                "description": "Controller output: valve demand 0-100%",
+            },
         ],
         "notes": [
             "Setpoint is like a physical dial — user sets desired temp, or GLCore overrides",
@@ -713,7 +1709,10 @@ def get_device_template(device_type: str):
     """Get template for a specific device type."""
     template = ALL_DEVICE_TEMPLATES.get(device_type)
     if not template:
-        return {"error": f"Unknown device type: {device_type}", "available": list(ALL_DEVICE_TEMPLATES.keys())}
+        return {
+            "error": f"Unknown device type: {device_type}",
+            "available": list(ALL_DEVICE_TEMPLATES.keys()),
+        }
     return template
 
 
@@ -732,7 +1731,7 @@ def get_channel_labels():
 @router.get("/device-templates/{device_type}/channels")
 def get_default_channels(device_type: str):
     """Generate default channel structure for a device type.
-    
+
     Returns ready-to-use channels array that can be assigned to a device.
     """
     # Check multi-channel templates first
@@ -740,11 +1739,11 @@ def get_default_channels(device_type: str):
     if template:
         channel_count = template["channel_count"]
         channel_template = template["channel_template"]
-        
+
         channels = []
         for i in range(channel_count):
             label = CHANNEL_LABELS[i] if i < len(CHANNEL_LABELS) else str(i + 1)
-            
+
             # Convert group_objects list to dict format
             group_objects = {}
             for go in channel_template["group_objects"]:
@@ -754,16 +1753,18 @@ def get_default_channels(device_type: str):
                     "flags": go["flags"],
                     "description": go.get("description", ""),
                 }
-            
-            channels.append({
-                "id": label,
-                "name": f"Channel {label}",
-                "group_objects": group_objects,
-                "state": dict(channel_template.get("state_fields", {})),
-                "initial_state": dict(channel_template.get("state_fields", {})),
-                "parameters": {},
-            })
-        
+
+            channels.append(
+                {
+                    "id": label,
+                    "name": f"Channel {label}",
+                    "group_objects": group_objects,
+                    "state": dict(channel_template.get("state_fields", {})),
+                    "initial_state": dict(channel_template.get("state_fields", {})),
+                    "parameters": {},
+                }
+            )
+
         return {
             "device_type": device_type,
             "description": template["description"],
@@ -771,7 +1772,7 @@ def get_default_channels(device_type: str):
             "channels": channels,
             "device_parameters": template.get("device_parameters", []),
         }
-    
+
     # Check single-channel templates
     template = DEVICE_GA_TEMPLATES.get(device_type)
     if template:
@@ -784,16 +1785,18 @@ def get_default_channels(device_type: str):
                 "flags": ga["flags"],
                 "description": ga.get("description", ""),
             }
-        
-        channels = [{
-            "id": "A",
-            "name": template["description"],
-            "group_objects": group_objects,
-            "state": {},
-            "initial_state": {},
-            "parameters": {},
-        }]
-        
+
+        channels = [
+            {
+                "id": "A",
+                "name": template["description"],
+                "group_objects": group_objects,
+                "state": {},
+                "initial_state": {},
+                "parameters": {},
+            }
+        ]
+
         return {
             "device_type": device_type,
             "description": template["description"],
@@ -801,8 +1804,11 @@ def get_default_channels(device_type: str):
             "channels": channels,
             "device_parameters": [],
         }
-    
-    return {"error": f"Unknown device type: {device_type}", "available": list(ALL_DEVICE_TEMPLATES.keys())}
+
+    return {
+        "error": f"Unknown device type: {device_type}",
+        "available": list(ALL_DEVICE_TEMPLATES.keys()),
+    }
 
 
 @router.get("")

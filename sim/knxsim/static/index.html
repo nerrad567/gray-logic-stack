@@ -738,8 +738,10 @@
                   <template x-for="load in room.loads || []" :key="load.id">
                     <div
                       class="device-tile load-tile"
-                      :class="{ 'load-on': $store.app.isLoadOn(load), 'load-orphan': !$store.app.getLoadActuatorInfo(load).linked, 'load-valve': load.type === 'valve' || load.type === 'heater' }"
+                      :class="{ 'load-on': $store.app.isLoadOn(load), 'load-orphan': !$store.app.getLoadActuatorInfo(load).linked, 'load-valve': load.type?.startsWith('valve') || load.type?.startsWith('heater') }"
                       @click="$store.app.onLoadTileClick(load)"
+                      @dblclick.stop="$store.app.engineerMode && $store.modal.show('load', 'edit', load)"
+                      @contextmenu.prevent="$store.app.engineerMode && $store.modal.show('load', 'edit', load)"
                       :title="$store.app.getLoadActuatorInfo(load).text"
                     >
                       <div class="device-info">
@@ -835,6 +837,15 @@
                       </template>
                     </div>
                   </template>
+
+                  <!-- Add Load button (Engineer Mode) -->
+                  <button
+                    class="btn-add-load"
+                    x-show="$store.app.engineerMode"
+                    @click.stop="$store.modal.show('load', 'create', { room_id: room.id })"
+                  >
+                    + Add Load
+                  </button>
                 </div>
               </div>
             </template>
@@ -3298,7 +3309,7 @@ STRATEGY 3: By Room Type (Commercial)
       <button
         class="fab"
         x-show="$store.app.engineerMode"
-        @click="$store.modal.show('template-browser', 'create')"
+        @click="$store.modal.show('device', 'create')"
         title="Add Device"
       >
         +
@@ -3893,647 +3904,1081 @@ STRATEGY 3: By Room Type (Commercial)
             </button>
           </div>
           <div class="modal-body">
-            <div class="form-group">
-              <label for="device-id">Device ID</label>
+            <!-- ═══ Stage 1: Template Picker (create mode, no template chosen) ═══ -->
+            <div
+              x-show="!selectedTemplate && $store.modal.mode === 'create'"
+              class="template-picker-inline"
+            >
+              <label>Select Device Type</label>
               <input
                 type="text"
-                id="device-id"
-                x-model="form.id"
-                :disabled="$store.modal.mode === 'edit'"
-                placeholder="e.g., living-room-light-1"
+                x-model="templateSearch"
+                placeholder="Search device types..."
+                class="template-search"
               />
-            </div>
-            <div class="form-group">
-              <label for="device-type">Device Type</label>
-              <select
-                id="device-type"
-                x-model="form.type"
-                :disabled="$store.modal.mode === 'edit'"
-                @change="onTypeChange()"
-              >
-                <option value="light_switch">Light Switch</option>
-                <option value="light_dimmer">Light Dimmer</option>
-                <option value="blind">Blind</option>
-                <option value="blind_position_slat">Blind with Slat</option>
-                <option value="sensor">Temperature Sensor</option>
-                <option value="presence">Presence Detector</option>
-                <option value="thermostat">Thermostat</option>
-              </select>
-            </div>
-            <div class="form-group">
-              <label for="device-addr">Individual Address</label>
-              <div class="input-with-button">
-                <input
-                  type="text"
-                  id="device-addr"
-                  x-model="form.individual_address"
-                  placeholder="e.g., 1.1.1"
-                  pattern="\d+\.\d+\.\d+"
-                />
+              <div class="domain-tabs domain-tabs-compact">
                 <button
                   type="button"
-                  class="btn btn-small"
-                  @click="suggestIA()"
-                  title="Suggest next available address"
+                  class="domain-tab"
+                  :class="{'active': !templateDomain}"
+                  @click="templateDomain = null"
                 >
-                  Suggest
+                  All
                 </button>
-              </div>
-              <small class="form-hint"
-                >Format: area.line.device (e.g., 1.1.1) —
-                <span x-text="getIAHint()"></span
-              ></small>
-            </div>
-            <div class="form-group">
-              <label for="device-room">Room</label>
-              <select id="device-room" x-model="form.room_id">
-                <option value="">Unassigned</option>
-                <template x-for="floor in $store.app.floors" :key="floor.id">
-                  <optgroup :label="floor.name">
-                    <template x-for="room in floor.rooms || []" :key="room.id">
-                      <option :value="room.id" x-text="room.name"></option>
-                    </template>
-                  </optgroup>
+                <template
+                  x-for="domain in $store.app.templateDomains"
+                  :key="domain"
+                >
+                  <button
+                    type="button"
+                    class="domain-tab"
+                    :class="{'active': templateDomain === domain}"
+                    @click="templateDomain = domain"
+                    x-text="domain.charAt(0).toUpperCase() + domain.slice(1)"
+                  ></button>
                 </template>
-              </select>
+              </div>
+              <div class="template-grid template-grid-compact">
+                <!-- Custom Device card -->
+                <div
+                  class="template-card template-card-custom"
+                  @click="pickCustom()"
+                >
+                  <div class="template-icon">🔧</div>
+                  <div class="template-info">
+                    <div class="template-name">Custom Device</div>
+                    <div class="template-desc">
+                      Define everything from scratch
+                    </div>
+                  </div>
+                </div>
+                <!-- Template cards from API -->
+                <template
+                  x-for="tmpl in filteredPickerTemplates"
+                  :key="tmpl.id"
+                >
+                  <div class="template-card" @click="pickTemplate(tmpl)">
+                    <div
+                      class="template-icon"
+                      x-text="$store.app.getDeviceIcon(tmpl.id)"
+                    ></div>
+                    <div class="template-info">
+                      <div class="template-name" x-text="tmpl.name"></div>
+                      <div
+                        class="template-desc"
+                        x-text="tmpl.description || tmpl.id"
+                      ></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div
+                class="template-picker-empty"
+                x-show="filteredPickerTemplates.length === 0 && templateSearch"
+              >
+                <p>
+                  No templates match "<span x-text="templateSearch"></span>"
+                </p>
+              </div>
             </div>
 
-            <!-- Group Addresses Section -->
-            <div class="form-group">
-              <div class="ga-section-header">
-                <label>Group Addresses</label>
+            <!-- ═══ Stage 2: Device Configuration (template chosen or edit mode) ═══ -->
+            <div x-show="selectedTemplate || $store.modal.mode === 'edit'">
+              <!-- Selected template badge -->
+              <div
+                class="selected-template-badge"
+                x-show="selectedTemplate && $store.modal.mode === 'create'"
+              >
+                <span
+                  class="template-badge-icon"
+                  x-text="isCustomDevice ? '🔧' : $store.app.getDeviceIcon(selectedTemplate?.id)"
+                ></span>
+                <span
+                  class="template-badge-name"
+                  x-text="selectedTemplate?.name || 'Custom Device'"
+                ></span>
+                <span
+                  class="template-badge-domain"
+                  x-show="selectedTemplate?.domain"
+                  x-text="selectedTemplate?.domain"
+                ></span>
                 <button
                   type="button"
                   class="btn btn-small btn-outline"
-                  @click="showHelp = !showHelp"
+                  @click="changeTemplate()"
                 >
-                  <span
-                    x-text="showHelp ? '✕ Hide Help' : '? Help & Reference'"
-                  ></span>
+                  Change
                 </button>
               </div>
 
-              <!-- Help Panel (collapsible) -->
-              <div class="ga-help-panel" x-show="showHelp" x-collapse>
-                <div class="ga-help-tabs">
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'recommended' }"
-                    @click="helpTab = 'recommended'"
-                  >
-                    Recommended
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'all-devices' }"
-                    @click="helpTab = 'all-devices'"
-                  >
-                    All Devices
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'all-gas' }"
-                    @click="helpTab = 'all-gas'"
-                  >
-                    All GAs
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'individual' }"
-                    @click="helpTab = 'individual'"
-                  >
-                    IA Help
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'addressing' }"
-                    @click="helpTab = 'addressing'"
-                  >
-                    GA Help
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'dpts' }"
-                    @click="helpTab = 'dpts'"
-                  >
-                    DPTs
-                  </button>
-                  <button
-                    type="button"
-                    class="ga-help-tab"
-                    :class="{ active: helpTab === 'flags' }"
-                    @click="helpTab = 'flags'"
-                  >
-                    Flags
-                  </button>
-                </div>
-
-                <!-- All Devices Reference -->
-                <div class="ga-help-content" x-show="helpTab === 'all-devices'">
-                  <p class="help-intro">
-                    All devices in this premise, grouped by line:
-                  </p>
-                  <template
-                    x-if="Object.keys($store.reference.getDevicesByLine()).length > 0"
-                  >
-                    <div class="all-devices-list">
-                      <template
-                        x-for="(lineData, lineKey) in $store.reference.getDevicesByLine()"
-                        :key="lineKey"
-                      >
-                        <div class="device-line-group">
-                          <div class="line-header">
-                            <span class="line-label"
-                              >Line <code x-text="lineKey + '.x'"></code
-                            ></span>
-                            <span
-                              class="line-count"
-                              x-text="lineData.devices.length + ' device(s)'"
-                            ></span>
-                          </div>
-                          <div class="line-devices">
-                            <template
-                              x-for="dev in lineData.devices"
-                              :key="dev.id"
-                            >
-                              <div
-                                class="device-ref-item"
-                                :class="{ 'current': dev.id === form.id }"
-                                @click="form.individual_address || (form.individual_address = $store.reference.suggestNextIA(lineKey))"
-                              >
-                                <code
-                                  class="dev-addr"
-                                  x-text="dev.address"
-                                ></code>
-                                <span class="dev-id" x-text="dev.id"></span>
-                                <span class="dev-type" x-text="dev.type"></span>
-                              </div>
-                            </template>
-                          </div>
-                          <button
-                            type="button"
-                            class="btn btn-small btn-outline"
-                            @click="form.individual_address = $store.reference.suggestNextIA(lineKey)"
-                          >
-                            Use next on this line →
-                            <code
-                              x-text="$store.reference.suggestNextIA(lineKey)"
-                            ></code>
-                          </button>
-                        </div>
-                      </template>
-                    </div>
-                  </template>
-                  <template
-                    x-if="Object.keys($store.reference.getDevicesByLine()).length === 0"
-                  >
-                    <div class="help-empty">
-                      <p>
-                        No devices yet. First device will be assigned to a new
-                        line.
-                      </p>
-                      <button
-                        type="button"
-                        class="btn btn-small"
-                        @click="form.individual_address = '1.1.1'"
-                      >
-                        Start with 1.1.1
-                      </button>
-                    </div>
-                  </template>
-                </div>
-
-                <!-- All GAs Reference -->
-                <div class="ga-help-content" x-show="helpTab === 'all-gas'">
-                  <p class="help-intro">
-                    All group addresses in use (<span
-                      x-text="$store.reference.getAllUsedGAs().length"
-                    ></span>
-                    total):
-                  </p>
-                  <div class="ga-search-input">
+              <div class="form-group">
+                <label for="device-id">Device ID</label>
+                <input
+                  type="text"
+                  id="device-id"
+                  x-model="form.id"
+                  :disabled="$store.modal.mode === 'edit'"
+                  placeholder="e.g., living-room-light-1"
+                />
+              </div>
+              <!-- Custom device: editable type field -->
+              <div class="form-group" x-show="isCustomDevice">
+                <label for="device-type-custom">Device Type</label>
+                <input
+                  type="text"
+                  id="device-type-custom"
+                  x-model="form.type"
+                  placeholder="e.g., my_custom_sensor"
+                />
+                <small class="form-hint"
+                  >Free-form type identifier for your custom device</small
+                >
+              </div>
+              <div class="form-group">
+                <label>Addressing</label>
+                <div class="address-mode">
+                  <label class="address-mode-option">
                     <input
-                      type="text"
-                      placeholder="Filter GAs..."
-                      x-model="gaFilter"
+                      type="radio"
+                      name="addressing"
+                      value="topology"
+                      x-model="addressMode"
+                      @change="setAddressMode('topology')"
                     />
-                  </div>
-                  <div class="all-gas-list">
-                    <template
-                      x-for="gaEntry in $store.reference.getAllUsedGAs().filter(g => !gaFilter || g.ga.includes(gaFilter) || g.devices.some(d => d.toLowerCase().includes(gaFilter.toLowerCase())))"
-                      :key="gaEntry.ga"
-                    >
-                      <div class="ga-ref-item">
-                        <div class="ga-ref-header">
-                          <code class="ga-addr" x-text="gaEntry.ga"></code>
-                          <span
-                            class="ga-device-count"
-                            x-text="gaEntry.devices.length + ' device(s)'"
-                          ></span>
-                        </div>
-                        <div class="ga-ref-usages">
-                          <template
-                            x-for="usage in gaEntry.usages"
-                            :key="usage.device + usage.name"
-                          >
-                            <span class="ga-usage-chip">
-                              <span
-                                class="usage-device"
-                                x-text="usage.device"
-                              ></span
-                              >.<span
-                                class="usage-name"
-                                x-text="usage.name"
-                              ></span>
-                              <code
-                                class="usage-dpt"
-                                x-show="usage.dpt"
-                                x-text="usage.dpt"
-                              ></code>
-                            </span>
-                          </template>
-                        </div>
-                      </div>
-                    </template>
-                  </div>
-                  <template
-                    x-if="$store.reference.getAllUsedGAs().length === 0"
-                  >
-                    <p class="help-empty">No group addresses configured yet.</p>
-                  </template>
-                </div>
-
-                <!-- Recommended GAs for this device type -->
-                <div class="ga-help-content" x-show="helpTab === 'recommended'">
-                  <template
-                    x-if="$store.reference.getRecommendedGAs(form.type)"
-                  >
-                    <div>
-                      <p
-                        class="help-intro"
-                        x-text="$store.reference.getRecommendedGAs(form.type)?.description"
-                      ></p>
-                      <table class="help-table">
-                        <thead>
-                          <tr>
-                            <th>Name</th>
-                            <th>DPT</th>
-                            <th>Flags</th>
-                            <th>Purpose</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template
-                            x-for="ga in $store.reference.getRecommendedGAs(form.type)?.recommended_gas || []"
-                            :key="ga.name"
-                          >
-                            <tr>
-                              <td><code x-text="ga.name"></code></td>
-                              <td><code x-text="ga.dpt"></code></td>
-                              <td><code x-text="ga.flags"></code></td>
-                              <td x-text="ga.description"></td>
-                            </tr>
-                          </template>
-                        </tbody>
-                      </table>
-                      <button
-                        type="button"
-                        class="btn btn-small btn-primary"
-                        @click="applyRecommendedGAs()"
-                        style="margin-top: 0.5rem"
-                      >
-                        Apply Recommended Structure
-                      </button>
-                    </div>
-                  </template>
-                  <template
-                    x-if="!$store.reference.getRecommendedGAs(form.type)"
-                  >
-                    <p class="help-empty">
-                      No recommended structure for this device type.
-                    </p>
-                  </template>
-                </div>
-
-                <!-- Individual Address Reference -->
-                <div class="ga-help-content" x-show="helpTab === 'individual'">
-                  <template x-if="$store.reference.individualAddress">
-                    <div>
-                      <p
-                        class="help-intro"
-                        x-text="$store.reference.individualAddress.description"
-                      ></p>
-
-                      <div class="ga-format-box">
-                        <strong>Format:</strong>
-                        <code
-                          x-text="$store.reference.individualAddress.format"
-                        ></code>
-                        <span
-                          class="ga-bits"
-                          x-text="'(' + $store.reference.individualAddress.bits + ')'"
-                        ></span>
-                      </div>
-
-                      <h5>Address Components</h5>
-                      <table class="help-table">
-                        <thead>
-                          <tr>
-                            <th>Part</th>
-                            <th>Range</th>
-                            <th>Description</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <tr>
-                            <td><code>Area</code></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.area.range"
-                            ></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.area.description"
-                            ></td>
-                          </tr>
-                          <tr>
-                            <td><code>Line</code></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.line.range"
-                            ></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.line.description"
-                            ></td>
-                          </tr>
-                          <tr>
-                            <td><code>Device</code></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.device.range"
-                            ></td>
-                            <td
-                              x-text="$store.reference.individualAddress.structure.device.description"
-                            ></td>
-                          </tr>
-                        </tbody>
-                      </table>
-
-                      <h5 style="margin-top: 1rem">Special Addresses</h5>
-                      <div class="ga-examples">
-                        <template
-                          x-for="special in $store.reference.individualAddress.special_addresses"
-                          :key="special.address"
-                        >
-                          <div class="ga-example">
-                            <code x-text="special.address"></code>
-                            <span
-                              ><strong x-text="special.meaning"></strong> —
-                              <span x-text="special.note"></span
-                            ></span>
-                          </div>
-                        </template>
-                      </div>
-
-                      <h5 style="margin-top: 1rem">
-                        Individual vs Group Address
-                      </h5>
-                      <div class="addr-comparison">
-                        <div class="addr-compare-item">
-                          <strong>Individual (1.1.1)</strong>
-                          <p
-                            x-text="$store.reference.individualAddress.vs_group_address.individual"
-                          ></p>
-                        </div>
-                        <div class="addr-compare-item">
-                          <strong>Group (1/1/1)</strong>
-                          <p
-                            x-text="$store.reference.individualAddress.vs_group_address.group"
-                          ></p>
-                        </div>
-                        <div class="addr-compare-analogy">
-                          <em
-                            x-text="'💡 ' + $store.reference.individualAddress.vs_group_address.analogy"
-                          ></em>
-                        </div>
-                      </div>
-
-                      <div class="ga-tips">
-                        <h5>Tips</h5>
-                        <ul>
-                          <template
-                            x-for="tip in $store.reference.individualAddress.tips"
-                            :key="tip"
-                          >
-                            <li x-text="tip"></li>
-                          </template>
-                        </ul>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-
-                <!-- DPT Reference -->
-                <div class="ga-help-content" x-show="helpTab === 'dpts'">
-                  <div class="dpt-search">
+                    <span>Topology</span>
+                  </label>
+                  <label class="address-mode-option">
                     <input
-                      type="text"
-                      placeholder="Search DPTs (e.g., temperature, 9.001, switch...)"
-                      x-model="dptSearch"
+                      type="radio"
+                      name="addressing"
+                      value="manual"
+                      x-model="addressMode"
+                      @change="setAddressMode('manual')"
                     />
-                  </div>
-                  <div class="dpt-results">
-                    <template
-                      x-for="dpt in $store.reference.searchDpts(dptSearch).slice(0, 15)"
-                      :key="dpt.id"
-                    >
-                      <div class="dpt-item" @click="copyDpt(dpt.id)">
-                        <div class="dpt-id"><code x-text="dpt.id"></code></div>
-                        <div class="dpt-info">
-                          <span class="dpt-name" x-text="dpt.name"></span>
-                          <span
-                            class="dpt-unit"
-                            x-show="dpt.unit"
-                            x-text="'(' + dpt.unit + ')'"
-                          ></span>
-                          <span
-                            class="dpt-range"
-                            x-show="dpt.range"
-                            x-text="dpt.range"
-                          ></span>
-                        </div>
-                        <div class="dpt-use" x-text="dpt.use_case"></div>
-                      </div>
-                    </template>
-                  </div>
-                  <p class="help-hint">Click a DPT to copy it</p>
+                    <span>Manual</span>
+                  </label>
                 </div>
-
-                <!-- GA Addressing Structure -->
-                <div class="ga-help-content" x-show="helpTab === 'addressing'">
-                  <template x-if="$store.reference.gaStructure">
-                    <div>
-                      <p
-                        class="help-intro"
-                        x-text="$store.reference.gaStructure.description"
-                      ></p>
-                      <div class="ga-format-box">
-                        <strong>Format:</strong>
-                        <code
-                          x-text="$store.reference.gaStructure.format"
-                        ></code>
-                        <span
-                          class="ga-bits"
-                          x-text="'(' + $store.reference.gaStructure.bits + ')'"
-                        ></span>
-                      </div>
-                      <template
-                        x-for="conv in $store.reference.gaStructure.conventions.slice(0, 2)"
-                        :key="conv.name"
-                      >
-                        <div class="ga-convention">
-                          <h5 x-text="conv.name"></h5>
-                          <p x-text="conv.description"></p>
-                          <div class="ga-examples">
-                            <template
-                              x-for="ex in conv.example_addresses || []"
-                              :key="ex.ga"
-                            >
-                              <div class="ga-example">
-                                <code x-text="ex.ga"></code>
-                                <span x-text="ex.meaning"></span>
-                              </div>
-                            </template>
-                          </div>
-                        </div>
-                      </template>
-                      <div class="ga-tips">
-                        <h5>Tips</h5>
-                        <ul>
-                          <template
-                            x-for="tip in $store.reference.gaStructure.tips"
-                            :key="tip"
-                          >
-                            <li x-text="tip"></li>
-                          </template>
-                        </ul>
-                      </div>
-                    </div>
-                  </template>
-                </div>
-
-                <!-- Flags Reference -->
-                <div class="ga-help-content" x-show="helpTab === 'flags'">
-                  <template x-if="$store.reference.flags">
-                    <div>
-                      <p
-                        class="help-intro"
-                        x-text="$store.reference.flags.description"
-                      ></p>
-                      <table class="help-table">
-                        <thead>
-                          <tr>
-                            <th>Flag</th>
-                            <th>Name</th>
-                            <th>Description</th>
-                          </tr>
-                        </thead>
-                        <tbody>
-                          <template
-                            x-for="flag in $store.reference.flags.flags"
-                            :key="flag.letter"
-                          >
-                            <tr>
-                              <td><code x-text="flag.letter"></code></td>
-                              <td x-text="flag.name"></td>
-                              <td x-text="flag.description"></td>
-                            </tr>
-                          </template>
-                        </tbody>
-                      </table>
-                      <h5 style="margin-top: 1rem">Common Patterns</h5>
-                      <div class="flag-patterns">
-                        <template
-                          x-for="pattern in $store.reference.flags.common_patterns"
-                          :key="pattern.flags"
-                        >
-                          <div class="flag-pattern">
-                            <code x-text="pattern.flags"></code>
-                            <span
-                              class="pattern-use"
-                              x-text="pattern.use_case"
-                            ></span>
-                          </div>
-                        </template>
-                      </div>
-                    </div>
-                  </template>
-                </div>
+                <small class="form-hint"
+                  >Topology mode links devices to Area/Line and computes the
+                  individual address automatically.</small
+                >
               </div>
 
-              <!-- GA Editor -->
-              <div class="ga-editor">
-                <div class="ga-editor-header">
-                  <span class="ga-editor-col-name">Name</span>
-                  <span class="ga-editor-col-ga">GA</span>
-                  <span class="ga-editor-col-dpt">DPT</span>
-                  <span class="ga-editor-col-flags">Flags</span>
-                  <span class="ga-editor-col-actions"></span>
+              <div class="form-row" x-show="addressMode === 'topology'">
+                <div class="form-group">
+                  <label for="device-line">Line</label>
+                  <select
+                    id="device-line"
+                    x-model="form.line_id"
+                    @change="onLineChange()"
+                  >
+                    <option value="">Select line</option>
+                    <template
+                      x-for="area in $store.app.topology?.areas || []"
+                      :key="area.id"
+                    >
+                      <optgroup :label="'Area ' + area.area_number">
+                        <template
+                          x-for="line in area.lines || []"
+                          :key="line.id"
+                        >
+                          <option
+                            :value="line.id"
+                            x-text="`Line ${area.area_number}.${line.line_number} - ${line.name}`"
+                          ></option>
+                        </template>
+                      </optgroup>
+                    </template>
+                  </select>
                 </div>
-                <template
-                  x-for="(gaData, name) in form.group_addresses"
-                  :key="name"
-                >
-                  <div class="ga-row">
-                    <input type="text" :value="name" disabled class="ga-name" />
+                <div class="form-group">
+                  <label for="device-number">Device #</label>
+                  <div class="input-with-button">
                     <input
-                      type="text"
-                      :value="typeof gaData === 'object' ? gaData.ga : gaData"
-                      @input="updateGA(name, 'ga', $event.target.value)"
-                      placeholder="1/0/1"
-                      class="ga-value"
-                    />
-                    <input
-                      type="text"
-                      :value="typeof gaData === 'object' ? gaData.dpt : ''"
-                      @input="updateGA(name, 'dpt', $event.target.value)"
-                      placeholder="1.001"
-                      class="ga-dpt"
-                      :title="getDptTooltip(typeof gaData === 'object' ? gaData.dpt : '')"
-                    />
-                    <input
-                      type="text"
-                      :value="typeof gaData === 'object' ? gaData.flags : ''"
-                      @input="updateGA(name, 'flags', $event.target.value)"
-                      placeholder="C-W-U-"
-                      class="ga-flags"
-                      maxlength="6"
-                      :title="$store.app.getFlagsTooltip(typeof gaData === 'object' ? gaData.flags : '')"
+                      type="number"
+                      id="device-number"
+                      x-model.number="form.device_number"
+                      min="1"
+                      max="255"
+                      :disabled="!form.line_id"
+                      @input="syncIAFromTopology()"
                     />
                     <button
                       type="button"
-                      class="btn-icon btn-danger ga-delete"
-                      @click="removeGA(name)"
-                      title="Remove GA"
+                      class="btn btn-small"
+                      @click="suggestDeviceNumber()"
+                      title="Suggest next available device number"
                     >
-                      ✕
+                      Suggest
                     </button>
                   </div>
-                </template>
-                <button class="btn btn-small" @click="addGA()" type="button">
-                  + Add GA
-                </button>
+                  <small class="form-hint"
+                    >1-255 (0 reserved for couplers)</small
+                  >
+                </div>
+              </div>
+
+              <div class="form-group">
+                <label for="device-addr">Individual Address</label>
+                <div class="input-with-button">
+                  <input
+                    type="text"
+                    id="device-addr"
+                    x-model="form.individual_address"
+                    placeholder="e.g., 1.1.1"
+                    pattern="\d+\.\d+\.\d+"
+                    :disabled="addressMode === 'topology'"
+                  />
+                  <button
+                    type="button"
+                    class="btn btn-small"
+                    @click="suggestIA()"
+                    title="Suggest next available address"
+                  >
+                    Suggest
+                  </button>
+                </div>
+                <small class="form-hint" x-text="getIAHint()"></small>
+              </div>
+              <div class="form-group">
+                <label for="device-room">Room</label>
+                <select id="device-room" x-model="form.room_id">
+                  <option value="">Unassigned</option>
+                  <template x-for="floor in $store.app.floors" :key="floor.id">
+                    <optgroup :label="floor.name">
+                      <template
+                        x-for="room in floor.rooms || []"
+                        :key="room.id"
+                      >
+                        <option :value="room.id" x-text="room.name"></option>
+                      </template>
+                    </optgroup>
+                  </template>
+                </select>
+              </div>
+
+              <!-- Group Addresses Section -->
+              <div class="form-group">
+                <div class="ga-section-header">
+                  <label>Group Addresses</label>
+                  <button
+                    type="button"
+                    class="btn btn-small btn-outline"
+                    @click="showHelp = !showHelp"
+                  >
+                    <span
+                      x-text="showHelp ? '✕ Hide Help' : '? Help & Reference'"
+                    ></span>
+                  </button>
+                </div>
+
+                <!-- Help Panel (collapsible) -->
+                <div class="ga-help-panel" x-show="showHelp" x-collapse>
+                  <div class="ga-help-tabs">
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'recommended' }"
+                      @click="helpTab = 'recommended'"
+                    >
+                      Recommended
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'all-devices' }"
+                      @click="helpTab = 'all-devices'"
+                    >
+                      All Devices
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'all-gas' }"
+                      @click="helpTab = 'all-gas'"
+                    >
+                      All GAs
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'individual' }"
+                      @click="helpTab = 'individual'"
+                    >
+                      IA Help
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'addressing' }"
+                      @click="helpTab = 'addressing'"
+                    >
+                      GA Help
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'dpts' }"
+                      @click="helpTab = 'dpts'"
+                    >
+                      DPTs
+                    </button>
+                    <button
+                      type="button"
+                      class="ga-help-tab"
+                      :class="{ active: helpTab === 'flags' }"
+                      @click="helpTab = 'flags'"
+                    >
+                      Flags
+                    </button>
+                  </div>
+
+                  <!-- All Devices Reference -->
+                  <div
+                    class="ga-help-content"
+                    x-show="helpTab === 'all-devices'"
+                  >
+                    <p class="help-intro">
+                      All devices in this premise, grouped by line:
+                    </p>
+                    <template
+                      x-if="Object.keys($store.reference.getDevicesByLine()).length > 0"
+                    >
+                      <div class="all-devices-list">
+                        <template
+                          x-for="(lineData, lineKey) in $store.reference.getDevicesByLine()"
+                          :key="lineKey"
+                        >
+                          <div class="device-line-group">
+                            <div class="line-header">
+                              <span class="line-label"
+                                >Line <code x-text="lineKey + '.x'"></code
+                              ></span>
+                              <span
+                                class="line-count"
+                                x-text="lineData.devices.length + ' device(s)'"
+                              ></span>
+                            </div>
+                            <div class="line-devices">
+                              <template
+                                x-for="dev in lineData.devices"
+                                :key="dev.id"
+                              >
+                                <div
+                                  class="device-ref-item"
+                                  :class="{ 'current': dev.id === form.id }"
+                                  @click="form.individual_address || (form.individual_address = $store.reference.suggestNextIA(lineKey))"
+                                >
+                                  <code
+                                    class="dev-addr"
+                                    x-text="dev.address"
+                                  ></code>
+                                  <span class="dev-id" x-text="dev.id"></span>
+                                  <span
+                                    class="dev-type"
+                                    x-text="dev.type"
+                                  ></span>
+                                </div>
+                              </template>
+                            </div>
+                            <button
+                              type="button"
+                              class="btn btn-small btn-outline"
+                              @click="form.individual_address = $store.reference.suggestNextIA(lineKey)"
+                            >
+                              Use next on this line →
+                              <code
+                                x-text="$store.reference.suggestNextIA(lineKey)"
+                              ></code>
+                            </button>
+                          </div>
+                        </template>
+                      </div>
+                    </template>
+                    <template
+                      x-if="Object.keys($store.reference.getDevicesByLine()).length === 0"
+                    >
+                      <div class="help-empty">
+                        <p>
+                          No devices yet. First device will be assigned to a new
+                          line.
+                        </p>
+                        <button
+                          type="button"
+                          class="btn btn-small"
+                          @click="form.individual_address = '1.1.1'"
+                        >
+                          Start with 1.1.1
+                        </button>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- All GAs Reference -->
+                  <div class="ga-help-content" x-show="helpTab === 'all-gas'">
+                    <p class="help-intro">
+                      All group addresses in use (<span
+                        x-text="$store.reference.getAllUsedGAs().length"
+                      ></span>
+                      total):
+                    </p>
+                    <div class="ga-search-input">
+                      <input
+                        type="text"
+                        placeholder="Filter GAs..."
+                        x-model="gaFilter"
+                      />
+                    </div>
+                    <div class="all-gas-list">
+                      <template
+                        x-for="gaEntry in $store.reference.getAllUsedGAs().filter(g => !gaFilter || g.ga.includes(gaFilter) || g.devices.some(d => d.toLowerCase().includes(gaFilter.toLowerCase())))"
+                        :key="gaEntry.ga"
+                      >
+                        <div class="ga-ref-item">
+                          <div class="ga-ref-header">
+                            <code class="ga-addr" x-text="gaEntry.ga"></code>
+                            <span
+                              class="ga-device-count"
+                              x-text="gaEntry.devices.length + ' device(s)'"
+                            ></span>
+                          </div>
+                          <div class="ga-ref-usages">
+                            <template
+                              x-for="usage in gaEntry.usages"
+                              :key="usage.device + usage.name"
+                            >
+                              <span class="ga-usage-chip">
+                                <span
+                                  class="usage-device"
+                                  x-text="usage.device"
+                                ></span
+                                >.<span
+                                  class="usage-name"
+                                  x-text="usage.name"
+                                ></span>
+                                <code
+                                  class="usage-dpt"
+                                  x-show="usage.dpt"
+                                  x-text="usage.dpt"
+                                ></code>
+                              </span>
+                            </template>
+                          </div>
+                        </div>
+                      </template>
+                    </div>
+                    <template
+                      x-if="$store.reference.getAllUsedGAs().length === 0"
+                    >
+                      <p class="help-empty">
+                        No group addresses configured yet.
+                      </p>
+                    </template>
+                  </div>
+
+                  <!-- Recommended GAs for this device type -->
+                  <div
+                    class="ga-help-content"
+                    x-show="helpTab === 'recommended'"
+                  >
+                    <template
+                      x-if="$store.reference.getRecommendedGAs(form.type)"
+                    >
+                      <div>
+                        <p
+                          class="help-intro"
+                          x-text="$store.reference.getRecommendedGAs(form.type)?.description"
+                        ></p>
+                        <table class="help-table">
+                          <thead>
+                            <tr>
+                              <th>Name</th>
+                              <th>DPT</th>
+                              <th>Flags</th>
+                              <th>Purpose</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template
+                              x-for="ga in $store.reference.getRecommendedGAs(form.type)?.recommended_gas || []"
+                              :key="ga.name"
+                            >
+                              <tr>
+                                <td><code x-text="ga.name"></code></td>
+                                <td><code x-text="ga.dpt"></code></td>
+                                <td><code x-text="ga.flags"></code></td>
+                                <td x-text="ga.description"></td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                        <button
+                          type="button"
+                          class="btn btn-small btn-primary"
+                          @click="applyRecommendedGAs()"
+                          style="margin-top: 0.5rem"
+                        >
+                          Apply Recommended Structure
+                        </button>
+                      </div>
+                    </template>
+                    <template
+                      x-if="!$store.reference.getRecommendedGAs(form.type)"
+                    >
+                      <p class="help-empty">
+                        No recommended structure for this device type.
+                      </p>
+                    </template>
+                  </div>
+
+                  <!-- Individual Address Reference -->
+                  <div
+                    class="ga-help-content"
+                    x-show="helpTab === 'individual'"
+                  >
+                    <template x-if="$store.reference.individualAddress">
+                      <div>
+                        <p
+                          class="help-intro"
+                          x-text="$store.reference.individualAddress.description"
+                        ></p>
+
+                        <div class="ga-format-box">
+                          <strong>Format:</strong>
+                          <code
+                            x-text="$store.reference.individualAddress.format"
+                          ></code>
+                          <span
+                            class="ga-bits"
+                            x-text="'(' + $store.reference.individualAddress.bits + ')'"
+                          ></span>
+                        </div>
+
+                        <h5>Address Components</h5>
+                        <table class="help-table">
+                          <thead>
+                            <tr>
+                              <th>Part</th>
+                              <th>Range</th>
+                              <th>Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <tr>
+                              <td><code>Area</code></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.area.range"
+                              ></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.area.description"
+                              ></td>
+                            </tr>
+                            <tr>
+                              <td><code>Line</code></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.line.range"
+                              ></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.line.description"
+                              ></td>
+                            </tr>
+                            <tr>
+                              <td><code>Device</code></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.device.range"
+                              ></td>
+                              <td
+                                x-text="$store.reference.individualAddress.structure.device.description"
+                              ></td>
+                            </tr>
+                          </tbody>
+                        </table>
+
+                        <h5 style="margin-top: 1rem">Special Addresses</h5>
+                        <div class="ga-examples">
+                          <template
+                            x-for="special in $store.reference.individualAddress.special_addresses"
+                            :key="special.address"
+                          >
+                            <div class="ga-example">
+                              <code x-text="special.address"></code>
+                              <span
+                                ><strong x-text="special.meaning"></strong> —
+                                <span x-text="special.note"></span
+                              ></span>
+                            </div>
+                          </template>
+                        </div>
+
+                        <h5 style="margin-top: 1rem">
+                          Individual vs Group Address
+                        </h5>
+                        <div class="addr-comparison">
+                          <div class="addr-compare-item">
+                            <strong>Individual (1.1.1)</strong>
+                            <p
+                              x-text="$store.reference.individualAddress.vs_group_address.individual"
+                            ></p>
+                          </div>
+                          <div class="addr-compare-item">
+                            <strong>Group (1/1/1)</strong>
+                            <p
+                              x-text="$store.reference.individualAddress.vs_group_address.group"
+                            ></p>
+                          </div>
+                          <div class="addr-compare-analogy">
+                            <em
+                              x-text="'💡 ' + $store.reference.individualAddress.vs_group_address.analogy"
+                            ></em>
+                          </div>
+                        </div>
+
+                        <div class="ga-tips">
+                          <h5>Tips</h5>
+                          <ul>
+                            <template
+                              x-for="tip in $store.reference.individualAddress.tips"
+                              :key="tip"
+                            >
+                              <li x-text="tip"></li>
+                            </template>
+                          </ul>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- DPT Reference -->
+                  <div class="ga-help-content" x-show="helpTab === 'dpts'">
+                    <div class="dpt-search">
+                      <input
+                        type="text"
+                        placeholder="Search DPTs (e.g., temperature, 9.001, switch...)"
+                        x-model="dptSearch"
+                      />
+                    </div>
+                    <div class="dpt-results">
+                      <template
+                        x-for="dpt in $store.reference.searchDpts(dptSearch).slice(0, 15)"
+                        :key="dpt.id"
+                      >
+                        <div class="dpt-item" @click="copyDpt(dpt.id)">
+                          <div class="dpt-id">
+                            <code x-text="dpt.id"></code>
+                          </div>
+                          <div class="dpt-info">
+                            <span class="dpt-name" x-text="dpt.name"></span>
+                            <span
+                              class="dpt-unit"
+                              x-show="dpt.unit"
+                              x-text="'(' + dpt.unit + ')'"
+                            ></span>
+                            <span
+                              class="dpt-range"
+                              x-show="dpt.range"
+                              x-text="dpt.range"
+                            ></span>
+                          </div>
+                          <div class="dpt-use" x-text="dpt.use_case"></div>
+                        </div>
+                      </template>
+                    </div>
+                    <p class="help-hint">Click a DPT to copy it</p>
+                  </div>
+
+                  <!-- GA Addressing Structure -->
+                  <div
+                    class="ga-help-content"
+                    x-show="helpTab === 'addressing'"
+                  >
+                    <template x-if="$store.reference.gaStructure">
+                      <div>
+                        <p
+                          class="help-intro"
+                          x-text="$store.reference.gaStructure.description"
+                        ></p>
+                        <div class="ga-format-box">
+                          <strong>Format:</strong>
+                          <code
+                            x-text="$store.reference.gaStructure.format"
+                          ></code>
+                          <span
+                            class="ga-bits"
+                            x-text="'(' + $store.reference.gaStructure.bits + ')'"
+                          ></span>
+                        </div>
+                        <template
+                          x-for="conv in $store.reference.gaStructure.conventions.slice(0, 2)"
+                          :key="conv.name"
+                        >
+                          <div class="ga-convention">
+                            <h5 x-text="conv.name"></h5>
+                            <p x-text="conv.description"></p>
+                            <div class="ga-examples">
+                              <template
+                                x-for="ex in conv.example_addresses || []"
+                                :key="ex.ga"
+                              >
+                                <div class="ga-example">
+                                  <code x-text="ex.ga"></code>
+                                  <span x-text="ex.meaning"></span>
+                                </div>
+                              </template>
+                            </div>
+                          </div>
+                        </template>
+                        <div class="ga-tips">
+                          <h5>Tips</h5>
+                          <ul>
+                            <template
+                              x-for="tip in $store.reference.gaStructure.tips"
+                              :key="tip"
+                            >
+                              <li x-text="tip"></li>
+                            </template>
+                          </ul>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+
+                  <!-- Flags Reference -->
+                  <div class="ga-help-content" x-show="helpTab === 'flags'">
+                    <template x-if="$store.reference.flags">
+                      <div>
+                        <p
+                          class="help-intro"
+                          x-text="$store.reference.flags.description"
+                        ></p>
+                        <table class="help-table">
+                          <thead>
+                            <tr>
+                              <th>Flag</th>
+                              <th>Name</th>
+                              <th>Description</th>
+                            </tr>
+                          </thead>
+                          <tbody>
+                            <template
+                              x-for="flag in $store.reference.flags.flags"
+                              :key="flag.letter"
+                            >
+                              <tr>
+                                <td><code x-text="flag.letter"></code></td>
+                                <td x-text="flag.name"></td>
+                                <td x-text="flag.description"></td>
+                              </tr>
+                            </template>
+                          </tbody>
+                        </table>
+                        <h5 style="margin-top: 1rem">Common Patterns</h5>
+                        <div class="flag-patterns">
+                          <template
+                            x-for="pattern in $store.reference.flags.common_patterns"
+                            :key="pattern.flags"
+                          >
+                            <div class="flag-pattern">
+                              <code x-text="pattern.flags"></code>
+                              <span
+                                class="pattern-use"
+                                x-text="pattern.use_case"
+                              ></span>
+                            </div>
+                          </template>
+                        </div>
+                      </div>
+                    </template>
+                  </div>
+                </div>
+
+                <!-- GA Editor -->
+                <div class="ga-editor">
+                  <div class="ga-editor-header">
+                    <span class="ga-editor-col-name">Name</span>
+                    <span class="ga-editor-col-ga">GA</span>
+                    <span class="ga-editor-col-dpt">DPT</span>
+                    <span class="ga-editor-col-flags">Flags</span>
+                    <span class="ga-editor-col-actions"></span>
+                  </div>
+                  <template
+                    x-for="(gaData, name) in form.group_addresses"
+                    :key="name"
+                  >
+                    <div class="ga-row">
+                      <input
+                        type="text"
+                        :value="name"
+                        disabled
+                        class="ga-name"
+                      />
+                      <input
+                        type="text"
+                        :value="typeof gaData === 'object' ? gaData.ga : gaData"
+                        @input="updateGA(name, 'ga', $event.target.value)"
+                        placeholder="1/0/1"
+                        class="ga-value"
+                      />
+                      <input
+                        type="text"
+                        :value="typeof gaData === 'object' ? gaData.dpt : ''"
+                        @input="updateGA(name, 'dpt', $event.target.value)"
+                        placeholder="1.001"
+                        class="ga-dpt"
+                        :title="getDptTooltip(typeof gaData === 'object' ? gaData.dpt : '')"
+                      />
+                      <input
+                        type="text"
+                        :value="typeof gaData === 'object' ? gaData.flags : ''"
+                        @input="updateGA(name, 'flags', $event.target.value)"
+                        placeholder="C-W-U-"
+                        class="ga-flags"
+                        maxlength="6"
+                        :title="$store.app.getFlagsTooltip(typeof gaData === 'object' ? gaData.flags : '')"
+                      />
+                      <button
+                        type="button"
+                        class="btn-icon btn-danger ga-delete"
+                        @click="removeGA(name)"
+                        title="Remove GA"
+                      >
+                        ✕
+                      </button>
+                    </div>
+                  </template>
+                  <button class="btn btn-small" @click="addGA()" type="button">
+                    + Add GA
+                  </button>
+                </div>
               </div>
             </div>
+            <!-- /Stage 2 -->
           </div>
           <div class="modal-footer">
             <button class="btn" @click="$store.modal.close()">Cancel</button>
             <button
               class="btn btn-primary"
               @click="submit()"
-              :disabled="!form.id || !form.individual_address"
+              :disabled="!selectedTemplate && $store.modal.mode === 'create' || !form.id || !form.individual_address"
+            >
+              <span
+                x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
+              ></span>
+            </button>
+          </div>
+        </div>
+
+        <!-- Load Modal (Create / Edit physical equipment) -->
+        <div
+          class="modal"
+          x-show="$store.modal.type === 'load'"
+          @click.stop
+          x-data="loadForm()"
+        >
+          <div class="modal-header">
+            <h3
+              x-text="$store.modal.mode === 'create' ? 'Add Load' : 'Edit Load'"
+            ></h3>
+            <button class="btn-close" @click="$store.modal.close()">
+              &times;
+            </button>
+          </div>
+          <div class="modal-body">
+            <!-- ═══ Stage 1: Load Type Picker (create mode, no type chosen) ═══ -->
+            <div
+              x-show="!selectedPreset && $store.modal.mode === 'create'"
+              class="load-type-picker"
+            >
+              <label>Select Load Type</label>
+              <input
+                type="text"
+                x-model="typeSearch"
+                placeholder="Search load types..."
+                class="template-search"
+              />
+              <div class="domain-tabs domain-tabs-compact">
+                <button
+                  type="button"
+                  class="domain-tab"
+                  :class="{'active': !typeCategory}"
+                  @click="typeCategory = null"
+                >
+                  All
+                </button>
+                <template x-for="cat in loadCategories" :key="cat">
+                  <button
+                    type="button"
+                    class="domain-tab"
+                    :class="{'active': typeCategory === cat}"
+                    @click="typeCategory = cat"
+                    x-text="cat"
+                  ></button>
+                </template>
+              </div>
+              <div class="template-grid template-grid-compact">
+                <!-- Custom Load card -->
+                <div
+                  class="template-card template-card-custom"
+                  @click="pickCustom()"
+                >
+                  <div class="template-icon">🔧</div>
+                  <div class="template-info">
+                    <div class="template-name">Custom Load</div>
+                    <div class="template-desc">Define type manually</div>
+                  </div>
+                </div>
+                <!-- Preset cards -->
+                <template x-for="preset in filteredPresets" :key="preset.id">
+                  <div class="template-card" @click="pickPreset(preset)">
+                    <div class="template-icon" x-text="preset.icon"></div>
+                    <div class="template-info">
+                      <div class="template-name" x-text="preset.name"></div>
+                      <div
+                        class="template-desc"
+                        x-text="preset.description"
+                      ></div>
+                    </div>
+                  </div>
+                </template>
+              </div>
+              <div
+                class="template-picker-empty"
+                x-show="filteredPresets.length === 0 && typeSearch"
+              >
+                <p>No load types match "<span x-text="typeSearch"></span>"</p>
+              </div>
+            </div>
+
+            <!-- ═══ Stage 2: Load Configuration (type chosen or edit mode) ═══ -->
+            <div x-show="selectedPreset || $store.modal.mode === 'edit'">
+              <!-- Selected type badge -->
+              <div
+                class="selected-template-badge"
+                x-show="selectedPreset && $store.modal.mode === 'create'"
+              >
+                <span
+                  class="template-badge-icon"
+                  x-text="isCustomLoad ? '🔧' : selectedPreset?.icon"
+                ></span>
+                <span
+                  class="template-badge-name"
+                  x-text="selectedPreset?.name || 'Custom Load'"
+                ></span>
+                <span
+                  class="template-badge-domain"
+                  x-show="selectedPreset?.category"
+                  x-text="selectedPreset?.category"
+                ></span>
+                <button
+                  type="button"
+                  class="btn btn-small btn-outline"
+                  @click="changeType()"
+                >
+                  Change
+                </button>
+              </div>
+
+              <div class="form-group">
+                <label for="load-name">Load Name</label>
+                <input
+                  type="text"
+                  id="load-name"
+                  x-model="form.name"
+                  placeholder="e.g., Kitchen Ceiling Light"
+                />
+              </div>
+              <!-- Custom load: editable type field -->
+              <div class="form-group" x-show="isCustomLoad">
+                <label for="load-type-custom">Load Type</label>
+                <input
+                  type="text"
+                  id="load-type-custom"
+                  x-model="form.type"
+                  placeholder="e.g., light_rgb"
+                />
+                <small class="form-hint"
+                  >Free-form type identifier for your custom load</small
+                >
+              </div>
+              <!-- Custom load: editable icon -->
+              <div class="form-group" x-show="isCustomLoad">
+                <label for="load-icon-custom">Icon</label>
+                <input
+                  type="text"
+                  id="load-icon-custom"
+                  x-model="form.icon"
+                  placeholder="e.g., 💡"
+                  style="width: 60px"
+                />
+              </div>
+              <div class="form-group">
+                <label for="load-room">Room</label>
+                <select id="load-room" x-model="form.room_id">
+                  <option value="">Unassigned</option>
+                  <template x-for="floor in $store.app.floors" :key="floor.id">
+                    <optgroup :label="floor.name">
+                      <template
+                        x-for="room in floor.rooms || []"
+                        :key="room.id"
+                      >
+                        <option :value="room.id" x-text="room.name"></option>
+                      </template>
+                    </optgroup>
+                  </template>
+                </select>
+              </div>
+
+              <!-- Actuator Link -->
+              <div class="form-group">
+                <label>Actuator Link</label>
+                <div class="actuator-link-section">
+                  <select
+                    x-model="form.actuator_device_id"
+                    @change="onActuatorChange()"
+                  >
+                    <option value="">No actuator (unlinked)</option>
+                    <template x-for="dev in actuatorDevices" :key="dev.id">
+                      <option
+                        :value="dev.id"
+                        x-text="dev.id + ' (' + (dev.individual_address || '?') + ')'"
+                      ></option>
+                    </template>
+                  </select>
+                  <select
+                    x-model="form.actuator_channel_id"
+                    :disabled="!form.actuator_device_id"
+                    x-show="form.actuator_device_id"
+                  >
+                    <option value="">Select channel...</option>
+                    <template x-for="ch in availableChannels" :key="ch.id">
+                      <option
+                        :value="ch.id"
+                        x-text="'Ch ' + ch.id + (ch.name ? ' — ' + ch.name : '') + (ch.assignedTo ? ' [' + ch.assignedTo + ']' : ' (free)')"
+                      ></option>
+                    </template>
+                  </select>
+                </div>
+                <small class="form-hint"
+                  >Link to an actuator channel to control this load via
+                  KNX</small
+                >
+              </div>
+            </div>
+            <!-- /Stage 2 -->
+          </div>
+          <div class="modal-footer">
+            <button
+              class="btn btn-danger"
+              x-show="$store.modal.mode === 'edit'"
+              @click="deleteLoad()"
+              style="margin-right: auto"
+            >
+              Delete
+            </button>
+            <button class="btn" @click="$store.modal.close()">Cancel</button>
+            <button
+              class="btn btn-primary"
+              @click="submit()"
+              :disabled="!selectedPreset && $store.modal.mode === 'create' || !form.name"
             >
               <span
                 x-text="$store.modal.mode === 'create' ? 'Create' : 'Save'"
@@ -4869,30 +5314,208 @@ STRATEGY 3: By Room Type (Commercial)
         return {
           form: {
             id: "",
-            type: "light_switch",
+            type: "",
             individual_address: "",
+            line_id: "",
+            device_number: null,
             room_id: "",
             group_addresses: {},
           },
+          // Template picker state
+          selectedTemplate: null,
+          isCustomDevice: false,
+          templateDomain: null,
+          templateSearch: "",
           // Help panel state
           showHelp: false,
           helpTab: "all-devices",
           dptSearch: "",
           gaFilter: "",
+          addressMode: "manual",
+
+          getLineById(lineId) {
+            const topology = this.$store.app.topology;
+            if (!topology) return null;
+            for (const area of topology.areas || []) {
+              const line = (area.lines || []).find((l) => l.id === lineId);
+              if (line) {
+                return { ...line, area_number: area.area_number };
+              }
+            }
+            return null;
+          },
+
+          ensureLineSelected() {
+            if (this.form.line_id) return;
+            const topology = this.$store.app.topology;
+            const firstLine = topology?.areas?.[0]?.lines?.[0];
+            if (firstLine) {
+              this.form.line_id = firstLine.id;
+            }
+          },
+
+          syncIAFromTopology() {
+            if (this.addressMode !== "topology") return;
+            if (!this.form.line_id || !this.form.device_number) return;
+            const line = this.getLineById(this.form.line_id);
+            if (!line) return;
+            this.form.individual_address = `${line.area_number}.${line.line_number}.${this.form.device_number}`;
+          },
+
+          setAddressMode(mode) {
+            this.addressMode = mode;
+            if (mode === "topology") {
+              this.ensureLineSelected();
+              if (this.form.line_id && !this.form.device_number) {
+                this.suggestDeviceNumber();
+              } else {
+                this.syncIAFromTopology();
+              }
+            }
+          },
+
+          async onLineChange() {
+            if (this.addressMode !== "topology") return;
+            if (this.form.line_id) {
+              await this.suggestDeviceNumber();
+            }
+          },
+
+          async suggestDeviceNumber() {
+            if (this.addressMode !== "topology") return;
+            this.ensureLineSelected();
+            if (this.form.line_id) {
+              const result = await this.$store.app.fetchNextDeviceNumber(
+                this.form.line_id,
+              );
+              if (result?.next_device_number) {
+                this.form.device_number = result.next_device_number;
+                if (result.individual_address) {
+                  this.form.individual_address = result.individual_address;
+                } else {
+                  this.syncIAFromTopology();
+                }
+                return;
+              }
+              this.form.device_number = this.$store.app.getNextDeviceNumber(
+                this.form.line_id,
+              );
+              this.syncIAFromTopology();
+            }
+          },
+
+          applySuggestedLine(lineId, suggestedIA) {
+            if (!lineId) return false;
+            this.form.line_id = lineId;
+            const parsed = this.$store.reference.parseIA(suggestedIA || "");
+            if (parsed?.device) {
+              this.form.device_number = parsed.device;
+            } else if (this.$store.app.topology) {
+              this.form.device_number = this.$store.app.getNextDeviceNumber(
+                this.form.line_id,
+              );
+            } else {
+              this.form.device_number = null;
+            }
+            this.addressMode = "topology";
+            this.syncIAFromTopology();
+            return true;
+          },
+
+          get filteredPickerTemplates() {
+            let templates = this.$store.app.templates || [];
+            if (this.templateDomain) {
+              templates = templates.filter(
+                (t) => t.domain === this.templateDomain,
+              );
+            }
+            if (this.templateSearch) {
+              const q = this.templateSearch.toLowerCase();
+              templates = templates.filter(
+                (t) =>
+                  t.name.toLowerCase().includes(q) ||
+                  (t.description || "").toLowerCase().includes(q) ||
+                  t.id.toLowerCase().includes(q),
+              );
+            }
+            return templates;
+          },
+
+          pickTemplate(template) {
+            this.selectedTemplate = template;
+            this.isCustomDevice = false;
+            // Pre-fill GAs from template
+            const templateGAs = {};
+            if (template.group_addresses) {
+              for (const [name, gaDef] of Object.entries(
+                template.group_addresses,
+              )) {
+                templateGAs[name] = {
+                  ga: "",
+                  dpt: gaDef.dpt || "1.001",
+                  flags: gaDef.flags || "C-W-U-",
+                };
+              }
+            }
+            this.form.id = `${template.id}-${Date.now().toString(36)}`;
+            this.form.type = template.id;
+            this.form.group_addresses = templateGAs;
+            // Auto-show recommended help tab
+            this.showHelp = true;
+            this.helpTab = "recommended";
+          },
+
+          pickCustom() {
+            this.selectedTemplate = { id: "custom", name: "Custom Device" };
+            this.isCustomDevice = true;
+            this.form.id = "";
+            this.form.type = "";
+            this.form.group_addresses = {};
+          },
+
+          changeTemplate() {
+            this.selectedTemplate = null;
+            this.isCustomDevice = false;
+            this.form.type = "";
+            this.form.group_addresses = {};
+            this.showHelp = false;
+          },
 
           init() {
+            if (!$store.app.topology && $store.app.currentPremiseId) {
+              $store.app.loadTopology();
+            }
+            this.$watch("$store.app.topology", () => {
+              if (this.addressMode === "topology") {
+                if (this.form.line_id && !this.form.device_number) {
+                  this.form.device_number = this.$store.app.getNextDeviceNumber(
+                    this.form.line_id,
+                  );
+                }
+                this.syncIAFromTopology();
+              }
+            });
+
             this.$watch("$store.modal.open", (open) => {
               if (open && this.$store.modal.type === "device") {
-                // Reset help panel state
+                // Reset state
                 this.showHelp = false;
                 this.helpTab = "recommended";
                 this.dptSearch = "";
+                this.templateSearch = "";
+                this.templateDomain = null;
+                this.addressMode = "manual";
+
+                const suggestedIA = this.$store.modal.data?.suggested_ia || "";
+                const suggestedLineId = this.$store.modal.data?.line_id || "";
 
                 if (
                   this.$store.modal.mode === "edit" &&
                   this.$store.modal.data
                 ) {
-                  // Deep copy and normalize GA data to object format
+                  // Edit mode — deep copy and normalize GA data to object format
+                  this.selectedTemplate = null;
+                  this.isCustomDevice = false;
                   const normalizedGAs = {};
                   for (const [name, gaData] of Object.entries(
                     this.$store.modal.data.group_addresses || {},
@@ -4900,7 +5523,6 @@ STRATEGY 3: By Room Type (Commercial)
                     if (typeof gaData === "object") {
                       normalizedGAs[name] = { ...gaData };
                     } else {
-                      // Convert legacy string format to object
                       normalizedGAs[name] = {
                         ga: gaData,
                         dpt: this.$store.app.guessDPT(
@@ -4915,30 +5537,61 @@ STRATEGY 3: By Room Type (Commercial)
                     ...this.$store.modal.data,
                     group_addresses: normalizedGAs,
                   };
+                  this.addressMode = this.form.line_id ? "topology" : "manual";
+                  if (this.addressMode === "topology") {
+                    this.syncIAFromTopology();
+                  }
                 } else {
+                  // Create mode
                   const template = this.$store.modal.data?.template;
-                  // Convert template GAs to editable format
-                  const templateGAs = {};
-                  if (template?.group_addresses) {
-                    for (const [name, gaDef] of Object.entries(
-                      template.group_addresses,
-                    )) {
-                      templateGAs[name] = {
-                        ga: "",
-                        dpt: gaDef.dpt || "1.001",
-                        flags: gaDef.flags || "C-W-U-",
-                      };
+
+                  if (template) {
+                    // Coming from template browser or pre-selected — skip Stage 1
+                    this.selectedTemplate = template;
+                    this.isCustomDevice = false;
+                    const templateGAs = {};
+                    if (template.group_addresses) {
+                      for (const [name, gaDef] of Object.entries(
+                        template.group_addresses,
+                      )) {
+                        templateGAs[name] = {
+                          ga: "",
+                          dpt: gaDef.dpt || "1.001",
+                          flags: gaDef.flags || "C-W-U-",
+                        };
+                      }
+                    }
+                    this.form = {
+                      id: `${template.id}-${Date.now().toString(36)}`,
+                      type: template.id,
+                      individual_address: suggestedIA,
+                      line_id: "",
+                      device_number: null,
+                      room_id: "",
+                      group_addresses: templateGAs,
+                    };
+                    if (this.applySuggestedLine(suggestedLineId, suggestedIA)) {
+                      this.addressMode = "topology";
+                    }
+                    this.showHelp = true;
+                    this.helpTab = "recommended";
+                  } else {
+                    // No template — show Stage 1 (inline template picker)
+                    this.selectedTemplate = null;
+                    this.isCustomDevice = false;
+                    this.form = {
+                      id: "",
+                      type: "",
+                      individual_address: suggestedIA,
+                      line_id: "",
+                      device_number: null,
+                      room_id: "",
+                      group_addresses: {},
+                    };
+                    if (this.applySuggestedLine(suggestedLineId, suggestedIA)) {
+                      this.addressMode = "topology";
                     }
                   }
-                  this.form = {
-                    id: template
-                      ? `${template.id}-${Date.now().toString(36)}`
-                      : "",
-                    type: template?.id || "light_switch",
-                    individual_address: "",
-                    room_id: "",
-                    group_addresses: templateGAs,
-                  };
                 }
               }
             });
@@ -4992,16 +5645,9 @@ STRATEGY 3: By Room Type (Commercial)
             this.form.group_addresses = newGAs;
           },
 
-          // Handle device type change - offer to apply recommended structure
+          // Handle device type change (custom device — user typed a type string)
           onTypeChange() {
-            if (
-              this.$store.modal.mode === "create" &&
-              Object.keys(this.form.group_addresses).length === 0
-            ) {
-              // Auto-show help panel with recommended tab for new devices
-              this.showHelp = true;
-              this.helpTab = "recommended";
-            }
+            // No-op for now; template-based devices pre-fill via pickTemplate()
           },
 
           // Copy DPT to clipboard
@@ -5029,6 +5675,10 @@ STRATEGY 3: By Room Type (Commercial)
 
           // Suggest next available IA
           suggestIA() {
+            if (this.addressMode === "topology") {
+              this.suggestDeviceNumber();
+              return;
+            }
             // If we have an existing address, suggest next on same line
             if (this.form.individual_address) {
               const parts = this.form.individual_address.split(".");
@@ -5047,25 +5697,458 @@ STRATEGY 3: By Room Type (Commercial)
 
           // Get hint for IA field
           getIAHint() {
+            if (this.addressMode === "topology") {
+              const line = this.getLineById(this.form.line_id);
+              if (!line) return "Select a line to compute IA";
+              return `Computed from Area ${line.area_number} Line ${line.line_number}`;
+            }
             const used = this.$store.reference.getAllUsedIAs();
-            if (used.length === 0) return "No devices yet";
-            return `${used.length} addresses in use`;
+            const base = "Format: area.line.device (e.g., 1.1.1)";
+            if (used.length === 0) return `${base} — No devices yet`;
+            return `${base} — ${used.length} addresses in use`;
           },
 
           async submit() {
             try {
+              const useTopology = this.addressMode === "topology";
+              if (useTopology) {
+                if (!this.form.line_id || !this.form.device_number) {
+                  alert("Select a line and device number.");
+                  return;
+                }
+              } else if (!this.form.individual_address) {
+                alert("Individual address is required.");
+                return;
+              }
+
+              const addressing = useTopology
+                ? {
+                    line_id: this.form.line_id,
+                    device_number: this.form.device_number,
+                  }
+                : { individual_address: this.form.individual_address };
+
               if (this.$store.modal.mode === "create") {
-                await this.$store.app.createDevice(this.form);
+                if (this.selectedTemplate && !this.isCustomDevice) {
+                  // Template-based device — use from-template API
+                  const gaAddresses = {};
+                  for (const [name, gaData] of Object.entries(
+                    this.form.group_addresses,
+                  )) {
+                    gaAddresses[name] =
+                      typeof gaData === "object" ? gaData.ga : gaData;
+                  }
+                  await this.$store.app.createDeviceFromTemplate(
+                    this.selectedTemplate.id,
+                    {
+                      device_id: this.form.id,
+                      ...addressing,
+                      group_addresses: gaAddresses,
+                      room_id: this.form.room_id || null,
+                    },
+                  );
+                } else {
+                  // Custom device — use direct create
+                  await this.$store.app.createDevice({
+                    id: this.form.id,
+                    type: this.form.type,
+                    room_id: this.form.room_id || null,
+                    group_addresses: this.form.group_addresses,
+                    ...addressing,
+                  });
+                }
               } else {
                 await this.$store.app.updateDevice(this.form.id, {
                   room_id: this.form.room_id || null,
-                  individual_address: this.form.individual_address,
                   group_addresses: this.form.group_addresses,
+                  ...addressing,
                 });
               }
               this.$store.modal.close();
             } catch (err) {
               alert("Failed: " + err.message);
+            }
+          },
+        };
+      }
+
+      // ═══════════════════════════════════════════════════════════════
+      // Load form component (Add / Edit physical equipment)
+      // ═══════════════════════════════════════════════════════════════
+
+      const LOAD_TYPE_PRESETS = [
+        // ── Lighting ──
+        {
+          id: "light",
+          name: "230V Switched Lamp",
+          category: "Lighting",
+          icon: "💡",
+          description: "Standard on/off mains lamp",
+        },
+        {
+          id: "light_dimmable",
+          name: "Dimmable LED (trailing edge)",
+          category: "Lighting",
+          icon: "💡",
+          description: "Trailing-edge dimmable LED driver",
+        },
+        {
+          id: "light_dimmable_le",
+          name: "Dimmable LED (leading edge)",
+          category: "Lighting",
+          icon: "💡",
+          description: "Leading-edge dimmable (halogen compatible)",
+        },
+        {
+          id: "light_rgb",
+          name: "RGB LED Strip",
+          category: "Lighting",
+          icon: "🎨",
+          description: "PWM-controlled RGB LED strip",
+        },
+        {
+          id: "light_rgbw",
+          name: "RGBW LED Strip",
+          category: "Lighting",
+          icon: "🎨",
+          description: "PWM-controlled RGBW LED strip",
+        },
+        {
+          id: "light_tw",
+          name: "Tuneable White",
+          category: "Lighting",
+          icon: "💡",
+          description: "Colour temperature adjustable LED",
+        },
+        {
+          id: "light_dali",
+          name: "DALI Ballast",
+          category: "Lighting",
+          icon: "💡",
+          description: "DALI-controlled fluorescent/LED ballast",
+        },
+        {
+          id: "light_lv",
+          name: "Low Voltage LED (12V/24V)",
+          category: "Lighting",
+          icon: "💡",
+          description: "Transformer + LED driver",
+        },
+        // ── Heating Valves ──
+        {
+          id: "valve_proportional",
+          name: "Proportional Valve (0-10V)",
+          category: "Heating",
+          icon: "🔥",
+          description: "Modulating valve, 0-100% via DPT 5.001",
+        },
+        {
+          id: "valve_thermal",
+          name: "Thermal Actuator (on/off)",
+          category: "Heating",
+          icon: "🔥",
+          description:
+            "Slow open/close thermal actuator, PWM from heating actuator",
+        },
+        {
+          id: "valve_binary",
+          name: "Zone Valve (binary)",
+          category: "Heating",
+          icon: "🔥",
+          description: "Standard open/close motorised zone valve",
+        },
+        // ── Blinds & Shutters ──
+        {
+          id: "motor_blind",
+          name: "Roller Blind Motor",
+          category: "Blinds",
+          icon: "🪟",
+          description: "Tubular motor for roller blinds",
+        },
+        {
+          id: "motor_venetian",
+          name: "Venetian Blind Motor",
+          category: "Blinds",
+          icon: "🪟",
+          description: "Motor with slat tilt control",
+        },
+        {
+          id: "motor_curtain",
+          name: "Curtain Track Motor",
+          category: "Blinds",
+          icon: "🪟",
+          description: "Curtain track/rail motor",
+        },
+        {
+          id: "motor_awning",
+          name: "Awning Motor",
+          category: "Blinds",
+          icon: "🪟",
+          description: "Exterior awning motor",
+        },
+        // ── HVAC / Mechanical ──
+        {
+          id: "fan",
+          name: "Extract Fan",
+          category: "HVAC",
+          icon: "🌀",
+          description: "Bathroom/kitchen extract fan",
+        },
+        {
+          id: "pump",
+          name: "Circulation Pump",
+          category: "HVAC",
+          icon: "💧",
+          description: "Central heating circulation pump",
+        },
+        {
+          id: "heater_towel",
+          name: "Towel Rail",
+          category: "HVAC",
+          icon: "🔥",
+          description: "Electric towel radiator",
+        },
+        {
+          id: "heater_ufh_electric",
+          name: "Underfloor Heating Mat",
+          category: "HVAC",
+          icon: "🔥",
+          description: "Electric UFH mat",
+        },
+        // ── Other ──
+        {
+          id: "socket",
+          name: "Power Socket",
+          category: "Other",
+          icon: "🔌",
+          description: "Switched mains socket",
+        },
+        {
+          id: "door_strike",
+          name: "Door Strike",
+          category: "Other",
+          icon: "🚪",
+          description: "Electric door release",
+        },
+        {
+          id: "valve_irrigation",
+          name: "Irrigation Valve",
+          category: "Other",
+          icon: "🌿",
+          description: "Garden irrigation solenoid",
+        },
+      ];
+
+      const LOAD_CATEGORIES = [
+        ...new Set(LOAD_TYPE_PRESETS.map((p) => p.category)),
+      ];
+
+      function loadForm() {
+        return {
+          form: {
+            name: "",
+            type: "",
+            room_id: "",
+            icon: "",
+            actuator_device_id: "",
+            actuator_channel_id: "",
+          },
+          selectedPreset: null,
+          isCustomLoad: false,
+          typeCategory: null,
+          typeSearch: "",
+
+          get loadCategories() {
+            return LOAD_CATEGORIES;
+          },
+
+          get filteredPresets() {
+            let presets = LOAD_TYPE_PRESETS;
+            if (this.typeCategory) {
+              presets = presets.filter((p) => p.category === this.typeCategory);
+            }
+            if (this.typeSearch) {
+              const q = this.typeSearch.toLowerCase();
+              presets = presets.filter(
+                (p) =>
+                  p.name.toLowerCase().includes(q) ||
+                  p.description.toLowerCase().includes(q) ||
+                  p.id.toLowerCase().includes(q),
+              );
+            }
+            return presets;
+          },
+
+          get actuatorDevices() {
+            return (this.$store.app.devices || []).filter(
+              (d) => d.channels && d.channels.length > 0,
+            );
+          },
+
+          get availableChannels() {
+            if (!this.form.actuator_device_id) return [];
+            const device = this.$store.app.devices.find(
+              (d) => d.id === this.form.actuator_device_id,
+            );
+            if (!device || !device.channels) return [];
+            // Show which channels are already assigned to other loads
+            const currentLoadId =
+              this.$store.modal.mode === "edit"
+                ? this.$store.modal.data?.id
+                : null;
+            return device.channels.map((ch) => {
+              const assignedLoad = (this.$store.app.loads || []).find(
+                (l) =>
+                  l.actuator_device_id === device.id &&
+                  l.actuator_channel_id === ch.id &&
+                  l.id !== currentLoadId,
+              );
+              return {
+                id: ch.id,
+                name: ch.name || "",
+                assignedTo: assignedLoad ? assignedLoad.name : null,
+              };
+            });
+          },
+
+          pickPreset(preset) {
+            this.selectedPreset = preset;
+            this.isCustomLoad = false;
+            this.form.type = preset.id;
+            this.form.icon = preset.icon;
+            // Auto-generate a name suggestion if empty
+            if (!this.form.name) {
+              const roomName = this.getSelectedRoomName();
+              this.form.name = roomName
+                ? `${roomName} ${preset.name}`
+                : preset.name;
+            }
+          },
+
+          pickCustom() {
+            this.selectedPreset = {
+              id: "custom",
+              name: "Custom Load",
+              icon: "🔧",
+              category: "Other",
+            };
+            this.isCustomLoad = true;
+            this.form.type = "";
+            this.form.icon = "🔧";
+          },
+
+          changeType() {
+            this.selectedPreset = null;
+            this.isCustomLoad = false;
+            this.form.type = "";
+            this.form.icon = "";
+          },
+
+          onActuatorChange() {
+            this.form.actuator_channel_id = "";
+          },
+
+          getSelectedRoomName() {
+            for (const floor of this.$store.app.floors || []) {
+              for (const room of floor.rooms || []) {
+                if (room.id === this.form.room_id) return room.name;
+              }
+            }
+            return "";
+          },
+
+          init() {
+            this.$watch("$store.modal.open", (open) => {
+              if (open && this.$store.modal.type === "load") {
+                this.typeSearch = "";
+                this.typeCategory = null;
+
+                if (
+                  this.$store.modal.mode === "edit" &&
+                  this.$store.modal.data
+                ) {
+                  const d = this.$store.modal.data;
+                  this.form = {
+                    name: d.name || "",
+                    type: d.type || "",
+                    room_id: d.room_id || "",
+                    icon: d.icon || "",
+                    actuator_device_id: d.actuator_device_id || "",
+                    actuator_channel_id: d.actuator_channel_id || "",
+                  };
+                  // Find matching preset for display
+                  const preset = LOAD_TYPE_PRESETS.find((p) => p.id === d.type);
+                  if (preset) {
+                    this.selectedPreset = preset;
+                    this.isCustomLoad = false;
+                  } else {
+                    this.selectedPreset = {
+                      id: d.type,
+                      name: d.type,
+                      icon: d.icon || "🔧",
+                      category: "Other",
+                    };
+                    this.isCustomLoad = true;
+                  }
+                } else {
+                  // Create mode
+                  const presetRoomId = this.$store.modal.data?.room_id || "";
+                  this.selectedPreset = null;
+                  this.isCustomLoad = false;
+                  this.form = {
+                    name: "",
+                    type: "",
+                    room_id: presetRoomId,
+                    icon: "",
+                    actuator_device_id: "",
+                    actuator_channel_id: "",
+                  };
+                }
+              }
+            });
+          },
+
+          async submit() {
+            const data = {
+              name: this.form.name,
+              type: this.form.type,
+              room_id: this.form.room_id || null,
+              icon: this.form.icon || null,
+              actuator_device_id: this.form.actuator_device_id || null,
+              actuator_channel_id: this.form.actuator_channel_id || null,
+            };
+
+            try {
+              const premiseId = this.$store.app.currentPremiseId;
+              if (this.$store.modal.mode === "edit") {
+                const loadId = this.$store.modal.data.id;
+                await API.updateLoad(premiseId, loadId, data);
+              } else {
+                await API.createLoad(premiseId, data);
+              }
+              // Refresh loads
+              this.$store.app.loads = await API.getLoads(premiseId);
+              // Re-select premise to refresh room→load mapping
+              await this.$store.app.selectPremise(premiseId);
+              this.$store.modal.close();
+            } catch (err) {
+              console.error("Failed to save load:", err);
+              alert("Failed to save load: " + (err.message || err));
+            }
+          },
+
+          async deleteLoad() {
+            if (!confirm("Delete this load? This cannot be undone.")) return;
+            try {
+              const premiseId = this.$store.app.currentPremiseId;
+              const loadId = this.$store.modal.data.id;
+              await API.deleteLoad(premiseId, loadId);
+              this.$store.app.loads = await API.getLoads(premiseId);
+              await this.$store.app.selectPremise(premiseId);
+              this.$store.modal.close();
+            } catch (err) {
+              console.error("Failed to delete load:", err);
+              alert("Failed to delete load: " + (err.message || err));
             }
           },
         };

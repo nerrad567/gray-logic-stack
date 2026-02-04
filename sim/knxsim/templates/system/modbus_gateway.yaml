@@ -1,0 +1,47 @@
+id: modbus_gateway
+name: Modbus RS485 Gateway
+domain: system
+description: KNX-to-Modbus RTU/RS485 gateway for industrial devices — HVAC controllers, VFDs, energy meters (Ekinex style)
+
+manufacturer:
+  id: "M-0071"
+  name: "Ekinex"
+  product_model: "EK-MG1-TP"
+  application_program: "Modbus RS485 Master"
+  hardware_type: "MDRC"
+group_addresses:
+  register_1_value:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Modbus register 1 mapped value (2-byte float)
+  register_2_value:
+    dpt: "9.001"
+    direction: status
+    flags: "CR-T--"
+    description: Modbus register 2 mapped value (2-byte float)
+  register_3_value:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Modbus register 3 mapped value (percentage)
+  write_register_1:
+    dpt: "9.001"
+    direction: write
+    flags: "C-W---"
+    description: Write to Modbus register 1
+  write_register_2:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W---"
+    description: Write to Modbus register 2 (percentage)
+  gateway_status:
+    dpt: "1.002"
+    direction: status
+    flags: "CR-T--"
+    description: Gateway communication status (true = connected)
+initial_state:
+  register_1_value: 0.0
+  register_2_value: 0.0
+  register_3_value: 0
+  gateway_status: true

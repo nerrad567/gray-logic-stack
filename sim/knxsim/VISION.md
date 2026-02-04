@@ -1,6 +1,6 @@
 # KNXSim Vision & Roadmap
 
-> **Last Updated:** 2026-01-25
+> **Last Updated:** 2026-02-04
 > **Status:** Active Development
 
 ---
@@ -65,7 +65,7 @@
 - [x] SQLite persistence (devices, state, scenarios)
 - [x] REST API (CRUD for premises, devices, floors, rooms)
 - [x] WebSocket hub (real-time telegram + state broadcasts)
-- [x] Template system (20 YAML templates, 6 domains)
+- [x] Template system (57 YAML templates, 7 domains)
 - [x] Multi-premise architecture
 
 ### Phase 2: Web Dashboard — IN PROGRESS
@@ -79,19 +79,10 @@
 #### 2.1 Building Overview
 - [ ] **Premise Selector** — Switch between multiple premises/buildings
 - [ ] **Floor Navigation** — Tab/dropdown to switch between floors
-- [ ] **Simple Floor Plan Layout** — Grid-based room layout (not pixel-perfect CAD)
-  - Rooms as clickable regions
-  - Visual indication of room status (occupied, temp, lights on)
+- [ ] **Room List/Grid** — Simple list or card grid showing all rooms on a floor
+  - Room name, key status (lights on/off, current temp, occupancy)
+  - Click to expand/drill down to devices
 - [ ] **Building Summary Stats** — Total devices, active alarms, energy usage
-
-#### 2.2 Floor View
-- [ ] **Room Grid** — Simple rectangular layout showing all rooms on floor
-- [ ] **Room Cards** — Each room shows:
-  - Room name
-  - Key status (lights on/off, current temp, occupancy)
-  - Click to expand/drill down
-- [ ] **Communal Areas** — Highlighted differently (lobbies, gyms, parking)
-- [ ] **Unit Boundaries** — Visual grouping for apartments/units
 
 #### 2.3 Device Status & Control ✅ COMPLETE
 - [x] **Entity Tiles** — Live state display:
@@ -116,13 +107,7 @@
 - [ ] **Bus Statistics** — Telegrams/sec, error count, connected clients
 - [ ] **Filter by device/room/GA** — Telegram filtering
 
-#### 2.5 Multi-Occupancy Features
-- [ ] **Unit View** — Filter to show only one apartment's devices
-- [ ] **Tenant Isolation** — Visual separation between private/communal
-- [ ] **Shared Facilities** — Lobby, gym, parking, pool status
-- [ ] **Per-Unit Summary** — Energy usage, comfort metrics per apartment
-
-#### 2.6 Device & Room Management (ETS-like)
+#### 2.5 Device & Room Management (ETS-like)
 
 Like real-world KNX commissioning with ETS, the simulator should allow dynamic configuration:
 
@@ -166,11 +151,28 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 - [ ] **Template Import/Export** — Share templates between installations
 
 ### Phase 3: Advanced Scenarios & Simulation
+
+#### 3.1 Scenario Management
 - [ ] **Scenario Editor** — Create/edit scenarios via UI
 - [ ] **Time-of-Day Profiles** — Morning routines, evening modes
 - [ ] **Occupancy Simulation** — Whole-building presence patterns
-- [ ] **Weather Integration** — Simulate blinds responding to sun position
-- [ ] **Multi-Unit Coordination** — Shared HVAC, lift calls, parking
+
+#### 3.2 Device Behaviour Fidelity
+Simulated devices should respond realistically over time, not instantly.
+This enables testing of Gray Logic Core's intelligence layer (smart PID, pre-heat scheduling, etc.)
+against a realistic thermal/mechanical model.
+
+- [ ] **Thermal model for climate devices**
+  - Room thermal mass (temperature changes gradually, not instantly)
+  - Heat loss rate (temperature drifts down when heating is off)
+  - Valve-to-temperature lag (5-15 min for UFH, 1-2 min for radiators)
+  - Basic PID response in thermostat (boost to 100%, wind back as target approaches)
+- [ ] **Motor simulation for blinds**
+  - Travel time (real blinds take 30-60s to fully open/close)
+  - Position updates during travel (not just start/end)
+- [ ] **Dimmer fade simulation**
+  - Transition time for brightness changes
+  - Soft start behaviour
 
 ### Phase 4: Testing & Debug Tools
 - [ ] **Telegram Injection** — Send arbitrary telegrams to test responses
@@ -182,6 +184,13 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 - [ ] **ETS Export** — Generate ETS project from simulator config
 - [ ] **Config Import** — Load device config from ETS export
 - [ ] **API Documentation** — OpenAPI/Swagger UI
+
+### Future / Wishlist
+Ideas that are valuable but out of scope for the current roadmap:
+
+- **Visual Floor Plan Editor** — Draw floor plans, drag-and-drop KNX devices onto rooms, wire group addresses visually. Essentially a lightweight ETS-like CAD tool. Could be a standalone project/tool.
+- **Multi-Unit Coordination** — Shared HVAC, lift calls, parking simulation for large multi-tenant buildings. Deferred until Gray Logic Core has multi-zone climate control.
+- **KNX Secure (S-mode)** — Encrypted telegram support for security-sensitive devices. Requires implementing AES-128-CCM encryption layer on the tunnelling protocol. Important for production deployments but does not change device behaviour on the bus — only adds an encryption wrapper around existing cEMI frames.
 
 ---
 
@@ -204,7 +213,7 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 
 ## Current Status
 
-**Phase 1:** ✅ Complete (4,500+ lines Python)
+**Phase 1:** ✅ Complete (4,500+ lines Python, 57 device templates)
 **Phase 2:** 🚧 In Progress — Web Dashboard (2.3, 2.4 complete)
 
 **Completed This Session (2026-01-25):**
@@ -214,11 +223,18 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 - Presence sensor controls (motion trigger + lux slider)
 - Bidirectional sync: UI commands → KNX telegrams → Core updates
 
+**Completed This Session (2026-02-04):**
+- Topology-based device addressing (line_id + device_number) with computed IA
+- Device modal addressing mode (Topology vs Manual) + line/device# picker
+- Template device creation supports topology addressing
+- Next-available device number endpoint for a line
+- Live device IA updates when addressing changes
+
 **Next Steps:**
-1. Device & Room Management UI (2.6) — add/remove devices and rooms like ETS
-2. Building overview and floor navigation (2.1, 2.2)
-3. Bus statistics panel
-4. Telegram filtering by device/room/GA
+1. Building overview and floor navigation (2.1) — premise selector, floor tabs, room grid
+2. Device & Room Management UI (2.5) — add/remove rooms, device editing flows
+3. Topology UX: drag-drop device move between lines + quick add
+4. Bus statistics + telegram filtering (2.4 remaining items)
 
 ---
 
@@ -229,11 +245,25 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 | GET | `/api/v1/health` | Health check |
 | GET | `/api/v1/premises` | List premises |
 | GET | `/api/v1/premises/{id}/devices` | List devices with live state |
-| POST | `/api/v1/premises/{id}/devices` | Create device |
+| POST | `/api/v1/premises/{id}/devices` | Create device (IA or line_id + device_number) |
+| PATCH | `/api/v1/premises/{id}/devices/{did}` | Update device (GAs, room, addressing) |
+| DELETE | `/api/v1/premises/{id}/devices/{did}` | Delete device |
 | POST | `/api/v1/premises/{id}/devices/{did}/command` | Send command (switch, brightness, position, presence, lux) |
 | GET | `/api/v1/premises/{id}/floors` | List floors with rooms |
+| POST | `/api/v1/premises/{id}/floors` | Create floor |
+| PATCH | `/api/v1/premises/{id}/floors/{fid}` | Update floor |
+| DELETE | `/api/v1/premises/{id}/floors/{fid}` | Delete floor |
+| POST | `/api/v1/premises/{id}/floors/{fid}/rooms` | Create room |
+| PATCH | `/api/v1/premises/{id}/floors/{fid}/rooms/{rid}` | Update room |
+| DELETE | `/api/v1/premises/{id}/floors/{fid}/rooms/{rid}` | Delete room |
 | GET | `/api/v1/premises/{id}/telegrams` | Telegram history |
 | GET | `/api/v1/templates` | List device templates |
+| GET | `/api/v1/premises/{id}/areas` | List areas |
+| POST | `/api/v1/premises/{id}/areas` | Create area |
+| GET | `/api/v1/premises/{id}/areas/{area_id}/lines` | List lines in area |
+| POST | `/api/v1/premises/{id}/areas/{area_id}/lines` | Create line in area |
+| GET | `/api/v1/premises/{id}/topology` | Full topology tree (Areas → Lines → Devices) |
+| GET | `/api/v1/premises/{id}/lines/{line_id}/next-device-number` | Next available device # on line |
 | WS | `/ws/telegrams?premise={id}` | Live telegram stream |
 | WS | `/ws/state?premise={id}` | Live device state updates |
 
@@ -249,21 +279,12 @@ Like real-world KNX commissioning with ETS, the simulator should allow dynamic c
 | `lux` | float | 9.004 | Ambient light (lux) |
 | `setpoint` | float | 9.001 | Temperature setpoint °C |
 
-### Planned Endpoints (2.6 Device & Room Management)
+### Planned Endpoints (Remaining Helpers)
 
 | Method | Endpoint | Description |
 |--------|----------|-------------|
-| POST | `/api/v1/premises/{id}/floors` | Create floor |
-| PATCH | `/api/v1/premises/{id}/floors/{fid}` | Update floor |
-| DELETE | `/api/v1/premises/{id}/floors/{fid}` | Delete floor |
-| POST | `/api/v1/premises/{id}/rooms` | Create room |
-| PATCH | `/api/v1/premises/{id}/rooms/{rid}` | Update room |
-| DELETE | `/api/v1/premises/{id}/rooms/{rid}` | Delete room |
-| PATCH | `/api/v1/premises/{id}/devices/{did}` | Update device (GAs, address) |
-| DELETE | `/api/v1/premises/{id}/devices/{did}` | Delete device |
-| POST | `/api/v1/premises/{id}/devices/{did}/assign` | Assign device to room |
-| GET | `/api/v1/addresses/available` | Get available individual addresses |
-| GET | `/api/v1/addresses/conflicts` | Check for GA conflicts |
+| GET | `/api/v1/addresses/available` | Available individual addresses (by line) |
+| GET | `/api/v1/addresses/conflicts` | GA/IA conflict checks |
 
 ---
 

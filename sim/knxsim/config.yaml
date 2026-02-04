@@ -33,7 +33,7 @@ devices:
   # ============================================
   # DISTRIBUTION BOARD - ACTUATORS
   # ============================================
-  
+
   # 6-fold Switch Actuator for Lighting
   # Controls all room lights from the distribution board
   # Real device: MDT AKS-0616.03 / ABB SA/S 6.16.1
@@ -51,12 +51,12 @@ devices:
       # Channel C - Hallway Light
       channel_c_switch: "1/0/20"
       channel_c_switch_status: "1/0/21"
-      # Channel D - Bedroom Light
-      channel_d_switch: "1/0/30"
-      channel_d_switch_status: "1/0/31"
-      # Channel E - Bathroom Light
-      channel_e_switch: "1/0/40"
-      channel_e_switch_status: "1/0/41"
+      # Channel D - Bedroom Light (First Floor → middle group 1)
+      channel_d_switch: "1/1/1"
+      channel_d_switch_status: "1/1/2"
+      # Channel E - Bathroom Light (First Floor → middle group 1)
+      channel_e_switch: "1/1/10"
+      channel_e_switch_status: "1/1/11"
       # Channel F - Spare
       channel_f_switch: "1/0/50"
       channel_f_switch_status: "1/0/51"
@@ -91,19 +91,19 @@ devices:
       channel_c_valve_status:
         ga: "3/0/21"
         dpt: "5.001"
-      # Channel D - Bedroom UFH Valve
+      # Channel D - Bedroom UFH Valve (First Floor → middle group 1)
       channel_d_valve:
-        ga: "3/0/30"
+        ga: "3/1/1"
         dpt: "5.001"
       channel_d_valve_status:
-        ga: "3/0/31"
+        ga: "3/1/2"
         dpt: "5.001"
-      # Channel E - Bathroom UFH Valve
+      # Channel E - Bathroom UFH Valve (First Floor → middle group 1)
       channel_e_valve:
-        ga: "3/0/40"
+        ga: "3/1/10"
         dpt: "5.001"
       channel_e_valve_status:
-        ga: "3/0/41"
+        ga: "3/1/11"
         dpt: "5.001"
       # Channel F - Spare
       channel_f_valve:
@@ -123,8 +123,8 @@ devices:
     individual_address: "1.2.1"
     room_id: "living-room"
     group_addresses:
-      button_1: "1/0/1"        # → Light actuator Ch A
-      button_1_led: "1/0/2"    # ← Status feedback
+      button_1: "1/0/1" # → Light actuator Ch A
+      button_1_led: "1/0/2" # ← Status feedback
 
   # Room Thermostat - Living Room
   # Built-in temp sensor + PI controller + heating output
@@ -141,7 +141,7 @@ devices:
         ga: "3/0/4"
         dpt: "9.001"
       heating_output:
-        ga: "3/0/1"            # → Heating actuator Ch A valve
+        ga: "3/0/1" # → Heating actuator Ch A valve
         dpt: "5.001"
     initial:
       current_temperature: 21.5
@@ -183,7 +183,7 @@ devices:
         ga: "3/0/14"
         dpt: "9.001"
       heating_output:
-        ga: "3/0/10"           # → Heating actuator Ch B valve
+        ga: "3/0/10" # → Heating actuator Ch B valve
         dpt: "5.001"
     initial:
       current_temperature: 22.0
@@ -224,7 +224,7 @@ devices:
         ga: "3/0/24"
         dpt: "9.001"
       heating_output:
-        ga: "3/0/20"           # → Heating actuator Ch C valve
+        ga: "3/0/20" # → Heating actuator Ch C valve
         dpt: "5.001"
     initial:
       current_temperature: 19.5
@@ -250,8 +250,8 @@ devices:
     individual_address: "1.2.4"
     room_id: "bedroom"
     group_addresses:
-      button_1: "1/0/30"
-      button_1_led: "1/0/31"
+      button_1: "1/1/1"
+      button_1_led: "1/1/2"
 
   - id: "thermostat-bedroom"
     type: "thermostat"
@@ -259,13 +259,13 @@ devices:
     room_id: "bedroom"
     group_addresses:
       actual_temperature:
-        ga: "3/0/33"
+        ga: "3/1/3"
         dpt: "9.001"
       setpoint:
-        ga: "3/0/34"
+        ga: "3/1/4"
         dpt: "9.001"
       heating_output:
-        ga: "3/0/30"           # → Heating actuator Ch D valve
+        ga: "3/1/1" # → Heating actuator Ch D valve
         dpt: "5.001"
     initial:
       current_temperature: 20.0
@@ -276,8 +276,8 @@ devices:
     individual_address: "1.3.8"
     room_id: "bedroom"
     group_addresses:
-      presence: "4/0/30"
-      lux: "4/0/31"
+      presence: "4/1/1"
+      lux: "4/1/2"
     initial:
       presence: false
       lux: 50
@@ -291,8 +291,8 @@ devices:
     individual_address: "1.2.5"
     room_id: "bathroom"
     group_addresses:
-      button_1: "1/0/40"
-      button_1_led: "1/0/41"
+      button_1: "1/1/10"
+      button_1_led: "1/1/11"
 
   - id: "thermostat-bathroom"
     type: "thermostat"
@@ -300,13 +300,13 @@ devices:
     room_id: "bathroom"
     group_addresses:
       actual_temperature:
-        ga: "3/0/43"
+        ga: "3/1/13"
         dpt: "9.001"
       setpoint:
-        ga: "3/0/44"
+        ga: "3/1/14"
         dpt: "9.001"
       heating_output:
-        ga: "3/0/40"           # → Heating actuator Ch E valve
+        ga: "3/1/10" # → Heating actuator Ch E valve
         dpt: "5.001"
     initial:
       current_temperature: 23.0
@@ -317,8 +317,8 @@ devices:
     individual_address: "1.3.10"
     room_id: "bathroom"
     group_addresses:
-      presence: "4/0/40"
-      lux: "4/0/41"
+      presence: "4/1/10"
+      lux: "4/1/11"
     initial:
       presence: false
       lux: 200
@@ -334,9 +334,9 @@ scenarios:
     field: "current_temperature"
     type: "thermal_simulation"
     params:
-      ambient_temp: 10.0       # Outside temperature
-      heating_power: 0.5       # °C/min at 100% valve
-      heat_loss_rate: 0.02     # Heat loss rate per °C difference
+      ambient_temp: 10.0 # Outside temperature
+      heating_power: 0.5 # °C/min at 100% valve
+      heat_loss_rate: 0.02 # Heat loss rate per °C difference
       interval_seconds: 10
 
   - device_id: "thermostat-kitchen"
@@ -344,7 +344,7 @@ scenarios:
     type: "thermal_simulation"
     params:
       ambient_temp: 10.0
-      heating_power: 0.6       # Smaller room, heats faster
+      heating_power: 0.6 # Smaller room, heats faster
       heat_loss_rate: 0.025
       interval_seconds: 10
 
@@ -353,8 +353,8 @@ scenarios:
     type: "thermal_simulation"
     params:
       ambient_temp: 10.0
-      heating_power: 0.4       # Hallway - draft, less efficient
-      heat_loss_rate: 0.03     # More heat loss (doors opening)
+      heating_power: 0.4 # Hallway - draft, less efficient
+      heat_loss_rate: 0.03 # More heat loss (doors opening)
       interval_seconds: 10
 
   - device_id: "thermostat-bedroom"
@@ -363,7 +363,7 @@ scenarios:
     params:
       ambient_temp: 10.0
       heating_power: 0.55
-      heat_loss_rate: 0.018    # Well insulated, less loss
+      heat_loss_rate: 0.018 # Well insulated, less loss
       interval_seconds: 10
 
   - device_id: "thermostat-bathroom"
@@ -371,8 +371,8 @@ scenarios:
     type: "thermal_simulation"
     params:
       ambient_temp: 10.0
-      heating_power: 0.7       # Small room, heats quickly
-      heat_loss_rate: 0.03     # Ventilation = more loss
+      heating_power: 0.7 # Small room, heats quickly
+      heat_loss_rate: 0.03 # Ventilation = more loss
       interval_seconds: 10
 
   # Presence patterns

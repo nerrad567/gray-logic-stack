@@ -1,0 +1,58 @@
+id: analogue_output_4ch
+name: Analogue Output 4-Channel (0-10V)
+domain: controls
+description: 4-fold analogue output module for controlling non-KNX devices via 0-10V signals (MDT AIO style)
+
+manufacturer:
+  id: "M-0001"
+  name: "MDT"
+  product_model: "AIO-0410V.01"
+  application_program: "Analog Output 4-fold 0-10V"
+  hardware_type: "MDRC"
+channels: 4
+group_addresses:
+  ch1_output:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 1 output value 0-100%
+  ch1_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 1 current output status
+  ch2_output:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 2 output value 0-100%
+  ch2_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 2 current output status
+  ch3_output:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 3 output value 0-100%
+  ch3_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 3 current output status
+  ch4_output:
+    dpt: "5.001"
+    direction: write
+    flags: "C-W-U-"
+    description: Channel 4 output value 0-100%
+  ch4_status:
+    dpt: "5.001"
+    direction: status
+    flags: "CR-T--"
+    description: Channel 4 current output status
+initial_state:
+  ch1: { output: 0 }
+  ch2: { output: 0 }
+  ch3: { output: 0 }
+  ch4: { output: 0 }
