@@ -2156,7 +2156,8 @@ select:focus {
 }
 
 .form-group input,
-.form-group select {
+.form-group select,
+.form-group textarea {
   width: 100%;
   padding: var(--spacing-sm) var(--spacing-md);
   background: var(--bg-primary);
@@ -2165,20 +2166,24 @@ select:focus {
   color: var(--text-primary);
   font-size: 14px;
   font-family: inherit;
+  box-sizing: border-box;
 }
 
 .form-group input:focus,
-.form-group select:focus {
+.form-group select:focus,
+.form-group textarea:focus {
   outline: none;
   border-color: var(--accent-blue);
 }
 
-.form-group input:disabled {
+.form-group input:disabled,
+.form-group textarea:disabled {
   opacity: 0.5;
   cursor: not-allowed;
 }
 
-.form-group input::placeholder {
+.form-group input::placeholder,
+.form-group textarea::placeholder {
   color: var(--text-muted);
 }
 
