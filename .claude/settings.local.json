@@ -101,7 +101,8 @@
       "Bash(git -C /home/darren/local-dev/gray-logic-stack add code/core/internal/api/server.go code/core/internal/automation/engine_test.go code/core/internal/infrastructure/config/config.go)",
       "Bash(git -C /home/darren/local-dev/gray-logic-stack commit -m \"$\\(cat <<''EOF''\nstyle: fix gofmt alignment in config, server, engine_test\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C /home/darren/local-dev/gray-logic-stack log --oneline origin/master..HEAD)",
-      "Bash(git -C /home/darren/local-dev/gray-logic-stack push)"
+      "Bash(git -C /home/darren/local-dev/gray-logic-stack push)",
+      "WebFetch(domain:)"
     ]
   },
   "outputStyle": "Explanatory"
