@@ -143,14 +143,21 @@ def reset_to_sample(premise_id: str):
         ("-bathroom", "bathroom"),
     ]
 
+    # For non-default premises, prefix IDs to avoid collisions
+    prefix = f"{premise_id}-" if premise_id != "default" else ""
+
     floors_created = 0
     rooms_created = 0
 
+    # Map from bare room ID → scoped room ID (for device/load assignment)
+    room_id_map = {}
+
     for floor_id, floor_data in SAMPLE_TOPOLOGY.items():
+        scoped_floor_id = f"{prefix}{floor_id}"
         manager.db.create_floor(
             premise_id,
             {
-                "id": floor_id,
+                "id": scoped_floor_id,
                 "name": floor_data["name"],
                 "sort_order": floor_data["sort_order"],
             },
@@ -158,7 +165,9 @@ def reset_to_sample(premise_id: str):
         floors_created += 1
 
         for room_data in floor_data["rooms"]:
-            manager.db.create_room(floor_id, room_data)
+            scoped_room = {**room_data, "id": f"{prefix}{room_data['id']}"}
+            room_id_map[room_data["id"]] = scoped_room["id"]
+            manager.db.create_room(scoped_floor_id, scoped_room)
             rooms_created += 1
 
     # ─────────────────────────────────────────────────────────────
@@ -169,16 +178,23 @@ def reset_to_sample(premise_id: str):
         """Guess which room a device belongs to based on its ID."""
         device_id_lower = device_id.lower()
         # Check patterns in order (more specific first)
-        for pattern, room_id in DEVICE_ROOM_MAP:
+        for pattern, bare_room_id in DEVICE_ROOM_MAP:
             if pattern in device_id_lower:
-                return room_id
+                return room_id_map.get(bare_room_id, bare_room_id)
         # Default: unassigned
         return None
 
     devices_created = 0
+    # Map from bare device ID → prefixed device ID (for scenarios/loads)
+    device_id_map = {}
+
     for dev_config in config.get("devices", []):
+        bare_id = dev_config["id"]
+        prefixed_id = f"{prefix}{bare_id}"
+        device_id_map[bare_id] = prefixed_id
+
         device_data = {
-            "id": dev_config["id"],
+            "id": prefixed_id,
             "type": dev_config["type"],
             "individual_address": dev_config["individual_address"],
             "group_addresses": dev_config.get("group_addresses", {}),
@@ -211,7 +227,7 @@ def reset_to_sample(premise_id: str):
             manager.add_device(premise_id, device_data)
             devices_created += 1
         except (KeyError, ValueError, TypeError) as e:
-            logger.warning("Failed to create device %s: %s", dev_config.get("id"), e)
+            logger.warning("Failed to create device %s: %s", prefixed_id, e)
 
     # ─────────────────────────────────────────────────────────────
     # Reload scenarios
@@ -224,12 +240,14 @@ def reset_to_sample(premise_id: str):
         live_premise.scenario_runner = None
 
     for scenario_config in config.get("scenarios", []):
+        bare_dev_id = scenario_config["device_id"]
+        prefixed_dev_id = device_id_map.get(bare_dev_id, f"{prefix}{bare_dev_id}")
         try:
             manager.db.create_scenario(
                 premise_id,
                 {
-                    "id": f"scenario-{scenario_config['device_id']}-{scenario_config['field']}",
-                    "device_id": scenario_config["device_id"],
+                    "id": f"{prefix}scenario-{bare_dev_id}-{scenario_config['field']}",
+                    "device_id": prefixed_dev_id,
                     "field": scenario_config["field"],
                     "type": scenario_config["type"],
                     "params": scenario_config.get("params", {}),
@@ -255,19 +273,22 @@ def reset_to_sample(premise_id: str):
     def guess_room_for_load(load_id: str) -> str | None:
         """Guess which room a load belongs to based on its ID."""
         load_id_lower = load_id.lower()
-        for pattern, room_id in LOAD_ROOM_MAP:
+        for pattern, bare_room_id in LOAD_ROOM_MAP:
             if pattern in load_id_lower:
-                return room_id
+                return room_id_map.get(bare_room_id, bare_room_id)
         return None
 
     loads_created = 0
     for load_config in config.get("loads", []):
+        bare_actuator_id = load_config.get("actuator_device_id")
         load_data = {
-            "id": load_config["id"],
+            "id": f"{prefix}{load_config['id']}",
             "name": load_config["name"],
             "type": load_config["type"],
             "icon": load_config.get("icon"),
-            "actuator_device_id": load_config.get("actuator_device_id"),
+            "actuator_device_id": device_id_map.get(bare_actuator_id, bare_actuator_id)
+            if bare_actuator_id
+            else None,
             "actuator_channel_id": load_config.get("actuator_channel_id"),
             "room_id": load_config.get("room_id") or guess_room_for_load(load_config["id"]),
         }
