@@ -6,7 +6,7 @@ import '../models/auth.dart';
 import '../providers/auth_provider.dart';
 
 /// One-time configuration screen for setting up the panel.
-/// Collects: Core URL, Room ID, and login credentials.
+/// Collects: Core URL and login credentials.
 class ConfigScreen extends ConsumerStatefulWidget {
   const ConfigScreen({super.key});
 
@@ -20,7 +20,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   final _coreUrlController = TextEditingController(
     text: kIsWeb ? Uri.base.origin : '',
   );
-  final _roomIdController = TextEditingController();
   final _usernameController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: 'admin');
   bool _obscurePassword = true;
@@ -34,20 +33,15 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   Future<void> _loadSavedConfig() async {
     final tokenStorage = ref.read(tokenStorageProvider);
     final url = await tokenStorage.getCoreUrl();
-    final room = await tokenStorage.getRoomId();
 
     if (url != null && url.isNotEmpty) {
       _coreUrlController.text = url;
-    }
-    if (room != null && room.isNotEmpty) {
-      _roomIdController.text = room;
     }
   }
 
   @override
   void dispose() {
     _coreUrlController.dispose();
-    _roomIdController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
     super.dispose();
@@ -107,19 +101,6 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                         if (uri == null || !uri.hasScheme) return 'Invalid URL';
                         return null;
                       },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Default Room (optional)
-                    TextFormField(
-                      controller: _roomIdController,
-                      decoration: const InputDecoration(
-                        labelText: 'Default Room (optional)',
-                        hintText: 'e.g., room-living',
-                        helperText: 'Leave blank to show all rooms',
-                        prefixIcon: Icon(Icons.room_outlined),
-                        border: OutlineInputBorder(),
-                      ),
                     ),
                     const SizedBox(height: 16),
 
@@ -208,13 +189,8 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final coreUrl = _coreUrlController.text.trim();
-    final roomId = _roomIdController.text.trim();
     final username = _usernameController.text.trim();
     final password = _passwordController.text;
-
-    // Persist room ID
-    final tokenStorage = ref.read(tokenStorageProvider);
-    await tokenStorage.setRoomId(roomId);
 
     // Attempt login
     await ref.read(authProvider.notifier).login(coreUrl, username, password);

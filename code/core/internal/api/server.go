@@ -21,6 +21,7 @@ import (
 	"net/http"
 	"time"
 
+	"github.com/nerrad567/gray-logic-core/internal/audit"
 	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
@@ -75,6 +76,7 @@ type Deps struct {
 	SceneRegistry *automation.Registry
 	SceneRepo     automation.Repository
 	LocationRepo  location.Repository
+	AuditRepo     audit.Repository
 	ExternalHub   *Hub   // If set, the server uses this hub instead of creating its own
 	DevMode       bool   // When true, commands apply state locally without bridge confirmation
 	PanelDir      string // Dev only: serve Flutter panel from filesystem instead of embed
@@ -98,6 +100,7 @@ type Server struct {
 	sceneRegistry      *automation.Registry
 	sceneRepo          automation.Repository
 	locationRepo       location.Repository
+	auditRepo          audit.Repository
 	devMode            bool
 	panelDir           string
 	version            string
@@ -142,6 +145,7 @@ func New(deps Deps) (*Server, error) {
 		sceneRegistry: deps.SceneRegistry,
 		sceneRepo:     deps.SceneRepo,
 		locationRepo:  deps.LocationRepo,
+		auditRepo:     deps.AuditRepo,
 		devMode:       deps.DevMode,
 		panelDir:      deps.PanelDir,
 		version:       deps.Version,

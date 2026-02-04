@@ -98,6 +98,173 @@ func (s *Server) handleGetArea(w http.ResponseWriter, r *http.Request) {
 	writeJSON(w, http.StatusOK, area)
 }
 
+// handleUpdateArea partially updates an area via PATCH semantics.
+func (s *Server) handleUpdateArea(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	area, err := s.locationRepo.GetArea(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, location.ErrAreaNotFound) {
+			writeNotFound(w, "area not found")
+			return
+		}
+		writeInternalError(w, "failed to get area")
+		return
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+	if len(raw) == 0 {
+		writeBadRequest(w, "no fields to update")
+		return
+	}
+
+	if v, ok := raw["name"]; ok {
+		var name string
+		if json.Unmarshal(v, &name) == nil && name != "" {
+			area.Name = name
+			area.Slug = slugify(name)
+		}
+	}
+	if v, ok := raw["type"]; ok {
+		var t string
+		if json.Unmarshal(v, &t) == nil && t != "" {
+			area.Type = t
+		}
+	}
+	if v, ok := raw["sort_order"]; ok {
+		var order int
+		if json.Unmarshal(v, &order) == nil {
+			area.SortOrder = order
+		}
+	}
+
+	if err := s.locationRepo.UpdateArea(r.Context(), area); err != nil {
+		s.logger.Error("failed to update area", "error", err, "id", id)
+		writeInternalError(w, "failed to update area")
+		return
+	}
+
+	// Re-read to get updated timestamp.
+	updated, err := s.locationRepo.GetArea(r.Context(), id)
+	if err != nil {
+		writeJSON(w, http.StatusOK, area)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+// handleDeleteArea deletes an area by ID.
+// Returns 409 Conflict if rooms still reference this area.
+func (s *Server) handleDeleteArea(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if err := s.locationRepo.DeleteArea(r.Context(), id); err != nil {
+		if errors.Is(err, location.ErrAreaNotFound) {
+			writeNotFound(w, "area not found")
+			return
+		}
+		if errors.Is(err, location.ErrAreaHasRooms) {
+			writeError(w, http.StatusConflict, ErrCodeConflict, err.Error())
+			return
+		}
+		s.logger.Error("failed to delete area", "error", err, "id", id)
+		writeInternalError(w, "failed to delete area")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
+// handleUpdateRoom partially updates a room via PATCH semantics.
+func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	room, err := s.locationRepo.GetRoom(r.Context(), id)
+	if err != nil {
+		if errors.Is(err, location.ErrRoomNotFound) {
+			writeNotFound(w, "room not found")
+			return
+		}
+		writeInternalError(w, "failed to get room")
+		return
+	}
+
+	var raw map[string]json.RawMessage
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+	if len(raw) == 0 {
+		writeBadRequest(w, "no fields to update")
+		return
+	}
+
+	if v, ok := raw["name"]; ok {
+		var name string
+		if json.Unmarshal(v, &name) == nil && name != "" {
+			room.Name = name
+			room.Slug = slugify(name)
+		}
+	}
+	if v, ok := raw["type"]; ok {
+		var t string
+		if json.Unmarshal(v, &t) == nil && t != "" {
+			room.Type = t
+		}
+	}
+	if v, ok := raw["sort_order"]; ok {
+		var order int
+		if json.Unmarshal(v, &order) == nil {
+			room.SortOrder = order
+		}
+	}
+	if v, ok := raw["area_id"]; ok {
+		var areaID string
+		if json.Unmarshal(v, &areaID) == nil && areaID != "" {
+			// Validate area exists.
+			if _, err := s.locationRepo.GetArea(r.Context(), areaID); err != nil {
+				writeBadRequest(w, "area_id does not exist")
+				return
+			}
+			room.AreaID = areaID
+		}
+	}
+
+	if err := s.locationRepo.UpdateRoom(r.Context(), room); err != nil {
+		s.logger.Error("failed to update room", "error", err, "id", id)
+		writeInternalError(w, "failed to update room")
+		return
+	}
+
+	updated, err := s.locationRepo.GetRoom(r.Context(), id)
+	if err != nil {
+		writeJSON(w, http.StatusOK, room)
+		return
+	}
+	writeJSON(w, http.StatusOK, updated)
+}
+
+// handleDeleteRoom deletes a room by ID.
+func (s *Server) handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
+	id := chi.URLParam(r, "id")
+
+	if err := s.locationRepo.DeleteRoom(r.Context(), id); err != nil {
+		if errors.Is(err, location.ErrRoomNotFound) {
+			writeNotFound(w, "room not found")
+			return
+		}
+		s.logger.Error("failed to delete room", "error", err, "id", id)
+		writeInternalError(w, "failed to delete room")
+		return
+	}
+
+	w.WriteHeader(http.StatusNoContent)
+}
+
 // handleListRooms returns all rooms, with optional area_id filter.
 func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()

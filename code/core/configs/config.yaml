@@ -23,23 +23,14 @@ dev_mode: true
 # Environment variables take precedence over this file.
 
 # ============================================================================
-# SITE INFORMATION
+# SITE IDENTIFIER
 # ============================================================================
+# Default site ID used as a fallback when no site record exists in the DB.
+# Property data (name, timezone, GPS, modes) is managed via the Admin panel,
+# not this config file.
 
 site:
-  # Unique identifier for this installation
   id: "site-001"
-
-  # Human-readable name
-  name: "My Home"
-
-  # Timezone for schedules and astronomical calculations (IANA format)
-  timezone: "Europe/London"
-
-  # Location for sunrise/sunset calculations
-  location:
-    latitude: 51.5074
-    longitude: -0.1278
 
 # ============================================================================
 # DATABASE

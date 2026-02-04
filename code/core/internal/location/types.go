@@ -2,6 +2,24 @@ package location
 
 import "time"
 
+// Site represents a physical property managed by Gray Logic.
+// There is typically one site per deployment.
+type Site struct {
+	ID             string    `json:"id"`
+	Name           string    `json:"name"`
+	Slug           string    `json:"slug"`
+	Address        string    `json:"address,omitempty"`
+	Latitude       *float64  `json:"latitude,omitempty"`
+	Longitude      *float64  `json:"longitude,omitempty"`
+	Timezone       string    `json:"timezone"`
+	ElevationM     *float64  `json:"elevation_m,omitempty"`
+	ModesAvailable []string  `json:"modes_available"`
+	ModeCurrent    string    `json:"mode_current"`
+	Settings       Settings  `json:"settings"`
+	CreatedAt      time.Time `json:"created_at"`
+	UpdatedAt      time.Time `json:"updated_at"`
+}
+
 // Area represents a logical grouping within a site (floor, building, wing).
 type Area struct {
 	ID        string    `json:"id"`

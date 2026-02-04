@@ -62,14 +62,22 @@ func (s *Server) buildRouter() http.Handler {
 			r.Route("/areas", func(r chi.Router) {
 				r.Get("/", s.handleListAreas)
 				r.Post("/", s.handleCreateArea)
-				r.Get("/{id}", s.handleGetArea)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetArea)
+					r.Patch("/", s.handleUpdateArea)
+					r.Delete("/", s.handleDeleteArea)
+				})
 			})
 
 			// Room endpoints
 			r.Route("/rooms", func(r chi.Router) {
 				r.Get("/", s.handleListRooms)
 				r.Post("/", s.handleCreateRoom)
-				r.Get("/{id}", s.handleGetRoom)
+				r.Route("/{id}", func(r chi.Router) {
+					r.Get("/", s.handleGetRoom)
+					r.Patch("/", s.handleUpdateRoom)
+					r.Delete("/", s.handleDeleteRoom)
+				})
 			})
 
 			// Scene endpoints
@@ -93,6 +101,17 @@ func (s *Server) buildRouter() http.Handler {
 					r.Post("/import", s.handleETSImport)
 				})
 			})
+
+			// Site management
+			r.Get("/site", s.handleGetSite)
+			r.Post("/site", s.handleCreateSite)
+			r.Patch("/site", s.handleUpdateSite)
+
+			// Audit logs
+			r.Get("/audit-logs", s.handleListAuditLogs)
+
+			// System management
+			r.Post("/system/factory-reset", s.handleFactoryReset)
 
 			// WebSocket (auth via ticket, validated in handler)
 			r.Get("/ws", s.handleWebSocket)

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'admin/admin_screen.dart';
 import 'ets_import_screen.dart';
 
 /// Onboarding screen shown when no devices/locations are configured.
@@ -79,15 +80,23 @@ class OnboardingScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 16),
 
-                  // Manual setup card (future feature)
+                  // Manual setup card — opens Admin panel for manual device creation
                   _OnboardingCard(
                     icon: Icons.edit_outlined,
                     title: 'Manual Setup',
                     description:
-                        'Add devices manually by entering their KNX group addresses. Best for small installations or custom configurations.',
-                    buttonLabel: 'Coming Soon',
+                        'Add devices, rooms, and areas manually via the Admin panel. Best for small installations or custom configurations.',
+                    buttonLabel: 'Continue to Admin',
                     isPrimary: false,
-                    onPressed: null, // Disabled for now
+                    onPressed: () {
+                      Navigator.of(context).push(
+                        MaterialPageRoute(
+                          builder: (context) => AdminScreen(
+                            onRefresh: onRefresh,
+                          ),
+                        ),
+                      );
+                    },
                   ),
                   const SizedBox(height: 32),
 

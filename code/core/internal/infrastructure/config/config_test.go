@@ -11,8 +11,6 @@ func TestLoad_ValidConfig(t *testing.T) {
 	content := `
 site:
   id: "test-site"
-  name: "Test Site"
-  timezone: "UTC"
 database:
   path: "/tmp/test.db"
   wal_mode: true
@@ -78,7 +76,6 @@ func TestLoad_ValidationFailure(t *testing.T) {
 	content := `
 site:
   id: ""
-  name: "Test"
 database:
   path: "/tmp/test.db"
 api:

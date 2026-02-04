@@ -269,12 +269,14 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	// In dev mode, simulate the bridge confirmation loop: delay the state
-	// write + WebSocket broadcast to mimic the real KNX bus round-trip time.
-	// In production, only the bridge's confirmed state update (via MQTT)
-	// should modify the database.
+	// In dev mode WITHOUT a real bridge, simulate the bridge confirmation
+	// loop: delay the state write + WebSocket broadcast to mimic the real
+	// KNX bus round-trip time.  When a bridge is active (knxBridge != nil),
+	// the real bridge handles the confirmation via MQTT → WebSocket, so we
+	// must not also inject a simulated state — that would race with the
+	// real state updates and cause flickering / stale overwrites.
 	var newState device.State
-	if s.devMode {
+	if s.devMode && s.knxBridge == nil {
 		newState = commandToState(cmd.Command, cmd.Parameters, dev.State)
 		go func(deviceID string, state device.State) {
 			// Simulate bridge processing + bus round-trip (KNX typical: 100-300ms,
@@ -283,7 +285,7 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 			defer cancel()
 
 			select {
-			case <-time.After(800 * time.Millisecond):
+			case <-time.After(400 * time.Millisecond):
 			case <-ctx.Done():
 				s.logger.Debug("dev mode simulation cancelled", "device_id", deviceID)
 				return
@@ -307,7 +309,7 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 		"parameters", cmd.Parameters,
 		"command_id", commandID,
 	}
-	if s.devMode {
+	if s.devMode && s.knxBridge == nil {
 		logFields = append(logFields, "new_state", newState)
 	}
 	s.logger.Info("device command sent", logFields...)

@@ -266,6 +266,7 @@ func TestDecodeDPT9(t *testing.T) {
 	}{
 		{"zero", []byte{0x00, 0x00}, 0, false},
 		{"21°C encoded", []byte{0x0C, 0x1A}, 21.0, false}, // Approximate
+		{"invalid 0x7FFF sentinel", []byte{0x7F, 0xFF}, 0, true},
 		{"empty data", []byte{}, 0, true},
 		{"one byte only", []byte{0x0C}, 0, true},
 	}

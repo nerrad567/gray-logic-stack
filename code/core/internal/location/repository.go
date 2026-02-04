@@ -13,11 +13,23 @@ type Repository interface {
 	ListAreas(ctx context.Context) ([]Area, error)
 	ListAreasBySite(ctx context.Context, siteID string) ([]Area, error)
 	GetArea(ctx context.Context, id string) (*Area, error)
+	UpdateArea(ctx context.Context, area *Area) error
+	DeleteArea(ctx context.Context, id string) error
+	DeleteAllAreas(ctx context.Context) (int64, error)
 
 	CreateRoom(ctx context.Context, room *Room) error
 	ListRooms(ctx context.Context) ([]Room, error)
 	ListRoomsByArea(ctx context.Context, areaID string) ([]Room, error)
 	GetRoom(ctx context.Context, id string) (*Room, error)
+	UpdateRoom(ctx context.Context, room *Room) error
+	DeleteRoom(ctx context.Context, id string) error
+	DeleteAllRooms(ctx context.Context) (int64, error)
+
+	// Site operations (single-row table — one site per deployment).
+	GetAnySite(ctx context.Context) (*Site, error)
+	CreateSite(ctx context.Context, site *Site) error
+	UpdateSite(ctx context.Context, site *Site) error
+	DeleteAllSites(ctx context.Context) (int64, error)
 }
 
 // SQLiteRepository implements Repository using SQLite.
@@ -240,6 +252,223 @@ func scanRoomRow(rows *sql.Rows) (*Room, error) {
 	rm.CreatedAt = parseTime(createdAt)
 	rm.UpdatedAt = parseTime(updatedAt)
 	return &rm, nil
+}
+
+// UpdateArea updates an existing area record.
+func (r *SQLiteRepository) UpdateArea(ctx context.Context, area *Area) error {
+	const query = `UPDATE areas SET name = ?, slug = ?, type = ?, sort_order = ?,
+		updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+		WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query,
+		area.Name, area.Slug, area.Type, area.SortOrder, area.ID)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return ErrAreaNotFound
+	}
+	return nil
+}
+
+// DeleteArea removes a single area by ID.
+// Returns ErrAreaNotFound if the area does not exist.
+// Returns ErrAreaHasRooms if rooms still reference this area.
+func (r *SQLiteRepository) DeleteArea(ctx context.Context, id string) error {
+	// Check for child rooms.
+	var roomCount int
+	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM rooms WHERE area_id = ?", id).Scan(&roomCount); err != nil {
+		return err
+	}
+	if roomCount > 0 {
+		return ErrAreaHasRooms
+	}
+
+	result, err := r.db.ExecContext(ctx, "DELETE FROM areas WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return ErrAreaNotFound
+	}
+	return nil
+}
+
+// UpdateRoom updates an existing room record.
+func (r *SQLiteRepository) UpdateRoom(ctx context.Context, room *Room) error {
+	settings := "{}"
+	if room.Settings != nil {
+		b, err := json.Marshal(room.Settings)
+		if err == nil {
+			settings = string(b)
+		}
+	}
+	const query = `UPDATE rooms SET name = ?, slug = ?, type = ?, sort_order = ?,
+		area_id = ?, climate_zone_id = ?, audio_zone_id = ?, settings = ?,
+		updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+		WHERE id = ?`
+	result, err := r.db.ExecContext(ctx, query,
+		room.Name, room.Slug, room.Type, room.SortOrder,
+		room.AreaID, nullStr(room.ClimateZoneID), nullStr(room.AudioZoneID),
+		settings, room.ID)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return ErrRoomNotFound
+	}
+	return nil
+}
+
+// DeleteRoom removes a single room by ID.
+// Returns ErrRoomNotFound if the room does not exist.
+func (r *SQLiteRepository) DeleteRoom(ctx context.Context, id string) error {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM rooms WHERE id = ?", id)
+	if err != nil {
+		return err
+	}
+	n, _ := result.RowsAffected()
+	if n == 0 {
+		return ErrRoomNotFound
+	}
+	return nil
+}
+
+// DeleteAllRooms removes all rooms from the database.
+// Returns the number of rows deleted.
+func (r *SQLiteRepository) DeleteAllRooms(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM rooms")
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// DeleteAllAreas removes all areas from the database.
+// Rooms must be deleted first due to FK constraints.
+func (r *SQLiteRepository) DeleteAllAreas(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM areas")
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// GetAnySite returns the first site record, or ErrSiteNotFound if none exists.
+func (r *SQLiteRepository) GetAnySite(ctx context.Context) (*Site, error) {
+	const query = `SELECT id, name, slug, address, latitude, longitude, timezone,
+		elevation_m, modes_available, mode_current, settings, created_at, updated_at
+		FROM sites LIMIT 1`
+	row := r.db.QueryRowContext(ctx, query)
+	return scanSite(row)
+}
+
+// CreateSite inserts a new site record.
+func (r *SQLiteRepository) CreateSite(ctx context.Context, site *Site) error {
+	modesJSON, err := json.Marshal(site.ModesAvailable)
+	if err != nil {
+		modesJSON = []byte(`["home","away","night","holiday"]`)
+	}
+	settings := "{}"
+	if site.Settings != nil {
+		if b, err := json.Marshal(site.Settings); err == nil {
+			settings = string(b)
+		}
+	}
+	const query = `INSERT INTO sites (id, name, slug, address, latitude, longitude,
+		timezone, elevation_m, modes_available, mode_current, settings)
+		VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)`
+	_, err = r.db.ExecContext(ctx, query,
+		site.ID, site.Name, site.Slug, site.Address,
+		nullFloat(site.Latitude), nullFloat(site.Longitude),
+		site.Timezone, nullFloat(site.ElevationM),
+		string(modesJSON), site.ModeCurrent, settings)
+	return err
+}
+
+// UpdateSite updates an existing site record.
+func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
+	modesJSON, err := json.Marshal(site.ModesAvailable)
+	if err != nil {
+		modesJSON = []byte(`["home","away","night","holiday"]`)
+	}
+	settings := "{}"
+	if site.Settings != nil {
+		if b, err := json.Marshal(site.Settings); err == nil {
+			settings = string(b)
+		}
+	}
+	const query = `UPDATE sites SET name = ?, slug = ?, address = ?,
+		latitude = ?, longitude = ?, timezone = ?, elevation_m = ?,
+		modes_available = ?, mode_current = ?, settings = ?,
+		updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
+		WHERE id = ?`
+	_, err = r.db.ExecContext(ctx, query,
+		site.Name, site.Slug, site.Address,
+		nullFloat(site.Latitude), nullFloat(site.Longitude),
+		site.Timezone, nullFloat(site.ElevationM),
+		string(modesJSON), site.ModeCurrent, settings,
+		site.ID)
+	return err
+}
+
+// DeleteAllSites removes all site records from the database.
+// Areas must be deleted first due to FK constraints.
+func (r *SQLiteRepository) DeleteAllSites(ctx context.Context) (int64, error) {
+	result, err := r.db.ExecContext(ctx, "DELETE FROM sites")
+	if err != nil {
+		return 0, err
+	}
+	return result.RowsAffected()
+}
+
+// scanSite scans a single row into a Site.
+func scanSite(row *sql.Row) (*Site, error) {
+	var s Site
+	var address sql.NullString
+	var lat, lon, elev sql.NullFloat64
+	var modesJSON, settingsJSON string
+	var createdAt, updatedAt string
+
+	err := row.Scan(&s.ID, &s.Name, &s.Slug, &address, &lat, &lon,
+		&s.Timezone, &elev, &modesJSON, &s.ModeCurrent, &settingsJSON,
+		&createdAt, &updatedAt)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, ErrSiteNotFound
+		}
+		return nil, err
+	}
+
+	if address.Valid {
+		s.Address = address.String
+	}
+	if lat.Valid {
+		s.Latitude = &lat.Float64
+	}
+	if lon.Valid {
+		s.Longitude = &lon.Float64
+	}
+	if elev.Valid {
+		s.ElevationM = &elev.Float64
+	}
+	if err := json.Unmarshal([]byte(modesJSON), &s.ModesAvailable); err != nil {
+		s.ModesAvailable = []string{"home", "away", "night", "holiday"}
+	}
+	s.Settings = parseSettings(settingsJSON)
+	s.CreatedAt = parseTime(createdAt)
+	s.UpdatedAt = parseTime(updatedAt)
+	return &s, nil
+}
+
+// nullFloat converts a *float64 to sql.NullFloat64 for nullable columns.
+func nullFloat(f *float64) sql.NullFloat64 {
+	if f == nil {
+		return sql.NullFloat64{}
+	}
+	return sql.NullFloat64{Float64: *f, Valid: true}
 }
 
 // parseTime parses an ISO 8601 timestamp from SQLite.

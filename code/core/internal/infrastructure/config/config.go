@@ -25,18 +25,11 @@ type Config struct {
 	PanelDir  string          `yaml:"panel_dir"` // Dev only: serve Flutter panel from filesystem instead of embed
 }
 
-// SiteConfig contains site-specific information.
+// SiteConfig contains the default site identifier.
+// Property data (name, timezone, GPS, modes) is user-owned in the database,
+// created via the admin panel or ETS import — not from config.
 type SiteConfig struct {
-	ID       string         `yaml:"id"`
-	Name     string         `yaml:"name"`
-	Timezone string         `yaml:"timezone"`
-	Location LocationConfig `yaml:"location"`
-}
-
-// LocationConfig contains geographic coordinates for astronomical calculations.
-type LocationConfig struct {
-	Latitude  float64 `yaml:"latitude"`
-	Longitude float64 `yaml:"longitude"`
+	ID string `yaml:"id"`
 }
 
 // DatabaseConfig contains SQLite database settings.
@@ -336,9 +329,7 @@ func Load(path string) (*Config, error) {
 func defaultConfig() *Config {
 	return &Config{
 		Site: SiteConfig{
-			ID:       "site-001",
-			Name:     "Gray Logic",
-			Timezone: "UTC",
+			ID: "site-001",
 		},
 		Database: DatabaseConfig{
 			Path:        "./data/graylogic.db",

@@ -1,10 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'audit_tab.dart';
 import 'devices_tab.dart';
 import 'discovery_tab.dart';
 import 'import_tab.dart';
+import 'locations_tab.dart';
 import 'metrics_tab.dart';
+import 'site_tab.dart';
+import 'system_tab.dart';
 
 /// Admin screen with tabbed interface for system management.
 ///
@@ -30,7 +34,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 8, vsync: this);
   }
 
   @override
@@ -55,6 +59,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
         ),
         bottom: TabBar(
           controller: _tabController,
+          isScrollable: true,
+          tabAlignment: TabAlignment.start,
           tabs: const [
             Tab(
               icon: Icon(Icons.analytics_outlined),
@@ -69,8 +75,24 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               text: 'Devices',
             ),
             Tab(
+              icon: Icon(Icons.location_on_outlined),
+              text: 'Locations',
+            ),
+            Tab(
               icon: Icon(Icons.upload_file_outlined),
               text: 'Import',
+            ),
+            Tab(
+              icon: Icon(Icons.home_work_outlined),
+              text: 'Site',
+            ),
+            Tab(
+              icon: Icon(Icons.receipt_long_outlined),
+              text: 'Logs',
+            ),
+            Tab(
+              icon: Icon(Icons.restart_alt_outlined),
+              text: 'System',
             ),
           ],
           labelColor: theme.colorScheme.primary,
@@ -84,7 +106,11 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           const MetricsTab(),
           const DiscoveryTab(),
           const DevicesTab(),
+          const LocationsTab(),
           ImportTab(onImportComplete: widget.onRefresh),
+          const SiteTab(),
+          const AuditTab(),
+          SystemTab(onReset: widget.onRefresh),
         ],
       ),
     );

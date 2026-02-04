@@ -90,49 +90,10 @@ logging:
 # DEVICE MAPPINGS
 # ============================================================================
 #
-# Each device maps a Gray Logic device_id to one or more KNX group addresses.
-# The device_id must match what's registered in Gray Logic Core's device registry.
+# Devices are NOT configured in this file. They are managed through:
+#   1. ETS import: POST /commissioning/ets/import (bulk provisioning from .knxproj)
+#   2. Manual entry: POST /devices via the Flutter admin panel
 #
-# Device Types:
-#   - light_switch: On/off only
-#   - light_dimmer: On/off + brightness level
-#   - blind: Position + optional slat angle
-#   - sensor: Read-only values (temperature, humidity, lux, etc.)
-#   - scene: Scene activation/recall
-#
-# Address Functions (common):
-#   - switch: On/off control (DPT 1.001)
-#   - switch_status: On/off feedback (DPT 1.001)
-#   - brightness: Brightness level 0-100% (DPT 5.001)
-#   - brightness_status: Brightness feedback (DPT 5.001)
-#   - position: Blind position 0-100% (DPT 5.001)
-#   - position_status: Blind position feedback (DPT 5.001)
-#   - slat: Blind slat angle 0-360 deg (DPT 5.003)
-#   - temperature: Temperature reading (DPT 9.001)
-#   - humidity: Humidity reading (DPT 9.007)
-#   - lux: Light level reading (DPT 9.004)
-#   - scene: Scene number 0-63 (DPT 17.001)
-#
-# Flags:
-#   - read: Bridge can send read requests to this GA
-#   - write: Bridge can send write commands to this GA
-#   - transmit: Device transmits state changes on this GA (used for state tracking)
-#
-# Example KNX group address structure (3-level format):
-#   Main/Middle/Sub
-#   1/x/x = Lighting
-#   2/x/x = Blinds
-#   3/x/x = HVAC
-#   4/x/x = Sensors
-#   5/x/x = Scenes
-
-# Devices are managed through ETS import or the Flutter admin panel.
 # The bridge loads device→GA mappings from the device registry at startup
 # and via hot-reload after ETS import (ReloadDevices).
-#
-# To populate devices:
-#   1. Import a .knxproj file via POST /commissioning/ets/import
-#   2. Or create devices manually via POST /devices + Flutter admin panel
-#
-# The bridge starts with zero devices and picks them up from the registry.
-devices: []
+# It starts with zero devices and picks them up from the registry.

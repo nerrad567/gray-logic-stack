@@ -537,6 +537,8 @@ func (b *Bridge) executeCommand(cmd CommandMessage, deviceGAs map[string]Address
 		return b.executeSetPosition(ctx, cmd, deviceGAs)
 	case "stop":
 		return b.executeStop(ctx, cmd, deviceGAs)
+	case "set_setpoint":
+		return b.executeSetSetpoint(ctx, cmd, deviceGAs)
 	default:
 		b.publishAckError(cmd, "", ErrCodeInvalidCommand,
 			fmt.Sprintf("unknown command: %s", cmd.Command), 0)
@@ -573,6 +575,10 @@ func (b *Bridge) executeOnOff(ctx context.Context, cmd CommandMessage, deviceGAs
 			fmt.Sprintf("send failed: %v", err), 0)
 		return err
 	}
+
+	// Write-through: publish confirmed state immediately so the UI
+	// updates without waiting for the device echo.
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, "switch", on)
 
 	return nil
 }
@@ -633,6 +639,9 @@ func (b *Bridge) executeDim(ctx context.Context, cmd CommandMessage, deviceGAs m
 		return err
 	}
 
+	// Write-through: publish confirmed brightness so the UI updates immediately.
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, "brightness", level)
+
 	return nil
 }
 
@@ -688,6 +697,9 @@ func (b *Bridge) executeSetPosition(ctx context.Context, cmd CommandMessage, dev
 		return err
 	}
 
+	// Write-through: publish confirmed position so the UI updates immediately.
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, "position", position)
+
 	return nil
 }
 
@@ -725,6 +737,110 @@ func (b *Bridge) executeStop(ctx context.Context, cmd CommandMessage, deviceGAs 
 	}
 
 	return nil
+}
+
+// executeSetSetpoint sends a setpoint command for thermostats (DPT 9.001).
+func (b *Bridge) executeSetSetpoint(ctx context.Context, cmd CommandMessage, deviceGAs map[string]AddressConfig) error {
+	// Get setpoint from parameters
+	spAny, ok := cmd.Parameters["setpoint"]
+	if !ok {
+		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
+			"missing 'setpoint' parameter", 0)
+		return fmt.Errorf("knx: missing setpoint parameter")
+	}
+
+	setpoint, ok := spAny.(float64)
+	if !ok {
+		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
+			"'setpoint' must be a number", 0)
+		return fmt.Errorf("knx: setpoint must be a number")
+	}
+
+	// Validate range (5-35°C — matches wall panel clamp)
+	if setpoint < 5 || setpoint > 35 {
+		b.publishAckError(cmd, "", ErrCodeInvalidParameters,
+			fmt.Sprintf("'setpoint' must be 5-35, got %.2f", setpoint), 0)
+		return fmt.Errorf("knx: setpoint out of range: %.2f", setpoint)
+	}
+
+	// Find the setpoint address
+	addr, ok := deviceGAs["setpoint"]
+	if !ok {
+		b.publishAckError(cmd, "", ErrCodeNotConfigured,
+			"device has no setpoint address", 0)
+		return fmt.Errorf("knx: no setpoint address")
+	}
+
+	ga, err := ParseGroupAddress(addr.GA)
+	if err != nil {
+		b.publishAckError(cmd, addr.GA, ErrCodeProtocolError,
+			fmt.Sprintf("invalid GA: %v", err), 0)
+		return err
+	}
+
+	// Encode DPT 9.001 (2-byte float temperature)
+	data, err := EncodeDPT9(setpoint)
+	if err != nil {
+		b.publishAckError(cmd, addr.GA, ErrCodeProtocolError,
+			fmt.Sprintf("encode failed: %v", err), 0)
+		return err
+	}
+
+	// Publish accepted ack before sending
+	b.publishAck(cmd, addr.GA, AckAccepted)
+
+	// Send to KNX bus
+	if err := b.knxd.Send(ctx, ga, data); err != nil {
+		b.publishAckError(cmd, addr.GA, ErrCodeDeviceUnreachable,
+			fmt.Sprintf("send failed: %v", err), 0)
+		return err
+	}
+
+	// Write-through: publish the setpoint state immediately.
+	// Many KNX thermostats echo the written setpoint back as a response
+	// telegram, but not all do (and simulators often don't).  Publishing
+	// here ensures the UI gets the confirmed value without waiting.
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, "setpoint", setpoint)
+
+	return nil
+}
+
+// publishWriteThrough publishes a state update for a value the bridge just
+// wrote to the bus.  This mirrors what would happen if the device echoed the
+// value back, ensuring the UI gets timely feedback even when the device or
+// simulator does not send a response telegram.
+func (b *Bridge) publishWriteThrough(deviceID, ga, function string, value any) {
+	stateKey := StateKeyForFunction(function)
+	state := map[string]any{stateKey: value}
+
+	msg := NewStateMessage(deviceID, ga, state)
+	payload, err := json.Marshal(msg)
+	if err != nil {
+		b.logError("failed to marshal write-through state", err)
+		return
+	}
+
+	topic := StateTopic(ga)
+	if err := b.mqtt.Publish(topic, payload, 1, false); err != nil {
+		b.logError("failed to publish write-through state", err)
+		return
+	}
+
+	// Update device registry
+	if b.registry != nil {
+		if err := b.registry.SetDeviceState(b.ctx, deviceID, state); err != nil {
+			b.logDebug("write-through registry update skipped",
+				"device", deviceID, "reason", err.Error())
+		}
+	}
+
+	// Update state cache so stateUnchanged() won't suppress a later echo
+	b.stateCacheMu.Lock()
+	if b.stateCache[deviceID] == nil {
+		b.stateCache[deviceID] = make(map[string]any)
+	}
+	b.stateCache[deviceID][function] = value
+	b.stateCacheMu.Unlock()
 }
 
 // publishAck publishes a command acknowledgment.
@@ -987,7 +1103,7 @@ func (b *Bridge) handleKNXTelegram(t Telegram) {
 		}
 
 		topic := StateTopic(gaStr)
-		if err := b.mqtt.Publish(topic, payload, 1, true); err != nil {
+		if err := b.mqtt.Publish(topic, payload, 1, false); err != nil {
 			b.logError("failed to publish state", err)
 			continue
 		}
