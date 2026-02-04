@@ -6,6 +6,9 @@
 
 import { API } from "./api.js";
 
+// Expose API globally for inline Alpine templates
+window.API = API;
+
 // Device type to icon mapping
 const DEVICE_ICONS = {
   // Lighting

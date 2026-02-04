@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=24" />
+    <link rel="stylesheet" href="css/style.css?v=25" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -52,6 +52,88 @@
               <option :value="premise.id" x-text="premise.name"></option>
             </template>
           </select>
+          <div class="premise-actions" x-data="{ showCreate: false }">
+            <button
+              class="btn-premise-action"
+              title="New Installation"
+              @click="showCreate = !showCreate"
+            >
+              +
+            </button>
+            <button
+              class="btn-premise-action btn-premise-delete"
+              title="Delete Current Installation"
+              x-show="$store.app.premises.length > 1"
+              @click="if (confirm('Delete \'' + ($store.app.currentPremise?.name || '') + '\'? This removes all devices, floors, and rooms. Cannot be undone.')) {
+                const deleteId = $store.app.currentPremiseId;
+                API.deletePremise(deleteId).then(async () => {
+                  await $store.app.loadPremises();
+                  const remaining = $store.app.premises.filter(p => p.id !== deleteId);
+                  if (remaining.length > 0) {
+                    await $store.app.selectPremise(remaining[0].id);
+                  }
+                });
+              }"
+            >
+              🗑
+            </button>
+            <!-- Inline create form -->
+            <div
+              class="premise-create-popup"
+              x-show="showCreate"
+              @click.outside="showCreate = false"
+              x-data="{
+              name: '',
+              port: 3672,
+              creating: false,
+              async create() {
+                if (!this.name.trim()) return;
+                this.creating = true;
+                try {
+                  const id = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
+                  await API.createPremise({ id, name: this.name.trim(), port: this.port });
+                  await $store.app.loadPremises();
+                  await $store.app.selectPremise(id);
+                  this.name = '';
+                  this.port = this.port + 1;
+                  showCreate = false;
+                } catch (e) {
+                  alert('Failed to create: ' + e.message);
+                } finally {
+                  this.creating = false;
+                }
+              }
+            }"
+            >
+              <h4>New Installation</h4>
+              <label>Name</label>
+              <input
+                type="text"
+                x-model="name"
+                placeholder="e.g. Guest House"
+                @keydown.enter="create()"
+              />
+              <label>KNXnet/IP Port</label>
+              <input
+                type="number"
+                x-model.number="port"
+                min="3672"
+                max="3700"
+              />
+              <div class="premise-create-buttons">
+                <button class="btn btn-sm" @click="showCreate = false">
+                  Cancel
+                </button>
+                <button
+                  class="btn btn-sm btn-primary"
+                  @click="create()"
+                  :disabled="creating || !name.trim()"
+                >
+                  <span x-text="creating ? 'Creating...' : 'Create'"></span>
+                </button>
+              </div>
+            </div>
+          </div>
         </div>
         <div class="header-right">
           <span

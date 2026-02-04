@@ -193,17 +193,23 @@ def reset_to_sample(premise_id: str):
         prefixed_id = f"{prefix}{bare_id}"
         device_id_map[bare_id] = prefixed_id
 
+        # Resolve room_id: config value → mapped, or guess from device ID
+        raw_room_id = dev_config.get("room_id")
+        if raw_room_id:
+            resolved_room_id = room_id_map.get(raw_room_id, raw_room_id)
+        else:
+            resolved_room_id = guess_room_for_device(
+                dev_config["id"],
+                dev_config.get("group_addresses", {}),
+            )
+
         device_data = {
             "id": prefixed_id,
             "type": dev_config["type"],
             "individual_address": dev_config["individual_address"],
             "group_addresses": dev_config.get("group_addresses", {}),
             "initial_state": dev_config.get("initial", {}),
-            "room_id": dev_config.get("room_id")
-            or guess_room_for_device(
-                dev_config["id"],
-                dev_config.get("group_addresses", {}),
-            ),
+            "room_id": resolved_room_id,
         }
 
         # Handle template devices
@@ -226,7 +232,7 @@ def reset_to_sample(premise_id: str):
         try:
             manager.add_device(premise_id, device_data)
             devices_created += 1
-        except (KeyError, ValueError, TypeError) as e:
+        except (KeyError, ValueError, TypeError, sqlite3.IntegrityError) as e:
             logger.warning("Failed to create device %s: %s", prefixed_id, e)
 
     # ─────────────────────────────────────────────────────────────
