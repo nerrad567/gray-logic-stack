@@ -363,21 +363,25 @@ Every migration must pass:
 
 ### Publishing State Updates
 
-```go
-topic := fmt.Sprintf("graylogic/state/%s/%s", 
-    device.Protocol,
-    url.PathEscape(device.Address))
+The KNX bridge publishes to GA-based topics (`graylogic/state/knx/<GA>`)
+with `device_id` inside the JSON payload:
 
-payload := StateMessage{
-    DeviceID:  device.ID,
-    Timestamp: time.Now().UTC(),
-    State:     currentState,
-    Protocol:  device.Protocol,
-    Address:   device.Address,
+```go
+// Build GA-based topic (slashes URL-encoded)
+topic := knx.StateTopic(gaStr)
+// e.g. "graylogic/state/knx/1%2F0%2F1"
+
+msg := knx.NewStateMessage(mapping.DeviceID, gaStr, state)
+// StateMessage contains: device_id, timestamp, state, protocol, address
+
+payload, err := json.Marshal(msg)
+if err != nil {
+    log.Error("failed to marshal state", "error", err)
+    return
 }
 
-if err := client.Publish(topic, payload, mqtt.QoS1, false); err != nil {
-    log.Error("failed to publish state", "device", device.ID, "error", err)
+if err := b.mqtt.Publish(topic, payload, 1, true); err != nil {
+    log.Error("failed to publish state", "device", mapping.DeviceID, "error", err)
 }
 ```
 

@@ -549,23 +549,24 @@ devices:
     name: "Living Room Main Light"
     type: "light_dimmer"
     room: "living_room"
-    addresses:
+    individual_address: "1.1.10"
+    functions:
       switch:
         ga: "1/0/1"
         dpt: "1.001"
-        direction: "write"
+        flags: ["write"]
       switch_status:
         ga: "6/0/1"
         dpt: "1.001"
-        direction: "read"
+        flags: ["read", "transmit"]
       brightness:
         ga: "2/0/101"
         dpt: "5.001"
-        direction: "write"
+        flags: ["write"]
       brightness_status:
         ga: "6/0/101"
         dpt: "5.001"
-        direction: "read"
+        flags: ["read", "transmit"]
 ```
 
 ### 3. Device Types and Required Addresses

@@ -91,24 +91,15 @@
       "description": "Device health information"
     },
     "manufacturer": {
-      "oneOf": [
-        { "type": "string", "maxLength": 128 },
-        { "type": "null" }
-      ],
+      "oneOf": [{ "type": "string", "maxLength": 128 }, { "type": "null" }],
       "description": "Device manufacturer"
     },
     "model": {
-      "oneOf": [
-        { "type": "string", "maxLength": 128 },
-        { "type": "null" }
-      ],
+      "oneOf": [{ "type": "string", "maxLength": 128 }, { "type": "null" }],
       "description": "Device model"
     },
     "firmware_version": {
-      "oneOf": [
-        { "type": "string", "maxLength": 64 },
-        { "type": "null" }
-      ],
+      "oneOf": [{ "type": "string", "maxLength": 64 }, { "type": "null" }],
       "description": "Firmware version"
     },
     "created_at": {
@@ -121,7 +112,16 @@
     }
   },
 
-  "required": ["id", "name", "slug", "type", "domain", "protocol", "address", "capabilities"],
+  "required": [
+    "id",
+    "name",
+    "slug",
+    "type",
+    "domain",
+    "protocol",
+    "address",
+    "capabilities"
+  ],
 
   "examples": [
     {
@@ -134,8 +134,21 @@
       "domain": "lighting",
       "protocol": "knx",
       "address": {
-        "group_address": "1/2/3",
-        "feedback_address": "1/2/4"
+        "individual_address": "1.1.10",
+        "functions": {
+          "switch": { "ga": "1/2/3", "dpt": "1.001", "flags": ["write"] },
+          "switch_status": {
+            "ga": "1/2/4",
+            "dpt": "1.001",
+            "flags": ["read", "transmit"]
+          },
+          "brightness": { "ga": "2/0/3", "dpt": "5.001", "flags": ["write"] },
+          "brightness_status": {
+            "ga": "2/0/4",
+            "dpt": "5.001",
+            "flags": ["read", "transmit"]
+          }
+        }
       },
       "gateway_id": null,
       "capabilities": ["on_off", "dim"],
@@ -165,8 +178,29 @@
       "domain": "climate",
       "protocol": "knx",
       "address": {
-        "group_address": "2/1/1",
-        "feedback_address": "2/1/2"
+        "individual_address": "1.1.20",
+        "functions": {
+          "temperature": {
+            "ga": "2/1/1",
+            "dpt": "9.001",
+            "flags": ["read", "transmit"]
+          },
+          "setpoint": {
+            "ga": "2/1/2",
+            "dpt": "9.001",
+            "flags": ["write", "read"]
+          },
+          "heating_output": {
+            "ga": "2/1/3",
+            "dpt": "5.001",
+            "flags": ["write"]
+          },
+          "humidity": {
+            "ga": "2/1/4",
+            "dpt": "9.007",
+            "flags": ["read", "transmit"]
+          }
+        }
       },
       "gateway_id": null,
       "capabilities": ["temperature_read", "temperature_set", "humidity_read"],
@@ -203,7 +237,13 @@
         }
       },
       "gateway_id": null,
-      "capabilities": ["run_stop", "speed_control", "speed_read", "fault_status", "run_hours"],
+      "capabilities": [
+        "run_stop",
+        "speed_control",
+        "speed_read",
+        "fault_status",
+        "run_hours"
+      ],
       "state": {
         "running": true,
         "speed": 75,

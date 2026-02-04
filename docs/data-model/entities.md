@@ -440,11 +440,13 @@ Device:
 
 **Address Examples:**
 ```yaml
-# KNX device
+# KNX light switch
 protocol: "knx"
 address:
-  group_address: "1/2/3"
-  feedback_address: "1/2/4"
+  individual_address: "1.1.1"
+  functions:
+    switch:        { ga: "1/2/3", dpt: "1.001", flags: ["write"] }
+    switch_status: { ga: "1/2/4", dpt: "1.001", flags: ["read", "transmit"] }
 
 # DALI device
 protocol: "dali"

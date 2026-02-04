@@ -1,13 +1,13 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-02-03
+> **Last Updated:** 2026-02-04
 > **Current Phase:** Implementation (Year 1 Complete + Commissioning Tools)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-03 (Session 28 - ETS Import Room Assignment Fix)
+**Last session:** 2026-02-04 (Session 29 - KNX Pipeline Robustness Refactor)
 **Current milestone:** Year 1 Foundation Complete + Commissioning Pipeline Upgraded
 
 **What's done:**
@@ -25,6 +25,7 @@
 - KNXSim Phase 2.9 Thermostats ✅ (PID control, valve actuators, thermal simulation)
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
+- KNX Pipeline Robustness ✅ (structured DPT storage, canonical function registry, import normalisation, pipeline integration tests)
 - Admin Interface ✅ (metrics, devices, import, discovery tabs)
 - GA Recorder ✅ (replaces BusMonitor for commissioning)
 - Dev Workflow Restructure ✅ (native Go dev, Docker support services, filesystem panel serving)
@@ -33,7 +34,6 @@
 - Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
-- Fix knxsim thermal simulation tunnel sends (proactive UDP telegrams not reaching knxd reliably)
 - Extend ETS domain filter list for other languages (French, Italian, etc.)
 - KNXSim Phase 2.8 Phase 2: Drag-drop device move between lines, topology-based device creation
 - Auth hardening (production JWT, refresh tokens, role-based access)
@@ -918,6 +918,46 @@ Two MQTT topic schemes coexisted: flat (`graylogic/{category}/{protocol}/{addres
 - Updated `CHANGELOG.md` — Version 1.0.9 entry
 
 **Result**: Full bidirectional sync working: Flutter ↔ Core ↔ KNXSim
+
+---
+
+### Session 29: 2026-02-04 — KNX Pipeline Robustness Refactor
+
+**Goal:** Eliminate fragile DPT inference and function name coupling across the KNX mapping pipeline
+
+The import → registry → bridge pipeline was a "house of cards" — DPTs were discarded at import time (`addresses[fn] = addr.GA`), forcing the bridge to guess them via substring matching. Any unrecognised function name → empty DPT → raw bytes in state → broken UI. Function names were also the single coupling point across layers with no shared definition.
+
+**Phase A — Structured DPT storage:**
+- New device address format: `{"functions": {"switch": {"ga": "1/0/1", "dpt": "1.001", "flags": ["write"]}}}`
+- Removed redundant `group_address` top-level key (stored only one arbitrary GA)
+- `buildDeviceFromImport()` now preserves DPT/flags from ETS import
+- Bridge reads stored DPT/flags, falling back to inference only for pre-migration devices
+- One-time `MigrateKNXAddressFormat()` converts existing devices on startup
+- Updated validation, all test fixtures (5 test files), Flutter Add Device form
+
+**Phase B — Canonical function registry:**
+- New `functions.go`: ~55 function definitions with Name, StateKey, DPT, Flags, Aliases
+- `NormalizeFunction()` resolves aliases (`actual_temperature` → `temperature`, `on_off` → `switch`)
+- `NormalizeChannelFunction()` handles channel prefixes (`ch_a_switch` → prefix + canonical)
+- `StateKeyForFunction()` replaced 30-line hardcoded `functionToStateKey` map
+- Bridge's `inferDPT/inferFlags` now use canonical registry first, heuristic fallback second
+- Normalisation wired into `buildDeviceFromImport()` at import time
+- 13 comprehensive tests (consistency, aliases, channels, duplicates)
+
+**Phase C — Pipeline integration tests:**
+- `pipeline_test.go`: 12 telegram→state tests (switch, dimmer, blind, thermostat, PIR, valve, infra channels)
+- 4 command→telegram tests (on, off, dim, set_position)
+- Device count + channel state key verification
+- All run with mock MQTT/knxd — no external dependencies
+
+**Phase D — KNXSim validation:**
+- Thermal telegram encoding verified correct (cEMI long-frame encoding is sound, DPT 9.xxx round-trips perfectly)
+- `_guess_dpt()` extended from ~20 to ~45 patterns, fixed `stop` DPT (1.010→1.007), fixed ordering bugs
+- Canonical name alignment verified: all KNXSim normalised names resolve via Go's `NormalizeFunction()`
+
+**New files:** `functions.go`, `functions_test.go`, `pipeline_test.go`, `device_types.dart`
+**Modified:** 20+ files across Go core, Flutter, KNXSim
+**Tests:** All pass (`go test ./...` green, `flutter analyze` clean)
 
 ---
 

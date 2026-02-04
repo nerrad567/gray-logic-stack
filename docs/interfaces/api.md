@@ -806,8 +806,13 @@ GET /api/v1/devices/{device_id}
     "domain": "lighting",
     "protocol": "knx",
     "address": {
-      "group_address": "1/2/3",
-      "feedback_address": "1/2/4"
+      "individual_address": "1.1.1",
+      "functions": {
+        "switch":        {"ga": "1/2/3", "dpt": "1.001", "flags": ["write"]},
+        "switch_status": {"ga": "1/2/4", "dpt": "1.001", "flags": ["read", "transmit"]},
+        "brightness":        {"ga": "2/0/101", "dpt": "5.001", "flags": ["write"]},
+        "brightness_status": {"ga": "6/0/101", "dpt": "5.001", "flags": ["read", "transmit"]}
+      }
     },
     "capabilities": ["on_off", "dim"],
     "config": {

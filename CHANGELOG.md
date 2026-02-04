@@ -4,6 +4,47 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.20 – KNX Pipeline Robustness Refactor (2026-02-04)
+
+**Focus: Eliminate fragile DPT inference and function name coupling across the KNX mapping pipeline**
+
+The KNX import → registry → bridge pipeline was "a house of cards": DPTs were discarded at import time, forcing the bridge to reconstruct them via fragile substring matching. Function names were the single coupling point across all layers with no shared definition. This release stores structured DPT/flag metadata from import through to the bridge, creates a canonical function registry, and adds end-to-end pipeline integration tests.
+
+### Added
+
+- **Canonical function registry** (`functions.go`): Single authoritative list of ~55 KNX functions with name, state key, default DPT, flags, and aliases. Lookup maps built at init for O(1) resolution. Handles channel-prefixed functions (`ch_a_switch` → prefix `ch_a_`, base `switch`)
+- **`NormalizeFunction()` / `NormalizeChannelFunction()`**: Resolve aliases at import time — `actual_temperature` → `temperature`, `on_off` → `switch`, `colour_temperature` → `color_temperature`
+- **`StateKeyForFunction()`**: Unified state key lookup replacing the old hardcoded 30-line `functionToStateKey` map. Handles canonical names, aliases, and channel prefixes in a single call
+- **Pipeline integration tests** (`pipeline_test.go`): 12 telegram→state test cases (lights, dimmers, blinds, thermostats, PIR, valves, infrastructure channels) + 4 command→telegram tests + device count + channel state key verification. All run in `go test` with no external dependencies
+- **`KNXFunctionConfig` struct + `GetKNXFunctions()` helper** (`types.go`): Parse structured `map[string]any` from JSON into typed structs for the bridge
+- **One-time data migration** (`registry.go`): `MigrateKNXAddressFormat()` converts existing flat-format devices to structured format on startup using inference as a one-time bootstrap
+- **DPT and flags on Flutter `AddressFunction`** (`device_types.dart`): All 20+ device type templates now carry correct DPT and flags, sent through to the API
+
+### Changed
+
+- **Device address format**: From flat `{"group_address": "1/0/1", "switch": "1/0/1"}` to structured `{"functions": {"switch": {"ga": "1/0/1", "dpt": "1.001", "flags": ["write"]}}}`
+- **`buildDeviceFromImport()`** (`commissioning.go`): Now preserves DPT/flags from ETS import and normalises function names via canonical registry
+- **`loadDevicesFromRegistry()`** (`bridge.go`): Reads stored DPT and flags from `functions` map, falling back to inference only for pre-migration devices
+- **`inferDPTFromFunction()` / `inferFlagsFromFunction()`** (`bridge.go`): Now use canonical registry as primary lookup, with simplified heuristic fallback
+- **`buildStateUpdate()`** (`bridge.go`): Uses `StateKeyForFunction()` instead of hardcoded map
+- **`validateKNXAddress()`** (`validation.go`): Validates `functions` map (at least one entry with non-empty `ga`) instead of checking for redundant `group_address` key
+- **`deviceRegistryAdapter`** (`main.go`): Parses structured `functions` map into typed `FunctionMapping` structs
+- **Flutter Add Device form** (`devices_tab.dart`): Sends structured `functions` format with DPT/flags per function
+- **KNXSim `_guess_dpt()`** (`routes_export.py`): Extended from ~20 to ~45 function patterns, fixed `stop` DPT (1.010→1.007), added color temperature, RGB/RGBW, scenes, energy metering, wind/rain, boolean controls
+
+### Removed
+
+- **`group_address` top-level key**: Redundant — stored only one arbitrary GA. Replaced by `functions` map validation
+- **`functionToStateKey` map** (`bridge.go`): 30-line hardcoded map replaced by canonical registry lookup
+
+### Fixed
+
+- **`stop` DPT mismatch** in KNXSim export: Was `1.010` (Start/Stop), now `1.007` (Step) matching KNX blind stop convention
+- **Unreachable `brightness` → `9.004` rule** in `_guess_dpt()`: `"lux" or "brightness"` for lux was unreachable because `brightness` was already caught by the dimming check. Changed to `"lux" or "illuminance"`
+- **`color_temperature` DPT fallback**: Was incorrectly matching `"temperature"` rule (→ `9.001`). Now matched before temperature check (→ `7.600`)
+
+---
+
 ## 1.0.19 – ETS Import Room Assignment Fix (2026-02-03)
 
 **Focus: Fix ETS import so devices are correctly assigned to GLCore rooms and areas**
