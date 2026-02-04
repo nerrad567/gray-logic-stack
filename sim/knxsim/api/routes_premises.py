@@ -1,8 +1,13 @@
 """Premise CRUD routes for the KNX Simulator Management API."""
 
+import logging
+import sqlite3
+
 from fastapi import APIRouter, HTTPException
 
 from .models import PremiseCreate, PremiseResponse
+
+logger = logging.getLogger("knxsim.routes.premises")
 
 router = APIRouter(prefix="/api/v1/premises", tags=["premises"])
 
@@ -62,8 +67,6 @@ def reset_to_sample(premise_id: str):
 
     Useful for starting fresh or restoring the default learning environment.
     """
-    import yaml
-
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
     if not premise:
@@ -71,10 +74,15 @@ def reset_to_sample(premise_id: str):
 
     # Load config
     try:
+        import yaml
+    except ImportError as e:
+        raise HTTPException(status_code=500, detail=f"Failed to import PyYAML: {e}") from e
+
+    try:
         with open("/app/config.yaml") as f:
             config = yaml.safe_load(f)
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=f"Failed to load config: {e}")
+    except (OSError, yaml.YAMLError) as e:
+        raise HTTPException(status_code=500, detail=f"Failed to load config: {e}") from e
 
     if "devices" not in config:
         raise HTTPException(status_code=500, detail="No devices found in config.yaml")
@@ -202,8 +210,8 @@ def reset_to_sample(premise_id: str):
         try:
             manager.add_device(premise_id, device_data)
             devices_created += 1
-        except Exception as e:
-            print(f"Warning: Failed to create device {dev_config['id']}: {e}")
+        except (KeyError, ValueError, TypeError) as e:
+            logger.warning("Failed to create device %s: %s", dev_config.get("id"), e)
 
     # ─────────────────────────────────────────────────────────────
     # Reload scenarios
@@ -228,7 +236,7 @@ def reset_to_sample(premise_id: str):
                 },
             )
             scenarios_created += 1
-        except Exception:
+        except sqlite3.IntegrityError:
             pass  # May already exist
 
     # ─────────────────────────────────────────────────────────────
@@ -267,8 +275,8 @@ def reset_to_sample(premise_id: str):
         try:
             manager.db.create_load(premise_id, load_data)
             loads_created += 1
-        except Exception as e:
-            print(f"Warning: Failed to create load {load_config['id']}: {e}")
+        except (sqlite3.IntegrityError, KeyError, ValueError, TypeError) as e:
+            logger.warning("Failed to create load %s: %s", load_config.get("id"), e)
 
     # Reload premise to pick up new devices and scenarios
     if live_premise:

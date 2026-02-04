@@ -68,66 +68,6 @@ class PremiseManager:
         self._load_premise_from_db(DEFAULT_PREMISE_ID)
         return
 
-        # NOTE: The code below is now DEAD CODE — kept for reference
-        # Device import now happens via reset-sample endpoint when user chooses
-
-        # Import devices from config
-        for dev_cfg in config.get("devices", []):
-            device_data = {
-                "id": dev_cfg["id"],
-                "type": dev_cfg["type"],
-                "individual_address": dev_cfg["individual_address"],
-                "group_addresses": dev_cfg.get("group_addresses", {}),
-                "initial_state": dev_cfg.get("initial", {}),
-                "state": dev_cfg.get("initial", {}),
-            }
-
-            # Handle template_device types - load template definition
-            if dev_cfg["type"] == "template_device" and self._template_loader:
-                template_id = dev_cfg.get("template")
-                if template_id:
-                    template = self._template_loader.get_template(template_id)
-                    if template:
-                        device_data["config"] = {
-                            "template_id": template_id,
-                            "template_def": template.group_addresses,
-                        }
-                        # Use template's initial state as defaults, override with config
-                        merged_state = dict(template.initial_state)
-                        merged_state.update(dev_cfg.get("initial", {}))
-                        device_data["initial_state"] = merged_state
-                        device_data["state"] = merged_state
-                    else:
-                        logger.warning(
-                            "Template not found for device %s: %s",
-                            dev_cfg["id"],
-                            template_id,
-                        )
-
-            self.db.create_device(DEFAULT_PREMISE_ID, device_data)
-
-        # Import scenarios from config
-        for i, sc_cfg in enumerate(config.get("scenarios", [])):
-            self.db.create_scenario(
-                DEFAULT_PREMISE_ID,
-                {
-                    "id": f"default-scenario-{i}",
-                    "device_id": sc_cfg["device_id"],
-                    "field": sc_cfg.get("field", "temperature"),
-                    "type": sc_cfg.get("type", "sine_wave"),
-                    "params": sc_cfg.get("params", {}),
-                    "enabled": True,
-                },
-            )
-
-        logger.info(
-            "Bootstrapped default premise from config: %d devices, %d scenarios",
-            len(config.get("devices", [])),
-            len(config.get("scenarios", [])),
-        )
-
-        self._load_premise_from_db(DEFAULT_PREMISE_ID)
-
     def _load_premise_from_db(self, premise_id: str):
         """Load a premise from the database and start it."""
         premise_data = self.db.get_premise(premise_id)

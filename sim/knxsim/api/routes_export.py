@@ -569,15 +569,9 @@ def _build_knxproj_xml(
             if not act_id or not ch_id or not load_room:
                 continue
             if load_room not in room_to_location_id:
-                print(
-                    f"[EXPORT DEBUG] SKIP room {load_room} not in {list(room_to_location_id.keys())}"
-                )
                 continue
 
             actuator = device_by_id.get(act_id)
-            print(
-                f"[EXPORT DEBUG] load {load.get('id')}: act_id={act_id} found={actuator is not None}"
-            )
             if not actuator:
                 continue
 
@@ -585,7 +579,6 @@ def _build_knxproj_xml(
 
             # Get the channel's GAs with normalised function names
             channel_gas = _get_channel_gas(actuator, ch_id)
-            print(f"[EXPORT DEBUG] load {load.get('id')}: ch_id={ch_id}, channel_gas={channel_gas}")
             if not channel_gas:
                 continue
 
@@ -926,7 +919,6 @@ async def export_knxproj(premise_id: str):
 
     # Get loads (for channel-to-room mapping of multi-channel actuators)
     loads = manager.db.list_loads(premise_id)
-    print(f"[EXPORT DEBUG] loads={len(loads)}, first={loads[0] if loads else None}")
 
     # Build XML content
     xml_content = _build_knxproj_xml(premise, floors, devices, loads)

@@ -128,7 +128,7 @@ class KNXIPServer:
 
             try:
                 self._dispatch(service_type, body, addr)
-            except Exception:
+            except OSError:
                 logger.exception(
                     "Error handling service %#06x from %s", service_type, addr
                 )

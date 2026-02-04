@@ -262,7 +262,7 @@ class Premise:
             decoded = frames.decode_cemi(cemi)
             if not decoded:
                 return
-        except Exception:
+        except (KeyError, ValueError):
             return
 
         from knxip import constants as C
@@ -311,7 +311,7 @@ class Premise:
                             if dev.individual_address == src:
                                 self._on_state_change(self.id, dev.device_id, dict(dev.state))
                                 break
-            except Exception:
+            except (IndexError, KeyError, ValueError):
                 pass  # Don't break scenario on decode errors
 
     def start(self):

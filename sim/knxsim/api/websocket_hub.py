@@ -59,7 +59,7 @@ class WebSocketHub:
             try:
                 await ws.send_text(message)
                 logger.info("broadcast: sent to client on %s", channel)
-            except Exception as e:
+            except (ConnectionError, RuntimeError) as e:
                 logger.warning("broadcast: send failed: %s", e)
                 dead.append(ws)
 

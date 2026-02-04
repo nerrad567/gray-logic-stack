@@ -137,7 +137,7 @@ class TemplateLoader:
                     if template:
                         self._templates[template.id] = template
                         count += 1
-                except Exception as e:
+                except (yaml.YAMLError, OSError, KeyError) as e:
                     logger.warning("Failed to load template %s: %s", file_path, e)
 
         self._loaded = True
