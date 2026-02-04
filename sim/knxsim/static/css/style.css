@@ -1,5 +1,22 @@
 /* KNXSim Dashboard — Dark Engineer Theme */
 
+/* Fonts — self-hosted for offline operation */
+@font-face {
+  font-family: "Roboto Mono";
+  font-style: normal;
+  font-weight: 700;
+  font-display: swap;
+  src: url("../fonts/RobotoMono-Bold.woff2") format("woff2");
+}
+
+@font-face {
+  font-family: "League Spartan";
+  font-style: normal;
+  font-weight: 400;
+  font-display: swap;
+  src: url("../fonts/LeagueSpartan-Regular.woff2") format("woff2");
+}
+
 :root {
   /* Colors */
   --bg-primary: #0d1117;
