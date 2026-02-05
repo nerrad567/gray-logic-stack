@@ -688,7 +688,7 @@ func TestManager_HealthCheck_Integration(t *testing.T) {
 	ctx, cancel := context.WithTimeout(context.Background(), 15*time.Second)
 	defer cancel()
 
-	if err := m.Start(ctx); err != nil {
+	if err := m.Start(ctx); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("Start() error: %v", err)
 	}
 	defer m.Stop()
@@ -1221,14 +1221,14 @@ func TestManager_USBBackend_FullIntegration(t *testing.T) {
 
 	// Step 1: Reset USB device before starting knxd
 	t.Log("Resetting USB device...")
-	if err := m.ResetUSBDevice(); err != nil {
+	if err := m.ResetUSBDevice(); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("ResetUSBDevice() error: %v", err)
 	}
 	time.Sleep(1 * time.Second)
 
 	// Step 2: Start knxd with USB backend
 	t.Log("Starting knxd with USB backend...")
-	if err := m.Start(ctx); err != nil {
+	if err := m.Start(ctx); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("Start() error: %v", err)
 	}
 	defer m.Stop()

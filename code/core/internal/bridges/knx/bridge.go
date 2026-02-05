@@ -277,7 +277,7 @@ func (b *Bridge) Stop() {
 // loadDevicesFromRegistry loads KNX devices from the device registry and
 // builds the bridge's device mappings. The registry is the sole source of
 // device→GA mappings — devices are created via ETS import or the admin panel.
-func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) {
+func (b *Bridge) loadDevicesFromRegistry(ctx context.Context) { //nolint:gocognit // device loading: iterates devices, builds address maps
 	if b.registry == nil {
 		return
 	}
@@ -1048,7 +1048,7 @@ func (b *Bridge) handleReadAll(req RequestMessage) ResponseMessage {
 }
 
 // handleKNXTelegram processes an incoming telegram from the KNX bus.
-func (b *Bridge) handleKNXTelegram(t Telegram) {
+func (b *Bridge) handleKNXTelegram(t Telegram) { //nolint:gocognit // telegram processing: decode, state extraction, MQTT publish
 	// Convert GA to string for lookup
 	gaStr := t.Destination.String()
 

@@ -10,6 +10,32 @@ const (
 	keywordMatchBoost      = 0.05 // Boost per keyword match in address names
 )
 
+// Device domain constants for detection results.
+// These mirror device.Domain values but are defined locally to avoid
+// circular imports between commissioning and device packages.
+const (
+	domainLighting       = "lighting"
+	domainClimate        = "climate"
+	domainBlinds         = "blinds"
+	domainSensor         = "sensor"
+	domainInfrastructure = "infrastructure"
+	domainSecurity       = "security"
+	domainScene          = "scene"
+	domainEnergy         = "energy"
+)
+
+// Device type constants for detection results.
+const (
+	typeLightSwitch     = "light_switch"
+	typeLightDimmer     = "light_dimmer"
+	typeBlindPosition   = "blind_position"
+	typeThermostat      = "thermostat"
+	typeHeatingActuator = "heating_actuator"
+	typeSwitchActuator  = "switch_actuator"
+	typePresenceSensor  = "presence_sensor"
+	typeSensor          = "sensor"
+)
+
 // DetectionRule defines a pattern for detecting a device type from group addresses.
 type DetectionRule struct {
 	// Name is the device type name (dimmer, switch, blind, etc.).
@@ -545,19 +571,19 @@ func DefaultDetectionRules() []DetectionRule {
 func functionTypeToDeviceType(funcType, comment string) (string, string, float64) {
 	switch funcType {
 	case "SwitchableLight":
-		return "light_switch", "lighting", 0.99
+		return typeLightSwitch, domainLighting, 0.99 //nolint:mnd // high-confidence match score
 	case "DimmableLight":
-		return "light_dimmer", "lighting", 0.99
+		return typeLightDimmer, domainLighting, 0.99 //nolint:mnd // high-confidence match score
 	case "Sunblind":
-		return "blind_position", "blinds", 0.95
+		return typeBlindPosition, domainBlinds, 0.95 //nolint:mnd // high-confidence match score
 	case "HeatingRadiator":
-		return "thermostat", "climate", 0.99
+		return typeThermostat, domainClimate, 0.99 //nolint:mnd // high-confidence match score
 	case "HeatingFloor":
-		return "heating_actuator", "climate", 0.99
+		return typeHeatingActuator, domainClimate, 0.99 //nolint:mnd // high-confidence match score
 	case "HeatingContinuousVariable":
-		return "heating_actuator", "climate", 0.99
+		return typeHeatingActuator, domainClimate, 0.99 //nolint:mnd // high-confidence match score
 	case "HeatingSwitchingVariable":
-		return "heating_actuator", "climate", 0.99
+		return typeHeatingActuator, domainClimate, 0.99 //nolint:mnd // high-confidence match score
 	}
 
 	// Custom → check Comment for KNXSim template ID hint
@@ -576,9 +602,9 @@ func commentToDeviceType(comment string) (string, string, float64) {
 	if strings.HasPrefix(comment, "{\"infrastructure\"") {
 		// Determine actuator subtype from channel GAs
 		if strings.Contains(comment, "\"valve\"") {
-			return "heating_actuator", "infrastructure", 0.99
+			return typeHeatingActuator, domainInfrastructure, 0.99 //nolint:mnd // high-confidence match score
 		}
-		return "switch_actuator", "infrastructure", 0.99
+		return typeSwitchActuator, domainInfrastructure, 0.99 //nolint:mnd // high-confidence match score
 	}
 
 	known := map[string][2]string{
@@ -635,7 +661,7 @@ func commentToDeviceType(comment string) (string, string, float64) {
 		"awning_controller":    {"blind_position", "blinds"},
 	}
 	if t, ok := known[comment]; ok {
-		return t[0], t[1], 0.98
+		return t[0], t[1], 0.98 //nolint:mnd // keyword-based match confidence
 	}
 	return "", "", 0
 }

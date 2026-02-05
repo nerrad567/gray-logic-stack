@@ -168,7 +168,7 @@ func (h *Hub) closeAll() {
 
 // subscribeStateUpdates subscribes to MQTT device state topics and broadcasts
 // changes to WebSocket clients subscribed to "device.state_changed".
-func (s *Server) subscribeStateUpdates() error {
+func (s *Server) subscribeStateUpdates() error { //nolint:gocognit // MQTT subscription: message parsing + registry + TSDB pipeline
 	if s.mqtt == nil {
 		return nil // MQTT not configured; WebSocket broadcast disabled
 	}
@@ -193,8 +193,8 @@ func (s *Server) subscribeStateUpdates() error {
 		// Update device registry with state from bus.
 		// Write-through commands are already handled by the bridge; this covers
 		// incoming bus telegrams (physical switch presses, sensor updates).
-		deviceID, _ := stateMsg["device_id"].(string)
-		stateMap, _ := stateMsg["state"].(map[string]any)
+		deviceID, _ := stateMsg["device_id"].(string)     //nolint:errcheck // type assertion checked via empty string test below
+		stateMap, _ := stateMsg["state"].(map[string]any) //nolint:errcheck // type assertion checked via nil test below
 
 		if deviceID != "" && stateMap != nil {
 			devState := make(device.State, len(stateMap))

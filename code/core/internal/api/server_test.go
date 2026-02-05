@@ -1473,7 +1473,7 @@ func TestServer_StartAndClose(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 
 	// Start server
-	if err := srv.Start(ctx); err != nil {
+	if err := srv.Start(ctx); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("Start() error: %v", err)
 	}
 
@@ -1495,7 +1495,7 @@ func TestServer_StartAndClose(t *testing.T) {
 
 	// Close server
 	cancel()
-	if err := srv.Close(); err != nil {
+	if err := srv.Close(); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Errorf("Close() error: %v", err)
 	}
 
@@ -1540,7 +1540,7 @@ func TestWebSocket_FullConnection(t *testing.T) {
 	var loginResult struct {
 		AccessToken string `json:"access_token"`
 	}
-	if err := json.NewDecoder(loginResp.Body).Decode(&loginResult); err != nil {
+	if err := json.NewDecoder(loginResp.Body).Decode(&loginResult); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("decode login response: %v", err)
 	}
 
@@ -1556,7 +1556,7 @@ func TestWebSocket_FullConnection(t *testing.T) {
 	var ticketResult struct {
 		Ticket string `json:"ticket"`
 	}
-	if err := json.NewDecoder(ticketResp.Body).Decode(&ticketResult); err != nil {
+	if err := json.NewDecoder(ticketResp.Body).Decode(&ticketResult); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("decode ticket response: %v", err)
 	}
 

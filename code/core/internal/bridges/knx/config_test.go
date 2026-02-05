@@ -79,7 +79,6 @@ devices:
 	if cfg.MQTT.ClientID != "test-knx-mqtt" {
 		t.Errorf("MQTT.ClientID = %q, want test-knx-mqtt", cfg.MQTT.ClientID)
 	}
-
 }
 
 func TestLoadConfigDefaults(t *testing.T) {

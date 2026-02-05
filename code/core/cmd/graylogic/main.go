@@ -85,7 +85,7 @@ const banner = `
 //
 // Returns:
 //   - error: nil on clean shutdown, or error describing failure
-func run(ctx context.Context) error {
+func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application bootstrap: sequential init steps are inherently linear
 	// Print startup banner
 	fmt.Printf(banner, version)
 
@@ -139,7 +139,7 @@ func run(ctx context.Context) error {
 	// mode — the admin panel will detect this via GET /api/v1/site and prompt
 	// the user to create one. Property data is user-owned, not config-seeded.
 	var siteCount int
-	if err := db.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites").Scan(&siteCount); err != nil {
+	if err := db.DB.QueryRowContext(ctx, "SELECT COUNT(*) FROM sites").Scan(&siteCount); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		return fmt.Errorf("checking site: %w", err)
 	}
 	if siteCount == 0 {

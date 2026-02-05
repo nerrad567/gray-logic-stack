@@ -98,7 +98,7 @@ func (s *Server) handleCreateSite(w http.ResponseWriter, r *http.Request) {
 
 // handleUpdateSite updates the existing site record via PATCH semantics.
 // Only fields present in the JSON body are updated.
-func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // HTTP handler: validates and patches many optional site fields
 	// Fetch the current site.
 	site, err := s.locationRepo.GetAnySite(r.Context())
 	if err != nil {
@@ -114,7 +114,7 @@ func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 	// Decode the partial update into a raw map so we can detect which
 	// fields were explicitly sent (PATCH semantics).
 	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		writeBadRequest(w, "invalid JSON body")
 		return
 	}
@@ -187,7 +187,7 @@ func (s *Server) handleUpdateSite(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.locationRepo.UpdateSite(r.Context(), site); err != nil {
+	if err := s.locationRepo.UpdateSite(r.Context(), site); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		s.logger.Error("failed to update site", "error", err)
 		writeInternalError(w, "failed to update site")
 		return

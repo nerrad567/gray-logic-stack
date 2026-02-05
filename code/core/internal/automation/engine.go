@@ -98,7 +98,7 @@ func NewEngine(registry *Registry, devices DeviceRegistry, mqtt MQTTClient, hub 
 // well within this window. Prevents goroutine accumulation from runaway scenes.
 const maxSceneExecutionTime = 60 * time.Second
 
-func (e *Engine) ActivateScene(ctx context.Context, sceneID, triggerType, triggerSource string) (string, error) {
+func (e *Engine) ActivateScene(ctx context.Context, sceneID, triggerType, triggerSource string) (string, error) { //nolint:gocognit,gocyclo // scene activation: validates, executes actions, records execution
 	// Apply execution timeout to prevent unbounded goroutine accumulation.
 	ctx, cancel := context.WithTimeout(ctx, maxSceneExecutionTime)
 	defer cancel()

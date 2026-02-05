@@ -170,9 +170,9 @@ func (db *DB) Stats() sql.DBStats {
 	return db.DB.Stats()
 }
 
-// SqlDB returns the underlying *sql.DB connection.
+// SQLDB returns the underlying *sql.DB connection.
 // Use this when you need direct database access for queries.
-func (db *DB) SqlDB() *sql.DB {
+func (db *DB) SQLDB() *sql.DB {
 	return db.DB
 }
 

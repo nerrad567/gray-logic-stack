@@ -175,7 +175,7 @@ func (r *GARecorder) GetHealthCheckGroupAddresses(ctx context.Context, limit int
 		LIMIT ?
 	`, limit)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("querying health check addresses: %w", err)
 	}
 	defer rows.Close()
 
@@ -183,12 +183,15 @@ func (r *GARecorder) GetHealthCheckGroupAddresses(ctx context.Context, limit int
 	for rows.Next() {
 		var addr string
 		if err := rows.Scan(&addr); err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanning health check address: %w", err)
 		}
 		addresses = append(addresses, addr)
 	}
 
-	return addresses, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating health check addresses: %w", err)
+	}
+	return addresses, nil
 }
 
 // MarkHealthCheckUsed records that a GA was just used for a health check.
@@ -198,21 +201,30 @@ func (r *GARecorder) MarkHealthCheckUsed(ctx context.Context, ga string) error {
 	_, err := r.db.ExecContext(ctx, `
 		UPDATE knx_group_addresses SET last_health_check = ? WHERE group_address = ?
 	`, now, ga)
-	return err
+	if err != nil {
+		return fmt.Errorf("marking health check used for %s: %w", ga, err)
+	}
+	return nil
 }
 
 // GroupAddressCount returns the number of discovered group addresses.
 func (r *GARecorder) GroupAddressCount(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM knx_group_addresses`).Scan(&count)
-	return count, err
+	if err != nil {
+		return 0, fmt.Errorf("counting group addresses: %w", err)
+	}
+	return count, nil
 }
 
 // DeviceCount returns the number of discovered devices.
 func (r *GARecorder) DeviceCount(ctx context.Context) (int, error) {
 	var count int
 	err := r.db.QueryRowContext(ctx, `SELECT COUNT(*) FROM knx_devices`).Scan(&count)
-	return count, err
+	if err != nil {
+		return 0, fmt.Errorf("counting devices: %w", err)
+	}
+	return count, nil
 }
 
 // log logs an info message if logger is set.

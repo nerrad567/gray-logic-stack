@@ -69,7 +69,7 @@ func init() {
 // ValidateDevice performs comprehensive validation on a device.
 // Returns an error describing the first validation failure found.
 // Includes size limits to prevent DoS via memory exhaustion.
-func ValidateDevice(d *Device) error {
+func ValidateDevice(d *Device) error { //nolint:gocognit,gocyclo // validates many device fields with domain-specific rules
 	if d == nil {
 		return ErrInvalidDevice
 	}

@@ -170,7 +170,7 @@ func (c *Client) HealthCheck(ctx context.Context) error {
 	}
 	defer resp.Body.Close()
 	// Drain body to allow connection reuse
-	_, _ = io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body) //nolint:errcheck // draining body for connection reuse
 
 	if resp.StatusCode != http.StatusOK {
 		return fmt.Errorf("tsdb health check: status %d", resp.StatusCode)
@@ -251,7 +251,7 @@ func (c *Client) Flush() {
 	}
 	defer resp.Body.Close()
 	// Drain body to allow connection reuse
-	_, _ = io.Copy(io.Discard, resp.Body)
+	_, _ = io.Copy(io.Discard, resp.Body) //nolint:errcheck // draining body for connection reuse
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
 		c.reportError(fmt.Errorf("%w: HTTP %d", ErrWriteFailed, resp.StatusCode))

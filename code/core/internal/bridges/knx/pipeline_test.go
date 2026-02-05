@@ -123,7 +123,7 @@ func pipelineTestDevices() []RegistryDevice {
 // telegram → DPT decoding → state key mapping → MQTT publication.
 // This is the key regression test that ensures DPTs, state keys, and
 // function names work correctly across all layers.
-func TestPipeline_TelegramToState(t *testing.T) {
+func TestPipeline_TelegramToState(t *testing.T) { //nolint:gocognit // comprehensive table-driven test with many DPT cases
 	mqtt := NewMockMQTTClient()
 	connector := NewMockConnector()
 	registry := newMockDeviceRegistry(pipelineTestDevices())
@@ -360,7 +360,7 @@ func TestPipeline_TelegramToState(t *testing.T) {
 
 // TestPipeline_CommandToTelegram tests the reverse direction:
 // MQTT command → bridge handler → KNX telegram with correct DPT encoding.
-func TestPipeline_CommandToTelegram(t *testing.T) {
+func TestPipeline_CommandToTelegram(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	mqtt := NewMockMQTTClient()
 	connector := NewMockConnector()
 	registry := newMockDeviceRegistry(pipelineTestDevices())

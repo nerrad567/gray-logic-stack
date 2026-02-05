@@ -11,6 +11,8 @@ import (
 )
 
 // handleCreateArea creates a new area.
+//
+//nolint:dupl // Area and Room handlers are structurally similar but differ in types, fields, and validation
 func (s *Server) handleCreateArea(w http.ResponseWriter, r *http.Request) {
 	var area location.Area
 	if err := json.NewDecoder(r.Body).Decode(&area); err != nil {
@@ -36,6 +38,8 @@ func (s *Server) handleCreateArea(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCreateRoom creates a new room.
+//
+//nolint:dupl // Area and Room handlers are structurally similar but differ in types, fields, and validation
 func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	var room location.Room
 	if err := json.NewDecoder(r.Body).Decode(&room); err != nil {
@@ -61,6 +65,8 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleListAreas returns all areas, with optional site_id filter.
+//
+//nolint:dupl // Area and Room list handlers differ in entity types and filter params
 func (s *Server) handleListAreas(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
@@ -113,7 +119,7 @@ func (s *Server) handleUpdateArea(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		writeBadRequest(w, "invalid JSON body")
 		return
 	}
@@ -142,7 +148,7 @@ func (s *Server) handleUpdateArea(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.locationRepo.UpdateArea(r.Context(), area); err != nil {
+	if err := s.locationRepo.UpdateArea(r.Context(), area); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		s.logger.Error("failed to update area", "error", err, "id", id)
 		writeInternalError(w, "failed to update area")
 		return
@@ -180,7 +186,7 @@ func (s *Server) handleDeleteArea(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleUpdateRoom partially updates a room via PATCH semantics.
-func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // HTTP handler: validates and patches multiple optional fields
 	id := chi.URLParam(r, "id")
 
 	room, err := s.locationRepo.GetRoom(r.Context(), id)
@@ -194,7 +200,7 @@ func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var raw map[string]json.RawMessage
-	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&raw); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		writeBadRequest(w, "invalid JSON body")
 		return
 	}
@@ -226,7 +232,7 @@ func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
 		var areaID string
 		if json.Unmarshal(v, &areaID) == nil && areaID != "" {
 			// Validate area exists.
-			if _, err := s.locationRepo.GetArea(r.Context(), areaID); err != nil {
+			if _, err := s.locationRepo.GetArea(r.Context(), areaID); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 				writeBadRequest(w, "area_id does not exist")
 				return
 			}
@@ -234,7 +240,7 @@ func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	if err := s.locationRepo.UpdateRoom(r.Context(), room); err != nil {
+	if err := s.locationRepo.UpdateRoom(r.Context(), room); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		s.logger.Error("failed to update room", "error", err, "id", id)
 		writeInternalError(w, "failed to update room")
 		return
@@ -266,6 +272,8 @@ func (s *Server) handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleListRooms returns all rooms, with optional area_id filter.
+//
+//nolint:dupl // Area and Room list handlers differ in entity types and filter params
 func (s *Server) handleListRooms(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 

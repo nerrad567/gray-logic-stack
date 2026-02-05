@@ -67,7 +67,7 @@ func setupIntegrationDB(t *testing.T) *sql.DB {
 // TestIntegration_FullDeviceLifecycle exercises the complete path:
 // SQLiteRepository → Registry → cache → state/health updates → delete.
 // This is the flow that main.go relies on at startup.
-func TestIntegration_FullDeviceLifecycle(t *testing.T) {
+func TestIntegration_FullDeviceLifecycle(t *testing.T) { //nolint:gocognit // comprehensive integration test
 	db := setupIntegrationDB(t)
 	ctx := context.Background()
 

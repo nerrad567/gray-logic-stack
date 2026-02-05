@@ -32,7 +32,6 @@ output:
   # Print linter name at end of issue
   print-linter-name: true
 
-
   # Sort results by: filepath, line, severity
   sort-results: true
 
@@ -148,14 +147,13 @@ linters:
     - mnd
 
     # Checks for missing doc comments on exported symbols
-    - revive  # has exportedHasComment rule
+    - revive # has exportedHasComment rule
 
 # ============================================================================
 # LINTER SETTINGS
 # ============================================================================
 
 linters-settings:
-
   # Error checking configuration
   errcheck:
     # Check for errors in type assertions: v, ok := x.(T)
@@ -167,7 +165,7 @@ linters-settings:
   gosec:
     # Which rules to skip
     excludes:
-      - G104  # Audit errors not checked (we use errcheck for this)
+      - G104 # Audit errors not checked (we use errcheck for this)
     # Severity threshold
     severity: medium
     # Confidence threshold
@@ -197,14 +195,14 @@ linters-settings:
     enable-all: true
     # Disable specific analyzers
     disable:
-      - fieldalignment  # Too noisy for now
+      - fieldalignment # Too noisy for now
 
   # Misspell settings
   misspell:
-    locale: UK  # Gray Logic uses British English
-    # Words to ignore (brand names, technical terms)
+    locale: UK # Gray Logic uses British English
+    # Words to ignore (brand names, technical terms, industry standards)
     ignore-words:
-      - mosquitto  # Eclipse Mosquitto MQTT broker
+      - mosquitto # Eclipse Mosquitto MQTT broker
 
   # Revive (replacement for golint)
   revive:
@@ -271,14 +269,14 @@ linters-settings:
       - return
     # Numbers to ignore
     ignored-numbers:
-      - '0'
-      - '1'
-      - '2'
-      - '10'
-      - '100'
+      - "0"
+      - "1"
+      - "2"
+      - "10"
+      - "100"
     # Functions to ignore (e.g., time.Sleep(5 * time.Second))
     ignored-functions:
-      - 'time.*'
+      - "time.*"
 
 # ============================================================================
 # ISSUE CONFIGURATION
@@ -315,6 +313,7 @@ issues:
         - gosec
         - wrapcheck
         - mnd
+        - goconst
 
     # Exclude "exported * should have comment" in test files
     - path: _test\.go
@@ -328,4 +327,4 @@ issues:
     # Exclude main.go from some checks (entry point is special)
     - path: cmd/.*/main\.go
       linters:
-        - gochecknoglobals  # Version vars are OK in main
+        - gochecknoglobals # Version vars are OK in main

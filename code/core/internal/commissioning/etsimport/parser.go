@@ -35,7 +35,11 @@ const (
 
 	// Common strings.
 	typeSwitch = "switch"
-	typeSensor = "sensor"
+
+	// Location type constants.
+	locTypeRoom  = "room"
+	locTypeFloor = "floor"
+	locTypeSpace = "space"
 
 	// Regex match counts.
 	regexMatchCount3 = 3
@@ -59,7 +63,7 @@ func NewParser() *Parser {
 }
 
 // ParseBytes parses an ETS project from a byte slice.
-func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) {
+func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) { //nolint:gocognit // format detection: tries multiple parsers in priority order
 	if len(data) > MaxFileSize {
 		return nil, ErrFileTooLarge
 	}
@@ -146,15 +150,9 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 	return result, nil
 }
 
-// parseKNXProj extracts and parses a .knxproj ZIP archive.
-func (p *Parser) parseKNXProj(data []byte, result *ParseResult) error {
-	_, err := p.parseKNXProjWithXML(data, result)
-	return err
-}
-
 // parseKNXProjWithXML extracts and parses a .knxproj ZIP archive, returning
 // the raw project XML (0.xml) for use by Tier 1 function extraction.
-func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, error) {
+func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, error) { //nolint:gocognit,gocyclo // ZIP extraction with multi-file search and error handling
 	reader, err := zip.NewReader(bytes.NewReader(data), int64(len(data)))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrCorruptArchive, err)
@@ -166,7 +164,7 @@ func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, 
 	// Debug: list all files in the archive
 	fmt.Printf("[DEBUG] parseKNXProj: archive contains %d files\n", len(reader.File))
 	for i, f := range reader.File {
-		if i < 20 { // Only print first 20 to avoid spam
+		if i < 20 { //nolint:mnd // limit debug output to first 20 entries
 			fmt.Printf("[DEBUG]   file[%d]: %s\n", i, f.Name)
 		}
 	}
@@ -369,7 +367,7 @@ type xmlDeviceInstance struct {
 	ID                    string            `xml:"Id,attr"`
 	Name                  string            `xml:"Name,attr"`
 	IndividualAddress     string            `xml:"IndividualAddress,attr"`
-	ProductRefId          string            `xml:"ProductRefId,attr"`
+	ProductRefId          string            `xml:"ProductRefId,attr"` //nolint:revive,stylecheck // matches ETS XML attribute name
 	ApplicationProgramRef string            `xml:"ApplicationProgramRef,attr"`
 	ComObjectRefs         []xmlComObjectRef `xml:"ComObjectInstanceRefs>ComObjectInstanceRef"`
 }
@@ -446,7 +444,7 @@ type xmlProjectFull struct {
 //
 // It returns the set of GA IDs that were consumed by Tier 1 devices, so
 // Tier 2 (DPT-based detection) can skip them.
-func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[string]bool {
+func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[string]bool { //nolint:gocognit,gocyclo // ETS XML function extraction: deep nested structure traversal
 	var doc xmlProjectFull
 	if err := xml.Unmarshal(data, &doc); err != nil {
 		fmt.Printf("[DEBUG] extractFunctionDevices: unmarshal failed: %v\n", err)
@@ -875,7 +873,7 @@ var domainNames = map[string]bool{
 // already captured on each GroupAddress and DetectedDevice during parsing.
 // It deduplicates by slug, filters out domain-level names, and classifies
 // nodes as areas (floors) or rooms based on tree position.
-func (p *Parser) extractLocations(result *ParseResult) {
+func (p *Parser) extractLocations(result *ParseResult) { //nolint:gocognit,gocyclo // location tree builder: builds hierarchy from flat GA structure
 	// 1. Collect all unique location paths
 	pathSet := make(map[string]bool)
 	for _, ga := range result.UnmappedAddresses {
@@ -951,14 +949,14 @@ func (p *Parser) extractLocations(result *ParseResult) {
 
 			if child.hasGAs && len(child.children) == 0 {
 				// Leaf node with GAs = room
-				loc.Type = "room"
+				loc.Type = locTypeRoom
 				loc.SuggestedRoomID = slug
 				if parentID != "" {
 					loc.SuggestedAreaID = parentID
 				}
 			} else {
 				// Non-leaf or intermediate node = area/floor
-				loc.Type = "floor"
+				loc.Type = locTypeFloor
 				loc.SuggestedAreaID = slug
 			}
 
@@ -971,8 +969,8 @@ func (p *Parser) extractLocations(result *ParseResult) {
 
 	// 4. Sort: areas before rooms so createLocationsFromETS can create parents first
 	sort.SliceStable(result.Locations, func(i, j int) bool {
-		iIsArea := result.Locations[i].Type != "room" && result.Locations[i].Type != "space"
-		jIsArea := result.Locations[j].Type != "room" && result.Locations[j].Type != "space"
+		iIsArea := result.Locations[i].Type != locTypeRoom && result.Locations[i].Type != locTypeSpace
+		jIsArea := result.Locations[j].Type != locTypeRoom && result.Locations[j].Type != locTypeSpace
 		if iIsArea != jIsArea {
 			return iIsArea
 		}
@@ -1199,7 +1197,7 @@ func normaliseGA(addr string) string {
 			// Convert to 3-level: main (5 bits) / middle (3 bits) / sub (8 bits)
 			main := parts[0]
 			subInt := 0
-			fmt.Sscanf(parts[1], "%d", &subInt)
+			fmt.Sscanf(parts[1], "%d", &subInt) //nolint:errcheck // best-effort parse; subInt defaults to 0
 			middle := (subInt >> 8) & 0x07
 			sub := subInt & 0xFF
 			return fmt.Sprintf("%s/%d/%d", main, middle, sub)
@@ -1329,7 +1327,7 @@ func cleanName(name string) string {
 	return strings.Join(words, " ")
 }
 
-func inferTypeFromDPT(dpt string) string {
+func inferTypeFromDPT(dpt string) string { //nolint:gocyclo // DPT-to-type mapping: many KNX datapoint types to classify
 	if dpt == "" {
 		return "unknown"
 	}
@@ -1338,10 +1336,10 @@ func inferTypeFromDPT(dpt string) string {
 	switch dpt {
 	// Lighting
 	case "1.001": // Switch
-		return "light_switch"
+		return typeLightSwitch
 	case "5.001": // Scaling/Brightness
-		return "light_dimmer"
-	case "7.600": // Color temperature Kelvin
+		return typeLightDimmer
+	case "7.600": // Colour temperature Kelvin (KNX DPT 7.600)
 		return "light_ct"
 	case "232.600": // RGB
 		return "light_rgb"
@@ -1350,11 +1348,11 @@ func inferTypeFromDPT(dpt string) string {
 
 	// Blinds/Shutters
 	case "1.008": // Up/Down
-		return "blind_position"
+		return typeBlindPosition
 	case "1.009": // Open/Close (window/door)
 		return "window_sensor"
 	case "1.017": // Trigger
-		return "blind_position"
+		return typeBlindPosition
 
 	// Climate sensors
 	case "9.001": // Temperature °C
@@ -1370,7 +1368,7 @@ func inferTypeFromDPT(dpt string) string {
 	case "1.002": // Bool (motion)
 		return "motion_sensor"
 	case "1.018": // Occupancy
-		return "presence_sensor"
+		return typePresenceSensor
 
 	// Scenes
 	case "17.001", "18.001": // Scene number/control
@@ -1378,7 +1376,7 @@ func inferTypeFromDPT(dpt string) string {
 
 	// HVAC
 	case "20.102": // HVAC mode
-		return "thermostat"
+		return typeThermostat
 	}
 
 	// Fall back to main type inference
@@ -1387,9 +1385,9 @@ func inferTypeFromDPT(dpt string) string {
 	case "1":
 		return typeSwitch
 	case "3": // Dimming control
-		return "light_dimmer"
+		return typeLightDimmer
 	case "5": // Unsigned 8-bit (often brightness)
-		return "light_dimmer"
+		return typeLightDimmer
 	case "9": // 2-byte float (sensors)
 		return typeSensor
 	case "13": // 4-byte signed (energy counters)
@@ -1397,7 +1395,7 @@ func inferTypeFromDPT(dpt string) string {
 	case "14": // 4-byte float (power, voltage, current)
 		return "energy_meter"
 	case "20": // HVAC enum
-		return "thermostat"
+		return typeThermostat
 	default:
 		return "unknown"
 	}
@@ -1405,45 +1403,45 @@ func inferTypeFromDPT(dpt string) string {
 
 func inferDomainFromDPT(dpt string) string {
 	if dpt == "" {
-		return "sensor"
+		return domainSensor
 	}
 
 	// Check specific DPTs first (per KNX Standard v3.0.0)
 	switch dpt {
 	// Lighting
 	case "1.001", "5.001", "7.600", "232.600", "251.600":
-		return "lighting"
+		return domainLighting
 	// Blinds
 	case "1.008", "1.017":
-		return "blinds"
+		return domainBlinds
 	// Climate
 	case "9.001", "9.007", "20.102":
-		return "climate"
+		return domainClimate
 	// Security/access
 	case "1.009": // Open/close
-		return "security"
+		return domainSecurity
 	// Scenes
 	case "17.001", "18.001":
-		return "scene"
+		return domainScene
 	}
 
 	// Fall back to main type inference
 	mainType := strings.Split(dpt, ".")[0]
 	switch mainType {
 	case "1": // Boolean - context dependent, default to lighting
-		return "lighting"
+		return domainLighting
 	case "3", "5": // Dimming control, scaling
-		return "lighting"
+		return domainLighting
 	case "9": // 2-byte float - usually sensors
-		return "sensor"
+		return domainSensor
 	case "13", "14": // Energy counters, power measurements
-		return "energy"
+		return domainEnergy
 	case "17", "18": // Scene
-		return "scene"
+		return domainScene
 	case "20": // HVAC enum
-		return "climate"
+		return domainClimate
 	default:
-		return "sensor"
+		return domainSensor
 	}
 }
 
@@ -1553,8 +1551,8 @@ func inferFunctionFromDPTValue(dpt string) string {
 		"9.020": "voltage",
 		"9.021": "current",
 
-		// Color
-		"7.600":   "color_temperature",
+		// Colour temperature
+		"7.600":   "color_temperature", //nolint:misspell // KNX standard uses American "color"
 		"232.600": "rgb",
 		"251.600": "rgbw",
 

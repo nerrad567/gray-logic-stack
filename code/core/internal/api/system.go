@@ -2,6 +2,7 @@ package api
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -26,7 +27,7 @@ type FactoryResetResponse struct {
 //
 // This is a destructive operation — the request must include an exact
 // confirmation string as a safety guard.
-func (s *Server) handleFactoryReset(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleFactoryReset(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // factory reset: sequential table deletions in FK order
 	var req FactoryResetRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid JSON body")
@@ -46,7 +47,7 @@ func (s *Server) handleFactoryReset(w http.ResponseWriter, r *http.Request) {
 	}
 
 	ctx := r.Context()
-	db := s.db.SqlDB()
+	db := s.db.SQLDB()
 	deleted := make(map[string]int)
 
 	// Execute all DELETEs in a single transaction, respecting FK order.
@@ -59,12 +60,13 @@ func (s *Server) handleFactoryReset(w http.ResponseWriter, r *http.Request) {
 	defer tx.Rollback() //nolint:errcheck // rollback is a no-op after commit
 
 	// Helper to execute a DELETE and record the count.
+	// Table names are hardcoded constants below — no user input reaches this function.
 	deleteFrom := func(table string) error {
-		result, err := tx.ExecContext(ctx, "DELETE FROM "+table)
+		result, err := tx.ExecContext(ctx, "DELETE FROM "+table) //nolint:gosec // table names are hardcoded string literals, not user input
 		if err != nil {
-			return err
+			return fmt.Errorf("deleting from %s: %w", table, err)
 		}
-		n, _ := result.RowsAffected()
+		n, _ := result.RowsAffected() //nolint:errcheck // SQLite always returns RowsAffected
 		deleted[table] = int(n)
 		return nil
 	}

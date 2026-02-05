@@ -638,7 +638,7 @@ func TestRegistry_ConcurrentAccess(t *testing.T) {
 	}
 }
 
-func TestRegistry_ListDevices(t *testing.T) {
+func TestRegistry_ListDevices(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	repo := NewMockRepository()
 	registry := NewRegistry(repo)
 	ctx := context.Background()

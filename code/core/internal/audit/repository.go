@@ -12,7 +12,7 @@ import (
 )
 
 // AuditLog represents a single audit trail entry.
-type AuditLog struct {
+type AuditLog struct { //nolint:revive // audit.AuditLog is clearer than audit.Log in calling code
 	ID         string         `json:"id"`
 	Action     string         `json:"action"`
 	EntityType string         `json:"entity_type"`
@@ -56,12 +56,12 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 }
 
 // List returns audit logs matching the filter, ordered by most recent first.
-func (r *SQLiteRepository) List(ctx context.Context, filter Filter) (*ListResult, error) {
+func (r *SQLiteRepository) List(ctx context.Context, filter Filter) (*ListResult, error) { //nolint:gocognit,gocyclo // dynamic query builder: WHERE clause assembly from filter fields
 	// Clamp limit.
 	if filter.Limit <= 0 {
 		filter.Limit = 50
 	}
-	if filter.Limit > 200 {
+	if filter.Limit > 200 { //nolint:mnd // max page size for audit log queries
 		filter.Limit = 200
 	}
 	if filter.Offset < 0 {
@@ -91,14 +91,15 @@ func (r *SQLiteRepository) List(ctx context.Context, filter Filter) (*ListResult
 	}
 
 	// Get total count.
-	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", where)
+	// WHERE clause is built from parameterised conditions (? placeholders) — no user input in SQL string.
+	countQuery := fmt.Sprintf("SELECT COUNT(*) FROM audit_logs %s", where) //nolint:gosec // WHERE built from parameterised conditions, not user input
 	var total int
 	if err := r.db.QueryRowContext(ctx, countQuery, args...).Scan(&total); err != nil {
 		return nil, fmt.Errorf("counting audit logs: %w", err)
 	}
 
 	// Get paginated results.
-	query := fmt.Sprintf(
+	query := fmt.Sprintf( //nolint:gosec // WHERE built from parameterised conditions, not user input
 		"SELECT id, action, entity_type, entity_id, user_id, source, details, created_at FROM audit_logs %s ORDER BY created_at DESC LIMIT ? OFFSET ?",
 		where,
 	)
@@ -136,7 +137,10 @@ func (r *SQLiteRepository) List(ctx context.Context, filter Filter) (*ListResult
 
 		t, err := time.Parse(time.RFC3339, createdAt)
 		if err != nil {
-			t, _ = time.Parse("2006-01-02T15:04:05Z", createdAt)
+			t, err = time.Parse("2006-01-02T15:04:05Z", createdAt)
+			if err != nil {
+				return nil, fmt.Errorf("parsing audit log timestamp %q: %w", createdAt, err)
+			}
 		}
 		log.CreatedAt = t
 

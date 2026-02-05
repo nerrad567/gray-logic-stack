@@ -23,8 +23,8 @@ var CanonicalFunctions = []FunctionDef{
 	{Name: "switch_status", StateKey: "on", DPT: "1.001", Flags: []string{"read", "transmit"}, Aliases: []string{"switch_feedback"}},
 	{Name: "brightness", StateKey: "level", DPT: "5.001", Flags: []string{"write"}, Aliases: []string{"dim", "dimming", "level"}},
 	{Name: "brightness_status", StateKey: "level", DPT: "5.001", Flags: []string{"read", "transmit"}, Aliases: []string{"dim_status", "dim_feedback"}},
-	{Name: "color_temperature", StateKey: "color_temp", DPT: "7.600", Flags: []string{"write"}, Aliases: []string{"ct", "colour_temperature", "colour_temp", "color_temp"}},
-	{Name: "color_temperature_status", StateKey: "color_temp", DPT: "7.600", Flags: []string{"read", "transmit"}, Aliases: []string{"colour_temperature_status", "colour_temp_status", "color_temp_status"}},
+	{Name: "color_temperature", StateKey: "color_temp", DPT: "7.600", Flags: []string{"write"}, Aliases: []string{"ct", "colour_temperature", "colour_temp", "color_temp"}},                                  //nolint:misspell // KNX standard uses American "color" for DPT 7.600
+	{Name: "color_temperature_status", StateKey: "color_temp", DPT: "7.600", Flags: []string{"read", "transmit"}, Aliases: []string{"colour_temperature_status", "colour_temp_status", "color_temp_status"}}, //nolint:misspell // KNX standard uses American "color" for DPT 7.600
 	{Name: "rgb", StateKey: "rgb", DPT: "232.600", Flags: []string{"write"}, Aliases: []string{"colour"}},
 	{Name: "rgb_status", StateKey: "rgb", DPT: "232.600", Flags: []string{"read", "transmit"}, Aliases: []string{}},
 	{Name: "rgbw", StateKey: "rgbw", DPT: "251.600", Flags: []string{"write"}, Aliases: []string{}},

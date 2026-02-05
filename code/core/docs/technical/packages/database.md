@@ -91,7 +91,7 @@ _ = db.MigrateDown(ctx)                 // Rollback most recent migration
 **Direct access:**
 ```go
 // Access the underlying *sql.DB for raw queries (e.g., admin/discovery endpoints)
-sqlDB := db.SqlDB()
+sqlDB := db.SQLDB()
 ```
 
 **Query execution:**
@@ -183,7 +183,7 @@ See also:
 | `cmd/graylogic/main.go` | Creates and manages lifecycle |
 | `device` | Device CRUD operations, state persistence (`json_patch` for state merge) |
 | `automation` | Scene persistence |
-| `api` | Admin/discovery endpoints via `SqlDB()` |
+| `api` | Admin/discovery endpoints via `SQLDB()` |
 | `commissioning/etsimport` | ETS import device creation |
 
 ---
@@ -221,7 +221,7 @@ if err != nil {
 | `Migrate()` | No | Call only during startup |
 | `MigrateDown()` | No | Call only during maintenance |
 | `GetMigrationStatus()` | Yes | Read-only query |
-| `SqlDB()` | Yes | Returns underlying `*sql.DB` |
+| `SQLDB()` | Yes | Returns underlying `*sql.DB` |
 | `ExecContext()` | Yes | Connection pool handles |
 | `QueryContext()` | Yes | Connection pool handles |
 | `BeginTx()` | Yes | Returns isolated transaction |

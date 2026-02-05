@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"fmt"
 	"time"
 )
 
@@ -48,7 +49,10 @@ func (r *SQLiteRepository) CreateArea(ctx context.Context, area *Area) error {
 		VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := r.db.ExecContext(ctx, query,
 		area.ID, area.SiteID, area.Name, area.Slug, area.Type, area.SortOrder)
-	return err
+	if err != nil {
+		return fmt.Errorf("inserting area %s: %w", area.ID, err)
+	}
+	return nil
 }
 
 // CreateRoom inserts a new room into the database.
@@ -66,7 +70,10 @@ func (r *SQLiteRepository) CreateRoom(ctx context.Context, room *Room) error {
 	_, err := r.db.ExecContext(ctx, query,
 		room.ID, room.AreaID, room.Name, room.Slug, room.Type, room.SortOrder,
 		nullStr(room.ClimateZoneID), nullStr(room.AudioZoneID), settings)
-	return err
+	if err != nil {
+		return fmt.Errorf("inserting room %s: %w", room.ID, err)
+	}
+	return nil
 }
 
 // nullStr converts a *string to a sql.NullString for nullable columns.
@@ -133,10 +140,10 @@ func (r *SQLiteRepository) GetRoom(ctx context.Context, id string) (*Room, error
 }
 
 // queryAreas executes a query and returns a slice of Area.
-func (r *SQLiteRepository) queryAreas(ctx context.Context, query string, args ...any) ([]Area, error) {
+func (r *SQLiteRepository) queryAreas(ctx context.Context, query string, args ...any) ([]Area, error) { //nolint:dupl // queryAreas and queryRooms differ in types and scan functions
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("querying areas: %w", err)
 	}
 	defer rows.Close()
 
@@ -144,18 +151,21 @@ func (r *SQLiteRepository) queryAreas(ctx context.Context, query string, args ..
 	for rows.Next() {
 		a, err := scanAreaRow(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanning area row: %w", err)
 		}
 		areas = append(areas, *a)
 	}
-	return areas, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating area rows: %w", err)
+	}
+	return areas, nil
 }
 
 // queryRooms executes a query and returns a slice of Room.
-func (r *SQLiteRepository) queryRooms(ctx context.Context, query string, args ...any) ([]Room, error) {
+func (r *SQLiteRepository) queryRooms(ctx context.Context, query string, args ...any) ([]Room, error) { //nolint:dupl // queryAreas and queryRooms differ in types and scan functions
 	rows, err := r.db.QueryContext(ctx, query, args...)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("querying rooms: %w", err)
 	}
 	defer rows.Close()
 
@@ -163,11 +173,14 @@ func (r *SQLiteRepository) queryRooms(ctx context.Context, query string, args ..
 	for rows.Next() {
 		rm, err := scanRoomRow(rows)
 		if err != nil {
-			return nil, err
+			return nil, fmt.Errorf("scanning room row: %w", err)
 		}
 		rooms = append(rooms, *rm)
 	}
-	return rooms, rows.Err()
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating room rows: %w", err)
+	}
+	return rooms, nil
 }
 
 // scanArea scans a single row into an Area (for QueryRow).
@@ -180,7 +193,7 @@ func scanArea(row *sql.Row) (*Area, error) {
 		if err == sql.ErrNoRows {
 			return nil, ErrAreaNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("scanning area: %w", err)
 	}
 	a.CreatedAt = parseTime(createdAt)
 	a.UpdatedAt = parseTime(updatedAt)
@@ -194,7 +207,7 @@ func scanAreaRow(rows *sql.Rows) (*Area, error) {
 
 	err := rows.Scan(&a.ID, &a.SiteID, &a.Name, &a.Slug, &a.Type, &a.SortOrder, &createdAt, &updatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scanning area row: %w", err)
 	}
 	a.CreatedAt = parseTime(createdAt)
 	a.UpdatedAt = parseTime(updatedAt)
@@ -214,7 +227,7 @@ func scanRoom(row *sql.Row) (*Room, error) {
 		if err == sql.ErrNoRows {
 			return nil, ErrRoomNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("scanning room: %w", err)
 	}
 
 	if climateZoneID.Valid {
@@ -239,7 +252,7 @@ func scanRoomRow(rows *sql.Rows) (*Room, error) {
 	err := rows.Scan(&rm.ID, &rm.AreaID, &rm.Name, &rm.Slug, &rm.Type, &rm.SortOrder,
 		&climateZoneID, &audioZoneID, &settingsJSON, &createdAt, &updatedAt)
 	if err != nil {
-		return nil, err
+		return nil, fmt.Errorf("scanning room row: %w", err)
 	}
 
 	if climateZoneID.Valid {
@@ -262,9 +275,9 @@ func (r *SQLiteRepository) UpdateArea(ctx context.Context, area *Area) error {
 	result, err := r.db.ExecContext(ctx, query,
 		area.Name, area.Slug, area.Type, area.SortOrder, area.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("updating area %s: %w", area.ID, err)
 	}
-	n, _ := result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
 	if n == 0 {
 		return ErrAreaNotFound
 	}
@@ -278,7 +291,7 @@ func (r *SQLiteRepository) DeleteArea(ctx context.Context, id string) error {
 	// Check for child rooms.
 	var roomCount int
 	if err := r.db.QueryRowContext(ctx, "SELECT COUNT(*) FROM rooms WHERE area_id = ?", id).Scan(&roomCount); err != nil {
-		return err
+		return fmt.Errorf("counting rooms for area %s: %w", id, err)
 	}
 	if roomCount > 0 {
 		return ErrAreaHasRooms
@@ -286,9 +299,9 @@ func (r *SQLiteRepository) DeleteArea(ctx context.Context, id string) error {
 
 	result, err := r.db.ExecContext(ctx, "DELETE FROM areas WHERE id = ?", id)
 	if err != nil {
-		return err
+		return fmt.Errorf("deleting area %s: %w", id, err)
 	}
-	n, _ := result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
 	if n == 0 {
 		return ErrAreaNotFound
 	}
@@ -313,9 +326,9 @@ func (r *SQLiteRepository) UpdateRoom(ctx context.Context, room *Room) error {
 		room.AreaID, nullStr(room.ClimateZoneID), nullStr(room.AudioZoneID),
 		settings, room.ID)
 	if err != nil {
-		return err
+		return fmt.Errorf("updating room %s: %w", room.ID, err)
 	}
-	n, _ := result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
 	if n == 0 {
 		return ErrRoomNotFound
 	}
@@ -327,9 +340,9 @@ func (r *SQLiteRepository) UpdateRoom(ctx context.Context, room *Room) error {
 func (r *SQLiteRepository) DeleteRoom(ctx context.Context, id string) error {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM rooms WHERE id = ?", id)
 	if err != nil {
-		return err
+		return fmt.Errorf("deleting room %s: %w", id, err)
 	}
-	n, _ := result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
 	if n == 0 {
 		return ErrRoomNotFound
 	}
@@ -341,9 +354,10 @@ func (r *SQLiteRepository) DeleteRoom(ctx context.Context, id string) error {
 func (r *SQLiteRepository) DeleteAllRooms(ctx context.Context) (int64, error) {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM rooms")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("deleting all rooms: %w", err)
 	}
-	return result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	return n, nil
 }
 
 // DeleteAllAreas removes all areas from the database.
@@ -351,9 +365,10 @@ func (r *SQLiteRepository) DeleteAllRooms(ctx context.Context) (int64, error) {
 func (r *SQLiteRepository) DeleteAllAreas(ctx context.Context) (int64, error) {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM areas")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("deleting all areas: %w", err)
 	}
-	return result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	return n, nil
 }
 
 // GetAnySite returns the first site record, or ErrSiteNotFound if none exists.
@@ -373,7 +388,7 @@ func (r *SQLiteRepository) CreateSite(ctx context.Context, site *Site) error {
 	}
 	settings := "{}"
 	if site.Settings != nil {
-		if b, err := json.Marshal(site.Settings); err == nil {
+		if b, err := json.Marshal(site.Settings); err == nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 			settings = string(b)
 		}
 	}
@@ -385,7 +400,10 @@ func (r *SQLiteRepository) CreateSite(ctx context.Context, site *Site) error {
 		nullFloat(site.Latitude), nullFloat(site.Longitude),
 		site.Timezone, nullFloat(site.ElevationM),
 		string(modesJSON), site.ModeCurrent, settings)
-	return err
+	if err != nil {
+		return fmt.Errorf("inserting site %s: %w", site.ID, err)
+	}
+	return nil
 }
 
 // UpdateSite updates an existing site record.
@@ -396,7 +414,7 @@ func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
 	}
 	settings := "{}"
 	if site.Settings != nil {
-		if b, err := json.Marshal(site.Settings); err == nil {
+		if b, err := json.Marshal(site.Settings); err == nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 			settings = string(b)
 		}
 	}
@@ -411,7 +429,10 @@ func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
 		site.Timezone, nullFloat(site.ElevationM),
 		string(modesJSON), site.ModeCurrent, settings,
 		site.ID)
-	return err
+	if err != nil {
+		return fmt.Errorf("updating site %s: %w", site.ID, err)
+	}
+	return nil
 }
 
 // DeleteAllSites removes all site records from the database.
@@ -419,9 +440,10 @@ func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
 func (r *SQLiteRepository) DeleteAllSites(ctx context.Context) (int64, error) {
 	result, err := r.db.ExecContext(ctx, "DELETE FROM sites")
 	if err != nil {
-		return 0, err
+		return 0, fmt.Errorf("deleting all sites: %w", err)
 	}
-	return result.RowsAffected()
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	return n, nil
 }
 
 // scanSite scans a single row into a Site.
@@ -439,7 +461,7 @@ func scanSite(row *sql.Row) (*Site, error) {
 		if err == sql.ErrNoRows {
 			return nil, ErrSiteNotFound
 		}
-		return nil, err
+		return nil, fmt.Errorf("scanning site: %w", err)
 	}
 
 	if address.Valid {

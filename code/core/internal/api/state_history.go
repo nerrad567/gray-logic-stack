@@ -69,7 +69,7 @@ func (s *Server) handleGetDeviceHistory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil {
+	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
 			return
@@ -131,7 +131,7 @@ func (s *Server) handleGetDeviceMetrics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil {
+	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
 			return
@@ -288,7 +288,7 @@ func parseRFC3339(raw string) (time.Time, error) {
 
 	parsed, err = time.Parse(time.RFC3339Nano, raw)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("parsing timestamp %q: %w", raw, err)
 	}
 
 	return parsed.UTC(), nil
@@ -298,7 +298,7 @@ func parseRFC3339(raw string) (time.Time, error) {
 func parseUnixTimestamp(raw string) (time.Time, error) {
 	value, err := strconv.ParseFloat(raw, 64)
 	if err != nil {
-		return time.Time{}, err
+		return time.Time{}, fmt.Errorf("parsing unix timestamp %q: %w", raw, err)
 	}
 
 	seconds, fraction := math.Modf(value)
@@ -451,7 +451,11 @@ func parsePrometheusTimestamp(raw any) (time.Time, error) {
 func parsePrometheusSampleValue(raw any) (float64, error) {
 	switch value := raw.(type) {
 	case string:
-		return strconv.ParseFloat(value, 64)
+		f, err := strconv.ParseFloat(value, 64)
+		if err != nil {
+			return 0, fmt.Errorf("parsing sample value %q: %w", value, err)
+		}
+		return f, nil
 	case float64:
 		return value, nil
 	default:

@@ -258,7 +258,7 @@ func AllProtocols() []Protocol {
 }
 
 // DeviceType represents the specific kind of device.
-type DeviceType string
+type DeviceType string //nolint:revive // device.DeviceType is clearer than device.Type in calling code
 
 // Lighting device types.
 const (
@@ -438,8 +438,8 @@ type Capability string
 const (
 	CapOnOff     Capability = "on_off"
 	CapDim       Capability = "dim"
-	CapColorTemp Capability = "color_temp"
-	CapColorRGB  Capability = "color_rgb"
+	CapColorTemp Capability = "color_temp" //nolint:misspell // KNX standard uses American "color"
+	CapColorRGB  Capability = "color_rgb"  //nolint:misspell // KNX standard uses American "color"
 	CapPosition  Capability = "position"
 	CapTilt      Capability = "tilt"
 	CapSpeed     Capability = "speed"

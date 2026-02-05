@@ -145,7 +145,7 @@ func createTestScene(repo *mockRepository, registry *Registry, id, name string, 
 
 // ─── Tests ──────────────────────────────────────────────────────────────────
 
-func TestEngine_ActivateScene_Success(t *testing.T) {
+func TestEngine_ActivateScene_Success(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	engine, mqtt, hub, repo := setupEngine(t)
 	ctx := context.Background()
 

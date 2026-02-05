@@ -126,10 +126,10 @@ func NewManager(cfg Config) (*Manager, error) {
 		cfg.Binary = "/usr/bin/knxd"
 	}
 	if cfg.PhysicalAddress == "" {
-		cfg.PhysicalAddress = "0.0.1"
+		cfg.PhysicalAddress = "0.0.1" //nolint:goconst // KNX default address, also in DefaultConfig()
 	}
 	if cfg.ClientAddresses == "" {
-		cfg.ClientAddresses = "0.0.2:8"
+		cfg.ClientAddresses = "0.0.2:8" //nolint:goconst // KNX default address range, also in DefaultConfig()
 	}
 	if cfg.TCPPort == 0 {
 		cfg.TCPPort = 6720
@@ -416,7 +416,7 @@ type Stats struct {
 //   - Layer 3: Bus health via GroupValue_Read
 //
 // Uses group addresses learned passively from bus traffic.
-func (m *Manager) HealthCheck(ctx context.Context) error {
+func (m *Manager) HealthCheck(ctx context.Context) error { //nolint:gocognit,gocyclo // multi-stage health check: connection + bus + GA read
 	if !m.config.Managed && !m.config.ListenTCP {
 		return nil // Can't health check if no TCP
 	}
@@ -445,7 +445,7 @@ func (m *Manager) HealthCheck(ctx context.Context) error {
 	// This works with ALL devices including simulators
 	// Uses group addresses learned passively from bus traffic
 	if m.groupAddressProvider != nil {
-		addresses, err := m.groupAddressProvider.GetHealthCheckGroupAddresses(ctx, 5)
+		addresses, err := m.groupAddressProvider.GetHealthCheckGroupAddresses(ctx, 5) //nolint:mnd // fetch up to 5 addresses for health check
 		if err != nil {
 			m.logger.Debug("failed to get health check group addresses", "error", err)
 		} else if len(addresses) > 0 {
@@ -462,7 +462,7 @@ func (m *Manager) HealthCheck(ctx context.Context) error {
 						m.logger.Warn("USB reset failed", "error", resetErr)
 					}
 				}
-				return newHealthError(3, true, err)
+				return newHealthError(3, true, err) //nolint:mnd // health error severity level
 			}
 			// Mark the GA as used so we cycle to a different one next time
 			if usedAddr != "" {
@@ -534,168 +534,10 @@ const (
 	apciResponse byte = 0x40 // APCI: group read response
 )
 
-// checkBusHealth performs end-to-end verification by sending a group read request
-// to the configured health check device and waiting for a response. This verifies:
-//   - knxd is processing messages
-//   - The KNX interface (USB/IP) is working
-//   - The KNX bus is operational
-//   - The target device is powered and responding
-//
-// This catches failures that protocol-level checks cannot detect, such as:
-//   - USB interface disconnection
-//   - IP gateway failure
-//   - Bus power supply failure
-//   - Interface configuration errors
-func (m *Manager) checkBusHealth(ctx context.Context) error {
-	// Parse the configured health check address
-	ga, err := ParseGroupAddress(m.config.HealthCheckDeviceAddress)
-	if err != nil {
-		return fmt.Errorf("invalid health check device address: %w", err)
-	}
-
-	// Determine timeout
-	timeout := m.config.HealthCheckDeviceTimeout
-	if timeout == 0 {
-		timeout = 3 * time.Second // Default
-	}
-
-	checkCtx, cancel := context.WithTimeout(ctx, timeout)
-	defer cancel()
-
-	addr := fmt.Sprintf("localhost:%d", m.config.TCPPort)
-
-	// Connect to knxd
-	var d net.Dialer
-	conn, err := d.DialContext(checkCtx, "tcp", addr)
-	if err != nil {
-		return fmt.Errorf("bus health check failed (connect): %w", err)
-	}
-	defer conn.Close()
-
-	// Set deadline for the entire operation
-	deadline := time.Now().Add(timeout)
-	if err := conn.SetDeadline(deadline); err != nil {
-		return fmt.Errorf("bus health check failed (set deadline): %w", err)
-	}
-
-	// Step 1: Send EIB_OPEN_T_GROUP handshake for the specific target address
-	handshake := []byte{
-		0x00, 0x05, // size = 5 (type + payload)
-		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
-		byte(ga >> 8), byte(ga & 0xFF), // target group address (not 0/0/0!)
-		0xFF, // flags (matches knxtool behaviour)
-	}
-
-	if _, err := conn.Write(handshake); err != nil {
-		return fmt.Errorf("bus health check failed (write handshake): %w", err)
-	}
-
-	// Read handshake response
-	hsResponse := make([]byte, 4)
-	if _, err := io.ReadFull(conn, hsResponse); err != nil {
-		return fmt.Errorf("bus health check failed (read handshake response): %w", err)
-	}
-
-	respType := uint16(hsResponse[2])<<8 | uint16(hsResponse[3])
-	if respType != eibOpenTGroup {
-		return fmt.Errorf("bus health check failed: unexpected handshake response 0x%04X", respType)
-	}
-
-	// Brief delay after T_Group handshake before sending traffic.
-	// USB interfaces need time to process the connection setup.
-	time.Sleep(200 * time.Millisecond)
-
-	// Step 2: Send group read request via T_Group connection
-	// With T_Group open, we use EIB_APDU_PACKET (dest already set in handshake)
-	// Format: size(2) + type(2) + apci_data(2)
-	// APCI for read: 0x00 0x00 (read request)
-	readRequest := []byte{
-		0x00, 0x04, // size = 4 (type + payload)
-		0x00, 0x25, // type = EIB_APDU_PACKET (0x0025)
-		0x00, apciRead, // APCI: read request
-	}
-
-	if _, err := conn.Write(readRequest); err != nil {
-		return fmt.Errorf("bus health check failed (write read request): %w", err)
-	}
-
-	m.logger.Debug("bus health check: sent read request",
-		"address", m.config.HealthCheckDeviceAddress,
-		"ga_hex", fmt.Sprintf("0x%04X", ga),
-	)
-
-	// Step 3: Wait for response (EIB_GROUP_PACKET with response data)
-	// We need to read packets until we get a response to our address, or timeout
-	// Defence-in-depth: limit iterations in case of spurious packets on a busy bus
-	const maxBusHealthIterations = 100
-	iterations := 0
-	for {
-		iterations++
-		if iterations > maxBusHealthIterations {
-			return fmt.Errorf("bus health check failed: received %d packets without response from %s", iterations-1, m.config.HealthCheckDeviceAddress)
-		}
-
-		select {
-		case <-checkCtx.Done():
-			return fmt.Errorf("bus health check failed: timeout waiting for response from %s", m.config.HealthCheckDeviceAddress)
-		default:
-		}
-
-		// Read packet header (size + type)
-		header := make([]byte, 4)
-		if _, err := io.ReadFull(conn, header); err != nil {
-			if errors.Is(err, context.DeadlineExceeded) || isTimeoutError(err) {
-				return fmt.Errorf("bus health check failed: no response from %s within %v", m.config.HealthCheckDeviceAddress, timeout)
-			}
-			return fmt.Errorf("bus health check failed (read response header): %w", err)
-		}
-
-		pktSize := uint16(header[0])<<8 | uint16(header[1])
-		pktType := uint16(header[2])<<8 | uint16(header[3])
-
-		// Read rest of packet
-		// Defence-in-depth: limit packet size to prevent memory exhaustion from malformed data
-		// KNX telegrams are max ~23 bytes; EIB messages similarly small; 1KB is very generous
-		const maxPacketSize = 1024
-		if pktSize < 2 {
-			continue // Invalid packet, skip
-		}
-		if pktSize > maxPacketSize {
-			return fmt.Errorf("bus health check failed: packet size %d exceeds maximum %d", pktSize, maxPacketSize)
-		}
-		payload := make([]byte, pktSize-2)
-		if len(payload) > 0 {
-			if _, err := io.ReadFull(conn, payload); err != nil {
-				return fmt.Errorf("bus health check failed (read payload): %w", err)
-			}
-		}
-
-		// With T_Group connection, responses come as EIB_APDU_PACKET (0x0025)
-		// Payload format: src_addr(2) + apdu(2+)
-		const eibApduPacket uint16 = 0x0025
-		if pktType != eibApduPacket || len(payload) < 4 {
-			continue // Not what we're looking for
-		}
-
-		// Parse: src_addr is payload[0:2], APDU is payload[2:]
-		// APCI is in the first 2 bytes of APDU: payload[2] and payload[3]
-		// For response: APCI low byte contains 0x40 (bits 6-7 of payload[3])
-		apci := payload[3] & 0xC0 // High 2 bits of APDU byte 2 indicate response type
-
-		// Check if this is a response (APCI = 0x40 for GroupValue_Response)
-		if apci == apciResponse {
-			m.logger.Debug("bus health check: received response",
-				"address", m.config.HealthCheckDeviceAddress,
-			)
-			return nil // Success!
-		}
-		// Not a response, keep waiting (might be our own read request echo)
-	}
-}
-
 // isTimeoutError checks if an error is a timeout error.
 func isTimeoutError(err error) bool {
-	if netErr, ok := err.(net.Error); ok {
+	var netErr net.Error
+	if errors.As(err, &netErr) {
 		return netErr.Timeout()
 	}
 	return false
@@ -728,7 +570,7 @@ func (m *Manager) checkBusHealthWithGroupAddresses(ctx context.Context, addresse
 }
 
 // checkGroupAddressRead sends a GroupValue_Read to a group address and waits for response.
-func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) error {
+func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) error { //nolint:gocognit,gocyclo // KNX bus read: socket connect + handshake + group read + timeout
 	// Parse group address
 	ga, err := ParseGroupAddress(groupAddr)
 	if err != nil {
@@ -764,7 +606,7 @@ func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) e
 	handshake := []byte{
 		0x00, 0x05, // size = 5 (type + payload)
 		0x00, 0x22, // type = EIB_OPEN_T_GROUP (0x0022)
-		byte(ga >> 8), byte(ga & 0xFF), // target group address
+		byte(ga >> 8), byte(ga & 0xFF), //nolint:mnd // target group address — KNX group address byte shift
 		0xFF, // flags (matches knxtool behaviour)
 	}
 
@@ -773,7 +615,7 @@ func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) e
 	}
 
 	// Read handshake response
-	hsResponse := make([]byte, 4)
+	hsResponse := make([]byte, 4) //nolint:mnd // knxd handshake response size
 	if _, err := io.ReadFull(conn, hsResponse); err != nil {
 		return fmt.Errorf("read handshake response failed: %w", err)
 	}
@@ -810,7 +652,7 @@ func (m *Manager) checkGroupAddressRead(ctx context.Context, groupAddr string) e
 		}
 
 		// Read packet header
-		header := make([]byte, 4)
+		header := make([]byte, 4) //nolint:mnd // knxd packet header size
 		if _, err := io.ReadFull(conn, header); err != nil {
 			if isTimeoutError(err) {
 				return fmt.Errorf("timeout waiting for response from %s", groupAddr)
@@ -902,7 +744,7 @@ func (m *Manager) checkProcessState(pid int) error {
 		// However, if knxd is stuck in D-state for multiple health checks,
 		// the USB interface is likely hung and needs recovery.
 		count := m.dStateCount.Add(1)
-		if count >= 3 {
+		if count >= 3 { //nolint:mnd // max consecutive D-state detections before restart
 			return fmt.Errorf("knxd process stuck in uninterruptible sleep (state=D, count=%d)", count)
 		}
 		m.logger.Debug("knxd process in uninterruptible sleep (state=D)", "count", count)

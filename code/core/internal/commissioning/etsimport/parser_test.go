@@ -983,7 +983,7 @@ func TestCommentToDeviceType_AllCategories(t *testing.T) {
 
 // ─── Tier 1 Integration: Full .knxproj with Functions ──────────────
 
-func TestParseKNXProjWithFunctions(t *testing.T) {
+func TestParseKNXProjWithFunctions(t *testing.T) { //nolint:gocognit // comprehensive integration test
 	// Build a .knxproj ZIP with 0.xml containing Topology, ManufacturerData,
 	// GroupAddresses, and Trades (Functions) — mimicking KNXSim export.
 	projectXML := `<?xml version="1.0" encoding="utf-8"?>
@@ -1101,10 +1101,10 @@ func TestParseKNXProjWithFunctions(t *testing.T) {
 	if err != nil {
 		t.Fatalf("Failed to create zip entry: %v", err)
 	}
-	if _, err := f.Write([]byte(projectXML)); err != nil {
+	if _, err := f.Write([]byte(projectXML)); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("Failed to write zip content: %v", err)
 	}
-	if err := w.Close(); err != nil {
+	if err := w.Close(); err != nil { //nolint:govet // shadow: idiomatic err check
 		t.Fatalf("Failed to close zip: %v", err)
 	}
 

@@ -154,7 +154,7 @@ func (w *statusWriter) Write(b []byte) (int, error) {
 // Hijack implements http.Hijacker, required for WebSocket upgrades.
 func (w *statusWriter) Hijack() (net.Conn, *bufio.ReadWriter, error) {
 	if hj, ok := w.ResponseWriter.(http.Hijacker); ok {
-		return hj.Hijack()
+		return hj.Hijack() //nolint:wrapcheck // thin pass-through to underlying http.Hijacker
 	}
 	return nil, nil, fmt.Errorf("underlying ResponseWriter does not implement http.Hijacker")
 }

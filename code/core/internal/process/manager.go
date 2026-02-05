@@ -342,7 +342,7 @@ func (m *Manager) calculateBackoffDelay(attempt int) time.Duration {
 // waitForExitOrHealthFailure waits for the process to exit or for a health check to fail.
 // If a health check fails, it kills the process and returns an error.
 // This implements watchdog functionality to detect hung processes.
-func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd) error {
+func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd) error { //nolint:gocognit // process lifecycle: monitors exit, health, and context cancellation
 	// Channel to receive process exit
 	exitCh := make(chan error, 1)
 	go func() {
@@ -369,11 +369,11 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 
 		case <-ctx.Done():
 			// Context cancelled, return to let monitor handle it
-			return ctx.Err()
+			return ctx.Err() //nolint:wrapcheck // context.Canceled/DeadlineExceeded are standard sentinel errors
 
 		case <-ticker.C:
 			// Run health check
-			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second)
+			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second) //nolint:mnd // health check timeout seconds
 			err := m.config.HealthCheckFunc(checkCtx)
 			cancel()
 
@@ -438,7 +438,7 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 }
 
 // monitor watches the process and handles restarts.
-func (m *Manager) monitor(ctx context.Context) {
+func (m *Manager) monitor(ctx context.Context) { //nolint:gocognit,gocyclo // process monitor: restart loop with backoff and state tracking
 	defer m.closeDone()
 
 	for {

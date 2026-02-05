@@ -84,7 +84,7 @@ func testDevice(id, name string) *Device {
 	}
 }
 
-func TestSQLiteRepository_Create(t *testing.T) {
+func TestSQLiteRepository_Create(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	db := setupTestDB(t)
 	repo := NewSQLiteRepository(db)
 	ctx := context.Background()

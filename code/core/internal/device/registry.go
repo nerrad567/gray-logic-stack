@@ -455,7 +455,7 @@ func (r *Registry) GetStats() Stats {
 //
 // Old format: {"group_address": "1/0/1", "switch": "1/0/1", "switch_status": "1/0/2"}
 // New format: {"functions": {"switch": {"ga": "1/0/1", "dpt": "1.001", "flags": ["write"]}, ...}}
-func (r *Registry) MigrateKNXAddressFormat(ctx context.Context) error {
+func (r *Registry) MigrateKNXAddressFormat(ctx context.Context) error { //nolint:gocognit,gocyclo // migration: iterates devices, transforms address formats
 	devices, err := r.GetDevicesByProtocol(ctx, ProtocolKNX)
 	if err != nil {
 		return fmt.Errorf("loading KNX devices for migration: %w", err)
@@ -547,7 +547,7 @@ func migrateInferDPT(fn string) string {
 
 // migrateInferFlags is a best-effort flag inference used only during one-time
 // data migration. After migration, flags come from the registry, not inference.
-func migrateInferFlags(fn string) []string {
+func migrateInferFlags(fn string) []string { //nolint:gocyclo // flag inference: maps function names to capability flags
 	fn = strings.ToLower(fn)
 
 	if strings.Contains(fn, "status") || strings.Contains(fn, "feedback") {

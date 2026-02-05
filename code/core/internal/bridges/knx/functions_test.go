@@ -30,9 +30,9 @@ func TestNormalizeFunction_Aliases(t *testing.T) {
 		{"dimming", "brightness"},
 		{"level", "brightness"},
 		{"dim_status", "brightness_status"},
-		{"ct", "color_temperature"},
-		{"colour_temperature", "color_temperature"},
-		{"colour_temp", "color_temperature"},
+		{"ct", "color_temperature"},                 //nolint:misspell // KNX standard term
+		{"colour_temperature", "color_temperature"}, //nolint:misspell // KNX standard term
+		{"colour_temp", "color_temperature"},        //nolint:misspell // KNX standard term
 		{"colour", "rgb"},
 
 		// Climate aliases
@@ -199,7 +199,7 @@ func TestDefaultDPTForFunction(t *testing.T) {
 		{"valve", "5.001"},
 		{"presence", "1.018"},
 		{"lux", "9.004"},
-		{"color_temperature", "7.600"},
+		{"color_temperature", "7.600"}, //nolint:misspell // KNX standard term
 		{"hvac_mode", "20.102"},
 		{"power", "14.056"},
 		{"active_energy", "13.010"},

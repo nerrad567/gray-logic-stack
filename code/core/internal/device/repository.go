@@ -459,7 +459,7 @@ func scanDeviceFromRows(rows *sql.Rows) (*Device, error) {
 }
 
 // scanDeviceRow scans a row or rows result into a Device.
-func scanDeviceRow(scanner rowScanner) (*Device, error) {
+func scanDeviceRow(scanner rowScanner) (*Device, error) { //nolint:gocognit,gocyclo // scans many nullable columns into Device struct
 	var d Device
 	var roomID, areaID, gatewayID sql.NullString
 	var stateUpdatedAt, healthLastSeen sql.NullString

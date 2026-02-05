@@ -152,7 +152,7 @@ func setupStateHistoryServer(t *testing.T, tsdbClient *tsdb.Client) (*Server, *d
 }
 
 // newRequestWithDeviceID creates a request with chi URL params set.
-func newRequestWithDeviceID(method, target, deviceID string) *http.Request {
+func newRequestWithDeviceID(method, target, deviceID string) *http.Request { //nolint:unparam // method kept for test helper flexibility
 	req := httptest.NewRequest(method, target, nil)
 	rctx := chi.NewRouteContext()
 	rctx.URLParams.Add("id", deviceID)

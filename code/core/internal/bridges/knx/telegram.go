@@ -86,7 +86,7 @@ type Telegram struct {
 //   - Telegram: Parsed telegram with timestamp set to now
 //   - error: ErrInvalidTelegram if parsing fails
 func ParseTelegram(data []byte) (Telegram, error) {
-	if len(data) < 6 {
+	if len(data) < 6 { //nolint:mnd // CEMI frame minimum header length
 		return Telegram{}, fmt.Errorf("%w: too short (%d bytes, need at least 6)", ErrInvalidTelegram, len(data))
 	}
 
@@ -104,9 +104,9 @@ func ParseTelegram(data []byte) (Telegram, error) {
 
 	// Extract data
 	var payload []byte
-	if len(data) > 6 {
+	if len(data) > 6 { //nolint:mnd // CEMI frame header length
 		// Long frame: data bytes follow after the 6-byte header
-		payload = make([]byte, len(data)-6)
+		payload = make([]byte, len(data)-6) //nolint:mnd // CEMI frame header length
 		copy(payload, data[6:])
 	} else if apci == APCIWrite || apci == APCIResponse {
 		// Short frame: value in lower 6 bits of APCI byte
@@ -151,7 +151,7 @@ func (t Telegram) Encode() []byte {
 
 	if len(t.Data) == 0 || smallData {
 		// Short APDU: GA(2) + [TPCI=0x00, APCI|value] = 4 bytes
-		buf := make([]byte, 4)
+		buf := make([]byte, 4) //nolint:mnd // knxd group socket header size
 		binary.BigEndian.PutUint16(buf[0:2], t.Destination.ToUint16())
 		buf[2] = 0x00 // TPCI
 		if smallData {
@@ -163,7 +163,7 @@ func (t Telegram) Encode() []byte {
 	}
 
 	// Long APDU: GA(2) + [TPCI=0x00, APCI] + data
-	buf := make([]byte, 4+len(t.Data))
+	buf := make([]byte, 4+len(t.Data)) //nolint:mnd // knxd group socket header size
 	binary.BigEndian.PutUint16(buf[0:2], t.Destination.ToUint16())
 	buf[2] = 0x00   // TPCI
 	buf[3] = t.APCI // APCI

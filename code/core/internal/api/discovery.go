@@ -81,7 +81,7 @@ func (s *Server) handleListDiscovery(w http.ResponseWriter, r *http.Request) {
 		var lastSeenUnix int64
 		var hasReadResponse int
 
-		if err := gaRows.Scan(&ga.GroupAddress, &lastSeenUnix, &ga.MessageCount, &hasReadResponse); err != nil {
+		if err := gaRows.Scan(&ga.GroupAddress, &lastSeenUnix, &ga.MessageCount, &hasReadResponse); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 			continue
 		}
 
@@ -183,7 +183,7 @@ func formatDuration(d time.Duration) string {
 		}
 		return formatInt(hours) + " hours ago"
 	}
-	days := int(d.Hours() / 24)
+	days := int(d.Hours() / 24) //nolint:mnd // 24 hours per day
 	if days == 1 {
 		return "1 day ago"
 	}
@@ -211,5 +211,5 @@ func (s *Server) getDB() *sql.DB {
 	if s.db == nil {
 		return nil
 	}
-	return s.db.SqlDB()
+	return s.db.SQLDB()
 }

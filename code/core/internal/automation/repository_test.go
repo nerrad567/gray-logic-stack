@@ -130,7 +130,7 @@ func TestSQLiteRepository_Create(t *testing.T) {
 	})
 }
 
-func TestSQLiteRepository_GetByID(t *testing.T) {
+func TestSQLiteRepository_GetByID(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	db := setupTestDB(t)
 	repo := NewSQLiteRepository(db)
 	ctx := context.Background()
@@ -478,7 +478,7 @@ func TestSQLiteRepository_CreateExecution(t *testing.T) {
 	}
 }
 
-func TestSQLiteRepository_UpdateExecution(t *testing.T) {
+func TestSQLiteRepository_UpdateExecution(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	db := setupTestDB(t)
 	repo := NewSQLiteRepository(db)
 	ctx := context.Background()
@@ -568,7 +568,7 @@ func TestSQLiteRepository_UpdateExecution(t *testing.T) {
 	})
 }
 
-func TestSQLiteRepository_ListExecutions(t *testing.T) {
+func TestSQLiteRepository_ListExecutions(t *testing.T) { //nolint:gocognit // comprehensive table-driven test
 	db := setupTestDB(t)
 	repo := NewSQLiteRepository(db)
 	ctx := context.Background()

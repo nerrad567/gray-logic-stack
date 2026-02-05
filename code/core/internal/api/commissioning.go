@@ -61,7 +61,7 @@ func (s *Server) handleETSParse(w http.ResponseWriter, r *http.Request) {
 
 	s.logger.Info("ETS parse: file read complete",
 		"bytes_read", len(data),
-		"first_bytes", string(data[:min(50, len(data))]),
+		"first_bytes", string(data[:min(50, len(data))]), //nolint:mnd // first 50 bytes for format detection log
 	)
 
 	// Parse the file
@@ -346,7 +346,7 @@ func (s *Server) autoMapDeviceLocations(ctx context.Context, req *ETSImportReque
 }
 
 // createLocationsFromETS creates areas and rooms from ETS location hierarchy.
-func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimport.Location, response *ETSImportResponse) {
+func (s *Server) createLocationsFromETS(ctx context.Context, locations []etsimport.Location, response *ETSImportResponse) { //nolint:gocognit,gocyclo // ETS import orchestration: handles areas, rooms, and error accumulation
 	// Ensure a site exists (areas have an FK to sites).
 	// If no site has been created yet, auto-create a default one so the
 	// import doesn't fail with a FOREIGN KEY constraint error.
@@ -498,7 +498,7 @@ func (s *Server) getSiteID() string {
 }
 
 // inferRoomType guesses the room type from its name.
-func inferRoomType(name string) string {
+func inferRoomType(name string) string { //nolint:gocyclo // name-pattern switch: many room types to match
 	nameLower := strings.ToLower(name)
 	switch {
 	case strings.Contains(nameLower, "bedroom"):
@@ -745,7 +745,7 @@ func (s *Server) buildDeviceFromImport(imp ETSDeviceImport) *device.Device {
 }
 
 // deriveCapabilitiesFromAddresses infers device capabilities from address functions.
-func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capability {
+func deriveCapabilitiesFromAddresses(addresses []ETSAddressImport) []device.Capability { //nolint:gocyclo // capability derivation: maps DPTs to device capabilities
 	caps := make(map[device.Capability]bool)
 
 	for _, addr := range addresses {

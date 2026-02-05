@@ -323,7 +323,7 @@ func (s *Server) handleSetDeviceState(w http.ResponseWriter, r *http.Request) {
 
 // commandToState translates a device command into the resulting state.
 // Used in dev/demo mode when no protocol bridge is available to confirm the change.
-func commandToState(command string, params map[string]any, current device.State) device.State {
+func commandToState(command string, params map[string]any, current device.State) device.State { //nolint:gocyclo // command-to-state mapping: switch on command type
 	newState := make(device.State, len(current))
 	for k, v := range current {
 		newState[k] = v

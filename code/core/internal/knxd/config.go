@@ -225,7 +225,7 @@ func (c *Config) Validate() error {
 }
 
 // Validate checks the backend configuration.
-func (b *BackendConfig) Validate() error {
+func (b *BackendConfig) Validate() error { //nolint:gocognit,gocyclo // validates backend config fields with cross-field rules
 	switch b.Type {
 	case BackendUSB:
 		// Validate USBDevice if specified (prevent command injection)

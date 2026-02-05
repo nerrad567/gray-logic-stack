@@ -19,7 +19,7 @@ const maxQueryParamLen = 100
 //   - room_id: filter by room
 //   - area_id: filter by area
 //   - category: filter by category (comfort, entertainment, etc.)
-func (s *Server) handleListScenes(w http.ResponseWriter, r *http.Request) {
+func (s *Server) handleListScenes(w http.ResponseWriter, r *http.Request) { //nolint:gocognit // HTTP handler: filter parsing + query + response assembly
 	ctx := r.Context()
 
 	if roomID := r.URL.Query().Get("room_id"); roomID != "" {

@@ -277,7 +277,7 @@ func DecodeDPT9(data []byte) (float64, error) {
 	raw := uint16(data[0])<<8 | uint16(data[1])
 
 	// KNX spec: 0x7FFF is the "invalid data" sentinel for all DPT 9.xxx types.
-	if raw == 0x7FFF {
+	if raw == 0x7FFF { //nolint:mnd // KNX DPT 9.x invalid/error sentinel value
 		return 0, fmt.Errorf("%w: DPT9 invalid value 0x7FFF (sensor error or not available)", ErrDecodingFailed)
 	}
 

@@ -126,7 +126,7 @@ See Issues section below.
 
 All package docs synced this session:
 - config.md: PanelDir, SecurityConfig, VictoriaMetrics/Logging/KNXD fields, fixed defaults
-- database.md: SqlDB(), MigrateDown(), GetMigrationStatus()
+- database.md: SQLDB(), MigrateDown(), GetMigrationStatus()
 - victoriametrics.md: Bounds validation, context timeout, Close() rationale
 
 ---
