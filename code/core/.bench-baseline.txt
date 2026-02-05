@@ -1,0 +1,219 @@
+PASS
+ok  	github.com/nerrad567/gray-logic-core/cmd/graylogic	0.008s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/api	0.009s
+?   	github.com/nerrad567/gray-logic-core/internal/audit	[no test files]
+goos: linux
+goarch: amd64
+pkg: github.com/nerrad567/gray-logic-core/internal/auth
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkHashPassword-4           	       4	 270272632 ns/op	67115304 B/op	      55 allocs/op
+BenchmarkHashPassword-4           	       4	 261724312 ns/op	67115120 B/op	      55 allocs/op
+BenchmarkHashPassword-4           	       4	 262897658 ns/op	67114896 B/op	      54 allocs/op
+BenchmarkHashPassword-4           	       4	 266591556 ns/op	67115304 B/op	      55 allocs/op
+BenchmarkHashPassword-4           	       4	 292997172 ns/op	67115144 B/op	      55 allocs/op
+BenchmarkVerifyPassword-4         	       4	 268190138 ns/op	67114930 B/op	      57 allocs/op
+BenchmarkVerifyPassword-4         	       4	 262792166 ns/op	67114658 B/op	      55 allocs/op
+BenchmarkVerifyPassword-4         	       4	 265018834 ns/op	67114858 B/op	      55 allocs/op
+BenchmarkVerifyPassword-4         	       4	 253234831 ns/op	67114706 B/op	      56 allocs/op
+BenchmarkVerifyPassword-4         	       4	 270836342 ns/op	67114610 B/op	      55 allocs/op
+BenchmarkGenerateAccessToken-4    	  129800	     15116 ns/op	    3065 B/op	      37 allocs/op
+BenchmarkGenerateAccessToken-4    	  106256	     13683 ns/op	    3065 B/op	      37 allocs/op
+BenchmarkGenerateAccessToken-4    	   74460	     14923 ns/op	    3065 B/op	      37 allocs/op
+BenchmarkGenerateAccessToken-4    	  106359	     13155 ns/op	    3065 B/op	      37 allocs/op
+BenchmarkGenerateAccessToken-4    	   81716	     13299 ns/op	    3065 B/op	      37 allocs/op
+BenchmarkParseToken-4             	   70446	     17183 ns/op	    3216 B/op	      53 allocs/op
+BenchmarkParseToken-4             	   61362	     18057 ns/op	    3216 B/op	      53 allocs/op
+BenchmarkParseToken-4             	   62610	     19409 ns/op	    3216 B/op	      53 allocs/op
+BenchmarkParseToken-4             	   64834	     18282 ns/op	    3216 B/op	      53 allocs/op
+BenchmarkParseToken-4             	   65863	     19967 ns/op	    3216 B/op	      53 allocs/op
+BenchmarkGenerateRefreshToken-4   	 2839888	       503.8 ns/op	     128 B/op	       2 allocs/op
+BenchmarkGenerateRefreshToken-4   	 2382792	       444.0 ns/op	     128 B/op	       2 allocs/op
+BenchmarkGenerateRefreshToken-4   	 2248983	       458.9 ns/op	     128 B/op	       2 allocs/op
+BenchmarkGenerateRefreshToken-4   	 2929276	       449.4 ns/op	     128 B/op	       2 allocs/op
+BenchmarkGenerateRefreshToken-4   	 2288418	       458.8 ns/op	     128 B/op	       2 allocs/op
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/auth	48.322s
+goos: linux
+goarch: amd64
+pkg: github.com/nerrad567/gray-logic-core/internal/automation
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkSceneRegistryGetScene-4         	 1212270	      1119 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetScene-4         	 1282010	      1138 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetScene-4         	 1321171	      1123 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetScene-4         	 1000000	      1109 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetScene-4         	 1000000	      1129 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetSceneBySlug-4   	  881454	      1645 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetSceneBySlug-4   	  618198	      1908 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetSceneBySlug-4   	  593926	      1702 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetSceneBySlug-4   	  709255	      1708 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryGetSceneBySlug-4   	  620318	      1904 ns/op	     624 B/op	       4 allocs/op
+BenchmarkSceneRegistryRefreshCache-4     	   32928	     39211 ns/op	   32952 B/op	     106 allocs/op
+BenchmarkSceneRegistryRefreshCache-4     	   27879	     40712 ns/op	   32952 B/op	     106 allocs/op
+BenchmarkSceneRegistryRefreshCache-4     	   34030	     35810 ns/op	   32952 B/op	     106 allocs/op
+BenchmarkSceneRegistryRefreshCache-4     	   34405	     35588 ns/op	   32952 B/op	     106 allocs/op
+BenchmarkSceneRegistryRefreshCache-4     	   30759	     37994 ns/op	   32952 B/op	     106 allocs/op
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/automation	24.174s
+goos: linux
+goarch: amd64
+pkg: github.com/nerrad567/gray-logic-core/internal/bridges/knx
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkEncodeDPT1-4            	1000000000	         0.6570 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT1-4            	1000000000	         0.6401 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT1-4            	1000000000	         0.6699 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT1-4            	1000000000	         0.6441 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT1-4            	1000000000	         0.6115 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT1-4            	320166871	         4.405 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT1-4            	347373193	         4.262 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT1-4            	278296480	         3.974 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT1-4            	262448409	         4.502 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT1-4            	276155919	         3.992 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT3-4            	1000000000	         0.7471 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT3-4            	1000000000	         0.6872 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT3-4            	1000000000	         0.4999 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT3-4            	1000000000	         0.6074 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT3-4            	1000000000	         0.6588 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT3-4            	253596294	         4.641 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT3-4            	246229492	         5.058 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT3-4            	277707501	         4.745 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT3-4            	305741912	         4.350 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT3-4            	280702617	         4.690 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT5-4            	40588488	        27.14 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT5-4            	39614527	        27.13 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT5-4            	42410320	        27.83 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT5-4            	42382887	        27.45 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT5-4            	49926564	        26.43 ns/op	       1 B/op	       1 allocs/op
+BenchmarkDecodeDPT5-4            	261115903	         4.692 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT5-4            	286056445	         4.641 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT5-4            	271818376	         5.316 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT5-4            	294584128	         5.045 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT5-4            	267950058	         4.100 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT9-4            	45988122	        34.17 ns/op	       2 B/op	       1 allocs/op
+BenchmarkEncodeDPT9-4            	52145554	        27.66 ns/op	       2 B/op	       1 allocs/op
+BenchmarkEncodeDPT9-4            	52416097	        31.12 ns/op	       2 B/op	       1 allocs/op
+BenchmarkEncodeDPT9-4            	38290094	        30.79 ns/op	       2 B/op	       1 allocs/op
+BenchmarkEncodeDPT9-4            	53511535	        32.21 ns/op	       2 B/op	       1 allocs/op
+BenchmarkDecodeDPT9-4            	93191570	        11.56 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT9-4            	92063348	        11.10 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT9-4            	100000000	        11.42 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT9-4            	100000000	        10.67 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT9-4            	100000000	        11.04 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT17-4           	53220349	        24.69 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT17-4           	64325217	        20.33 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT17-4           	45815024	        22.06 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT17-4           	67864036	        21.48 ns/op	       1 B/op	       1 allocs/op
+BenchmarkEncodeDPT17-4           	53267997	        21.82 ns/op	       1 B/op	       1 allocs/op
+BenchmarkDecodeDPT17-4           	366510336	         3.629 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT17-4           	264607531	         3.904 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT17-4           	302776490	         4.489 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT17-4           	287933527	         4.044 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT17-4           	277688913	         4.244 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT232-4          	1000000000	         0.5962 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT232-4          	1000000000	         0.5302 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT232-4          	1000000000	         0.5729 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT232-4          	1000000000	         0.4967 ns/op	       0 B/op	       0 allocs/op
+BenchmarkEncodeDPT232-4          	1000000000	         0.5420 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT232-4          	298063813	         4.732 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT232-4          	345101384	         4.327 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT232-4          	278247807	         4.314 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT232-4          	288779238	         4.146 ns/op	       0 B/op	       0 allocs/op
+BenchmarkDecodeDPT232-4          	253182001	         4.566 ns/op	       0 B/op	       0 allocs/op
+BenchmarkParseTelegram_1Bit-4    	 2914171	       386.8 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_1Bit-4    	 2551710	       452.6 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_1Bit-4    	 2588340	       394.0 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_1Bit-4    	 2669469	       401.9 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_1Bit-4    	 3582285	       460.0 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_2Byte-4   	 3278088	       432.1 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_2Byte-4   	 2891128	       420.4 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_2Byte-4   	 2375002	       455.5 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_2Byte-4   	 2769943	       441.4 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_2Byte-4   	 2799331	       437.0 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_RGB-4     	 2199046	       498.6 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_RGB-4     	 3321096	       481.7 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_RGB-4     	 3009607	       386.7 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_RGB-4     	 2458940	       433.0 ns/op	       8 B/op	       2 allocs/op
+BenchmarkParseTelegram_RGB-4     	 3112042	       427.6 ns/op	       8 B/op	       2 allocs/op
+BenchmarkTelegramEncode-4        	31247496	        32.20 ns/op	       4 B/op	       1 allocs/op
+BenchmarkTelegramEncode-4        	43753995	        30.44 ns/op	       4 B/op	       1 allocs/op
+BenchmarkTelegramEncode-4        	38084649	        31.63 ns/op	       4 B/op	       1 allocs/op
+BenchmarkTelegramEncode-4        	38972733	        31.95 ns/op	       4 B/op	       1 allocs/op
+BenchmarkTelegramEncode-4        	42372501	        35.98 ns/op	       4 B/op	       1 allocs/op
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/bridges/knx	122.524s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/commissioning/etsimport	0.004s
+goos: linux
+goarch: amd64
+pkg: github.com/nerrad567/gray-logic-core/internal/device
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkRegistryGetDevice-4              	 1000000	      1038 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice-4              	 1248740	       916.1 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice-4              	 1292058	       850.6 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice-4              	 1389472	       925.9 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice-4              	 1398157	       999.1 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice_Parallel-4     	 1309638	       883.3 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice_Parallel-4     	 1000000	      1118 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice_Parallel-4     	 1550517	       911.3 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice_Parallel-4     	 1217473	       968.1 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistryGetDevice_Parallel-4     	 1499310	      1054 ns/op	     688 B/op	       4 allocs/op
+BenchmarkRegistrySetDeviceState-4         	  616362	      2181 ns/op	    1120 B/op	      10 allocs/op
+BenchmarkRegistrySetDeviceState-4         	  559262	      2667 ns/op	    1120 B/op	      10 allocs/op
+BenchmarkRegistrySetDeviceState-4         	  635299	      2244 ns/op	    1120 B/op	      10 allocs/op
+BenchmarkRegistrySetDeviceState-4         	  508292	      2616 ns/op	    1120 B/op	      10 allocs/op
+BenchmarkRegistrySetDeviceState-4         	  507283	      2884 ns/op	    1120 B/op	      10 allocs/op
+BenchmarkRegistryGetDevicesByProtocol-4   	    4110	    265460 ns/op	  183600 B/op	     540 allocs/op
+BenchmarkRegistryGetDevicesByProtocol-4   	    5624	    247881 ns/op	  183600 B/op	     540 allocs/op
+BenchmarkRegistryGetDevicesByProtocol-4   	    6686	    205989 ns/op	  183600 B/op	     540 allocs/op
+BenchmarkRegistryGetDevicesByProtocol-4   	    5172	    229418 ns/op	  183600 B/op	     540 allocs/op
+BenchmarkRegistryGetDevicesByProtocol-4   	    6189	    222069 ns/op	  183600 B/op	     540 allocs/op
+BenchmarkRegistryRefreshCache-4           	    8366	    187135 ns/op	  136184 B/op	     206 allocs/op
+BenchmarkRegistryRefreshCache-4           	    8835	    138419 ns/op	  136184 B/op	     206 allocs/op
+BenchmarkRegistryRefreshCache-4           	    7562	    138972 ns/op	  136184 B/op	     206 allocs/op
+BenchmarkRegistryRefreshCache-4           	    8702	    243452 ns/op	  136184 B/op	     206 allocs/op
+BenchmarkRegistryRefreshCache-4           	    7284	    145443 ns/op	  136184 B/op	     206 allocs/op
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/device	44.372s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/infrastructure/config	0.016s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/infrastructure/database	0.011s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/infrastructure/logging	0.010s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt	0.007s
+goos: linux
+goarch: amd64
+pkg: github.com/nerrad567/gray-logic-core/internal/infrastructure/tsdb
+cpu: Intel(R) Core(TM) i5-6300U CPU @ 2.40GHz
+BenchmarkFormatLineProtocol_Simple-4       	  432970	      2827 ns/op	     288 B/op	       8 allocs/op
+BenchmarkFormatLineProtocol_Simple-4       	  497414	      2022 ns/op	     288 B/op	       8 allocs/op
+BenchmarkFormatLineProtocol_Simple-4       	  607531	      2353 ns/op	     288 B/op	       8 allocs/op
+BenchmarkFormatLineProtocol_Simple-4       	  620282	      2343 ns/op	     288 B/op	       8 allocs/op
+BenchmarkFormatLineProtocol_Simple-4       	  628730	      2420 ns/op	     288 B/op	       8 allocs/op
+BenchmarkFormatLineProtocol_MultiField-4   	  373580	      3896 ns/op	     544 B/op	      16 allocs/op
+BenchmarkFormatLineProtocol_MultiField-4   	  309217	      3617 ns/op	     544 B/op	      16 allocs/op
+BenchmarkFormatLineProtocol_MultiField-4   	  272614	      4235 ns/op	     544 B/op	      16 allocs/op
+BenchmarkFormatLineProtocol_MultiField-4   	  377526	      4781 ns/op	     544 B/op	      16 allocs/op
+BenchmarkFormatLineProtocol_MultiField-4   	  367358	      4515 ns/op	     544 B/op	      16 allocs/op
+BenchmarkFormatLineProtocol_ManyTags-4     	  409015	      3393 ns/op	     624 B/op	      10 allocs/op
+BenchmarkFormatLineProtocol_ManyTags-4     	  379129	      3540 ns/op	     624 B/op	      10 allocs/op
+BenchmarkFormatLineProtocol_ManyTags-4     	  408388	      3618 ns/op	     624 B/op	      10 allocs/op
+BenchmarkFormatLineProtocol_ManyTags-4     	  316526	      3835 ns/op	     624 B/op	      10 allocs/op
+BenchmarkFormatLineProtocol_ManyTags-4     	  333302	      3996 ns/op	     624 B/op	      10 allocs/op
+BenchmarkEscapeTag-4                       	 2357197	       492.5 ns/op	      88 B/op	       3 allocs/op
+BenchmarkEscapeTag-4                       	 2487884	       418.0 ns/op	      88 B/op	       3 allocs/op
+BenchmarkEscapeTag-4                       	 2475165	       449.5 ns/op	      88 B/op	       3 allocs/op
+BenchmarkEscapeTag-4                       	 3111829	       459.6 ns/op	      88 B/op	       3 allocs/op
+BenchmarkEscapeTag-4                       	 2927250	       403.4 ns/op	      88 B/op	       3 allocs/op
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/infrastructure/tsdb	36.025s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/knxd	0.007s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/location	0.009s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/panel	0.005s
+PASS
+ok  	github.com/nerrad567/gray-logic-core/internal/process	0.004s
+?   	github.com/nerrad567/gray-logic-core/migrations	[no test files]
