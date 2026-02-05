@@ -12,8 +12,8 @@ docs/specs/
 # Business documents (competitive intelligence, pricing - keep private)
 docs/business/
 
-# Local notes and scratchpad
-notes/private/
+# Local notes and scratchpad (private todos, planning docs, training notes)
+notes/
 scratch/
 
 # ====================

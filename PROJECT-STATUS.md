@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-05 (Session 33 - Zero-Warning Lint Baseline)
-**Current milestone:** Year 1 Foundation Complete + Full State Pipeline + History/Metrics API + Clean Lint Baseline
+**Last session:** 2026-02-05 (Session 35 - M2.1 Location Hierarchy, Device Groups & Infrastructure Zones)
+**Current milestone:** Year 2 Kick-off — M2.1 Complete (Tags, Groups, Zones, Hierarchy, Referential Safety)
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
@@ -17,6 +17,30 @@
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
 - M1.5 Flutter Wall Panel (Riverpod, Dio, WebSocket, optimistic UI, embedded web serving) ✅
 - M1.6 Basic Scenes (automation package, scene engine, parallel execution, REST API, 91.6% coverage) ✅
+- **M1.7 Auth Hardening ✅** — Production-grade multi-level auth replacing placeholder system:
+  - 4-tier RBAC (panel/user/admin/owner) with 10 permission constants
+  - Argon2id password hashing (OWASP 2025 recommendation)
+  - JWT access/refresh token rotation with family-based theft detection
+  - Panel device identity with X-Panel-Token + multi-room scoping
+  - Per-user explicit-grant room scoping (zero access by default, admin assigns rooms)
+  - Per-room `can_manage_scenes` flag for scene creation control
+  - User/panel CRUD management APIs with self-protection guards
+  - Real auth middleware (replaces pass-through no-op)
+  - Comprehensive audit logging (async, best-effort) for all auth events
+  - First-boot owner seed with crypto-random password
+  - Background token cleanup (hourly expired token purge)
+  - `internal/auth/` package: 19 files, 3,009 lines
+  - All 16 test packages pass with `-race`, 0 lint warnings
+- **M2.1 Location Hierarchy, Device Groups & Infrastructure Zones ✅ NEW** — Multi-agent delivery (Codex phases 1-3, Claude phases 4-5):
+  - Device tags: free-form labels for filtering + exception-based operations (`TagRepository`, 7 methods)
+  - Device groups: static/dynamic/hybrid named collections with runtime resolution (`GroupRepository` + `ResolveGroup`)
+  - Unified infrastructure zones: single table for all domains (climate, audio, lighting, power, security, video) with JSON settings
+  - One-zone-per-domain enforcement via junction table
+  - Hierarchy endpoint: `GET /hierarchy` — single-call site→area→room tree with room-scope filtering
+  - Referential safety: room deletion blocked if devices or scenes still reference it (409 Conflict)
+  - 22 new API endpoints across `device:read`, `device:configure`, `location:manage`
+  - 5 new database tables, comprehensive test suites
+  - All 16 test packages pass with `-race`, 0 lint warnings
 - KNXSim Phase 1 ✅ (KNXnet/IP tunnelling, 57 templates, DPT codec, scenarios, multi-premise)
 - KNXSim Phase 2 ✅ COMPLETE — Web Dashboard:
   - 2.1 Building Overview (premise selector, floor nav, room grid, building summary stats)
@@ -62,10 +86,11 @@
 - Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
-- **Priority 1**: Auth hardening (production JWT, refresh tokens, role-based access)
-- **Priority 2**: Year 2 kick-off (M2.1 Area/Room hierarchy, M2.2 advanced scenes)
-- **Parking lot**: ETS domain filter i18n, KNXSim config.yaml schema validation
+- **Priority 1**: M2.2 Advanced Scenes (group targeting, area-scoped scenes, multi-action sequences)
+- **Priority 2**: Flutter auth integration (login screen, token storage, role-based UI) + Flutter M2.1 integration (hierarchy screen, zone management)
+- **Parking lot**: ETS domain filter i18n, KNXSim config.yaml schema validation, domain-specific access scoping (CCTV, locks, fire, energy — see `notes/domain-access-scoping.md`)
 - **Future architecture**: KNXSim multi-container mode (one container per premise = separate IPs like real hardware)
+- **Strategic**: Multi-agent workflow (Claude orchestrator + Codex for security/refactoring tasks — see CLAUDE.md)
 
 ---
 
@@ -188,8 +213,11 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 
 | Component | Status | Notes |
 |-----------|--------|-------|
-| Gray Logic Core (Go) | ✅ Year 1 Complete | M1.1 + M1.2 + M1.3 + M1.4 + M1.5 + M1.6 complete |
-| REST API + WebSocket | ✅ Complete | Chi router, device CRUD, state commands, WebSocket hub, JWT auth placeholder |
+| Gray Logic Core (Go) | ✅ Year 1 Complete + M2.1 | M1.1–M1.7 + M2.1 complete |
+| REST API + WebSocket | ✅ Complete | Chi router, device CRUD, state commands, WebSocket hub, production JWT auth, tags/groups/zones/hierarchy |
+| Auth & Authorisation | ✅ Complete | M1.7: 4-tier RBAC, Argon2id, JWT rotation, panel tokens, room scoping, audit |
+| Device Tags & Groups | ✅ Complete | M2.1: tags, static/dynamic/hybrid groups, runtime resolver |
+| Infrastructure Zones | ✅ Complete | M2.1: unified zones (climate, audio, lighting, power, security, video), hierarchy endpoint |
 | KNX Bridge | ✅ Complete | Wired into main.go, 4 audit cycles (15 issues fixed) |
 | knxd Manager | ✅ Complete | Managed subprocess, multi-layer health checks, USB reset |
 | Basic Scenes | ✅ Complete | Automation package, scene engine, parallel execution, REST API, 91.6% coverage |
@@ -267,12 +295,13 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | **M1.4** | REST API + WebSocket | ✅ Complete |
 | **M1.5** | Flutter Wall Panel | ✅ Complete |
 | **M1.6** | Basic Scenes | ✅ Complete |
+| **M1.7** | Auth Hardening | ✅ Complete |
 
 ### Year 2 — Automation Expansion (2027)
-| Milestone | Goal |
-|-----------|------|
-| M2.1 | Area/Room hierarchy |
-| M2.2 | Scene engine (multi-device, timed) |
+| Milestone | Goal | Status |
+|-----------|------|--------|
+| **M2.1** | Location Hierarchy, Device Groups & Infrastructure Zones | ✅ Complete |
+| M2.2 | Advanced Scenes (group targeting, multi-action) | |
 | M2.3 | Mode system (Home/Away/Night/Holiday) |
 | M2.4 | Astronomical clock + scheduler |
 | M2.5 | DALI bridge (Lunatone IoT Gateway REST API integration) |
@@ -379,6 +408,7 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | github.com/go-chi/chi/v5 | v5.2.4 | HTTP router |
 | github.com/gorilla/websocket | v1.5.3 | WebSocket upgrade |
 | github.com/golang-jwt/jwt/v5 | v5.3.0 | JWT token handling |
+| golang.org/x/crypto | latest | Argon2id password hashing (M1.7) |
 
 ---
 
@@ -1140,6 +1170,114 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 **Files Changed**: 46 files, 1 commit (`b34dd08`)
 **Lines Changed**: +292 / -376 (net reduction — dead code removed)
 **Quality**: `golangci-lint run` = 0 warnings, all 15 test packages pass with `-race`
+
+---
+
+### Session 35: 2026-02-05 — M2.1 Location Hierarchy, Device Groups & Infrastructure Zones (Complete)
+
+**Goal:** Add device tags, device groups, unified infrastructure zones, hierarchy endpoint, and referential safety — the data layer for Year 2 automation expansion.
+
+**Multi-agent delivery:** Codex implemented Phases 1-3 (repository layer in `internal/device/` and `internal/location/`), Claude implemented Phases 4-5 (API handlers in `internal/api/` + wiring in `cmd/graylogic/`). Both ran in parallel with zero file overlap. Clean integration on first build.
+
+**Phase 1 — Device Tags** (Codex):
+- Migration: `device_tags` table with composite PK, FK cascade, tag index
+- `device/tags.go`: `TagRepository` interface (7 methods) + `SQLiteTagRepository`
+- Tags normalised to lowercase + trimmed, `INSERT OR IGNORE` for idempotency
+- `GetTagsForDevices` for bulk loading, `Registry.SetTagRepository` + `GetDevicesByTag`
+- `device/types.go`: Added `Tags []string` field + `DeepCopy` support
+
+**Phase 2 — Device Groups** (Codex):
+- Migration: `device_groups` + `device_group_members` tables
+- `device/group_types.go`: `DeviceGroup`, `GroupType` (static/dynamic/hybrid), `FilterRules`, `GroupMember`
+- `device/group_repository.go`: `GroupRepository` interface (8 methods) + `SQLiteGroupRepository`
+- `device/group_resolver.go`: `ResolveGroup()` — scope filtering, domain/capability/tag/exclude_tag filters, deduplication
+- Comprehensive test suites for repository and resolver
+
+**Phase 3 — Infrastructure Zones** (Codex):
+- Migration: `infrastructure_zones` + `infrastructure_zone_rooms` tables
+- `location/zone_types.go`: `InfrastructureZone`, `ZoneDomain` constants (6 domains), validation
+- `location/zone_repository.go`: `ZoneRepository` interface (11 methods) + `SQLiteZoneRepository`
+- One-zone-per-domain enforcement in `SetZoneRooms`
+- `location/errors.go`: Added `ErrZoneNotFound`, `ErrZoneExists`, `ErrRoomAlreadyInZoneDomain`
+
+**Phase 4 — API Handlers + Wiring** (Claude):
+- `api/tags.go` (98 lines): `GET /tags`, `GET /devices/{id}/tags`, `PUT /devices/{id}/tags`
+- `api/groups.go` (342 lines): Full CRUD + members + resolve endpoint
+- `api/zones.go` (304 lines): Full CRUD + room membership management
+- `api/hierarchy.go` (186 lines): `GET /hierarchy` — site→area→room tree with device/scene counts, zone membership, room-scope filtering
+- `api/devices.go`: Added `?tag=` query filter
+- `api/locations.go`: Room deletion referential safety (409 Conflict if devices/scenes exist)
+- `api/router.go`: 22 new routes across permission groups
+- `api/server.go`: `TagRepo`, `GroupRepo`, `ZoneRepo` in Deps + Server
+- `cmd/graylogic/main.go`: Repository creation + wiring (tag repo before `RefreshCache`)
+
+**Phase 5 — Verification** (Claude):
+- `go build ./...` ✅
+- `go test -race -count=1 ./...` ✅ (16/16 packages)
+- `golangci-lint run` ✅ (0 warnings)
+
+**Files created:** 16 new Go files + 2 SQL migrations
+**Files modified:** 9 Go files
+**Total new code:** ~2,100 lines (930 API + 1,200 repository)
+
+---
+
+### Session 34: 2026-02-05 — M1.7 Auth Hardening (Complete)
+
+**Goal:** Replace placeholder auth (hardcoded admin/admin, pass-through middleware) with production-grade multi-level authentication and authorisation
+
+**Phase 1 — Auth Package Foundation** (`internal/auth/`, 19 files, 3,009 lines):
+- `types.go`: User, RefreshToken, Panel, RoomAccess, RoomScope structs; Role constants; 7 error sentinels
+- `password.go`: Argon2id hash/verify with PHC string format (m=64MiB, t=3, p=1)
+- `claims.go`: Typed CustomClaims (replacing MapClaims), GenerateAccessToken/RefreshToken, ParseToken
+- `permissions.go`: 10 permission constants, static rolePermissions map, HasPermission(), IsRoomScoped()
+- `user_repository.go`: UserRepository interface + SQLite (Create, GetByID, GetByUsername, List, Update, Delete, Count, UpdatePassword)
+- `token_repository.go`: TokenRepository interface + SQLite (Create, GetByID, Revoke, RevokeFamily, RevokeAllForUser, ListActiveByUser, DeleteExpired)
+- `panel_repository.go`: PanelRepository interface + SQLite (Create, GetByID, GetByTokenHash, List, Delete, UpdateLastSeen, SetRooms, GetRoomIDs)
+- `room_access.go`: RoomAccessRepository interface + SQLite (SetRoomAccess, GetRoomAccess, GetAccessibleRoomIDs, GetSceneManageRoomIDs, ClearRoomAccess)
+- `seed.go`: SeedOwner() — first-boot owner with crypto-random password printed to console
+- 8 test files + test_helpers_test.go (shared in-memory SQLite setup)
+- Added `golang.org/x/crypto` dependency for Argon2id
+
+**Phase 2 — Core Auth Endpoints** (`api/auth.go` rewritten):
+- `handleLogin`: DB lookup + Argon2id verify → access + refresh tokens
+- `handleRefresh`: Token rotation with family tracking + theft detection (reuse → revoke family)
+- `handleLogout`: Revoke refresh token family
+- `handleChangePassword`: Verify current, hash new, revoke all sessions
+- WebSocket ticket now carries CustomClaims through to WSClient
+
+**Phase 3 — User & Panel Management API**:
+- `api/users.go` (new): User CRUD with self-protection guards, session management, room access assignment
+- `api/panels.go` (new): Panel registration with room assignments, token shown once on creation
+- Owner-only guard: only owners can create/modify owner-role users
+- Self-protection: cannot deactivate/demote/delete yourself
+
+**Phase 4 — Route Protection** (`api/router.go` + `api/middleware.go`):
+- Real `authMiddleware`: validates Bearer JWT OR X-Panel-Token, injects claims/panel context
+- `requirePermission(perm)`: checks role has permission via static map
+- `requireRoomScope()`: resolves user_room_access for user role; admin/owner bypass
+- All routes restructured by permission level (public → authenticated → permission-gated)
+- Added `writeForbidden` (403) to errors.go
+
+**Phase 5 — Audit Write + Cleanup + Wiring**:
+- Added `Create()` method to audit.Repository interface + SQLite implementation
+- `api/audit.go` (new): async `auditLog()` helper — fires goroutine with context.Background()
+- Audit events wired: login success/failure, token reuse, password change, user/panel CRUD, room access changes, permission denied
+- `cmd/graylogic/main.go`: creates auth repos, calls SeedOwner(), starts token cleanup loop, passes repos to API
+- Background token cleanup: hourly goroutine purges expired refresh tokens
+- 50+ golangci-lint issues fixed (govet shadow, errcheck, errorlint, dupl, unused, unparam, gosec)
+
+**Strategic discussions documented:**
+- Chi router stability confirmed (actively maintained, Jan 2026 release, stdlib-compatible)
+- Domain-specific access scoping for commercial use (CCTV, locks, fire, energy) → `notes/domain-access-scoping.md`
+- Network topology recommendation (3-VLAN architecture) → `notes/network-topology-recommendation.md`
+- Codebase training plan (package-by-package walkthrough) → `notes/private-todos.md`
+- Multi-agent workflow (Claude orchestrator + Codex delegation) → integrated into CLAUDE.md
+
+**Files Created**: 22 (19 auth package + users.go + panels.go + audit.go + 2 migration files)
+**Files Modified**: 11 (auth.go, middleware.go, router.go, server.go, errors.go, websocket.go, audit/repository.go, config.go, main.go, go.mod, server_test.go)
+**Tests**: All 16 packages pass with `-race`, 0 lint warnings
+**CHANGELOG**: v1.0.26
 
 ---
 

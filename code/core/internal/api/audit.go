@@ -1,11 +1,39 @@
 package api
 
 import (
+	"context"
 	"net/http"
 	"strconv"
 
 	"github.com/nerrad567/gray-logic-core/internal/audit"
 )
+
+// auditLog writes an audit log entry asynchronously (best-effort).
+// Audit write failures are logged but never block the request.
+func (s *Server) auditLog(action, entityType, entityID, userID string, details map[string]any) {
+	if s.auditRepo == nil {
+		return
+	}
+
+	entry := &audit.AuditLog{
+		Action:     action,
+		EntityType: entityType,
+		EntityID:   entityID,
+		UserID:     userID,
+		Source:     "api",
+		Details:    details,
+	}
+
+	go func() {
+		if err := s.auditRepo.Create(context.Background(), entry); err != nil {
+			s.logger.Error("audit log write failed",
+				"action", action,
+				"entity_type", entityType,
+				"error", err,
+			)
+		}
+	}()
+}
 
 // handleListAuditLogs returns paginated audit log entries with optional filters.
 //

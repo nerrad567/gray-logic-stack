@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/nerrad567/gray-logic-core/internal/audit"
+	"github.com/nerrad567/gray-logic-core/internal/auth"
 	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
@@ -65,25 +66,32 @@ type DBStatsProvider interface {
 
 // Deps holds the dependencies required by the API server.
 type Deps struct {
-	Config        config.APIConfig
-	WS            config.WebSocketConfig
-	Security      config.SecurityConfig
-	SiteID        string // Site ID for location hierarchy (from config)
-	Logger        *logging.Logger
-	Registry      *device.Registry
-	MQTT          *mqtt.Client
-	DB            DBStatsProvider // Optional: for metrics endpoint
-	SceneEngine   *automation.Engine
-	SceneRegistry *automation.Registry
-	SceneRepo     automation.Repository
-	LocationRepo  location.Repository
-	AuditRepo     audit.Repository
-	StateHistory  device.StateHistoryRepository
-	TSDB          *tsdb.Client // Optional: time-series database for device telemetry
-	ExternalHub   *Hub         // If set, the server uses this hub instead of creating its own
-	DevMode       bool         // When true, commands apply state locally without bridge confirmation
-	PanelDir      string       // Dev only: serve Flutter panel from filesystem instead of embed
-	Version       string
+	Config         config.APIConfig
+	WS             config.WebSocketConfig
+	Security       config.SecurityConfig
+	SiteID         string // Site ID for location hierarchy (from config)
+	Logger         *logging.Logger
+	Registry       *device.Registry
+	MQTT           *mqtt.Client
+	DB             DBStatsProvider // Optional: for metrics endpoint
+	SceneEngine    *automation.Engine
+	SceneRegistry  *automation.Registry
+	SceneRepo      automation.Repository
+	LocationRepo   location.Repository
+	TagRepo        device.TagRepository
+	GroupRepo      device.GroupRepository
+	ZoneRepo       location.ZoneRepository
+	AuditRepo      audit.Repository
+	UserRepo       auth.UserRepository
+	TokenRepo      auth.TokenRepository
+	PanelRepo      auth.PanelRepository
+	RoomAccessRepo auth.RoomAccessRepository
+	StateHistory   device.StateHistoryRepository
+	TSDB           *tsdb.Client // Optional: time-series database for device telemetry
+	ExternalHub    *Hub         // If set, the server uses this hub instead of creating its own
+	DevMode        bool         // When true, commands apply state locally without bridge confirmation
+	PanelDir       string       // Dev only: serve Flutter panel from filesystem instead of embed
+	Version        string
 }
 
 // Server is the HTTP API server for Gray Logic Core.
@@ -103,7 +111,14 @@ type Server struct {
 	sceneRegistry      *automation.Registry
 	sceneRepo          automation.Repository
 	locationRepo       location.Repository
+	tagRepo            device.TagRepository
+	groupRepo          device.GroupRepository
+	zoneRepo           location.ZoneRepository
 	auditRepo          audit.Repository
+	userRepo           auth.UserRepository
+	tokenRepo          auth.TokenRepository
+	panelRepo          auth.PanelRepository
+	roomAccessRepo     auth.RoomAccessRepository
 	stateHistory       device.StateHistoryRepository
 	tsdb               *tsdb.Client // optional: time-series telemetry writes
 	devMode            bool
@@ -114,6 +129,7 @@ type Server struct {
 	hub                *Hub
 	externalHub        bool               // true if hub was injected externally
 	cancel             context.CancelFunc // cancels background goroutines on Close()
+	rateLimiter        *rateLimiter
 	knxBridge          KNXBridgeReloader  // optional: for reloading devices after ETS import
 	knxMetricsProvider KNXMetricsProvider // optional: for metrics endpoint
 }
@@ -138,25 +154,33 @@ func New(deps Deps) (*Server, error) {
 	// MQTT is optional — commands won't work without it but reads/WebSocket still function
 
 	s := &Server{
-		cfg:           deps.Config,
-		wsCfg:         deps.WS,
-		secCfg:        deps.Security,
-		siteID:        deps.SiteID,
-		logger:        deps.Logger,
-		registry:      deps.Registry,
-		mqtt:          deps.MQTT,
-		db:            deps.DB,
-		sceneEngine:   deps.SceneEngine,
-		sceneRegistry: deps.SceneRegistry,
-		sceneRepo:     deps.SceneRepo,
-		locationRepo:  deps.LocationRepo,
-		auditRepo:     deps.AuditRepo,
-		stateHistory:  deps.StateHistory,
-		tsdb:          deps.TSDB,
-		devMode:       deps.DevMode,
-		panelDir:      deps.PanelDir,
-		version:       deps.Version,
-		startTime:     time.Now(),
+		cfg:            deps.Config,
+		wsCfg:          deps.WS,
+		secCfg:         deps.Security,
+		siteID:         deps.SiteID,
+		logger:         deps.Logger,
+		registry:       deps.Registry,
+		mqtt:           deps.MQTT,
+		db:             deps.DB,
+		sceneEngine:    deps.SceneEngine,
+		sceneRegistry:  deps.SceneRegistry,
+		sceneRepo:      deps.SceneRepo,
+		locationRepo:   deps.LocationRepo,
+		tagRepo:        deps.TagRepo,
+		groupRepo:      deps.GroupRepo,
+		zoneRepo:       deps.ZoneRepo,
+		auditRepo:      deps.AuditRepo,
+		userRepo:       deps.UserRepo,
+		tokenRepo:      deps.TokenRepo,
+		panelRepo:      deps.PanelRepo,
+		roomAccessRepo: deps.RoomAccessRepo,
+		stateHistory:   deps.StateHistory,
+		tsdb:           deps.TSDB,
+		devMode:        deps.DevMode,
+		panelDir:       deps.PanelDir,
+		version:        deps.Version,
+		startTime:      time.Now(),
+		rateLimiter:    newRateLimiter(),
 	}
 
 	// Use externally-provided hub if available (needed when Engine also
@@ -206,6 +230,9 @@ func (s *Server) Start(ctx context.Context) error {
 
 	// Start periodic ticket cleanup to prevent memory leaks
 	go s.cleanTicketsLoop(srvCtx)
+	if s.rateLimiter != nil {
+		go s.rateLimiter.cleanupLoop(srvCtx, rateLimitWindow)
+	}
 
 	// Subscribe to device state changes from bridges for WebSocket broadcast
 	if err := s.subscribeStateUpdates(); err != nil {

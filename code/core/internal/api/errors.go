@@ -22,6 +22,7 @@ const (
 	ErrCodeInternal       = "internal_error"
 	ErrCodeValidation     = "validation_error"
 	ErrCodeMethodNotAllow = "method_not_allowed"
+	ErrCodeTooMany        = "too_many_requests"
 )
 
 // writeJSON writes a JSON response with the given status code and payload.
@@ -58,7 +59,22 @@ func writeUnauthorized(w http.ResponseWriter, message string) {
 	writeError(w, http.StatusUnauthorized, ErrCodeUnauthorized, message)
 }
 
+// writeForbidden writes a 403 error response.
+func writeForbidden(w http.ResponseWriter, message string) {
+	writeError(w, http.StatusForbidden, ErrCodeForbidden, message)
+}
+
+// writeConflict writes a 409 error response.
+func writeConflict(w http.ResponseWriter, message string) {
+	writeError(w, http.StatusConflict, ErrCodeConflict, message)
+}
+
 // writeInternalError writes a 500 error response.
 func writeInternalError(w http.ResponseWriter, message string) {
 	writeError(w, http.StatusInternalServerError, ErrCodeInternal, message)
+}
+
+// writeTooManyRequests writes a 429 error response.
+func writeTooManyRequests(w http.ResponseWriter, message string) {
+	writeError(w, http.StatusTooManyRequests, ErrCodeTooMany, message)
 }

@@ -57,6 +57,12 @@ func (s *Server) handleGetDeviceHistory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	scope := requestRoomScope(ctx)
+	if scope != nil && len(scope.RoomIDs) == 0 {
+		writeForbidden(w, "device not in accessible rooms")
+		return
+	}
+
 	limit, err := parseHistoryLimit(r.URL.Query().Get("limit"))
 	if err != nil {
 		writeBadRequest(w, err.Error())
@@ -69,12 +75,17 @@ func (s *Server) handleGetDeviceHistory(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
+	dev, err := s.registry.GetDevice(ctx, deviceID)
+	if err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
 			return
 		}
 		writeInternalError(w, "failed to get device")
+		return
+	}
+	if !deviceInScope(scope, dev) {
+		writeForbidden(w, "device not in accessible rooms")
 		return
 	}
 
@@ -115,6 +126,12 @@ func (s *Server) handleGetDeviceMetrics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
+	scope := requestRoomScope(ctx)
+	if scope != nil && len(scope.RoomIDs) == 0 {
+		writeForbidden(w, "device not in accessible rooms")
+		return
+	}
+
 	field := strings.TrimSpace(r.URL.Query().Get("field"))
 	if field == "" {
 		writeBadRequest(w, "field is required")
@@ -131,12 +148,17 @@ func (s *Server) handleGetDeviceMetrics(w http.ResponseWriter, r *http.Request) 
 		return
 	}
 
-	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
+	dev, err := s.registry.GetDevice(ctx, deviceID)
+	if err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
 			return
 		}
 		writeInternalError(w, "failed to get device")
+		return
+	}
+	if !deviceInScope(scope, dev) {
+		writeForbidden(w, "device not in accessible rooms")
 		return
 	}
 
@@ -169,12 +191,23 @@ func (s *Server) handleGetDeviceMetricsSummary(w http.ResponseWriter, r *http.Re
 		return
 	}
 
-	if _, err := s.registry.GetDevice(ctx, deviceID); err != nil {
+	scope := requestRoomScope(ctx)
+	if scope != nil && len(scope.RoomIDs) == 0 {
+		writeForbidden(w, "device not in accessible rooms")
+		return
+	}
+
+	dev, err := s.registry.GetDevice(ctx, deviceID)
+	if err != nil {
 		if errors.Is(err, device.ErrDeviceNotFound) {
 			writeNotFound(w, "device not found")
 			return
 		}
 		writeInternalError(w, "failed to get device")
+		return
+	}
+	if !deviceInScope(scope, dev) {
+		writeForbidden(w, "device not in accessible rooms")
 		return
 	}
 

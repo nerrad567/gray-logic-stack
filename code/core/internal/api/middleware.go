@@ -8,7 +8,12 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"strconv"
+	"strings"
+	"sync"
 	"time"
+
+	"github.com/nerrad567/gray-logic-core/internal/auth"
 )
 
 // contextKey is a private type for context keys to avoid collisions.
@@ -17,7 +22,19 @@ type contextKey string
 const (
 	// ctxKeyRequestID is the context key for the request ID.
 	ctxKeyRequestID contextKey = "request_id"
+	// ctxKeyClaims holds the authenticated user's JWT claims.
+	ctxKeyClaims contextKey = "claims"
+	// ctxKeyPanel holds the authenticated panel's context.
+	ctxKeyPanel contextKey = "panel"
+	// ctxKeyRoomScope holds the resolved room scope for room-scoped roles.
+	ctxKeyRoomScope contextKey = "room_scope"
 )
+
+// PanelContext holds the identity of an authenticated panel device.
+type PanelContext struct {
+	PanelID string
+	RoomIDs []string // rooms this panel can access
+}
 
 // requestIDMiddleware generates a unique request ID for each request.
 // If the client sends an X-Request-ID header, it is used; otherwise one is generated.
@@ -102,15 +119,431 @@ func (s *Server) bodySizeLimitMiddleware(next http.Handler) http.Handler {
 	})
 }
 
-// authMiddleware validates JWT tokens on protected routes.
-// Placeholder: accepts any valid JWT signed with the configured secret.
-func (s *Server) authMiddleware(next http.Handler) http.Handler {
+// securityHeadersMiddleware applies baseline security headers.
+func (s *Server) securityHeadersMiddleware(next http.Handler) http.Handler {
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// TODO(M1.6): Full JWT validation with claims
-		// For now, pass through — auth endpoints exist but middleware is permissive
-		// during development. Set GRAYLOGIC_JWT_SECRET in production.
+		w.Header().Set("X-Content-Type-Options", "nosniff")
+		w.Header().Set("X-Frame-Options", "DENY")
+		w.Header().Set("X-XSS-Protection", "0")
+
+		// CSP applies to API responses only; skip the panel UI routes.
+		if !strings.HasPrefix(r.URL.Path, "/panel") {
+			w.Header().Set("Content-Security-Policy", "default-src 'self'")
+		}
+
+		if s.cfg.TLS.Enabled {
+			w.Header().Set("Strict-Transport-Security", "max-age=31536000; includeSubDomains")
+		}
+
 		next.ServeHTTP(w, r)
 	})
+}
+
+// Rate limiting configuration.
+const (
+	rateLimitWindow          = 15 * time.Minute
+	rateLimitCleanupInterval = 15 * time.Minute
+)
+
+// rateLimiter enforces request limits per key within a time window.
+type rateLimiter struct {
+	attempts sync.Map // key: string, value: *attemptRecord
+}
+
+type attemptRecord struct {
+	count       int
+	windowStart time.Time
+	mu          sync.Mutex
+}
+
+func newRateLimiter() *rateLimiter {
+	return &rateLimiter{}
+}
+
+// allow checks and records a request, returning whether it is allowed.
+func (rl *rateLimiter) allow(key string, limit int, window time.Duration, now time.Time) (bool, time.Duration) {
+	entry, _ := rl.attempts.LoadOrStore(key, &attemptRecord{windowStart: now})
+	record, ok := entry.(*attemptRecord)
+	if !ok {
+		record = &attemptRecord{windowStart: now}
+		rl.attempts.Store(key, record)
+	}
+
+	record.mu.Lock()
+	defer record.mu.Unlock()
+
+	if now.Sub(record.windowStart) >= window {
+		record.windowStart = now
+		record.count = 0
+	}
+
+	if record.count >= limit {
+		retryAfter := window - now.Sub(record.windowStart)
+		if retryAfter < 0 {
+			retryAfter = 0
+		}
+		return false, retryAfter
+	}
+
+	record.count++
+	return true, 0
+}
+
+// cleanupLoop periodically removes expired rate limit records.
+func (rl *rateLimiter) cleanupLoop(ctx context.Context, window time.Duration) {
+	ticker := time.NewTicker(rateLimitCleanupInterval)
+	defer ticker.Stop()
+
+	for {
+		select {
+		case <-ctx.Done():
+			return
+		case <-ticker.C:
+			rl.cleanupExpired(window, time.Now().UTC())
+		}
+	}
+}
+
+func (rl *rateLimiter) cleanupExpired(window time.Duration, now time.Time) {
+	rl.attempts.Range(func(key, value any) bool {
+		record, ok := value.(*attemptRecord)
+		if !ok {
+			rl.attempts.Delete(key)
+			return true
+		}
+
+		record.mu.Lock()
+		expired := now.Sub(record.windowStart) >= window
+		record.mu.Unlock()
+		if expired {
+			rl.attempts.Delete(key)
+		}
+		return true
+	})
+}
+
+// rateLimitMiddleware enforces a fixed request limit per client IP.
+func (s *Server) rateLimitMiddleware(limit int, window time.Duration) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			if s.rateLimiter == nil {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			key := rateLimitKey(r)
+			allowed, retryAfter := s.rateLimiter.allow(key, limit, window, time.Now().UTC())
+			if !allowed {
+				w.Header().Set("Retry-After", strconv.Itoa(retryAfterSeconds(retryAfter)))
+				writeTooManyRequests(w, "too many requests")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// authMiddleware validates authentication on protected routes.
+// It supports two authentication methods:
+//  1. Panel token: X-Panel-Token header → SHA-256 hash → lookup in panels table
+//  2. JWT bearer: Authorization: Bearer <token> → parse + validate signature/expiry
+//
+// On success, it injects either PanelContext or CustomClaims into the request context.
+func (s *Server) authMiddleware(next http.Handler) http.Handler { //nolint:gocognit,gocyclo // dual-path auth: panel token + JWT bearer validation
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Path 1: Panel token authentication
+		if panelToken := r.Header.Get("X-Panel-Token"); panelToken != "" {
+			if s.panelRepo == nil {
+				writeUnauthorized(w, "panel auth not configured")
+				return
+			}
+
+			tokenHash := auth.HashToken(panelToken)
+			panel, err := s.panelRepo.GetByTokenHash(r.Context(), tokenHash)
+			if err != nil {
+				writeUnauthorized(w, "invalid panel token")
+				return
+			}
+			if !panel.IsActive {
+				writeUnauthorized(w, "panel is inactive")
+				return
+			}
+
+			// Update last seen (best-effort, don't block the request)
+			go func() {
+				//nolint:errcheck // best-effort last-seen update
+				s.panelRepo.UpdateLastSeen(context.Background(), panel.ID)
+			}()
+
+			// Resolve panel's room assignments
+			roomIDs, err := s.panelRepo.GetRoomIDs(r.Context(), panel.ID)
+			if err != nil {
+				s.logger.Error("failed to resolve panel rooms", "panel_id", panel.ID, "error", err)
+				writeInternalError(w, "failed to resolve panel access")
+				return
+			}
+
+			pc := &PanelContext{
+				PanelID: panel.ID,
+				RoomIDs: roomIDs,
+			}
+			ctx := context.WithValue(r.Context(), ctxKeyPanel, pc)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
+		// Path 2: JWT bearer token authentication
+		authHeader := r.Header.Get("Authorization")
+		if authHeader == "" {
+			writeUnauthorized(w, "authentication required")
+			return
+		}
+
+		parts := strings.SplitN(authHeader, " ", 2) //nolint:mnd // "Bearer <token>"
+		if len(parts) != 2 || !strings.EqualFold(parts[0], "Bearer") {
+			writeUnauthorized(w, "invalid authorization header format")
+			return
+		}
+
+		claims, err := auth.ParseToken(parts[1], s.secCfg.JWT.Secret)
+		if err != nil {
+			writeUnauthorized(w, "invalid or expired token")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), ctxKeyClaims, claims)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requirePermission returns middleware that checks the authenticated caller
+// has the specified permission. For panels, it checks panelPermissions.
+// For users, it checks the role-permission map.
+func (s *Server) requirePermission(perm auth.Permission) func(http.Handler) http.Handler {
+	return func(next http.Handler) http.Handler {
+		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			// Check panel permissions
+			if pc := panelFromContext(r.Context()); pc != nil {
+				if !auth.HasPanelPermission(perm) {
+					writeForbidden(w, "panels do not have permission: "+string(perm))
+					return
+				}
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Check user permissions
+			claims := claimsFromContext(r.Context())
+			if claims == nil {
+				writeUnauthorized(w, "authentication required")
+				return
+			}
+
+			if !auth.HasPermission(claims.Role, perm) {
+				s.auditLog("permission_denied", "system", "", claims.Subject, map[string]any{
+					"permission": string(perm),
+					"role":       string(claims.Role),
+					"method":     r.Method,
+					"path":       r.URL.Path,
+				})
+				writeForbidden(w, "insufficient permissions")
+				return
+			}
+
+			next.ServeHTTP(w, r)
+		})
+	}
+}
+
+// resolveRoomScopeMiddleware resolves the room scope for room-scoped roles (user)
+// and injects it into the request context. Admin/owner get nil scope (unrestricted).
+// Panels already have their room scope in PanelContext.
+func (s *Server) resolveRoomScopeMiddleware(next http.Handler) http.Handler {
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		// Panels carry their room scope in PanelContext — nothing to resolve
+		if panelFromContext(r.Context()) != nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		claims := claimsFromContext(r.Context())
+		if claims == nil {
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		// Only resolve room scope for room-scoped roles (user)
+		if !auth.IsRoomScoped(claims.Role) {
+			// Admin/owner — unrestricted (nil scope)
+			next.ServeHTTP(w, r)
+			return
+		}
+
+		if s.roomAccessRepo == nil {
+			writeForbidden(w, "room access not configured")
+			return
+		}
+
+		scope, err := s.roomAccessRepo.ResolveRoomScope(r.Context(), claims.Subject)
+		if err != nil {
+			s.logger.Error("failed to resolve room scope", "user_id", claims.Subject, "error", err)
+			writeInternalError(w, "failed to resolve room access")
+			return
+		}
+
+		ctx := context.WithValue(r.Context(), ctxKeyRoomScope, scope)
+		next.ServeHTTP(w, r.WithContext(ctx))
+	})
+}
+
+// requireUsersOnly rejects panel requests — only user JWT auth is accepted.
+func requireUsersOnly(next http.Handler) http.Handler { //nolint:unused // reserved for future route protection
+	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		if panelFromContext(r.Context()) != nil {
+			writeForbidden(w, "this endpoint is not available to panels")
+			return
+		}
+		if claimsFromContext(r.Context()) == nil {
+			writeUnauthorized(w, "authentication required")
+			return
+		}
+		next.ServeHTTP(w, r)
+	})
+}
+
+// claimsFromContext extracts CustomClaims from the request context.
+// Returns nil if no user claims are present (e.g. panel request or unauthenticated).
+func claimsFromContext(ctx context.Context) *auth.CustomClaims {
+	claims, _ := ctx.Value(ctxKeyClaims).(*auth.CustomClaims) //nolint:errcheck // type assertion returns nil on miss
+	return claims
+}
+
+// panelFromContext extracts PanelContext from the request context.
+// Returns nil if no panel context is present (e.g. user request or unauthenticated).
+func panelFromContext(ctx context.Context) *PanelContext {
+	pc, _ := ctx.Value(ctxKeyPanel).(*PanelContext) //nolint:errcheck // type assertion returns nil on miss
+	return pc
+}
+
+// roomScopeFromContext extracts the resolved RoomScope from the request context.
+// Returns nil for admin/owner (unrestricted access).
+func roomScopeFromContext(ctx context.Context) *auth.RoomScope {
+	scope, _ := ctx.Value(ctxKeyRoomScope).(*auth.RoomScope) //nolint:errcheck // type assertion returns nil on miss
+	return scope
+}
+
+// requestRoomScope resolves the effective room scope for a request.
+// It returns nil for unrestricted access (admin/owner).
+// Panels derive scope from their PanelContext.
+func requestRoomScope(ctx context.Context) *auth.RoomScope {
+	scope := roomScopeFromContext(ctx)
+	if scope != nil {
+		return scope
+	}
+
+	if pc := panelFromContext(ctx); pc != nil {
+		return &auth.RoomScope{RoomIDs: pc.RoomIDs}
+	}
+
+	return nil
+}
+
+// derefString safely dereferences a string pointer.
+func derefString(value *string) string {
+	if value == nil {
+		return ""
+	}
+	return *value
+}
+
+// filterByRoomIDs filters a slice to items whose room ID is in the allowed set.
+// Items without a room ID are excluded for room-scoped requests.
+func filterByRoomIDs[T any](items []T, roomIDs []string, roomID func(T) *string) []T {
+	if len(roomIDs) == 0 {
+		return []T{}
+	}
+
+	roomSet := make(map[string]struct{}, len(roomIDs))
+	for _, id := range roomIDs {
+		roomSet[id] = struct{}{}
+	}
+
+	filtered := make([]T, 0, len(items))
+	for _, item := range items {
+		id := roomID(item)
+		if id == nil {
+			continue
+		}
+		if _, ok := roomSet[*id]; ok {
+			filtered = append(filtered, item)
+		}
+	}
+
+	if filtered == nil {
+		return []T{}
+	}
+	return filtered
+}
+
+func handleScopedList[T any](w http.ResponseWriter, scope *auth.RoomScope, key string, internalError string, listFn func() ([]T, string, error)) {
+	if scope != nil && len(scope.RoomIDs) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{key: []T{}, "count": 0})
+		return
+	}
+
+	items, badRequest, err := listFn()
+	if badRequest != "" {
+		writeBadRequest(w, badRequest)
+		return
+	}
+	if err != nil {
+		writeInternalError(w, internalError)
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{key: items, "count": len(items)})
+}
+
+func rateLimitKey(r *http.Request) string {
+	return r.URL.Path + "|" + clientIP(r)
+}
+
+func retryAfterSeconds(duration time.Duration) int {
+	if duration <= 0 {
+		return 1
+	}
+	seconds := int(duration.Seconds())
+	if duration%time.Second != 0 {
+		seconds++
+	}
+	if seconds < 1 {
+		return 1
+	}
+	return seconds
+}
+
+func clientIP(r *http.Request) string {
+	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
+		parts := strings.Split(forwarded, ",")
+		if len(parts) > 0 {
+			ip := strings.TrimSpace(parts[0])
+			if ip != "" {
+				return ip
+			}
+		}
+	}
+
+	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
+		return realIP
+	}
+
+	host, _, err := net.SplitHostPort(r.RemoteAddr)
+	if err == nil && host != "" {
+		return host
+	}
+
+	return r.RemoteAddr
 }
 
 // isAllowedOrigin checks if the origin is in the allowed list.

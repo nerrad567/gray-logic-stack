@@ -242,7 +242,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		writeUnauthorized(w, "ticket query parameter is required")
 		return
 	}
-	if !validateTicket(ticket) {
+	if _, ok := validateTicket(ticket); !ok {
 		writeUnauthorized(w, "invalid or expired ticket")
 		return
 	}

@@ -35,6 +35,7 @@ func (noopLogger) Error(string, ...any) {}
 // All public methods are thread-safe.
 type Registry struct {
 	repo    Repository
+	tagRepo TagRepository
 	cache   map[string]*Device // Cached devices by ID
 	cacheMu sync.RWMutex       // Protects cache
 	logger  Logger
@@ -55,12 +56,30 @@ func (r *Registry) SetLogger(logger Logger) {
 	r.logger = logger
 }
 
+// SetTagRepository sets the repository used for device tag lookups.
+func (r *Registry) SetTagRepository(repo TagRepository) {
+	r.tagRepo = repo
+}
+
 // RefreshCache reloads all devices from the repository into the cache.
 // This should be called on application startup.
 func (r *Registry) RefreshCache(ctx context.Context) error {
 	devices, err := r.repo.List(ctx)
 	if err != nil {
 		return fmt.Errorf("loading devices: %w", err)
+	}
+
+	tagsByDevice := map[string][]string{}
+	if r.tagRepo != nil && len(devices) > 0 {
+		deviceIDs := make([]string, 0, len(devices))
+		for i := range devices {
+			deviceIDs = append(deviceIDs, devices[i].ID)
+		}
+
+		tagsByDevice, err = r.tagRepo.GetTagsForDevices(ctx, deviceIDs)
+		if err != nil {
+			return fmt.Errorf("loading device tags: %w", err)
+		}
 	}
 
 	r.cacheMu.Lock()
@@ -70,6 +89,9 @@ func (r *Registry) RefreshCache(ctx context.Context) error {
 	r.cache = make(map[string]*Device, len(devices))
 	for i := range devices {
 		d := devices[i]
+		if tags, ok := tagsByDevice[d.ID]; ok {
+			d.Tags = tags
+		}
 		r.cache[d.ID] = d.DeepCopy()
 	}
 
@@ -417,6 +439,24 @@ func (r *Registry) GetDevicesByCapability(ctx context.Context, capability Capabi
 			}
 		}
 	}
+	return devices, nil
+}
+
+// GetDevicesByTag returns all cached devices that have the given tag.
+func (r *Registry) GetDevicesByTag(ctx context.Context, tag string) ([]Device, error) {
+	r.cacheMu.RLock()
+	defer r.cacheMu.RUnlock()
+
+	var devices []Device
+	for _, d := range r.cache {
+		for _, t := range d.Tags {
+			if t == tag {
+				devices = append(devices, *d.DeepCopy())
+				break
+			}
+		}
+	}
+	sortDevicesByName(devices)
 	return devices, nil
 }
 

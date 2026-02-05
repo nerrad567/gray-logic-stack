@@ -9,6 +9,8 @@ import (
 	"fmt"
 	"strings"
 	"time"
+
+	"github.com/google/uuid"
 )
 
 // AuditLog represents a single audit trail entry.
@@ -40,8 +42,9 @@ type ListResult struct {
 	Offset int        `json:"offset"`
 }
 
-// Repository defines the interface for audit log queries.
+// Repository defines the interface for audit log operations.
 type Repository interface {
+	Create(ctx context.Context, log *AuditLog) error
 	List(ctx context.Context, filter Filter) (*ListResult, error)
 }
 
@@ -53,6 +56,49 @@ type SQLiteRepository struct {
 // NewSQLiteRepository creates a new audit log repository.
 func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 	return &SQLiteRepository{db: db}
+}
+
+// Create inserts a new audit log entry. The ID and CreatedAt are generated if empty.
+func (r *SQLiteRepository) Create(ctx context.Context, log *AuditLog) error {
+	if log.ID == "" {
+		log.ID = "aud-" + uuid.NewString()[:8]
+	}
+	if log.CreatedAt.IsZero() {
+		log.CreatedAt = time.Now().UTC()
+	}
+
+	var detailsJSON *string
+	if log.Details != nil {
+		b, err := json.Marshal(log.Details)
+		if err != nil {
+			return fmt.Errorf("marshalling audit details: %w", err)
+		}
+		s := string(b)
+		detailsJSON = &s
+	}
+
+	_, err := r.db.ExecContext(ctx,
+		`INSERT INTO audit_logs (id, action, entity_type, entity_id, user_id, source, details, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		log.ID, log.Action, log.EntityType,
+		nullableString(log.EntityID), nullableString(log.UserID),
+		log.Source, detailsJSON,
+		log.CreatedAt.Format(time.RFC3339),
+	)
+	if err != nil {
+		return fmt.Errorf("inserting audit log: %w", err)
+	}
+
+	return nil
+}
+
+// nullableString returns nil for empty strings, or the string pointer otherwise.
+// Used for nullable TEXT columns in SQLite.
+func nullableString(s string) any {
+	if s == "" {
+		return nil
+	}
+	return s
 }
 
 // List returns audit logs matching the filter, ordered by most recent first.

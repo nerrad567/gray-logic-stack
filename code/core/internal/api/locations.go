@@ -255,10 +255,36 @@ func (s *Server) handleUpdateRoom(w http.ResponseWriter, r *http.Request) { //no
 }
 
 // handleDeleteRoom deletes a room by ID.
+// Returns 409 Conflict if devices or scenes still reference this room.
 func (s *Server) handleDeleteRoom(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	ctx := r.Context()
 
-	if err := s.locationRepo.DeleteRoom(r.Context(), id); err != nil {
+	// Verify room exists before checking references
+	if _, err := s.locationRepo.GetRoom(ctx, id); err != nil {
+		if errors.Is(err, location.ErrRoomNotFound) {
+			writeNotFound(w, "room not found")
+			return
+		}
+		writeInternalError(w, "failed to get room")
+		return
+	}
+
+	// Referential safety: check for devices assigned to this room
+	devices, err := s.registry.GetDevicesByRoom(ctx, id)
+	if err == nil && len(devices) > 0 {
+		writeConflict(w, "room has devices: reassign or delete them first")
+		return
+	}
+
+	// Referential safety: check for scenes assigned to this room
+	scenes, err := s.sceneRegistry.ListScenesByRoom(ctx, id)
+	if err == nil && len(scenes) > 0 {
+		writeConflict(w, "room has scenes: reassign or delete them first")
+		return
+	}
+
+	if err := s.locationRepo.DeleteRoom(ctx, id); err != nil {
 		if errors.Is(err, location.ErrRoomNotFound) {
 			writeNotFound(w, "room not found")
 			return

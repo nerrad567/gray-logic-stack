@@ -102,7 +102,9 @@
       "Bash(git -C /home/darren/local-dev/gray-logic-stack commit -m \"$\\(cat <<''EOF''\nstyle: fix gofmt alignment in config, server, engine_test\n\nCo-Authored-By: Claude Opus 4.5 <noreply@anthropic.com>\nEOF\n\\)\")",
       "Bash(git -C /home/darren/local-dev/gray-logic-stack log --oneline origin/master..HEAD)",
       "Bash(git -C /home/darren/local-dev/gray-logic-stack push)",
-      "WebFetch(domain:)"
+      "WebFetch(domain:)",
+      "WebFetch(domain:docs.victoriametrics.com)",
+      "WebFetch(domain:developers.openai.com)"
     ]
   },
   "outputStyle": "Explanatory"

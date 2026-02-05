@@ -191,6 +191,124 @@ When working on this project:
 5. **Offline-first always**: Never add cloud dependencies for core features
 6. **Document changes**: Update relevant docs when making changes
 7. **Session log sync**: After completing significant coding work (milestone completion, multi-file feature implementation, or when the user indicates they're done), offer to run `/docs-sync` to update CHANGELOG.md and PROJECT-STATUS.md. Ask: *"Session work looks complete — shall I run `/docs-sync` to update project logs?"*
+8. **Codex delegation check**: Before starting any non-trivial task, evaluate whether part or all of it would be better suited to GPT-5.2-Codex. See "Multi-Agent Workflow" below.
+
+## Multi-Agent Workflow — Claude as Orchestrator
+
+Gray Logic uses a **two-agent strategy**. Claude Opus is the **orchestrator, controller, and architect** — responsible for planning work, maintaining architectural consistency, and writing specific task instructions for GPT-5.2-Codex when its strengths apply. Both agents share the same repository and folder structure.
+
+### Claude's Orchestration Responsibilities
+
+1. **Assess every non-trivial task** for Codex delegation opportunities
+2. **Write Codex task briefs** to `tasks/` — complete, self-contained instructions
+3. **Review Codex output** when the user brings it back — verify it meets standards
+4. **Maintain architectural coherence** — Claude owns the big picture, Codex executes bounded tasks
+
+### CRITICAL — No Duplicate Work Rule
+
+**Before starting implementation of ANY task, Claude MUST:**
+
+1. **Check `tasks/` directory** for existing task briefs that cover the same work
+2. **Ask the user** if Codex is currently running or queued to run on overlapping files/packages
+3. **If a task brief exists for the work** — DO NOT implement it. The brief was written for Codex. Claude's job is to work on *different* sub-tasks that don't overlap, or wait.
+
+**This rule exists because:** Context compaction can cause Claude to forget that it already delegated work to Codex. After compaction, Claude may see "Phase 1-3 pending" in a plan and start implementing — not realising those phases were already assigned to Codex via a task brief. The result is two agents writing identical code in parallel, wasting time and causing conflicts.
+
+**The safeguard is simple:** Always check `tasks/` before writing code. If a brief covers the work, it's Codex's job. If no brief exists, it's Claude's job.
+
+### Codex Strengths (Delegate These)
+
+| Task Type | Why Codex Excels | Example |
+|-----------|-----------------|---------|
+| **Security audit / hardening** | Stronger cybersecurity capabilities | "Audit auth middleware for OWASP Top 10" |
+| **Long-horizon refactoring** | Context compaction across 20+ files | "Add domain scoping to all handlers" |
+| **Large migration tasks** | Methodical, consistent, patient | "Migrate all error checks to `errors.Is()`" |
+| **Novel architecture design** | Deep reasoning on unconventional problems | "Design commercial multi-tenant framework" |
+| **Comprehensive test suites** | Thorough, won't rush edge cases | "Full auth flow integration tests" |
+| **Cross-cutting concerns** | Consistency across entire codebase | "Add audit logging to every write handler" |
+
+### Claude Strengths (Keep In-House)
+
+| Task Type | Why Claude Excels | Example |
+|-----------|------------------|---------|
+| **Interactive debugging** | Higher root cause accuracy, fewer iterations | "This handler returns 500, find why" |
+| **Rapid feature sprints** | Fast, matches existing codebase patterns | "Add a new GET endpoint for panel status" |
+| **Code review / explanation** | Understands existing code intent deeply | "Walk me through KNX bridge flow" |
+| **Real-time pair programming** | Adapts to feedback instantly | "Let's build this together" |
+| **Architectural decisions** | Owns the big picture, maintains consistency | "Should we use Option A or B?" |
+
+### Task Brief Format
+
+When delegating to Codex, Claude writes a task brief to `tasks/<task-name>.md`:
+
+```markdown
+# Task: [Short Description]
+
+## Context
+[What exists, why this task matters, architectural constraints]
+
+## Objective
+[Exactly what Codex should produce — files, functions, tests]
+
+## Key Files
+[List every file Codex needs to read or modify, with brief descriptions]
+
+## Constraints
+- Must pass `golangci-lint run` with zero issues
+- Must pass `go test -race -count=1 ./...`
+- Follow existing patterns in [reference file]
+- Do NOT modify [protected files] without explicit instruction
+- [Any project-specific rules: no cloud deps, offline-first, etc.]
+
+## Acceptance Criteria
+- [ ] [Specific, testable criterion]
+- [ ] [Specific, testable criterion]
+- [ ] All tests pass, lint clean, builds successfully
+
+## Reference Patterns
+[Code snippets or file references showing the style/approach to follow]
+```
+
+### Orchestration Flow
+
+```
+User requests work
+       │
+  Claude plans task
+       │
+  ┌────▼─────────────────────────────────┐
+  │ Delegation assessment:                │
+  │                                       │
+  │ 📋 Task: [description]               │
+  │ ├── A: [Claude — reason]             │
+  │ ├── B: [Codex — reason]              │
+  │ └── C: [Claude — reason]             │
+  │                                       │
+  │ For Codex sub-tasks:                  │
+  │ → Write brief to tasks/              │
+  │ → Tell user: "Task B ready for Codex"│
+  └──────────────────────────────────────┘
+       │
+  Claude executes own sub-tasks
+       │
+  User runs Codex on its brief
+       │
+  Claude reviews Codex output
+  (build, test, lint, architectural fit)
+       │
+  Integration complete
+```
+
+### Review Checklist (After Codex Completes)
+
+When reviewing Codex output, Claude should verify:
+- [ ] Builds cleanly (`go build ./...`)
+- [ ] Tests pass with race detection (`go test -race -count=1 ./...`)
+- [ ] Lint clean (`golangci-lint run`)
+- [ ] Follows existing code patterns and naming conventions
+- [ ] No security regressions (no hardcoded secrets, no SQL injection, etc.)
+- [ ] Respects project principles (offline-first, no cloud deps, safety boundaries)
+- [ ] Consistent with the architectural decisions in the plan
 
 ## Common Commands
 
@@ -249,7 +367,7 @@ Focused code reviewers for targeted analysis. Each reviews against our documente
 
 ## Current Focus
 
-**Phase**: Year 1 — Foundation  
-**Completed**: M1.1 (Infrastructure), M1.2 (KNX Bridge), M1.3 (Device Registry), M1.4 (REST API + WebSocket)  
+**Phase**: Year 1 Complete — Transitioning to Year 2  
+**Completed**: M1.1 (Infrastructure), M1.2 (KNX Bridge), M1.3 (Device Registry), M1.4 (REST API + WebSocket), M1.5 (Flutter Wall Panel), M1.6 (Basic Scenes), M1.7 (Auth Hardening)  
 **Active Work**: See `PROJECT-STATUS.md` for current progress  
-**Next**: M1.5
+**Next**: Year 2 kick-off (M2.1 Area/Room hierarchy), Flutter auth integration

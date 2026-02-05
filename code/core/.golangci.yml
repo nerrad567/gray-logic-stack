@@ -324,6 +324,11 @@ issues:
       linters:
         - mnd
 
+    # API handlers intentionally share patterns; allow duplication there.
+    - path: internal/api/.*
+      linters:
+        - dupl
+
     # Exclude main.go from some checks (entry point is special)
     - path: cmd/.*/main\.go
       linters:

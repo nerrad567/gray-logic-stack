@@ -42,6 +42,10 @@ type Device struct {
 	Model           *string `json:"model,omitempty"`
 	FirmwareVersion *string `json:"firmware_version,omitempty"`
 
+	// Tags are free-form string labels for filtering and exception-based operations.
+	// Example: ["escape_lighting", "accent", "entertainment"]
+	Tags []string `json:"tags,omitempty"`
+
 	// Timestamps
 	CreatedAt time.Time `json:"created_at"`
 	UpdatedAt time.Time `json:"updated_at"`
@@ -66,6 +70,11 @@ func (d *Device) DeepCopy() *Device {
 	if d.Capabilities != nil {
 		cpy.Capabilities = make([]Capability, len(d.Capabilities))
 		copy(cpy.Capabilities, d.Capabilities)
+	}
+
+	if d.Tags != nil {
+		cpy.Tags = make([]string, len(d.Tags))
+		copy(cpy.Tags, d.Tags)
 	}
 
 	// Deep copy PHMBaseline pointer to map

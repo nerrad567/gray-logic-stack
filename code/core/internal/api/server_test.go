@@ -15,11 +15,55 @@ import (
 	"github.com/gorilla/websocket"
 	_ "github.com/mattn/go-sqlite3"
 
+	"github.com/nerrad567/gray-logic-core/internal/auth"
+	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/location"
 )
+
+// testJWTSecret is the shared secret used by test servers.
+const testJWTSecret = "test-secret-key-at-least-32-characters-long"
+
+// testAdminToken generates a valid admin JWT for test requests.
+func testAdminToken(t *testing.T) string {
+	t.Helper()
+	user := &auth.User{
+		ID:       "test-admin",
+		Username: "admin",
+		Role:     auth.RoleAdmin,
+		IsActive: true,
+	}
+	token, err := auth.GenerateAccessToken(user, testJWTSecret, 15)
+	if err != nil {
+		t.Fatalf("failed to generate test token: %v", err)
+	}
+	return token
+}
+
+// testRoleToken generates a valid JWT for the specified role and user ID.
+func testRoleToken(t *testing.T, role auth.Role, userID string) string {
+	t.Helper()
+	user := &auth.User{
+		ID:       userID,
+		Username: userID,
+		Role:     role,
+		IsActive: true,
+	}
+	token, err := auth.GenerateAccessToken(user, testJWTSecret, 15)
+	if err != nil {
+		t.Fatalf("failed to generate test token: %v", err)
+	}
+	return token
+}
+
+// authReq adds a valid admin Bearer token to an HTTP request.
+func authReq(t *testing.T, req *http.Request) *http.Request {
+	t.Helper()
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleAdmin, "test-admin"))
+	return req
+}
 
 // testServer creates a Server with a real device registry backed by in-memory SQLite.
 func testServer(t *testing.T) (*Server, *device.Registry) {
@@ -51,7 +95,7 @@ func testServer(t *testing.T) (*Server, *device.Registry) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         "test-secret-key-at-least-32-characters-long",
+				Secret:         testJWTSecret,
 				AccessTokenTTL: 15,
 			},
 		},
@@ -121,6 +165,152 @@ func setupTestDB(t *testing.T) *sql.DB {
 
 	t.Cleanup(func() { db.Close() })
 	return db
+}
+
+// setupAuthTestDB creates an in-memory SQLite database with auth-related tables.
+func setupAuthTestDB(t *testing.T) *sql.DB {
+	t.Helper()
+
+	db, err := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+	if err != nil {
+		t.Fatalf("failed to open auth test database: %v", err)
+	}
+
+	schema := `
+		CREATE TABLE areas (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL
+		) STRICT;
+
+		CREATE TABLE rooms (
+			id TEXT PRIMARY KEY,
+			area_id TEXT NOT NULL,
+			name TEXT NOT NULL,
+			FOREIGN KEY (area_id) REFERENCES areas(id) ON DELETE CASCADE
+		) STRICT;
+
+		CREATE TABLE users (
+			id TEXT PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
+			display_name TEXT NOT NULL,
+			email TEXT,
+			password_hash TEXT NOT NULL,
+			role TEXT NOT NULL DEFAULT 'user',
+			is_active INTEGER NOT NULL DEFAULT 1,
+			created_by TEXT,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+		) STRICT;
+
+		CREATE TABLE refresh_tokens (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			family_id TEXT NOT NULL,
+			token_hash TEXT NOT NULL,
+			device_info TEXT,
+			expires_at TEXT NOT NULL,
+			revoked INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) STRICT;
+
+		CREATE TABLE panels (
+			id TEXT PRIMARY KEY,
+			name TEXT NOT NULL,
+			token_hash TEXT NOT NULL,
+			is_active INTEGER NOT NULL DEFAULT 1,
+			last_seen_at TEXT,
+			created_by TEXT,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+		) STRICT;
+
+		CREATE TABLE panel_room_access (
+			panel_id TEXT NOT NULL,
+			room_id TEXT NOT NULL,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			PRIMARY KEY (panel_id, room_id),
+			FOREIGN KEY (panel_id) REFERENCES panels(id) ON DELETE CASCADE,
+			FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE
+		) STRICT;
+
+		CREATE TABLE user_room_access (
+			user_id TEXT NOT NULL,
+			room_id TEXT NOT NULL,
+			can_manage_scenes INTEGER NOT NULL DEFAULT 0,
+			created_by TEXT,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			PRIMARY KEY (user_id, room_id),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE,
+			FOREIGN KEY (room_id) REFERENCES rooms(id) ON DELETE CASCADE,
+			FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+		) STRICT;
+	`
+
+	if _, execErr := db.Exec(schema); execErr != nil {
+		db.Close()
+		t.Fatalf("failed to create auth schema: %v", execErr)
+	}
+
+	t.Cleanup(func() { db.Close() })
+	return db
+}
+
+func seedAuthRooms(t *testing.T, db *sql.DB) {
+	t.Helper()
+
+	_, err := db.Exec(`
+		INSERT INTO areas (id, name) VALUES ('area-1', 'Area 1');
+		INSERT INTO rooms (id, area_id, name) VALUES ('room-a', 'area-1', 'Room A');
+		INSERT INTO rooms (id, area_id, name) VALUES ('room-b', 'area-1', 'Room B');
+	`)
+	if err != nil {
+		t.Fatalf("seeding auth rooms: %v", err)
+	}
+}
+
+func createTestUser(t *testing.T, repo auth.UserRepository, id, username, password string, role auth.Role, active bool) *auth.User {
+	t.Helper()
+
+	hash, err := auth.HashPassword(password)
+	if err != nil {
+		t.Fatalf("hashing password: %v", err)
+	}
+
+	user := &auth.User{
+		ID:           id,
+		Username:     username,
+		DisplayName:  username,
+		PasswordHash: hash,
+		Role:         role,
+		IsActive:     active,
+	}
+	if err := repo.Create(context.Background(), user); err != nil {
+		t.Fatalf("create user %s: %v", username, err)
+	}
+	return user
+}
+
+func createDeviceWithRoom(t *testing.T, registry *device.Registry, name, roomID, ga string) *device.Device {
+	t.Helper()
+
+	room := roomID
+	dev := &device.Device{
+		Name:     name,
+		RoomID:   &room,
+		Type:     device.DeviceTypeLightSwitch,
+		Domain:   device.DomainLighting,
+		Protocol: device.ProtocolKNX,
+		Address: device.Address{"functions": map[string]any{
+			"switch": map[string]any{"ga": ga, "dpt": "1.001", "flags": []any{"write"}},
+		}},
+		Capabilities: []device.Capability{device.CapOnOff},
+	}
+	if err := registry.CreateDevice(context.Background(), dev); err != nil {
+		t.Fatalf("CreateDevice: %v", err)
+	}
+	return dev
 }
 
 // ─── Health Endpoint Tests ─────────────────────────────────────────
@@ -231,7 +421,7 @@ func TestListDevices_Empty(t *testing.T) {
 	srv, _ := testServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -262,7 +452,7 @@ func TestCreateAndGetDevice(t *testing.T) {
 		"capabilities": ["on_off", "dim"]
 	}`
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/devices", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -284,7 +474,7 @@ func TestCreateAndGetDevice(t *testing.T) {
 	}
 
 	// Get device by ID
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+created.ID, nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+created.ID, nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -306,7 +496,7 @@ func TestGetDevice_NotFound(t *testing.T) {
 	srv, _ := testServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/nonexistent-id", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices/nonexistent-id", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -334,7 +524,7 @@ func TestUpdateDevice(t *testing.T) {
 	}
 
 	body := `{"name": "Updated"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/devices/"+dev.ID, strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPatch, "/api/v1/devices/"+dev.ID, strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -371,7 +561,7 @@ func TestDeleteDevice(t *testing.T) {
 		t.Fatalf("CreateDevice: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/devices/"+dev.ID, nil)
+	req := authReq(t, httptest.NewRequest(http.MethodDelete, "/api/v1/devices/"+dev.ID, nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -380,7 +570,7 @@ func TestDeleteDevice(t *testing.T) {
 	}
 
 	// Confirm gone
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+dev.ID, nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+dev.ID, nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -409,7 +599,7 @@ func TestListDevices_FilterByDomain(t *testing.T) {
 	}
 
 	// Filter by domain=lighting
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices?domain=lighting", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices?domain=lighting", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -427,7 +617,7 @@ func TestListDevices_FilterByDomain(t *testing.T) {
 	}
 
 	// Filter by domain=climate (should be empty)
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/devices?domain=climate", nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices?domain=climate", nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -466,7 +656,7 @@ func TestGetDeviceState(t *testing.T) {
 		t.Fatalf("SetDeviceState: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+dev.ID+"/state", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+dev.ID+"/state", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -508,7 +698,7 @@ func TestSetDeviceState_MissingCommand(t *testing.T) {
 	}
 
 	body := `{"parameters": {"level": 50}}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/devices/"+dev.ID+"/state", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPut, "/api/v1/devices/"+dev.ID+"/state", strings.NewReader(body)))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -522,7 +712,7 @@ func TestSetDeviceState_DeviceNotFound(t *testing.T) {
 	router := srv.buildRouter()
 
 	body := `{"command": "on"}`
-	req := httptest.NewRequest(http.MethodPut, "/api/v1/devices/nonexistent/state", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPut, "/api/v1/devices/nonexistent/state", strings.NewReader(body)))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -551,7 +741,7 @@ func TestDeviceStats(t *testing.T) {
 		t.Fatalf("CreateDevice: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/stats", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/devices/stats", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -566,7 +756,7 @@ func TestCreateDevice_InvalidJSON(t *testing.T) {
 	srv, _ := testServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", strings.NewReader("not json"))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/devices", strings.NewReader("not json")))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -578,11 +768,27 @@ func TestCreateDevice_InvalidJSON(t *testing.T) {
 
 // ─── Auth Tests ────────────────────────────────────────────────────
 
+func testServerWithAuth(t *testing.T) (*Server, *device.Registry, *sql.DB) {
+	t.Helper()
+	srv, registry := testServer(t)
+	authDB := setupAuthTestDB(t)
+
+	// Seed a test admin user with password "testpass123"
+	userRepo := auth.NewUserRepository(authDB)
+	createTestUser(t, userRepo, "test-admin", "admin", "testpass123", auth.RoleAdmin, true)
+
+	srv.userRepo = userRepo
+	srv.tokenRepo = auth.NewTokenRepository(authDB)
+	srv.panelRepo = auth.NewPanelRepository(authDB)
+	srv.roomAccessRepo = auth.NewRoomAccessRepository(authDB)
+	return srv, registry, authDB
+}
+
 func TestLogin_Success(t *testing.T) {
-	srv, _ := testServer(t)
+	srv, _, _ := testServerWithAuth(t)
 	router := srv.buildRouter()
 
-	body := `{"username": "admin", "password": "admin"}`
+	body := `{"username": "admin", "password": "testpass123"}`
 	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(body))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -599,13 +805,16 @@ func TestLogin_Success(t *testing.T) {
 	if resp.AccessToken == "" {
 		t.Error("expected access_token to be non-empty")
 	}
+	if resp.RefreshToken == "" {
+		t.Error("expected refresh_token to be non-empty")
+	}
 	if resp.TokenType != "Bearer" {
 		t.Errorf("token_type = %q, want Bearer", resp.TokenType)
 	}
 }
 
 func TestLogin_InvalidCredentials(t *testing.T) {
-	srv, _ := testServer(t)
+	srv, _, _ := testServerWithAuth(t)
 	router := srv.buildRouter()
 
 	body := `{"username": "admin", "password": "wrong"}`
@@ -618,11 +827,230 @@ func TestLogin_InvalidCredentials(t *testing.T) {
 	}
 }
 
+func TestRefresh_TokenRotation(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username": "admin", "password": "testpass123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginW := httptest.NewRecorder()
+	router.ServeHTTP(loginW, loginReq)
+
+	if loginW.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want %d; body: %s", loginW.Code, http.StatusOK, loginW.Body.String())
+	}
+
+	var loginResp loginResponse
+	if err := json.Unmarshal(loginW.Body.Bytes(), &loginResp); err != nil {
+		t.Fatalf("unmarshal login: %v", err)
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	refreshReq.Header.Set("Content-Type", "application/json")
+	refreshW := httptest.NewRecorder()
+	router.ServeHTTP(refreshW, refreshReq)
+
+	if refreshW.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d; body: %s", refreshW.Code, http.StatusOK, refreshW.Body.String())
+	}
+
+	var refreshResp refreshResponse
+	if err := json.Unmarshal(refreshW.Body.Bytes(), &refreshResp); err != nil {
+		t.Fatalf("unmarshal refresh: %v", err)
+	}
+
+	if refreshResp.AccessToken == "" {
+		t.Error("expected access_token to be non-empty")
+	}
+	if refreshResp.RefreshToken == "" {
+		t.Error("expected refresh_token to be non-empty")
+	}
+	if refreshResp.RefreshToken == loginResp.RefreshToken {
+		t.Error("expected refresh token to rotate")
+	}
+}
+
+func TestRefresh_TheftDetection(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username": "admin", "password": "testpass123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginW := httptest.NewRecorder()
+	router.ServeHTTP(loginW, loginReq)
+
+	if loginW.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want %d; body: %s", loginW.Code, http.StatusOK, loginW.Body.String())
+	}
+
+	var loginResp loginResponse
+	if err := json.Unmarshal(loginW.Body.Bytes(), &loginResp); err != nil {
+		t.Fatalf("unmarshal login: %v", err)
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	refreshReq.Header.Set("Content-Type", "application/json")
+	refreshW := httptest.NewRecorder()
+	router.ServeHTTP(refreshW, refreshReq)
+
+	if refreshW.Code != http.StatusOK {
+		t.Fatalf("refresh status = %d, want %d; body: %s", refreshW.Code, http.StatusOK, refreshW.Body.String())
+	}
+
+	var refreshResp refreshResponse
+	if err := json.Unmarshal(refreshW.Body.Bytes(), &refreshResp); err != nil {
+		t.Fatalf("unmarshal refresh: %v", err)
+	}
+
+	reuseReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	reuseReq.Header.Set("Content-Type", "application/json")
+	reuseW := httptest.NewRecorder()
+	router.ServeHTTP(reuseW, reuseReq)
+
+	if reuseW.Code != http.StatusUnauthorized {
+		t.Errorf("reuse status = %d, want %d", reuseW.Code, http.StatusUnauthorized)
+	}
+
+	secondReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, refreshResp.RefreshToken)))
+	secondReq.Header.Set("Content-Type", "application/json")
+	secondW := httptest.NewRecorder()
+	router.ServeHTTP(secondW, secondReq)
+
+	if secondW.Code != http.StatusUnauthorized {
+		t.Errorf("new token status = %d, want %d", secondW.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestRefresh_ExpiredToken(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	rawToken := "expired-refresh-token"
+	rt := &auth.RefreshToken{
+		UserID:    "test-admin",
+		TokenHash: auth.HashToken(rawToken),
+		ExpiresAt: time.Now().Add(-1 * time.Hour),
+	}
+	if err := srv.tokenRepo.Create(context.Background(), rt); err != nil {
+		t.Fatalf("create refresh token: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, rawToken)))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestChangePassword_RevokesSessions(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username": "admin", "password": "testpass123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginW := httptest.NewRecorder()
+	router.ServeHTTP(loginW, loginReq)
+
+	if loginW.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want %d; body: %s", loginW.Code, http.StatusOK, loginW.Body.String())
+	}
+
+	var loginResp loginResponse
+	if err := json.Unmarshal(loginW.Body.Bytes(), &loginResp); err != nil {
+		t.Fatalf("unmarshal login: %v", err)
+	}
+
+	changeReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/change-password",
+		strings.NewReader(`{"current_password": "testpass123", "new_password": "newpass456"}`))
+	changeReq.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+	changeReq.Header.Set("Content-Type", "application/json")
+	changeW := httptest.NewRecorder()
+	router.ServeHTTP(changeW, changeReq)
+
+	if changeW.Code != http.StatusOK {
+		t.Fatalf("change-password status = %d, want %d; body: %s", changeW.Code, http.StatusOK, changeW.Body.String())
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	refreshReq.Header.Set("Content-Type", "application/json")
+	refreshW := httptest.NewRecorder()
+	router.ServeHTTP(refreshW, refreshReq)
+
+	if refreshW.Code != http.StatusUnauthorized {
+		t.Errorf("refresh status = %d, want %d", refreshW.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestInactiveUser_CannotLogin(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	createTestUser(t, srv.userRepo, "user-inactive", "inactive", "inactive-pass", auth.RoleUser, false)
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username": "inactive", "password": "inactive-pass"}`))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusUnauthorized {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusUnauthorized)
+	}
+}
+
+func TestLogout_RevokesTokenFamily(t *testing.T) {
+	srv, _, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	loginReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/login", strings.NewReader(`{"username": "admin", "password": "testpass123"}`))
+	loginReq.Header.Set("Content-Type", "application/json")
+	loginW := httptest.NewRecorder()
+	router.ServeHTTP(loginW, loginReq)
+
+	if loginW.Code != http.StatusOK {
+		t.Fatalf("login status = %d, want %d; body: %s", loginW.Code, http.StatusOK, loginW.Body.String())
+	}
+
+	var loginResp loginResponse
+	if err := json.Unmarshal(loginW.Body.Bytes(), &loginResp); err != nil {
+		t.Fatalf("unmarshal login: %v", err)
+	}
+
+	logoutReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/logout",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	logoutReq.Header.Set("Authorization", "Bearer "+loginResp.AccessToken)
+	logoutReq.Header.Set("Content-Type", "application/json")
+	logoutW := httptest.NewRecorder()
+	router.ServeHTTP(logoutW, logoutReq)
+
+	if logoutW.Code != http.StatusOK {
+		t.Fatalf("logout status = %d, want %d; body: %s", logoutW.Code, http.StatusOK, logoutW.Body.String())
+	}
+
+	refreshReq := httptest.NewRequest(http.MethodPost, "/api/v1/auth/refresh",
+		strings.NewReader(fmt.Sprintf(`{"refresh_token": "%s"}`, loginResp.RefreshToken)))
+	refreshReq.Header.Set("Content-Type", "application/json")
+	refreshW := httptest.NewRecorder()
+	router.ServeHTTP(refreshW, refreshReq)
+
+	if refreshW.Code != http.StatusUnauthorized {
+		t.Errorf("refresh status = %d, want %d", refreshW.Code, http.StatusUnauthorized)
+	}
+}
+
 func TestWSTicket_SingleUse(t *testing.T) {
 	srv, _ := testServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/auth/ws-ticket", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/auth/ws-ticket", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -641,12 +1069,12 @@ func TestWSTicket_SingleUse(t *testing.T) {
 	}
 
 	// Ticket should be valid once
-	if !validateTicket(ticket) {
+	if _, ok := validateTicket(ticket); !ok {
 		t.Error("ticket should be valid on first use")
 	}
 
 	// Ticket should be consumed (single-use)
-	if validateTicket(ticket) {
+	if _, ok := validateTicket(ticket); ok {
 		t.Error("ticket should not be valid on second use")
 	}
 }
@@ -659,8 +1087,281 @@ func TestWSTicket_Expiry(t *testing.T) {
 	}
 	wsTickets.mu.Unlock()
 
-	if validateTicket(ticket) {
+	if _, ok := validateTicket(ticket); ok {
 		t.Error("expired ticket should not be valid")
+	}
+}
+
+// ─── Authorisation and Room Scope Tests ────────────────────────────
+
+func TestPermission_UserCannotConfigureDevice(t *testing.T) {
+	srv, _ := testServer(t)
+	router := srv.buildRouter()
+
+	body := `{"name":"Test Device","type":"light_switch","domain":"lighting","protocol":"knx","address":{"functions":{"switch":{"ga":"1/2/10","dpt":"1.001","flags":["write"]}}},"capabilities":["on_off"]}`
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/devices", strings.NewReader(body))
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, "user-1"))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestPermission_UserCannotManageUsers(t *testing.T) {
+	srv, _ := testServer(t)
+	router := srv.buildRouter()
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/users", nil)
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, "user-1"))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestRoomScope_UserSeesOnlyGrantedRooms(t *testing.T) {
+	srv, registry, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+	user := createTestUser(t, srv.userRepo, "user-room", "roomuser", "testpass123", auth.RoleUser, true)
+
+	grants := []auth.RoomAccessGrant{
+		{RoomID: "room-a", CanManageScenes: false},
+	}
+	if err := srv.roomAccessRepo.SetRoomAccess(context.Background(), user.ID, grants, "test-admin"); err != nil {
+		t.Fatalf("set room access: %v", err)
+	}
+
+	createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/11")
+	createDeviceWithRoom(t, registry, "Light B", "room-b", "1/2/12")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp struct {
+		Devices []device.Device `json:"devices"`
+		Count   int             `json:"count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if resp.Count != 1 {
+		t.Fatalf("count = %d, want 1", resp.Count)
+	}
+	if len(resp.Devices) != 1 {
+		t.Fatalf("devices len = %d, want 1", len(resp.Devices))
+	}
+	if resp.Devices[0].RoomID == nil || *resp.Devices[0].RoomID != "room-a" {
+		t.Errorf("room_id = %v, want room-a", resp.Devices[0].RoomID)
+	}
+}
+
+func TestRoomScope_UserCannotAccessOtherRoom(t *testing.T) {
+	srv, registry, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+	user := createTestUser(t, srv.userRepo, "user-room", "roomuser", "testpass123", auth.RoleUser, true)
+
+	grants := []auth.RoomAccessGrant{
+		{RoomID: "room-a", CanManageScenes: false},
+	}
+	if err := srv.roomAccessRepo.SetRoomAccess(context.Background(), user.ID, grants, "test-admin"); err != nil {
+		t.Fatalf("set room access: %v", err)
+	}
+
+	createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/13")
+	other := createDeviceWithRoom(t, registry, "Light B", "room-b", "1/2/14")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+other.ID, nil)
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestRoomScope_UserCannotOperateOtherRoom(t *testing.T) {
+	srv, registry, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+	user := createTestUser(t, srv.userRepo, "user-room", "roomuser", "testpass123", auth.RoleUser, true)
+
+	grants := []auth.RoomAccessGrant{
+		{RoomID: "room-a", CanManageScenes: false},
+	}
+	if err := srv.roomAccessRepo.SetRoomAccess(context.Background(), user.ID, grants, "test-admin"); err != nil {
+		t.Fatalf("set room access: %v", err)
+	}
+
+	createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/15")
+	other := createDeviceWithRoom(t, registry, "Light B", "room-b", "1/2/16")
+
+	req := httptest.NewRequest(http.MethodPut, "/api/v1/devices/"+other.ID+"/state", strings.NewReader(`{"command": "on"}`))
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusForbidden {
+		t.Errorf("status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestRoomScope_AdminBypassesRoomScope(t *testing.T) {
+	srv, registry, _ := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/17")
+	createDeviceWithRoom(t, registry, "Light B", "room-b", "1/2/18")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.Header.Set("Authorization", "Bearer "+testAdminToken(t))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if resp.Count != 2 {
+		t.Errorf("count = %d, want 2", resp.Count)
+	}
+}
+
+func TestRoomScope_UserWithNoRooms(t *testing.T) {
+	srv, registry, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+	user := createTestUser(t, srv.userRepo, "user-empty", "empty", "testpass123", auth.RoleUser, true)
+
+	createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/19")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices", nil)
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+
+	if w.Code != http.StatusOK {
+		t.Fatalf("status = %d, want %d; body: %s", w.Code, http.StatusOK, w.Body.String())
+	}
+
+	var resp struct {
+		Count int `json:"count"`
+	}
+	if err := json.Unmarshal(w.Body.Bytes(), &resp); err != nil {
+		t.Fatalf("unmarshal: %v", err)
+	}
+
+	if resp.Count != 0 {
+		t.Errorf("count = %d, want 0", resp.Count)
+	}
+}
+
+func TestPanelAuth_RoomScoped(t *testing.T) {
+	srv, registry, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+
+	rawToken := "panel-token"
+	panel := &auth.Panel{
+		ID:        "panel-1",
+		Name:      "Test Panel",
+		TokenHash: auth.HashToken(rawToken),
+		IsActive:  true,
+	}
+	if err := srv.panelRepo.Create(context.Background(), panel); err != nil {
+		t.Fatalf("create panel: %v", err)
+	}
+	if err := srv.panelRepo.SetRooms(context.Background(), panel.ID, []string{"room-a"}); err != nil {
+		t.Fatalf("set panel rooms: %v", err)
+	}
+
+	allowed := createDeviceWithRoom(t, registry, "Light A", "room-a", "1/2/20")
+	denied := createDeviceWithRoom(t, registry, "Light B", "room-b", "1/2/21")
+
+	req := httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+allowed.ID, nil)
+	req.Header.Set("X-Panel-Token", rawToken)
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusOK {
+		t.Fatalf("allowed status = %d, want %d", w.Code, http.StatusOK)
+	}
+
+	req = httptest.NewRequest(http.MethodGet, "/api/v1/devices/"+denied.ID, nil)
+	req.Header.Set("X-Panel-Token", rawToken)
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("denied status = %d, want %d", w.Code, http.StatusForbidden)
+	}
+}
+
+func TestSceneManage_RoomScoped(t *testing.T) {
+	srv, _, authDB := testServerWithAuth(t)
+	router := srv.buildRouter()
+
+	seedAuthRooms(t, authDB)
+	user := createTestUser(t, srv.userRepo, "user-scenes", "scenes", "testpass123", auth.RoleUser, true)
+
+	sceneDB := setupSceneTestDB(t)
+	sceneRepo := automation.NewSQLiteRepository(sceneDB)
+	sceneRegistry := automation.NewRegistry(sceneRepo)
+	if err := sceneRegistry.RefreshCache(context.Background()); err != nil {
+		t.Fatalf("RefreshCache: %v", err)
+	}
+	srv.sceneRegistry = sceneRegistry
+	srv.sceneRepo = sceneRepo
+
+	grants := []auth.RoomAccessGrant{
+		{RoomID: "room-a", CanManageScenes: true},
+		{RoomID: "room-b", CanManageScenes: false},
+	}
+	if err := srv.roomAccessRepo.SetRoomAccess(context.Background(), user.ID, grants, "test-admin"); err != nil {
+		t.Fatalf("set room access: %v", err)
+	}
+
+	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(`{"name":"Morning","room_id":"room-a","actions":[{"device_id":"light-1","command":"on"}]}`))
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	req.Header.Set("Content-Type", "application/json")
+	w := httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusCreated {
+		t.Fatalf("create status = %d, want %d; body: %s", w.Code, http.StatusCreated, w.Body.String())
+	}
+
+	req = httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(`{"name":"Evening","room_id":"room-b","actions":[{"device_id":"light-1","command":"off"}]}`))
+	req.Header.Set("Authorization", "Bearer "+testRoleToken(t, auth.RoleUser, user.ID))
+	req.Header.Set("Content-Type", "application/json")
+	w = httptest.NewRecorder()
+	router.ServeHTTP(w, req)
+	if w.Code != http.StatusForbidden {
+		t.Errorf("denied status = %d, want %d", w.Code, http.StatusForbidden)
 	}
 }
 
@@ -934,7 +1635,7 @@ func testServerWithLocation(t *testing.T) (*Server, *mockLocationRepo) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         "test-secret-key-at-least-32-characters-long",
+				Secret:         testJWTSecret,
 				AccessTokenTTL: 15,
 			},
 		},
@@ -960,7 +1661,7 @@ func TestCreateArea(t *testing.T) {
 
 	t.Run("creates area successfully", func(t *testing.T) {
 		body := `{"id":"area-1","name":"Ground Floor","site_id":"site-1"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body))
+		req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body)))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -976,7 +1677,7 @@ func TestCreateArea(t *testing.T) {
 
 	t.Run("returns 400 for missing fields", func(t *testing.T) {
 		body := `{"id":"area-2"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body))
+		req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body)))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -987,7 +1688,7 @@ func TestCreateArea(t *testing.T) {
 	})
 
 	t.Run("returns 400 for invalid JSON", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader("not json"))
+		req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader("not json")))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -1004,7 +1705,7 @@ func TestCreateRoom(t *testing.T) {
 
 	t.Run("creates room successfully", func(t *testing.T) {
 		body := `{"id":"room-1","name":"Living Room","area_id":"area-1"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body))
+		req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body)))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -1020,7 +1721,7 @@ func TestCreateRoom(t *testing.T) {
 
 	t.Run("returns 400 for missing fields", func(t *testing.T) {
 		body := `{"id":"room-2"}`
-		req := httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body))
+		req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/rooms", strings.NewReader(body)))
 		req.Header.Set("Content-Type", "application/json")
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
@@ -1043,7 +1744,7 @@ func TestListAreas(t *testing.T) {
 	}
 
 	t.Run("lists all areas", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/areas", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1059,7 +1760,7 @@ func TestListAreas(t *testing.T) {
 	})
 
 	t.Run("filters by site_id", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/areas?site_id=site-1", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas?site_id=site-1", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1084,7 +1785,7 @@ func TestGetArea(t *testing.T) {
 	}
 
 	t.Run("returns area by ID", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/areas/area-1", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas/area-1", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1100,7 +1801,7 @@ func TestGetArea(t *testing.T) {
 	})
 
 	t.Run("returns 404 for unknown ID", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/areas/nonexistent", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas/nonexistent", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1121,7 +1822,7 @@ func TestListRooms(t *testing.T) {
 	}
 
 	t.Run("lists all rooms", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1137,7 +1838,7 @@ func TestListRooms(t *testing.T) {
 	})
 
 	t.Run("filters by area_id", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms?area_id=area-1", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms?area_id=area-1", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1162,7 +1863,7 @@ func TestGetRoom(t *testing.T) {
 	}
 
 	t.Run("returns room by ID", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms/room-1", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms/room-1", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1178,7 +1879,7 @@ func TestGetRoom(t *testing.T) {
 	})
 
 	t.Run("returns 404 for unknown ID", func(t *testing.T) {
-		req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms/nonexistent", nil)
+		req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms/nonexistent", nil))
 		w := httptest.NewRecorder()
 		router.ServeHTTP(w, req)
 
@@ -1196,7 +1897,7 @@ func TestListAreas_InternalError(t *testing.T) {
 
 	locRepo.listAreasErr = errors.New("database error")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/areas", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -1211,7 +1912,7 @@ func TestListRooms_InternalError(t *testing.T) {
 
 	locRepo.listRoomsErr = errors.New("database error")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -1227,7 +1928,7 @@ func TestCreateArea_InternalError(t *testing.T) {
 	locRepo.createAreaErr = errors.New("database error")
 
 	body := `{"id":"area-1","name":"Ground Floor","site_id":"site-1"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/areas", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -1243,7 +1944,7 @@ func TestGetArea_InternalError(t *testing.T) {
 
 	locRepo.getAreaErr = errors.New("database error")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/areas/area-1", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/areas/area-1", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -1258,7 +1959,7 @@ func TestGetRoom_InternalError(t *testing.T) {
 
 	locRepo.getRoomErr = errors.New("database error")
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/rooms/room-1", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/rooms/room-1", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -1372,7 +2073,7 @@ func TestIsValidationError(t *testing.T) {
 // ─── WebSocket Integration Tests ───────────────────────────────────────────
 
 // testServerWithRealListener creates a server that actually listens on a specific port.
-func testServerWithRealListener(t *testing.T, port int) (*Server, string) {
+func testServerWithRealListener(t *testing.T, port int) (*Server, string) { //nolint:gocognit // test helper: sets up full server with auth
 	t.Helper()
 
 	db := setupTestDB(t)
@@ -1383,6 +2084,60 @@ func testServerWithRealListener(t *testing.T, port int) (*Server, string) {
 	}
 
 	log := logging.New(config.LoggingConfig{Level: "error", Format: "text", Output: "stdout"}, "test")
+
+	// Set up auth database for WebSocket tests that need login
+	authDB, err := sql.Open("sqlite3", ":memory:?_foreign_keys=on")
+	if err != nil {
+		t.Fatalf("open auth db: %v", err)
+	}
+	t.Cleanup(func() { authDB.Close() })
+
+	authSchema := `
+		CREATE TABLE users (
+			id TEXT PRIMARY KEY,
+			username TEXT NOT NULL UNIQUE,
+			display_name TEXT NOT NULL,
+			email TEXT,
+			password_hash TEXT NOT NULL,
+			role TEXT NOT NULL DEFAULT 'user',
+			is_active INTEGER NOT NULL DEFAULT 1,
+			created_by TEXT,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			updated_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			FOREIGN KEY (created_by) REFERENCES users(id) ON DELETE SET NULL
+		) STRICT;
+		CREATE TABLE refresh_tokens (
+			id TEXT PRIMARY KEY,
+			user_id TEXT NOT NULL,
+			family_id TEXT NOT NULL,
+			token_hash TEXT NOT NULL,
+			device_info TEXT,
+			expires_at TEXT NOT NULL,
+			revoked INTEGER NOT NULL DEFAULT 0,
+			created_at TEXT NOT NULL DEFAULT (strftime('%Y-%m-%dT%H:%M:%SZ', 'now')),
+			FOREIGN KEY (user_id) REFERENCES users(id) ON DELETE CASCADE
+		) STRICT;
+	`
+	if _, err := authDB.Exec(authSchema); err != nil { //nolint:govet // shadow: err re-declared in test setup
+		t.Fatalf("create auth schema: %v", err)
+	}
+
+	hash, err := auth.HashPassword("testpass123")
+	if err != nil {
+		t.Fatalf("hash password: %v", err)
+	}
+	userRepo := auth.NewUserRepository(authDB)
+	user := &auth.User{
+		ID:           "test-admin",
+		Username:     "admin",
+		DisplayName:  "Test Admin",
+		PasswordHash: hash,
+		Role:         auth.RoleAdmin,
+		IsActive:     true,
+	}
+	if err := userRepo.Create(context.Background(), user); err != nil { //nolint:govet // shadow: err re-declared in test setup
+		t.Fatalf("create test user: %v", err)
+	}
 
 	srv, err := New(Deps{
 		Config: config.APIConfig{
@@ -1401,14 +2156,16 @@ func testServerWithRealListener(t *testing.T, port int) (*Server, string) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         "test-secret-key-at-least-32-characters-long",
+				Secret:         testJWTSecret,
 				AccessTokenTTL: 15,
 			},
 		},
-		Logger:   log,
-		Registry: registry,
-		MQTT:     nil,
-		Version:  "test",
+		Logger:    log,
+		Registry:  registry,
+		MQTT:      nil,
+		UserRepo:  userRepo,
+		TokenRepo: auth.NewTokenRepository(authDB),
+		Version:   "test",
 	})
 	if err != nil {
 		t.Fatalf("New() error: %v", err)
@@ -1458,7 +2215,7 @@ func TestServer_StartAndClose(t *testing.T) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         "test-secret-key-at-least-32-characters-long",
+				Secret:         testJWTSecret,
 				AccessTokenTTL: 15,
 			},
 		},
@@ -1530,7 +2287,7 @@ func TestWebSocket_FullConnection(t *testing.T) {
 	loginResp, err := http.Post(
 		"http://"+addr+"/api/v1/auth/login",
 		"application/json",
-		strings.NewReader(`{"username":"admin","password":"admin"}`),
+		strings.NewReader(`{"username":"admin","password":"testpass123"}`),
 	)
 	if err != nil {
 		t.Fatalf("login request failed: %v", err)
@@ -1800,7 +2557,7 @@ func connectWebSocket(t *testing.T, addr string) *websocket.Conn {
 	loginResp, err := http.Post(
 		"http://"+addr+"/api/v1/auth/login",
 		"application/json",
-		strings.NewReader(`{"username":"admin","password":"admin"}`),
+		strings.NewReader(`{"username":"admin","password":"testpass123"}`),
 	)
 	if err != nil {
 		t.Fatalf("login failed: %v", err)

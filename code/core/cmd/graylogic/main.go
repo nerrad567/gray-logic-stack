@@ -24,6 +24,7 @@ import (
 
 	"github.com/nerrad567/gray-logic-core/internal/api"
 	"github.com/nerrad567/gray-logic-core/internal/audit"
+	"github.com/nerrad567/gray-logic-core/internal/auth"
 	"github.com/nerrad567/gray-logic-core/internal/automation"
 	"github.com/nerrad567/gray-logic-core/internal/bridges/knx"
 	"github.com/nerrad567/gray-logic-core/internal/device"
@@ -51,6 +52,9 @@ const (
 	stateHistoryRetention     = 30 * 24 * time.Hour
 	stateHistoryPruneInterval = 24 * time.Hour
 	stateHistoryPruneTimeout  = 30 * time.Second
+
+	tokenCleanupInterval = 1 * time.Hour
+	tokenCleanupTimeout  = 30 * time.Second
 )
 
 func main() {
@@ -151,6 +155,11 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 	deviceRegistry := device.NewRegistry(deviceRepo)
 	deviceRegistry.SetLogger(log)
 
+	// Initialise tag repository and wire into registry BEFORE RefreshCache
+	// so that device tags are bulk-loaded during the initial cache population.
+	tagRepo := device.NewSQLiteTagRepository(db.DB)
+	deviceRegistry.SetTagRepository(tagRepo)
+
 	if refreshErr := deviceRegistry.RefreshCache(ctx); refreshErr != nil {
 		return fmt.Errorf("loading device registry: %w", refreshErr)
 	}
@@ -201,9 +210,32 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 	locationRepo := location.NewSQLiteRepository(db.DB)
 	log.Info("location repository initialised")
 
+	// Initialise group repository
+	groupRepo := device.NewSQLiteGroupRepository(db.DB)
+	log.Info("group repository initialised")
+
+	// Initialise zone repository
+	zoneRepo := location.NewSQLiteZoneRepository(db.DB)
+	log.Info("zone repository initialised")
+
 	// Initialise audit log repository
 	auditRepo := audit.NewSQLiteRepository(db.DB)
 	log.Info("audit log repository initialised")
+
+	// Initialise auth repositories
+	userRepo := auth.NewUserRepository(db.DB)
+	tokenRepo := auth.NewTokenRepository(db.DB)
+	panelRepo := auth.NewPanelRepository(db.DB)
+	roomAccessRepo := auth.NewRoomAccessRepository(db.DB)
+	log.Info("auth repositories initialised")
+
+	// Seed owner account on first boot (no users in DB yet)
+	if _, seedErr := auth.SeedOwner(ctx, userRepo, log.Logger); seedErr != nil {
+		return fmt.Errorf("seeding owner account: %w", seedErr)
+	}
+
+	// Start background cleanup of expired refresh tokens
+	startTokenCleanupLoop(ctx, tokenRepo, log)
 
 	// Initialise state history repository
 	stateHistoryRepo := device.NewSQLiteStateHistoryRepository(db.DB)
@@ -246,25 +278,32 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 
 	// Start API server
 	apiServer, err := api.New(api.Deps{
-		Config:        cfg.API,
-		WS:            cfg.WebSocket,
-		Security:      cfg.Security,
-		SiteID:        cfg.Site.ID,
-		Logger:        log,
-		Registry:      deviceRegistry,
-		MQTT:          mqttClient,
-		DB:            db,
-		SceneEngine:   sceneEngine,
-		SceneRegistry: sceneRegistry,
-		SceneRepo:     sceneRepo,
-		LocationRepo:  locationRepo,
-		AuditRepo:     auditRepo,
-		StateHistory:  stateHistoryRepo,
-		TSDB:          tsdbClient,
-		DevMode:       cfg.DevMode,
-		PanelDir:      cfg.PanelDir,
-		ExternalHub:   wsHub,
-		Version:       version + " (" + commit + ")",
+		Config:         cfg.API,
+		WS:             cfg.WebSocket,
+		Security:       cfg.Security,
+		SiteID:         cfg.Site.ID,
+		Logger:         log,
+		Registry:       deviceRegistry,
+		MQTT:           mqttClient,
+		DB:             db,
+		SceneEngine:    sceneEngine,
+		SceneRegistry:  sceneRegistry,
+		SceneRepo:      sceneRepo,
+		LocationRepo:   locationRepo,
+		TagRepo:        tagRepo,
+		GroupRepo:      groupRepo,
+		ZoneRepo:       zoneRepo,
+		AuditRepo:      auditRepo,
+		UserRepo:       userRepo,
+		TokenRepo:      tokenRepo,
+		PanelRepo:      panelRepo,
+		RoomAccessRepo: roomAccessRepo,
+		StateHistory:   stateHistoryRepo,
+		TSDB:           tsdbClient,
+		DevMode:        cfg.DevMode,
+		PanelDir:       cfg.PanelDir,
+		ExternalHub:    wsHub,
+		Version:        version + " (" + commit + ")",
 	})
 	if err != nil {
 		return fmt.Errorf("creating API server: %w", err)
@@ -407,6 +446,51 @@ func startStateHistoryPruneLoop(ctx context.Context, repo *device.SQLiteStateHis
 				return
 			case <-ticker.C:
 				prune()
+			}
+		}
+	}()
+}
+
+// startTokenCleanupLoop starts a background task to delete expired refresh tokens.
+//
+// Parameters:
+//   - ctx: Context used for cancellation on shutdown
+//   - repo: Token repository used for cleanup
+//   - log: Logger for cleanup diagnostics
+func startTokenCleanupLoop(ctx context.Context, repo auth.TokenRepository, log *logging.Logger) {
+	if repo == nil {
+		return
+	}
+
+	go func() {
+		cleanup := func() {
+			cleanupCtx, cancel := context.WithTimeout(ctx, tokenCleanupTimeout)
+			defer cancel()
+
+			deleted, err := repo.DeleteExpired(cleanupCtx)
+			if err != nil {
+				log.Warn("refresh token cleanup failed", "error", err)
+				return
+			}
+			if deleted > 0 {
+				log.Info("expired refresh tokens cleaned up", "deleted", deleted)
+			} else {
+				log.Debug("refresh token cleanup complete", "deleted", deleted)
+			}
+		}
+
+		// Run once on startup.
+		cleanup()
+
+		ticker := time.NewTicker(tokenCleanupInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				cleanup()
 			}
 		}
 	}()

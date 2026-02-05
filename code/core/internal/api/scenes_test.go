@@ -109,7 +109,7 @@ func testSceneServer(t *testing.T) (*Server, *automation.Registry, *mockMQTTClie
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         "test-secret-key-at-least-32-characters-long",
+				Secret:         testJWTSecret,
 				AccessTokenTTL: 15,
 			},
 		},
@@ -193,7 +193,7 @@ func TestListScenes_Empty(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/scenes", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -225,7 +225,7 @@ func TestCreateAndGetScene(t *testing.T) {
 		]
 	}`
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -253,7 +253,7 @@ func TestCreateAndGetScene(t *testing.T) {
 	}
 
 	// Get scene by ID
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+created.ID, nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+created.ID, nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -278,7 +278,7 @@ func TestGetScene_NotFound(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/scenes/nonexistent-id", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes/nonexistent-id", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -291,7 +291,7 @@ func TestCreateScene_InvalidJSON(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader("not json"))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader("not json")))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -306,7 +306,7 @@ func TestCreateScene_NoActions(t *testing.T) {
 	router := srv.buildRouter()
 
 	body := `{"name": "Empty Scene", "actions": []}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -321,7 +321,7 @@ func TestCreateScene_NoName(t *testing.T) {
 	router := srv.buildRouter()
 
 	body := `{"actions": [{"device_id": "light-1", "command": "on", "continue_on_error": true}]}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -347,7 +347,7 @@ func TestUpdateScene(t *testing.T) {
 	}
 
 	body := `{"name": "Updated Name"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/scenes/"+scene.ID, strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPatch, "/api/v1/scenes/"+scene.ID, strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -371,7 +371,7 @@ func TestUpdateScene_NotFound(t *testing.T) {
 	router := srv.buildRouter()
 
 	body := `{"name": "Nope"}`
-	req := httptest.NewRequest(http.MethodPatch, "/api/v1/scenes/nonexistent", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPatch, "/api/v1/scenes/nonexistent", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -396,7 +396,7 @@ func TestDeleteScene(t *testing.T) {
 		t.Fatalf("CreateScene: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/scenes/"+scene.ID, nil)
+	req := authReq(t, httptest.NewRequest(http.MethodDelete, "/api/v1/scenes/"+scene.ID, nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -405,7 +405,7 @@ func TestDeleteScene(t *testing.T) {
 	}
 
 	// Confirm gone
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+scene.ID, nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+scene.ID, nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -418,7 +418,7 @@ func TestDeleteScene_NotFound(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodDelete, "/api/v1/scenes/nonexistent", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodDelete, "/api/v1/scenes/nonexistent", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -446,7 +446,7 @@ func TestListScenes_FilterByCategory(t *testing.T) {
 	}
 
 	// Filter by category=comfort
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/scenes?category=comfort", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes?category=comfort", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -464,7 +464,7 @@ func TestListScenes_FilterByCategory(t *testing.T) {
 	}
 
 	// Filter by category=entertainment (should be empty)
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/scenes?category=entertainment", nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes?category=entertainment", nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -494,7 +494,7 @@ func TestListScenes_FilterByRoom(t *testing.T) {
 		t.Fatalf("CreateScene: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/scenes?room_id=room-living", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes?room_id=room-living", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -531,7 +531,7 @@ func TestActivateScene_Success(t *testing.T) {
 	}
 
 	body := `{"trigger_type": "manual", "trigger_source": "api"}`
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", strings.NewReader(body))
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", strings.NewReader(body)))
 	req.Header.Set("Content-Type", "application/json")
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
@@ -574,7 +574,7 @@ func TestActivateScene_DefaultTrigger(t *testing.T) {
 	}
 
 	// Empty body — should default to manual/api
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -587,7 +587,7 @@ func TestActivateScene_NotFound(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes/nonexistent/activate", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes/nonexistent/activate", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -611,7 +611,7 @@ func TestActivateScene_Disabled(t *testing.T) {
 		t.Fatalf("CreateScene: %v", err)
 	}
 
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -638,7 +638,7 @@ func TestListSceneExecutions(t *testing.T) {
 	}
 
 	// Activate scene to create an execution record
-	req := httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodPost, "/api/v1/scenes/"+scene.ID+"/activate", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -647,7 +647,7 @@ func TestListSceneExecutions(t *testing.T) {
 	}
 
 	// List executions
-	req = httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+scene.ID+"/executions", nil)
+	req = authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes/"+scene.ID+"/executions", nil))
 	w = httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 
@@ -669,7 +669,7 @@ func TestListSceneExecutions_SceneNotFound(t *testing.T) {
 	srv, _, _ := testSceneServer(t)
 	router := srv.buildRouter()
 
-	req := httptest.NewRequest(http.MethodGet, "/api/v1/scenes/nonexistent/executions", nil)
+	req := authReq(t, httptest.NewRequest(http.MethodGet, "/api/v1/scenes/nonexistent/executions", nil))
 	w := httptest.NewRecorder()
 	router.ServeHTTP(w, req)
 

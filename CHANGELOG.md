@@ -4,6 +4,169 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.27 – M2.1 Location Hierarchy, Device Groups & Infrastructure Zones (2026-02-05)
+
+**Milestone: M2.1 Location Hierarchy — Complete (Phases 1-5)**
+
+Added device tags, device groups (static/dynamic/hybrid), unified infrastructure zones, a single-call hierarchy endpoint, and referential safety on room deletion. Multi-agent delivery: Codex implemented Phases 1-3 (repository layer), Claude implemented Phases 4-5 (API handlers + wiring) — in parallel with zero file overlap.
+
+### Added
+
+- **Device Tags** (`internal/device/tags.go`):
+  - `TagRepository` interface + SQLite implementation (7 methods)
+  - Free-form string labels for filtering and exception-based operations
+  - Tags normalised to lowercase + trimmed, bulk-loaded into registry cache on `RefreshCache`
+  - `Registry.GetDevicesByTag()` for cache-based tag filtering
+  - API: `GET /tags`, `GET /devices/{id}/tags`, `PUT /devices/{id}/tags`, `GET /devices?tag=X`
+
+- **Device Groups** (`internal/device/group_*.go`):
+  - `DeviceGroup`, `GroupType` (static/dynamic/hybrid), `FilterRules`, `GroupMember` types
+  - `GroupRepository` interface + SQLite implementation (Create, GetByID, List, Update, Delete, SetMembers, GetMembers, GetMemberDeviceIDs)
+  - `ResolveGroup()` — runtime resolution expanding groups to concrete device lists with scope, domain, capability, tag, and exclude_tag filters
+  - API: Full CRUD (`GET/POST/PATCH/DELETE /device-groups`), `PUT /device-groups/{id}/members`, `GET /device-groups/{id}/members`, `GET /device-groups/{id}/resolve`
+
+- **Unified Infrastructure Zones** (`internal/location/zone_*.go`):
+  - Single `infrastructure_zones` table with domain discriminator covering climate, audio, lighting, power, security, video
+  - Domain-specific config in JSON `settings` column — no schema migration needed per domain
+  - `ZoneRepository` interface + SQLite implementation with one-zone-per-domain enforcement
+  - Room membership via `infrastructure_zone_rooms` junction table (replaces deprecated `rooms.climate_zone_id`/`audio_zone_id` columns)
+  - API: Full CRUD (`GET/POST/PATCH/DELETE /zones`), `GET /zones?domain=X`, `PUT /zones/{id}/rooms`, `GET /zones/{id}/rooms`
+
+- **Hierarchy Endpoint** (`internal/api/hierarchy.go`):
+  - `GET /hierarchy` — single-call site → areas → rooms tree
+  - Includes per-room device count, scene count, and zone membership
+  - Room-scoped users see only their granted rooms; empty areas omitted
+
+- **Referential Safety** (`internal/api/locations.go`):
+  - `DELETE /rooms/{id}` now returns 409 Conflict if devices or scenes reference the room
+
+- **Database Migration** (`20260206_100000_tags_groups_zones`):
+  - 5 new tables: `device_tags`, `device_groups`, `device_group_members`, `infrastructure_zones`, `infrastructure_zone_rooms`
+  - Indexes for tag lookup, group member reverse lookup, zone domain filtering
+
+### Changed
+
+- **`api/router.go`** — 22 new routes across `device:read`, `device:configure`, and `location:manage` permission groups
+- **`api/server.go`** — Added `TagRepo`, `GroupRepo`, `ZoneRepo` to Deps/Server
+- **`api/devices.go`** — Added `?tag=` query filter to device listing
+- **`cmd/graylogic/main.go`** — Creates tag, group, zone repositories; wires tag repo into registry before `RefreshCache`
+- **`device/registry.go`** — Added `SetTagRepository()`, bulk tag loading in `RefreshCache`, `GetDevicesByTag()`
+- **`device/types.go`** — Added `Tags []string` field with `DeepCopy` support
+
+---
+
+## 1.0.26 – M1.7 Auth Hardening — Multi-Level Authentication & Authorisation (2026-02-05)
+
+**Milestone: M1.7 Auth Hardening — Complete**
+
+Replaced the placeholder auth system (hardcoded `admin/admin`, pass-through middleware) with a production-grade multi-level authentication and authorisation system. 4 role tiers, Argon2id password hashing, JWT access/refresh token rotation with theft detection, panel device identity, per-user room scoping, and comprehensive audit logging.
+
+### Added
+
+- **`internal/auth/` package** (19 files, 3,009 lines):
+  - **types.go** — `User`, `RefreshToken`, `Panel`, `RoomAccess`, `RoomScope` structs; `Role` constants (panel/user/admin/owner); 7 error sentinels
+  - **password.go** — Argon2id hash/verify with PHC string format (m=64MiB, t=3, p=1, OWASP 2025)
+  - **claims.go** — Typed `CustomClaims` replacing `MapClaims`; `GenerateAccessToken`, `GenerateRefreshToken`, `ParseToken` with role, session ID, JTI
+  - **permissions.go** — 10 permission constants, static `rolePermissions` map, `HasPermission()`, `IsRoomScoped()` for 4-tier RBAC
+  - **user_repository.go** — `UserRepository` interface + SQLite: Create, GetByID, GetByUsername, List, Update, Delete, Count, UpdatePassword
+  - **token_repository.go** — `TokenRepository` interface + SQLite: Create, GetByID, Revoke, RevokeFamily (theft detection), RevokeAllForUser, ListActiveByUser, DeleteExpired
+  - **panel_repository.go** — `PanelRepository` interface + SQLite: Create, GetByID, GetByTokenHash, List, Delete, UpdateLastSeen, SetRooms, GetRoomIDs
+  - **room_access.go** — `RoomAccessRepository` interface + SQLite: SetRoomAccess, GetRoomAccess, GetAccessibleRoomIDs, GetSceneManageRoomIDs, ClearRoomAccess
+  - **seed.go** — `SeedOwner()` creates default owner with crypto-random password on first boot (printed to console)
+  - **doc.go** — Package documentation
+  - **test_helpers_test.go** — Shared test setup (in-memory SQLite with migrations)
+  - 8 test files with comprehensive coverage (password round-trip, JWT generate+parse, RBAC permissions, CRUD operations, family revocation, room scoping)
+
+- **Auth API endpoints** (`api/auth.go` — rewritten):
+  - `POST /auth/login` — DB lookup + Argon2id verify → access token + refresh token (replaces hardcoded `admin/admin`)
+  - `POST /auth/refresh` — Token rotation with family tracking + theft detection (reuse → revoke entire family)
+  - `POST /auth/logout` — Revoke refresh token family
+  - `POST /auth/change-password` — Verify current, hash new, revoke all sessions
+
+- **User management API** (`api/users.go` — new):
+  - `GET /POST /users` — List/create users (`user:manage` permission)
+  - `GET /PATCH /DELETE /users/{id}` — Read/update/delete with self-protection guards
+  - `GET /DELETE /users/{id}/sessions` — List/revoke active refresh tokens
+  - `GET /PUT /users/{id}/rooms` — Per-user room access management (explicit-grant model)
+  - Owner-only guard: only owners can create/modify owner-role users
+
+- **Panel management API** (`api/panels.go` — new):
+  - `GET /POST /panels` — List/register panels with room assignments (`system:admin` permission)
+  - `GET /PATCH /DELETE /panels/{id}` — Read/update/revoke panel tokens
+  - `GET /PUT /panels/{id}/rooms` — Panel room assignment management
+  - Panel token shown once on creation (256-bit, SHA-256 hashed for storage)
+
+- **Real auth middleware** (`api/middleware.go` — rewritten):
+  - `authMiddleware` — Validates Bearer JWT OR `X-Panel-Token` header, injects claims/panel context
+  - `requirePermission(perm)` — Checks role has permission via static map
+  - `requireRoomScope()` — Resolves `user_room_access` for `user` role; admin/owner bypass
+  - Context helpers: `claimsFromContext()`, `panelFromContext()`, `roomScopeFromContext()`
+  - Permission denied events logged to audit trail
+
+- **Audit logging** (`api/audit.go` — new):
+  - `auditLog()` helper — async, best-effort via goroutine with `context.Background()`
+  - Events: login success/failure, token reuse (theft detection), password change, user CRUD, panel CRUD, room access changes, permission denied (403)
+  - `audit.Repository.Create()` method added to existing audit package
+
+- **Database migration** (`20260205_150000_auth_users`):
+  - `users` table with Argon2id password hash, role, active status
+  - `refresh_tokens` table with family-based theft detection
+  - `panels` table with hashed bearer tokens
+  - `panel_room_access` table (multi-room panel assignments)
+  - `user_room_access` table (explicit-grant room scoping with `can_manage_scenes` flag)
+
+- **Background token cleanup**: Hourly goroutine purges expired refresh tokens from SQLite
+
+- **`writeForbidden`** helper in `api/errors.go` for 403 responses
+
+- **`golang.org/x/crypto`** dependency for Argon2id
+
+### Changed
+
+- **`api/router.go`** — All routes restructured by permission level (public → authenticated → permission-gated)
+- **`api/server.go`** — Added `UserRepo`, `TokenRepo`, `PanelRepo`, `RoomAccessRepo`, `AuditRepo` to Deps/Server
+- **`api/websocket.go`** — WebSocket ticket now carries `CustomClaims` through to WSClient
+- **`cmd/graylogic/main.go`** — Creates auth repos, calls `SeedOwner()`, starts token cleanup loop, passes repos to API
+- **`config/config.go`** — Added `RefreshTokenTTLPanel`, `PanelElevationTimeout` fields
+
+### Removed
+
+- **Hardcoded `admin/admin` credentials** — Login now validates against `users` table with Argon2id
+- **Pass-through `authMiddleware`** — Was a no-op; now enforces real JWT/panel-token validation
+
+### Security Model
+
+```
+4-Tier Role Hierarchy:
+  panel  → Device identity (no login, X-Panel-Token, room-scoped)
+  user   → Household member (JWT, explicit room grants, optional scene management)
+  admin  → Full system control (JWT, bypasses room scoping)
+  owner  → Emergency-only (JWT, factory reset, manage other owners)
+
+Room Scoping (user role only):
+  Zero rooms assigned = no access (locked out)
+  Admin must explicitly grant rooms per user
+  Per-room can_manage_scenes flag for scene creation/editing
+
+Token Security:
+  Access tokens: 15min TTL, no DB hit (signature + expiry only)
+  Refresh tokens: 7-day TTL, SQLite-backed, family rotation
+  Theft detection: reused refresh token → entire family revoked
+  Panel tokens: permanent until revoked, SHA-256 hashed storage
+```
+
+### Technical Notes
+
+- Auth package: 19 files, 3,009 lines (including tests)
+- New API handlers: users.go (220 lines), panels.go (200 lines), audit.go (30 lines)
+- Migration: 78 lines (up) + 5 lines (down)
+- All 16 test packages pass with `-race`
+- golangci-lint: 0 warnings
+- First-boot owner password printed to console and logged — must be changed immediately
+- Async audit logging ensures auth events never block request processing
+
+---
+
 ## 1.0.25 – Zero-Warning Lint Baseline (2026-02-05)
 
 **Focus: Comprehensive golangci-lint cleanup — 174 warnings reduced to 0**
