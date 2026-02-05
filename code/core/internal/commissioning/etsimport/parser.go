@@ -3,6 +3,7 @@ package etsimport
 import (
 	"archive/zip"
 	"bytes"
+	"context"
 	"crypto/rand"
 	"encoding/hex"
 	"encoding/xml"
@@ -47,23 +48,65 @@ const (
 
 	// Maximum confidence cap.
 	maxConfidence = 0.99
+
+	// maxNestingDepth limits XML recursion to prevent stack overflow from crafted files.
+	// ETS typically uses 3 levels (Main/Middle/Sub) so 10 is generous.
+	maxNestingDepth = 10
 )
+
+// Logger defines the logging interface for the ETS parser.
+type Logger interface {
+	Debug(msg string, args ...any)
+	Info(msg string, args ...any)
+	Warn(msg string, args ...any)
+	Error(msg string, args ...any)
+}
+
+// noopLogger is a logger that does nothing (used when no logger is set).
+type noopLogger struct{}
+
+func (noopLogger) Debug(string, ...any) {}
+func (noopLogger) Info(string, ...any)  {}
+func (noopLogger) Warn(string, ...any)  {}
+func (noopLogger) Error(string, ...any) {}
 
 // Parser parses ETS project files and detects device configurations.
 type Parser struct {
 	// detectionRules are the device detection rules.
 	detectionRules []DetectionRule
+
+	// logger for structured debug output.
+	logger Logger
 }
 
 // NewParser creates a new ETS parser with default detection rules.
 func NewParser() *Parser {
 	return &Parser{
 		detectionRules: DefaultDetectionRules(),
+		logger:         noopLogger{},
+	}
+}
+
+// SetLogger sets the logger for parse debug output.
+func (p *Parser) SetLogger(l Logger) {
+	if l != nil {
+		p.logger = l
 	}
 }
 
 // ParseBytes parses an ETS project from a byte slice.
-func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) { //nolint:gocognit // format detection: tries multiple parsers in priority order
+// It enforces MaxParseTime as a safety timeout. Use ParseBytesContext for
+// external context control (e.g., HTTP request cancellation).
+func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), MaxParseTime)
+	defer cancel()
+	return p.ParseBytesContext(ctx, data, filename)
+}
+
+// ParseBytesContext parses an ETS project from a byte slice with context support.
+// The context allows external cancellation (e.g., from HTTP request timeout).
+// If neither external cancellation nor MaxParseTime is hit, parsing completes normally.
+func (p *Parser) ParseBytesContext(ctx context.Context, data []byte, filename string) (*ParseResult, error) { //nolint:gocognit,gocyclo // format detection: tries multiple parsers in priority order
 	if len(data) > MaxFileSize {
 		return nil, ErrFileTooLarge
 	}
@@ -76,8 +119,7 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 
 	// Detect format and parse
 	ext := strings.ToLower(filepath.Ext(filename))
-	// Debug logging - will be visible in server logs
-	fmt.Printf("[DEBUG] ParseBytes: filename=%q, ext=%q, dataLen=%d\n", filename, ext, len(data))
+	p.logger.Debug("parsing ETS file", "filename", filename, "ext", ext, "dataLen", len(data))
 
 	// projectXMLData stores the raw 0.xml bytes for Tier 1 extraction
 	var projectXMLData []byte
@@ -124,6 +166,11 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 		}
 	}
 
+	// Check context between major parse phases.
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: after format parse: %w", ErrParseTimeout, err)
+	}
+
 	// Tier 1: Function-based classification (requires project XML with
 	// Topology, ManufacturerData, and Trades sections)
 	var consumedGAIDs map[string]bool
@@ -138,8 +185,16 @@ func (p *Parser) ParseBytes(data []byte, filename string) (*ParseResult, error) 
 		}
 	}
 
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: after tier 1: %w", ErrParseTimeout, err)
+	}
+
 	// Tier 2: DPT-based device detection on remaining unmapped GAs
 	p.detectDevices(result)
+
+	if err := ctx.Err(); err != nil {
+		return nil, fmt.Errorf("%w: after tier 2: %w", ErrParseTimeout, err)
+	}
 
 	// Extract building locations from hierarchy paths
 	p.extractLocations(result)
@@ -162,10 +217,10 @@ func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, 
 	var projectXML []byte
 
 	// Debug: list all files in the archive
-	fmt.Printf("[DEBUG] parseKNXProj: archive contains %d files\n", len(reader.File))
+	p.logger.Debug("parseKNXProj: archive contents", "file_count", len(reader.File))
 	for i, f := range reader.File {
 		if i < 20 { //nolint:mnd // limit debug output to first 20 entries
-			fmt.Printf("[DEBUG]   file[%d]: %s\n", i, f.Name)
+			p.logger.Debug("archive entry", "index", i, "name", f.Name)
 		}
 	}
 
@@ -201,15 +256,15 @@ func (p *Parser) parseKNXProjWithXML(data []byte, result *ParseResult) ([]byte, 
 	if groupAddressesXML == nil {
 		// Try parsing project XML for group addresses
 		if projectXML != nil {
-			fmt.Printf("[DEBUG] No GroupAddresses.xml found, trying to parse 0.xml (%d bytes)\n", len(projectXML))
+			p.logger.Debug("no GroupAddresses.xml found, trying 0.xml", "bytes", len(projectXML))
 			err := p.parseProjectXML(projectXML, result)
 			if err != nil {
-				fmt.Printf("[DEBUG] parseProjectXML failed: %v\n", err)
+				p.logger.Debug("parseProjectXML failed", "error", err)
 				return nil, err
 			}
 			return projectXML, nil
 		}
-		fmt.Printf("[DEBUG] No GroupAddresses.xml and no 0.xml found\n")
+		p.logger.Debug("no GroupAddresses.xml and no 0.xml found")
 		return nil, ErrNoGroupAddresses
 	}
 
@@ -252,9 +307,12 @@ func (p *Parser) parseGroupAddressesXML(data []byte, result *ParseResult) error 
 		return fmt.Errorf("%w: %w", ErrInvalidFile, err)
 	}
 
-	// Recursively extract all group addresses
-	var extractAddresses func(ranges []xmlGroupRange, path string)
-	extractAddresses = func(ranges []xmlGroupRange, path string) {
+	// Recursively extract all group addresses (depth-limited).
+	var extractAddresses func(ranges []xmlGroupRange, path string, depth int)
+	extractAddresses = func(ranges []xmlGroupRange, path string, depth int) {
+		if depth > maxNestingDepth {
+			return
+		}
 		for _, r := range ranges {
 			currentPath := r.Name
 			if path != "" {
@@ -280,11 +338,11 @@ func (p *Parser) parseGroupAddressesXML(data []byte, result *ParseResult) error 
 			}
 
 			// Recurse into sub-ranges
-			extractAddresses(r.Ranges, currentPath)
+			extractAddresses(r.Ranges, currentPath, depth+1)
 		}
 	}
 
-	extractAddresses(doc.Ranges, "")
+	extractAddresses(doc.Ranges, "", 0)
 
 	if len(result.UnmappedAddresses) == 0 {
 		return ErrNoGroupAddresses
@@ -315,23 +373,26 @@ func (p *Parser) parseProjectXML(data []byte, result *ParseResult) error {
 
 	var doc xmlProject
 	if err := xml.Unmarshal(data, &doc); err != nil {
-		fmt.Printf("[DEBUG] parseProjectXML: XML unmarshal failed: %v\n", err)
+		p.logger.Debug("parseProjectXML: XML unmarshal failed", "error", err)
 		// Try alternative structure
 		return p.parseGenericXML(data, result)
 	}
 
-	fmt.Printf("[DEBUG] parseProjectXML: found %d top-level GroupRanges\n", len(doc.Ranges))
+	p.logger.Debug("parseProjectXML: found top-level GroupRanges", "count", len(doc.Ranges))
 
-	// Recursively extract addresses from nested GroupRanges
-	var extractFromRanges func(ranges []xmlGroupRange, path string)
-	extractFromRanges = func(ranges []xmlGroupRange, path string) {
+	// Recursively extract addresses from nested GroupRanges (depth-limited).
+	var extractFromRanges func(ranges []xmlGroupRange, path string, depth int)
+	extractFromRanges = func(ranges []xmlGroupRange, path string, depth int) {
+		if depth > maxNestingDepth {
+			return
+		}
 		for _, r := range ranges {
 			currentPath := r.Name
 			if path != "" {
 				currentPath = path + " > " + r.Name
 			}
-			fmt.Printf("[DEBUG]   GroupRange: %s, addresses: %d, sub-ranges: %d\n",
-				currentPath, len(r.Addresses), len(r.Ranges))
+			p.logger.Debug("GroupRange", "path", currentPath,
+				"addresses", len(r.Addresses), "sub_ranges", len(r.Ranges))
 
 			for _, addr := range r.Addresses {
 				result.UnmappedAddresses = append(result.UnmappedAddresses, GroupAddress{
@@ -341,16 +402,16 @@ func (p *Parser) parseProjectXML(data []byte, result *ParseResult) error {
 					Location: currentPath,
 				})
 			}
-			extractFromRanges(r.Ranges, currentPath)
+			extractFromRanges(r.Ranges, currentPath, depth+1)
 		}
 	}
 
-	extractFromRanges(doc.Ranges, "")
+	extractFromRanges(doc.Ranges, "", 0)
 
-	fmt.Printf("[DEBUG] parseProjectXML: extracted %d addresses\n", len(result.UnmappedAddresses))
+	p.logger.Debug("parseProjectXML: extraction complete", "addresses", len(result.UnmappedAddresses))
 
 	if len(result.UnmappedAddresses) == 0 {
-		fmt.Printf("[DEBUG] parseProjectXML: no addresses found, trying generic XML parser\n")
+		p.logger.Debug("parseProjectXML: no addresses found, trying generic XML parser")
 		return p.parseGenericXML(data, result)
 	}
 
@@ -447,12 +508,12 @@ type xmlProjectFull struct {
 func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[string]bool { //nolint:gocognit,gocyclo // ETS XML function extraction: deep nested structure traversal
 	var doc xmlProjectFull
 	if err := xml.Unmarshal(data, &doc); err != nil {
-		fmt.Printf("[DEBUG] extractFunctionDevices: unmarshal failed: %v\n", err)
+		p.logger.Debug("extractFunctionDevices: unmarshal failed", "error", err)
 		return nil
 	}
 
 	if len(doc.Trades) == 0 {
-		fmt.Printf("[DEBUG] extractFunctionDevices: no Trades/Functions found\n")
+		p.logger.Debug("extractFunctionDevices: no Trades/Functions found")
 		return nil
 	}
 
@@ -655,8 +716,7 @@ func (p *Parser) extractFunctionDevices(data []byte, result *ParseResult) map[st
 		}
 	}
 
-	fmt.Printf("[DEBUG] extractFunctionDevices: Tier 1 classified %d devices, consumed %d GA refs\n",
-		tier1Count, len(consumedGAIDs))
+	p.logger.Debug("Tier 1 classification complete", "devices", tier1Count, "consumed_ga_refs", len(consumedGAIDs))
 
 	if len(consumedGAIDs) == 0 {
 		return nil
@@ -1126,12 +1186,15 @@ func generateImportID() string {
 	return "imp_" + hex.EncodeToString(b)
 }
 
-// Precompiled regexes for DPT normalisation.
+// Precompiled regexes for DPT normalisation and address/slug helpers.
 var (
 	reDPTComplete = regexp.MustCompile(`^\d+\.\d{3}$`)
 	reDPST        = regexp.MustCompile(`DPST-(\d+)-(\d+)`)
 	reDPT         = regexp.MustCompile(`DPT-?(\d+)`)
 	reDPTPartial  = regexp.MustCompile(`^(\d+)\.(\d+)$`)
+	reValidGA     = regexp.MustCompile(`^(\d{1,2}/\d{1,2}/\d{1,3}|\d{1,2}/\d{1,4}|\d+)$`)
+	reSlugClean   = regexp.MustCompile(`[^a-z0-9]+`)
+	reETSVersion  = regexp.MustCompile(`ToolVersion="([^"]+)"`)
 )
 
 // normaliseDPT converts ETS DPT format to standard format.
@@ -1172,8 +1235,7 @@ func normaliseDPT(dpt string) string {
 func isValidGA(addr string) bool {
 	// Accept both 3-level (1/2/3) and 2-level (1/2) formats
 	// Also accept integer format (will need conversion)
-	re := regexp.MustCompile(`^(\d{1,2}/\d{1,2}/\d{1,3}|\d{1,2}/\d{1,4}|\d+)$`)
-	return re.MatchString(addr)
+	return reValidGA.MatchString(addr)
 }
 
 // normaliseGA converts a group address to standard 3-level format (main/middle/sub).
@@ -1306,7 +1368,7 @@ func extractNamePrefix(name string) string {
 func generateSlug(name string) string {
 	// Convert to lowercase, replace spaces/special chars with hyphens
 	slug := strings.ToLower(name)
-	slug = regexp.MustCompile(`[^a-z0-9]+`).ReplaceAllString(slug, "-")
+	slug = reSlugClean.ReplaceAllString(slug, "-")
 	slug = strings.Trim(slug, "-")
 
 	if slug == "" {
@@ -1617,8 +1679,7 @@ func extractAreaFromLocation(location string) string {
 }
 
 func extractETSVersion(data []byte) string {
-	re := regexp.MustCompile(`ToolVersion="([^"]+)"`)
-	if matches := re.FindSubmatch(data); len(matches) == 2 {
+	if matches := reETSVersion.FindSubmatch(data); len(matches) == 2 {
 		return string(matches[1])
 	}
 	return ""

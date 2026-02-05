@@ -3,6 +3,7 @@ package automation
 import (
 	"context"
 	"fmt"
+	"sort"
 	"sync"
 )
 
@@ -102,7 +103,7 @@ func (r *Registry) GetSceneBySlug(_ context.Context, slug string) (*Scene, error
 }
 
 // ListScenes retrieves all scenes from the cache.
-// Returns deep copies sorted by the cache's natural iteration order.
+// Returns deep copies sorted by sort_order then name for deterministic ordering.
 func (r *Registry) ListScenes(_ context.Context) ([]Scene, error) {
 	r.cacheMu.RLock()
 	defer r.cacheMu.RUnlock()
@@ -111,6 +112,7 @@ func (r *Registry) ListScenes(_ context.Context) ([]Scene, error) {
 	for _, s := range r.cache {
 		scenes = append(scenes, *s.DeepCopy())
 	}
+	sortScenes(scenes)
 	return scenes, nil
 }
 
@@ -125,6 +127,7 @@ func (r *Registry) ListScenesByRoom(_ context.Context, roomID string) ([]Scene, 
 			scenes = append(scenes, *s.DeepCopy())
 		}
 	}
+	sortScenes(scenes)
 	return scenes, nil
 }
 
@@ -139,6 +142,7 @@ func (r *Registry) ListScenesByArea(_ context.Context, areaID string) ([]Scene, 
 			scenes = append(scenes, *s.DeepCopy())
 		}
 	}
+	sortScenes(scenes)
 	return scenes, nil
 }
 
@@ -153,7 +157,18 @@ func (r *Registry) ListScenesByCategory(_ context.Context, category Category) ([
 			scenes = append(scenes, *s.DeepCopy())
 		}
 	}
+	sortScenes(scenes)
 	return scenes, nil
+}
+
+// sortScenes sorts scenes by sort_order then name, matching the DB query ordering.
+func sortScenes(scenes []Scene) {
+	sort.Slice(scenes, func(i, j int) bool {
+		if scenes[i].SortOrder != scenes[j].SortOrder {
+			return scenes[i].SortOrder < scenes[j].SortOrder
+		}
+		return scenes[i].Name < scenes[j].Name
+	})
 }
 
 // CreateScene validates, persists, and caches a new scene.

@@ -22,14 +22,19 @@ func AllZoneDomains() []ZoneDomain {
 	}
 }
 
+// validZoneDomains is a pre-computed set for O(1) domain validation.
+var validZoneDomains = func() map[ZoneDomain]struct{} {
+	m := make(map[ZoneDomain]struct{}, len(AllZoneDomains()))
+	for _, d := range AllZoneDomains() {
+		m[d] = struct{}{}
+	}
+	return m
+}()
+
 // ValidZoneDomain checks whether the given string is a valid zone domain.
 func ValidZoneDomain(s string) bool {
-	for _, d := range AllZoneDomains() {
-		if ZoneDomain(s) == d {
-			return true
-		}
-	}
-	return false
+	_, ok := validZoneDomains[ZoneDomain(s)]
+	return ok
 }
 
 // InfrastructureZone represents a physical resource grouping that spans one or more rooms.

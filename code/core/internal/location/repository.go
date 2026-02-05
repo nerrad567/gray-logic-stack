@@ -4,6 +4,7 @@ import (
 	"context"
 	"database/sql"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 )
@@ -45,6 +46,9 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 
 // CreateArea inserts a new area into the database.
 func (r *SQLiteRepository) CreateArea(ctx context.Context, area *Area) error {
+	if err := ValidateArea(area); err != nil {
+		return err
+	}
 	const query = `INSERT INTO areas (id, site_id, name, slug, type, sort_order)
 		VALUES (?, ?, ?, ?, ?, ?)`
 	_, err := r.db.ExecContext(ctx, query,
@@ -57,6 +61,9 @@ func (r *SQLiteRepository) CreateArea(ctx context.Context, area *Area) error {
 
 // CreateRoom inserts a new room into the database.
 func (r *SQLiteRepository) CreateRoom(ctx context.Context, room *Room) error {
+	if err := ValidateRoom(room); err != nil {
+		return err
+	}
 	settings := "{}"
 	if room.Settings != nil {
 		b, err := json.Marshal(room.Settings)
@@ -190,13 +197,17 @@ func scanArea(row *sql.Row) (*Area, error) {
 
 	err := row.Scan(&a.ID, &a.SiteID, &a.Name, &a.Slug, &a.Type, &a.SortOrder, &createdAt, &updatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrAreaNotFound
 		}
 		return nil, fmt.Errorf("scanning area: %w", err)
 	}
-	a.CreatedAt = parseTime(createdAt)
-	a.UpdatedAt = parseTime(updatedAt)
+	if a.CreatedAt, err = parseTime(createdAt); err != nil {
+		return nil, fmt.Errorf("area %s created_at: %w", a.ID, err)
+	}
+	if a.UpdatedAt, err = parseTime(updatedAt); err != nil {
+		return nil, fmt.Errorf("area %s updated_at: %w", a.ID, err)
+	}
 	return &a, nil
 }
 
@@ -209,8 +220,12 @@ func scanAreaRow(rows *sql.Rows) (*Area, error) {
 	if err != nil {
 		return nil, fmt.Errorf("scanning area row: %w", err)
 	}
-	a.CreatedAt = parseTime(createdAt)
-	a.UpdatedAt = parseTime(updatedAt)
+	if a.CreatedAt, err = parseTime(createdAt); err != nil {
+		return nil, fmt.Errorf("area %s created_at: %w", a.ID, err)
+	}
+	if a.UpdatedAt, err = parseTime(updatedAt); err != nil {
+		return nil, fmt.Errorf("area %s updated_at: %w", a.ID, err)
+	}
 	return &a, nil
 }
 
@@ -224,7 +239,7 @@ func scanRoom(row *sql.Row) (*Room, error) {
 	err := row.Scan(&rm.ID, &rm.AreaID, &rm.Name, &rm.Slug, &rm.Type, &rm.SortOrder,
 		&climateZoneID, &audioZoneID, &settingsJSON, &createdAt, &updatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrRoomNotFound
 		}
 		return nil, fmt.Errorf("scanning room: %w", err)
@@ -237,8 +252,12 @@ func scanRoom(row *sql.Row) (*Room, error) {
 		rm.AudioZoneID = &audioZoneID.String
 	}
 	rm.Settings = parseSettings(settingsJSON)
-	rm.CreatedAt = parseTime(createdAt)
-	rm.UpdatedAt = parseTime(updatedAt)
+	if rm.CreatedAt, err = parseTime(createdAt); err != nil {
+		return nil, fmt.Errorf("room %s created_at: %w", rm.ID, err)
+	}
+	if rm.UpdatedAt, err = parseTime(updatedAt); err != nil {
+		return nil, fmt.Errorf("room %s updated_at: %w", rm.ID, err)
+	}
 	return &rm, nil
 }
 
@@ -262,13 +281,20 @@ func scanRoomRow(rows *sql.Rows) (*Room, error) {
 		rm.AudioZoneID = &audioZoneID.String
 	}
 	rm.Settings = parseSettings(settingsJSON)
-	rm.CreatedAt = parseTime(createdAt)
-	rm.UpdatedAt = parseTime(updatedAt)
+	if rm.CreatedAt, err = parseTime(createdAt); err != nil {
+		return nil, fmt.Errorf("room %s created_at: %w", rm.ID, err)
+	}
+	if rm.UpdatedAt, err = parseTime(updatedAt); err != nil {
+		return nil, fmt.Errorf("room %s updated_at: %w", rm.ID, err)
+	}
 	return &rm, nil
 }
 
 // UpdateArea updates an existing area record.
 func (r *SQLiteRepository) UpdateArea(ctx context.Context, area *Area) error {
+	if err := ValidateArea(area); err != nil {
+		return err
+	}
 	const query = `UPDATE areas SET name = ?, slug = ?, type = ?, sort_order = ?,
 		updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 		WHERE id = ?`
@@ -310,6 +336,9 @@ func (r *SQLiteRepository) DeleteArea(ctx context.Context, id string) error {
 
 // UpdateRoom updates an existing room record.
 func (r *SQLiteRepository) UpdateRoom(ctx context.Context, room *Room) error {
+	if err := ValidateRoom(room); err != nil {
+		return err
+	}
 	settings := "{}"
 	if room.Settings != nil {
 		b, err := json.Marshal(room.Settings)
@@ -382,6 +411,9 @@ func (r *SQLiteRepository) GetAnySite(ctx context.Context) (*Site, error) {
 
 // CreateSite inserts a new site record.
 func (r *SQLiteRepository) CreateSite(ctx context.Context, site *Site) error {
+	if err := ValidateSite(site); err != nil {
+		return err
+	}
 	modesJSON, err := json.Marshal(site.ModesAvailable)
 	if err != nil {
 		modesJSON = []byte(`["home","away","night","holiday"]`)
@@ -408,6 +440,9 @@ func (r *SQLiteRepository) CreateSite(ctx context.Context, site *Site) error {
 
 // UpdateSite updates an existing site record.
 func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
+	if err := ValidateSite(site); err != nil {
+		return err
+	}
 	modesJSON, err := json.Marshal(site.ModesAvailable)
 	if err != nil {
 		modesJSON = []byte(`["home","away","night","holiday"]`)
@@ -423,7 +458,7 @@ func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
 		modes_available = ?, mode_current = ?, settings = ?,
 		updated_at = strftime('%Y-%m-%dT%H:%M:%SZ', 'now')
 		WHERE id = ?`
-	_, err = r.db.ExecContext(ctx, query,
+	result, err := r.db.ExecContext(ctx, query,
 		site.Name, site.Slug, site.Address,
 		nullFloat(site.Latitude), nullFloat(site.Longitude),
 		site.Timezone, nullFloat(site.ElevationM),
@@ -431,6 +466,10 @@ func (r *SQLiteRepository) UpdateSite(ctx context.Context, site *Site) error {
 		site.ID)
 	if err != nil {
 		return fmt.Errorf("updating site %s: %w", site.ID, err)
+	}
+	n, _ := result.RowsAffected() //nolint:errcheck // SQLite always supports RowsAffected
+	if n == 0 {
+		return ErrSiteNotFound
 	}
 	return nil
 }
@@ -480,8 +519,13 @@ func scanSite(row *sql.Row) (*Site, error) {
 		s.ModesAvailable = []string{"home", "away", "night", "holiday"}
 	}
 	s.Settings = parseSettings(settingsJSON)
-	s.CreatedAt = parseTime(createdAt)
-	s.UpdatedAt = parseTime(updatedAt)
+	var parseErr error
+	if s.CreatedAt, parseErr = parseTime(createdAt); parseErr != nil {
+		return nil, fmt.Errorf("site %s created_at: %w", s.ID, parseErr)
+	}
+	if s.UpdatedAt, parseErr = parseTime(updatedAt); parseErr != nil {
+		return nil, fmt.Errorf("site %s updated_at: %w", s.ID, parseErr)
+	}
 	return &s, nil
 }
 
@@ -494,18 +538,21 @@ func nullFloat(f *float64) sql.NullFloat64 {
 }
 
 // parseTime parses an ISO 8601 timestamp from SQLite.
-func parseTime(s string) time.Time {
-	t, err := time.Parse(time.RFC3339, s)
-	if err != nil {
-		// Try the SQLite default format without timezone.
-		// Zero time is returned if both formats fail (should not
-		// happen with schema-enforced DEFAULT strftime).
-		t, err = time.Parse("2006-01-02T15:04:05Z", s)
-		if err != nil {
-			return time.Time{}
-		}
+// Returns an error if the timestamp cannot be parsed in any supported format.
+func parseTime(s string) (time.Time, error) {
+	if s == "" {
+		return time.Time{}, fmt.Errorf("timestamp is empty")
 	}
-	return t
+	t, err := time.Parse(time.RFC3339, s)
+	if err == nil {
+		return t, nil
+	}
+	// Try the SQLite default format without timezone.
+	t, fallbackErr := time.Parse("2006-01-02T15:04:05Z", s)
+	if fallbackErr == nil {
+		return t, nil
+	}
+	return time.Time{}, fmt.Errorf("parsing timestamp %q: %w", s, err)
 }
 
 // parseSettings deserializes a JSON string into a Settings map.

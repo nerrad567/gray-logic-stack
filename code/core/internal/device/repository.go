@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 )
 
@@ -612,23 +613,10 @@ func boolToInt(b bool) int {
 
 // isUniqueConstraintError checks if an error is a SQLite unique constraint violation.
 func isUniqueConstraintError(err error) bool {
-	// SQLite returns "UNIQUE constraint failed" in error message
-	return err != nil && !errors.Is(err, sql.ErrNoRows) &&
-		(containsString(err.Error(), "UNIQUE constraint failed") ||
-			containsString(err.Error(), "unique constraint"))
-}
-
-// containsString is a simple substring check.
-func containsString(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-// searchString checks if substr exists in s.
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
+	if err == nil {
+		return false
 	}
-	return false
+	msg := err.Error()
+	return strings.Contains(msg, "UNIQUE constraint failed") ||
+		strings.Contains(msg, "unique constraint")
 }

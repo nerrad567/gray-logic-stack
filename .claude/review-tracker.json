@@ -2,7 +2,7 @@
   "version": "2.0.0",
   "description": "Persistent tracking for /review-all across sessions. Claude MUST read this file at the start of every /review-all invocation.",
   "created": "2026-02-05",
-  "last_updated": "2026-02-05",
+  "last_updated": "2026-02-05T23:00:00Z",
 
   "format_changelog": {
     "v2.0.0": "Redesigned review-all to run 6 specialists (added red-team + chaos-audit). Reset sessions for fresh run. Archived v1 results. Fixed 'performance' → 'optimise' naming.",
@@ -159,30 +159,35 @@
       {
         "session": 3,
         "name": "Domain Logic + State Management",
-        "status": "pending",
+        "status": "completed",
+        "completed_date": "2026-02-05",
         "packages": [
           "internal/device",
           "internal/automation",
           "internal/location"
         ],
-        "focus": "Device registry, state management, group resolution, scene engine, location hierarchy."
+        "focus": "Device registry, state management, group resolution, scene engine, location hierarchy.",
+        "note": "10 findings (0 critical, 0 high, 4 medium, 6 low). 9 fixed, 1 accepted (RT-2: admin-only)."
       },
       {
         "session": 4,
         "name": "Protocol Layer + Subprocess Management",
-        "status": "pending",
+        "status": "completed",
+        "completed_date": "2026-02-05",
         "packages": [
           "internal/bridges/knx",
           "internal/knxd",
           "internal/process",
           "internal/commissioning/etsimport"
         ],
-        "focus": "KNX bridge, DPT encoding, telegram handling, knxd subprocess, process lifecycle, ETS import."
+        "focus": "KNX bridge, DPT encoding, telegram handling, knxd subprocess, process lifecycle, ETS import.",
+        "note": "7 findings (0 critical, 0 high, 3 medium, 4 low). All fixed."
       },
       {
         "session": 5,
         "name": "Infrastructure + Integration + Wiring",
-        "status": "pending",
+        "status": "completed",
+        "completed_date": "2026-02-05",
         "packages": [
           "internal/infrastructure/database",
           "internal/infrastructure/mqtt",
@@ -193,7 +198,8 @@
           "internal/audit",
           "cmd/graylogic"
         ],
-        "focus": "Database layer, MQTT client, TSDB client, config validation, logging, main.go wiring."
+        "focus": "Database layer, MQTT client, TSDB client, config validation, logging, main.go wiring.",
+        "note": "5 findings (0 critical, 0 high, 1 medium, 4 low). All fixed."
       }
     ]
   },
@@ -338,16 +344,412 @@
         "chaos_audit": 8.5
       },
       "overall_score": 9.0
+    },
+    {
+      "session": 3,
+      "date": "2026-02-05",
+      "name": "Domain Logic + State Management",
+      "loc_reviewed": 5700,
+      "specialists_run": [
+        "standards",
+        "security",
+        "red-team",
+        "optimise",
+        "stability",
+        "chaos-audit"
+      ],
+      "findings": {
+        "critical": [],
+        "high": [],
+        "medium": [
+          {
+            "id": "S3-SEC-1",
+            "title": "Location package lacks input validation on names/slugs",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-SEC-2",
+            "title": "Location Settings map has no size limits",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-STB-3",
+            "title": "UpdateSite doesn't check RowsAffected()",
+            "status": "fixed"
+          },
+          {
+            "id": "RT-1",
+            "title": "Scene actions can target any device ID without scope checking",
+            "status": "fixed",
+            "note": "Added validateActionDeviceScope() to scenes.go create/update handlers"
+          }
+        ],
+        "low": [
+          {
+            "id": "S3-STD-3",
+            "title": "containsString reimplements strings.Contains",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-STD-4",
+            "title": "ListScenes not sorted deterministically",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-STD-5",
+            "title": "ValidZoneDomain uses O(n) linear scan",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-SEC-3",
+            "title": "Location parseTime silently returns zero on failure",
+            "status": "fixed"
+          },
+          {
+            "id": "S3-STB-4",
+            "title": "Scene timestamp parse errors silently ignored",
+            "status": "fixed"
+          },
+          {
+            "id": "RT-2",
+            "title": "Group filter rules can resolve to site-wide device sets",
+            "status": "accepted",
+            "reason": "Group write endpoints require PermDeviceConfigure (admin/owner only). Resolve endpoint already applies room scope filtering."
+          }
+        ]
+      },
+      "scores": {
+        "standards": 9.0,
+        "security": 9.0,
+        "red_team": 9.0,
+        "optimise": 8.5,
+        "stability": 8.5,
+        "chaos_audit": 8.0
+      },
+      "overall_score": 8.7
+    },
+    {
+      "session": 4,
+      "date": "2026-02-05",
+      "name": "Protocol Layer + Subprocess Management",
+      "loc_reviewed": 9550,
+      "specialists_run": [
+        "standards",
+        "security",
+        "red-team",
+        "optimise",
+        "stability",
+        "chaos-audit"
+      ],
+      "findings": {
+        "critical": [],
+        "high": [],
+        "medium": [
+          {
+            "id": "S4-SEC-1",
+            "title": "Debug info leakage via fmt.Printf in etsimport parser (16 occurrences)",
+            "status": "fixed",
+            "note": "Added Logger interface, replaced all fmt.Printf with p.logger.Debug()."
+          },
+          {
+            "id": "S4-RT-1",
+            "title": "No XML recursion depth limit in extractAddresses/extractFromRanges",
+            "status": "fixed",
+            "note": "Added maxNestingDepth=10 depth parameter to both recursive functions."
+          },
+          {
+            "id": "S4-OPT-1",
+            "title": "Regex recompilation per-call in isValidGA, generateSlug, extractETSVersion",
+            "status": "fixed",
+            "note": "Precompiled as package-level vars."
+          }
+        ],
+        "low": [
+          {
+            "id": "S4-STD-1",
+            "title": "fmt.Printf debug logging in etsimport (16 occurrences)",
+            "status": "fixed",
+            "note": "Same fix as S4-SEC-1."
+          },
+          {
+            "id": "S4-RT-2",
+            "title": "MaxParseTime constant defined but never enforced",
+            "status": "fixed",
+            "note": "Added ParseBytesContext() with context support. API caller uses r.Context()."
+          },
+          {
+            "id": "S4-STB-1",
+            "title": "Hardcoded 5s health check timeout in process manager",
+            "status": "fixed",
+            "note": "Added HealthCheckTimeout to Config with 5s default."
+          },
+          {
+            "id": "S4-CHS-1",
+            "title": "GARecorder has no dedicated unit tests (243 LOC untested)",
+            "status": "fixed",
+            "note": "Added 8 unit tests in ga_recorder_test.go."
+          }
+        ]
+      },
+      "scores": {
+        "standards": 9.0,
+        "security": 8.5,
+        "red_team": 9.0,
+        "optimise": 8.5,
+        "stability": 9.0,
+        "chaos_audit": 8.5
+      },
+      "overall_score": 8.8
+    },
+    {
+      "session": 5,
+      "date": "2026-02-05",
+      "name": "Infrastructure + Integration + Wiring",
+      "loc_reviewed": 4000,
+      "specialists_run": [
+        "standards",
+        "security",
+        "red-team",
+        "optimise",
+        "stability",
+        "chaos-audit"
+      ],
+      "findings": {
+        "critical": [],
+        "high": [],
+        "medium": [
+          {
+            "id": "S5-RT-1",
+            "title": "Audit log ID collision risk (32-bit truncated UUID)",
+            "status": "fixed",
+            "note": "Changed to full UUID (122-bit entropy)."
+          }
+        ],
+        "low": [
+          {
+            "id": "S5-OPT-1",
+            "title": "Panel no-cache on immutable hashed assets",
+            "status": "fixed",
+            "note": "Smart cache headers based on asset path."
+          },
+          {
+            "id": "S5-STB-1",
+            "title": "MQTT reconnect subscription restoration silent failures",
+            "status": "fixed",
+            "note": "Added error logging to restoreSubscriptions()."
+          },
+          {
+            "id": "S5-STB-2",
+            "title": "No audit log retention/pruning",
+            "status": "fixed",
+            "note": "Added PruneOldEntries + startAuditLogPruneLoop with 1-year retention."
+          },
+          {
+            "id": "S5-CHS-1",
+            "title": "Background cleanup loops lack panic recovery",
+            "status": "fixed",
+            "note": "Added defer recover() to all 3 background goroutines."
+          }
+        ]
+      },
+      "scores": {
+        "standards": 9.5,
+        "security": 9.5,
+        "red_team": 9.0,
+        "optimise": 9.0,
+        "stability": 8.5,
+        "chaos_audit": 8.5
+      },
+      "overall_score": 9.0
     }
   ],
 
   "findings_summary": {
-    "total_findings": 13,
-    "by_severity": { "critical": 0, "high": 0, "medium": 5, "low": 8 },
-    "by_status": { "fixed": 9, "accepted": 4, "open": 0 },
+    "total_findings": 35,
+    "by_severity": { "critical": 0, "high": 0, "medium": 13, "low": 22 },
+    "by_status": { "fixed": 30, "accepted": 5, "open": 0 },
     "session_1_v2": { "total": 5, "fixed": 3, "accepted": 2, "open": 0 },
-    "session_2_v2": { "total": 8, "fixed": 6, "accepted": 2, "open": 0 }
+    "session_2_v2": { "total": 8, "fixed": 6, "accepted": 2, "open": 0 },
+    "session_3": { "total": 10, "fixed": 9, "accepted": 1, "open": 0 },
+    "session_4": { "total": 7, "fixed": 7, "accepted": 0, "open": 0 },
+    "session_5": { "total": 5, "fixed": 5, "accepted": 0, "open": 0 }
   },
+
+  "session_3_findings": [
+    {
+      "id": "S3-SEC-1",
+      "severity": "medium",
+      "title": "Location package lacks input validation on names/slugs",
+      "status": "fixed",
+      "specialist": "security"
+    },
+    {
+      "id": "S3-SEC-2",
+      "severity": "medium",
+      "title": "Location Settings map has no size limits",
+      "status": "fixed",
+      "specialist": "security"
+    },
+    {
+      "id": "S3-STB-3",
+      "severity": "medium",
+      "title": "UpdateSite doesn't check RowsAffected()",
+      "status": "fixed",
+      "specialist": "stability"
+    },
+    {
+      "id": "S3-STD-3",
+      "severity": "low",
+      "title": "containsString reimplements strings.Contains",
+      "status": "fixed",
+      "specialist": "standards"
+    },
+    {
+      "id": "S3-STD-4",
+      "severity": "low",
+      "title": "ListScenes not sorted deterministically",
+      "status": "fixed",
+      "specialist": "standards"
+    },
+    {
+      "id": "S3-STD-5",
+      "severity": "low",
+      "title": "ValidZoneDomain uses O(n) linear scan",
+      "status": "fixed",
+      "specialist": "standards"
+    },
+    {
+      "id": "S3-SEC-3",
+      "severity": "low",
+      "title": "Location parseTime silently returns zero on failure",
+      "status": "fixed",
+      "specialist": "security"
+    },
+    {
+      "id": "S3-STB-4",
+      "severity": "low",
+      "title": "Scene timestamp parse errors silently ignored",
+      "status": "fixed",
+      "specialist": "stability"
+    },
+    {
+      "id": "RT-1",
+      "severity": "medium",
+      "title": "Scene actions can target any device ID without scope checking",
+      "status": "fixed",
+      "specialist": "red-team"
+    },
+    {
+      "id": "RT-2",
+      "severity": "low",
+      "title": "Group filter rules can resolve to site-wide device sets",
+      "status": "accepted",
+      "specialist": "red-team",
+      "reason": "Group write endpoints require PermDeviceConfigure (admin/owner only)"
+    }
+  ],
+
+  "session_4_findings": [
+    {
+      "id": "S4-STD-1",
+      "severity": "low",
+      "title": "fmt.Printf debug logging in etsimport (16 occurrences)",
+      "status": "fixed",
+      "specialist": "standards",
+      "note": "Replaced with Logger interface + noopLogger. Same fix as S4-SEC-1."
+    },
+    {
+      "id": "S4-SEC-1",
+      "severity": "medium",
+      "title": "Debug info leakage via fmt.Printf in etsimport parser",
+      "status": "fixed",
+      "specialist": "security",
+      "note": "Added Logger interface with SetLogger(). All 16 fmt.Printf replaced with p.logger.Debug()."
+    },
+    {
+      "id": "S4-RT-1",
+      "severity": "medium",
+      "title": "No XML recursion depth limit in extractAddresses/extractFromRanges",
+      "status": "fixed",
+      "specialist": "red-team",
+      "note": "Added maxNestingDepth=10 with depth parameter to both recursive functions."
+    },
+    {
+      "id": "S4-RT-2",
+      "severity": "low",
+      "title": "MaxParseTime constant defined but never enforced",
+      "status": "fixed",
+      "specialist": "red-team",
+      "note": "Added ParseBytesContext() with context support. ParseBytes wraps with MaxParseTime timeout. API caller uses r.Context()."
+    },
+    {
+      "id": "S4-OPT-1",
+      "severity": "medium",
+      "title": "Regex recompilation per-call in isValidGA, generateSlug, extractETSVersion",
+      "status": "fixed",
+      "specialist": "optimise",
+      "note": "Precompiled as package-level vars: reValidGA, reSlugClean, reETSVersion."
+    },
+    {
+      "id": "S4-STB-1",
+      "severity": "low",
+      "title": "Hardcoded 5s health check timeout in process manager",
+      "status": "fixed",
+      "specialist": "stability",
+      "note": "Added HealthCheckTimeout field to Config with 5s default. Used via healthCheckTimeout() method."
+    },
+    {
+      "id": "S4-CHS-1",
+      "severity": "low",
+      "title": "GARecorder has no dedicated unit tests (243 LOC untested)",
+      "status": "fixed",
+      "specialist": "chaos-audit",
+      "note": "Added ga_recorder_test.go with 8 tests covering lifecycle, recording, health check selection, edge cases."
+    }
+  ],
+
+  "session_5_findings": [
+    {
+      "id": "S5-RT-1",
+      "severity": "medium",
+      "title": "Audit log ID collision risk (32-bit truncated UUID)",
+      "status": "fixed",
+      "specialist": "red-team",
+      "note": "Changed from uuid[:8] (32-bit) to full UUID (122-bit). No collision risk at any practical scale."
+    },
+    {
+      "id": "S5-OPT-1",
+      "severity": "low",
+      "title": "Panel no-cache on immutable hashed assets",
+      "status": "fixed",
+      "specialist": "optimise",
+      "note": "Added setCacheHeaders() — /assets/ gets immutable 1-year cache, index.html/manifest get no-cache, others get 1-hour cache."
+    },
+    {
+      "id": "S5-STB-1",
+      "severity": "low",
+      "title": "MQTT reconnect subscription restoration silent failures",
+      "status": "fixed",
+      "specialist": "stability",
+      "note": "restoreSubscriptions() now waits for token and logs errors via logger.Error()."
+    },
+    {
+      "id": "S5-STB-2",
+      "severity": "low",
+      "title": "No audit log retention/pruning",
+      "status": "fixed",
+      "specialist": "stability",
+      "note": "Added PruneOldEntries() to audit repo + startAuditLogPruneLoop in main.go with 1-year retention."
+    },
+    {
+      "id": "S5-CHS-1",
+      "severity": "low",
+      "title": "Background cleanup loops lack panic recovery",
+      "status": "fixed",
+      "specialist": "chaos-audit",
+      "note": "Added defer recover() with error logging to all 3 background goroutines (state history, token cleanup, audit prune)."
+    }
+  ],
 
   "archived_runs": {
     "description": "Previous review results from v1.0.0 format (4 specialists only).",

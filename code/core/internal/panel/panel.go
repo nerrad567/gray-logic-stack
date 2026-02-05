@@ -7,6 +7,7 @@ import (
 	"net/http"
 	"os"
 	"path"
+	"strings"
 )
 
 //go:embed web/*
@@ -42,15 +43,17 @@ func Handler(dir string) http.Handler {
 	fileServer := http.FileServer(fileSystem)
 
 	return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-		// Prevent aggressive caching of mutable assets (index.html, JS).
-		// Flutter hashes its chunk files, so this is safe for cache-busting.
-		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
-
 		// Clean the path
 		upath := path.Clean(r.URL.Path)
 		if upath == "." {
 			upath = "/"
 		}
+
+		// Set cache headers based on asset mutability.
+		// Flutter content-hashed chunks (e.g. main.dart.js.sha256.js) are immutable —
+		// the filename changes when content changes — so they get long-lived cache.
+		// Mutable files (index.html, manifest.json) get no-cache.
+		setCacheHeaders(w, upath)
 
 		// For root, let FileServer handle it (serves index.html automatically)
 		if upath == "/" {
@@ -72,4 +75,26 @@ func Handler(dir string) http.Handler {
 		// File exists — serve it directly
 		fileServer.ServeHTTP(w, r)
 	})
+}
+
+// setCacheHeaders sets appropriate Cache-Control headers based on the asset path.
+// Content-hashed assets (Flutter build chunks) get long-lived immutable cache.
+// Mutable assets (index.html, manifest, service worker) get no-cache.
+func setCacheHeaders(w http.ResponseWriter, upath string) {
+	// Mutable files that must always be revalidated
+	if upath == "/" || strings.HasSuffix(upath, ".html") ||
+		strings.HasSuffix(upath, "manifest.json") ||
+		strings.HasSuffix(upath, "flutter_service_worker.js") {
+		w.Header().Set("Cache-Control", "no-cache, must-revalidate")
+		return
+	}
+
+	// Assets under /assets/ are Flutter content-hashed chunks — immutable
+	if strings.HasPrefix(upath, "/assets/") {
+		w.Header().Set("Cache-Control", "public, max-age=31536000, immutable")
+		return
+	}
+
+	// Default: short cache for other static files (icons, fonts, etc.)
+	w.Header().Set("Cache-Control", "public, max-age=3600")
 }

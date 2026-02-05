@@ -169,8 +169,15 @@ func (c *Client) restoreSubscriptions() {
 	defer c.subMu.RUnlock()
 
 	for _, sub := range c.subscriptions {
-		// Re-subscribe (ignore errors during reconnection)
-		c.client.Subscribe(sub.topic, sub.qos, c.wrapHandler(sub.handler))
+		token := c.client.Subscribe(sub.topic, sub.qos, c.wrapHandler(sub.handler))
+		if token.WaitTimeout(defaultPublishTimeout) && token.Error() != nil {
+			if logger := c.getLogger(); logger != nil {
+				logger.Error("failed to restore MQTT subscription",
+					"topic", sub.topic,
+					"error", token.Error(),
+				)
+			}
+		}
 	}
 }
 

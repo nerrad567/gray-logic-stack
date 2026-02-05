@@ -64,9 +64,9 @@ func (s *Server) handleETSParse(w http.ResponseWriter, r *http.Request) {
 		"first_bytes", string(data[:min(50, len(data))]), //nolint:mnd // first 50 bytes for format detection log
 	)
 
-	// Parse the file
+	// Parse the file (with request context for cancellation support)
 	parser := etsimport.NewParser()
-	result, err := parser.ParseBytes(data, header.Filename)
+	result, err := parser.ParseBytesContext(r.Context(), data, header.Filename)
 	if err != nil {
 		// Log ALL parse errors with details
 		s.logger.Error("ETS parse error",
@@ -88,6 +88,9 @@ func (s *Server) handleETSParse(w http.ResponseWriter, r *http.Request) {
 			writeBadRequest(w, "no group addresses found in file")
 		case errors.Is(err, etsimport.ErrUnsupportedVersion):
 			writeBadRequest(w, "unsupported ETS version")
+		case errors.Is(err, etsimport.ErrParseTimeout):
+			writeError(w, http.StatusGatewayTimeout, "parse_timeout",
+				"ETS file parsing timed out")
 		default:
 			s.logger.Error("ETS parse failed", "error", err, "filename", header.Filename)
 			writeInternalError(w, "failed to parse ETS file")

@@ -101,6 +101,10 @@ type Config struct {
 	// HealthCheckInterval is how often to run health checks.
 	HealthCheckInterval time.Duration
 
+	// HealthCheckTimeout is how long each health check may run before timing out.
+	// If 0, defaults to 5 seconds.
+	HealthCheckTimeout time.Duration
+
 	// OnStart is called when the process starts successfully.
 	OnStart func()
 
@@ -124,6 +128,7 @@ func DefaultConfig(name, binary string, args []string) Config {
 		StableThreshold:     2 * time.Minute,
 		GracefulTimeout:     10 * time.Second,
 		HealthCheckInterval: 30 * time.Second,
+		HealthCheckTimeout:  5 * time.Second,
 	}
 }
 
@@ -179,6 +184,9 @@ func NewManager(cfg Config) *Manager {
 	if cfg.HealthCheckInterval == 0 {
 		cfg.HealthCheckInterval = 30 * time.Second
 	}
+	if cfg.HealthCheckTimeout == 0 {
+		cfg.HealthCheckTimeout = 5 * time.Second
+	}
 
 	return &Manager{
 		config: cfg,
@@ -190,6 +198,11 @@ func NewManager(cfg Config) *Manager {
 // SetLogger sets the logger for the manager.
 func (m *Manager) SetLogger(logger Logger) {
 	m.logger = logger
+}
+
+// healthCheckTimeout returns the configured health check timeout.
+func (m *Manager) healthCheckTimeout() time.Duration {
+	return m.config.HealthCheckTimeout
 }
 
 // closeDone safely closes the done channel exactly once per Start() cycle.
@@ -373,7 +386,7 @@ func (m *Manager) waitForExitOrHealthFailure(ctx context.Context, cmd *exec.Cmd)
 
 		case <-ticker.C:
 			// Run health check
-			checkCtx, cancel := context.WithTimeout(ctx, 5*time.Second) //nolint:mnd // health check timeout seconds
+			checkCtx, cancel := context.WithTimeout(ctx, m.healthCheckTimeout())
 			err := m.config.HealthCheckFunc(checkCtx)
 			cancel()
 

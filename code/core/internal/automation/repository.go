@@ -437,9 +437,13 @@ func scanSceneRow(scanner rowScanner) (*Scene, error) {
 	// Parse timestamps (stored as RFC3339 by SQLite default expressions)
 	if t, parseErr := time.Parse(time.RFC3339, createdAt); parseErr == nil {
 		s.CreatedAt = t
+	} else {
+		return nil, fmt.Errorf("scene %s created_at: %w", s.ID, parseErr)
 	}
 	if t, parseErr := time.Parse(time.RFC3339, updatedAt); parseErr == nil {
 		s.UpdatedAt = t
+	} else {
+		return nil, fmt.Errorf("scene %s updated_at: %w", s.ID, parseErr)
 	}
 
 	// Unmarshal actions JSON
@@ -495,16 +499,22 @@ func scanExecutionRow(scanner rowScanner) (*SceneExecution, error) {
 	e.Status = ExecutionStatus(status)
 	if t, parseErr := time.Parse(time.RFC3339, triggeredAt); parseErr == nil {
 		e.TriggeredAt = t
+	} else {
+		return nil, fmt.Errorf("execution %s triggered_at: %w", e.ID, parseErr)
 	}
 
 	if startedAt.Valid {
 		if t, parseErr := time.Parse(time.RFC3339, startedAt.String); parseErr == nil {
 			e.StartedAt = &t
+		} else {
+			return nil, fmt.Errorf("execution %s started_at: %w", e.ID, parseErr)
 		}
 	}
 	if completedAt.Valid {
 		if t, parseErr := time.Parse(time.RFC3339, completedAt.String); parseErr == nil {
 			e.CompletedAt = &t
+		} else {
+			return nil, fmt.Errorf("execution %s completed_at: %w", e.ID, parseErr)
 		}
 	}
 	if triggerSource.Valid {

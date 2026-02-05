@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
+	"fmt"
 	"net/http"
 
 	"github.com/go-chi/chi/v5"
@@ -75,6 +76,12 @@ func (s *Server) handleCreateScene(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	// Validate action device_ids are within the user's accessible scope.
+	if err := s.validateActionDeviceScope(r.Context(), scope, scene.Actions); err != nil {
+		writeForbidden(w, err.Error())
+		return
+	}
+
 	if err := s.sceneRegistry.CreateScene(r.Context(), &scene); err != nil {
 		if errors.Is(err, automation.ErrInvalidScene) || errors.Is(err, automation.ErrInvalidName) ||
 			errors.Is(err, automation.ErrNoActions) || errors.Is(err, automation.ErrInvalidAction) {
@@ -127,6 +134,12 @@ func (s *Server) handleUpdateScene(w http.ResponseWriter, r *http.Request) {
 	roomID := derefString(existing.RoomID)
 	if denied, message := sceneManageDenied(scope, roomID); denied {
 		writeForbidden(w, message)
+		return
+	}
+
+	// Validate action device_ids are within the user's accessible scope.
+	if err := s.validateActionDeviceScope(r.Context(), scope, existing.Actions); err != nil {
+		writeForbidden(w, err.Error())
 		return
 	}
 
@@ -437,4 +450,26 @@ func isValidSceneCategory(category automation.Category) bool {
 		}
 	}
 	return false
+}
+
+// validateActionDeviceScope checks that all scene action device_ids are
+// accessible to the current user's room scope. Admins (nil scope) skip this.
+// Devices not yet in the registry are allowed (pre-commissioning use case).
+func (s *Server) validateActionDeviceScope(ctx context.Context, scope *auth.RoomScope, actions []automation.SceneAction) error {
+	if scope == nil {
+		return nil // admins/owners have full access
+	}
+	for _, action := range actions {
+		if action.DeviceID == "" {
+			continue
+		}
+		dev, err := s.registry.GetDevice(ctx, action.DeviceID)
+		if err != nil {
+			continue // device not in registry yet — allow (harmless at execution time)
+		}
+		if !deviceInScope(scope, dev) {
+			return fmt.Errorf("action targets device %q outside accessible rooms", action.DeviceID)
+		}
+	}
+	return nil
 }

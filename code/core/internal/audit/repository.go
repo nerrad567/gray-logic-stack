@@ -46,6 +46,7 @@ type ListResult struct {
 type Repository interface {
 	Create(ctx context.Context, log *AuditLog) error
 	List(ctx context.Context, filter Filter) (*ListResult, error)
+	PruneOldEntries(ctx context.Context, retention time.Duration) (int64, error)
 }
 
 // SQLiteRepository reads audit logs from SQLite.
@@ -61,7 +62,7 @@ func NewSQLiteRepository(db *sql.DB) *SQLiteRepository {
 // Create inserts a new audit log entry. The ID and CreatedAt are generated if empty.
 func (r *SQLiteRepository) Create(ctx context.Context, log *AuditLog) error {
 	if log.ID == "" {
-		log.ID = "aud-" + uuid.NewString()[:8]
+		log.ID = "aud-" + uuid.NewString()
 	}
 	if log.CreatedAt.IsZero() {
 		log.CreatedAt = time.Now().UTC()
@@ -207,4 +208,22 @@ func (r *SQLiteRepository) List(ctx context.Context, filter Filter) (*ListResult
 		Limit:  filter.Limit,
 		Offset: filter.Offset,
 	}, nil
+}
+
+// PruneOldEntries deletes audit log entries older than the retention period.
+// Returns the number of deleted rows.
+func (r *SQLiteRepository) PruneOldEntries(ctx context.Context, retention time.Duration) (int64, error) {
+	cutoff := time.Now().UTC().Add(-retention).Format(time.RFC3339)
+
+	result, err := r.db.ExecContext(ctx,
+		`DELETE FROM audit_logs WHERE created_at < ?`, cutoff)
+	if err != nil {
+		return 0, fmt.Errorf("pruning audit logs: %w", err)
+	}
+
+	deleted, err := result.RowsAffected()
+	if err != nil {
+		return 0, fmt.Errorf("getting prune count: %w", err)
+	}
+	return deleted, nil
 }

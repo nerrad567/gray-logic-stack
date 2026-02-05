@@ -24,4 +24,13 @@ var (
 	// ErrRoomAlreadyInZoneDomain is returned when assigning a room to a zone
 	// but the room is already in another zone of the same domain.
 	ErrRoomAlreadyInZoneDomain = errors.New("room already assigned to a zone in this domain")
+
+	// ErrInvalidName is returned when a name fails validation.
+	ErrInvalidName = errors.New("invalid name")
+
+	// ErrInvalidSlug is returned when a slug fails validation.
+	ErrInvalidSlug = errors.New("invalid slug")
+
+	// ErrInvalidSettings is returned when a settings map fails validation.
+	ErrInvalidSettings = errors.New("invalid settings")
 )

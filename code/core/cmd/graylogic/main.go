@@ -55,6 +55,10 @@ const (
 
 	tokenCleanupInterval = 1 * time.Hour
 	tokenCleanupTimeout  = 30 * time.Second
+
+	auditLogRetention     = 365 * 24 * time.Hour // 1 year
+	auditLogPruneInterval = 24 * time.Hour
+	auditLogPruneTimeout  = 30 * time.Second
 )
 
 func main() {
@@ -237,6 +241,9 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 	// Start background cleanup of expired refresh tokens
 	startTokenCleanupLoop(ctx, tokenRepo, log)
 
+	// Start background pruning of old audit log entries (>1 year)
+	startAuditLogPruneLoop(ctx, auditRepo, log)
+
 	// Initialise state history repository
 	stateHistoryRepo := device.NewSQLiteStateHistoryRepository(db.DB)
 	log.Info("state history repository initialised")
@@ -416,13 +423,19 @@ func getConfigPath() string {
 //   - ctx: Context used for cancellation on shutdown
 //   - repo: State history repository used for pruning
 //   - log: Logger for pruning diagnostics
-func startStateHistoryPruneLoop(ctx context.Context, repo *device.SQLiteStateHistoryRepository, log *logging.Logger) {
+func startStateHistoryPruneLoop(ctx context.Context, repo *device.SQLiteStateHistoryRepository, log *logging.Logger) { //nolint:dupl // intentional: each prune loop has distinct repo type, method, and log messages
 	if repo == nil {
 		return
 	}
 
 	// Run pruning in a background goroutine to avoid blocking startup.
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("panic in state history prune loop", "panic", r)
+			}
+		}()
+
 		prune := func() {
 			pruneCtx, cancel := context.WithTimeout(ctx, stateHistoryPruneTimeout)
 			defer cancel()
@@ -468,6 +481,12 @@ func startTokenCleanupLoop(ctx context.Context, repo auth.TokenRepository, log *
 	}
 
 	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("panic in token cleanup loop", "panic", r)
+			}
+		}()
+
 		cleanup := func() {
 			cleanupCtx, cancel := context.WithTimeout(ctx, tokenCleanupTimeout)
 			defer cancel()
@@ -496,6 +515,57 @@ func startTokenCleanupLoop(ctx context.Context, repo auth.TokenRepository, log *
 				return
 			case <-ticker.C:
 				cleanup()
+			}
+		}
+	}()
+}
+
+// startAuditLogPruneLoop starts a background task to prune old audit log entries.
+//
+// Parameters:
+//   - ctx: Context used for cancellation on shutdown
+//   - repo: Audit log repository used for pruning
+//   - log: Logger for pruning diagnostics
+func startAuditLogPruneLoop(ctx context.Context, repo *audit.SQLiteRepository, log *logging.Logger) { //nolint:dupl // intentional: each prune loop has distinct repo type, method, and log messages
+	if repo == nil {
+		return
+	}
+
+	go func() {
+		defer func() {
+			if r := recover(); r != nil {
+				log.Error("panic in audit log prune loop", "panic", r)
+			}
+		}()
+
+		prune := func() {
+			pruneCtx, cancel := context.WithTimeout(ctx, auditLogPruneTimeout)
+			defer cancel()
+
+			deleted, err := repo.PruneOldEntries(pruneCtx, auditLogRetention)
+			if err != nil {
+				log.Warn("audit log prune failed", "error", err)
+				return
+			}
+			if deleted > 0 {
+				log.Info("audit logs pruned", "deleted", deleted)
+			} else {
+				log.Debug("audit log prune complete", "deleted", deleted)
+			}
+		}
+
+		// Run once on startup.
+		prune()
+
+		ticker := time.NewTicker(auditLogPruneInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				prune()
 			}
 		}
 	}()

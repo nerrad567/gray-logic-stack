@@ -80,8 +80,8 @@ func (r *SQLiteZoneRepository) CreateZone(ctx context.Context, zone *Infrastruct
 	if zone.Slug == "" {
 		zone.Slug = device.GenerateSlug(zone.Name)
 	}
-	if zone.Domain == "" || !ValidZoneDomain(string(zone.Domain)) {
-		return fmt.Errorf("invalid zone domain: %s", zone.Domain)
+	if err := ValidateZone(zone); err != nil {
+		return err
 	}
 
 	settingsJSON, err := marshalSettings(zone.Settings)
@@ -209,8 +209,8 @@ func (r *SQLiteZoneRepository) UpdateZone(ctx context.Context, zone *Infrastruct
 	if zone.Slug == "" {
 		zone.Slug = device.GenerateSlug(zone.Name)
 	}
-	if zone.Domain == "" || !ValidZoneDomain(string(zone.Domain)) {
-		return fmt.Errorf("invalid zone domain: %s", zone.Domain)
+	if err := ValidateZone(zone); err != nil {
+		return err
 	}
 
 	settingsJSON, err := marshalSettings(zone.Settings)
@@ -567,8 +567,13 @@ func scanZoneRow(scanner zoneRowScanner) (*InfrastructureZone, error) {
 
 	zone.Domain = ZoneDomain(domain)
 	zone.Settings = parseSettings(settingsJSON)
-	zone.CreatedAt = parseTime(createdAt)
-	zone.UpdatedAt = parseTime(updatedAt)
+	var parseErr error
+	if zone.CreatedAt, parseErr = parseTime(createdAt); parseErr != nil {
+		return nil, fmt.Errorf("zone %s created_at: %w", zone.ID, parseErr)
+	}
+	if zone.UpdatedAt, parseErr = parseTime(updatedAt); parseErr != nil {
+		return nil, fmt.Errorf("zone %s updated_at: %w", zone.ID, parseErr)
+	}
 	return &zone, nil
 }
 
