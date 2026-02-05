@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-05 (Session 32 - VictoriaMetrics Migration + State Pipeline)
-**Current milestone:** Year 1 Foundation Complete + VictoriaMetrics + State Pipeline
+**Last session:** 2026-02-05 (Session 32 - State History Audit Trail + Metrics Endpoints)
+**Current milestone:** Year 1 Foundation Complete + Full State Pipeline + History/Metrics API
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
@@ -40,6 +40,17 @@
   - Wired MQTT → VictoriaMetrics: numeric/boolean state fields written as telemetry
   - Full state pipeline: MQTT → WebSocket broadcast → Registry update → TSDB write
   - Docker Compose updated (dev + prod), config simplified (TSDBConfig)
+- **State History Audit Trail + Metrics Endpoints ✅ NEW** (Codex-assisted, gpt-5.2-codex):
+  - SQLite `state_history` table with STRICT mode, FK cascade, auto-prune (30-day retention)
+  - `StateHistoryRepository` interface + SQLite implementation with RecordStateChange/GetHistory/PruneHistory
+  - Wired into MQTT state pipeline (websocket.go subscribeStateUpdates)
+  - Background prune loop (daily cleanup, 30-day retention)
+  - `GET /devices/{id}/history` — SQLite audit trail with limit/since params
+  - `GET /devices/{id}/metrics` — PromQL range query proxy to VictoriaMetrics
+  - `GET /devices/{id}/metrics/summary` — instant query with field discovery
+  - TSDB `QueryRange` + `QueryInstant` methods (json.RawMessage passthrough)
+  - PromQL injection prevention via strconv.Quote label escaping
+  - 11 new test functions, all 15 packages pass with -race
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - KNX Pipeline Robustness ✅ (structured DPT storage, canonical function registry, import normalisation, pipeline integration tests)
@@ -1046,6 +1057,66 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 **Commit**: `24efb2d`
 
 **Result**: KNXSim Phase 2 Web Dashboard is now complete. All checklist items done. Phase 3 (scenarios, thermal models, testing tools) is next when KNXSim work resumes.
+
+---
+
+### Session 31: 2026-02-05 — VictoriaMetrics Migration + State Pipeline
+
+**Goal:** Replace InfluxDB 2.7 with VictoriaMetrics and wire the disconnected state pipeline
+
+**Phase 0 — VictoriaMetrics Migration:**
+- Docker Compose: replaced `influxdb:2.7-alpine` with `victoriametrics/victoria-metrics:v1.135.0` (dev + prod)
+- Config: renamed `InfluxDBConfig` → `TSDBConfig`, removed Token/Org/Bucket fields
+- Package rename: `internal/infrastructure/influxdb/` → `internal/infrastructure/tsdb/`
+- Rewrote TSDB client: pure `net/http` with internal batching, InfluxDB line protocol, zero external deps
+- Removed `influxdb-client-go/v2` from go.mod (closed MEDIUM-HIGH audit risk)
+- Updated main.go, Makefile, config.yaml
+
+**Phase 1+2 — State Pipeline Wiring:**
+- MQTT state messages now update Device Registry (SQLite) via `registry.SetDeviceState()`
+- Numeric/boolean state fields written to VictoriaMetrics via `tsdb.WriteDeviceMetric()`
+- Full pipeline: MQTT → WebSocket broadcast → Registry update → TSDB write
+
+**Infrastructure:**
+- Added `kill-stale` Makefile target (kills stale knxd/graylogic, cleans PID/socket files)
+- All test targets depend on `kill-stale` — fixes recurring stale process test failures
+- Documentation sweep: 54 files updated (InfluxDB → VictoriaMetrics references)
+- Codex handoff specs written for Phase 3+4
+
+**Files Changed**: 78 files across 3 commits (`5cf245e`, `a94ea74`, `f057672`)
+**Lines Changed**: +1,316, -847
+**Tests**: 15 packages passing with `-race`
+
+---
+
+### Session 32: 2026-02-05 — State History Audit Trail + Metrics Endpoints
+
+**Goal:** Implement Phase 3 (SQLite state audit trail) and Phase 4 (REST history/metrics endpoints), then review lint health
+
+**Phase 3 — SQLite State Audit Trail (Codex-assisted):**
+- Migration: `state_history` table with STRICT mode, FK cascade, device/time indexes
+- `StateHistoryRepository` interface + `SQLiteStateHistoryRepository` implementation
+- `RecordStateChange`, `GetHistory` (newest-first, limit/since), `PruneHistory`
+- Wired into MQTT state pipeline in `websocket.go:subscribeStateUpdates()`
+- Background prune loop: 30-day retention, daily cleanup, context-cancellable
+
+**Phase 4 — REST Endpoints + TSDB Queries (Codex-assisted):**
+- `GET /devices/{id}/history` — SQLite audit trail with limit/since params
+- `GET /devices/{id}/metrics` — PromQL range query proxy to VictoriaMetrics
+- `GET /devices/{id}/metrics/summary` — instant query with field discovery
+- TSDB `QueryRange` + `QueryInstant` methods (json.RawMessage passthrough)
+- PromQL injection prevention via `strconv.Quote` label escaping
+- Prometheus response parsing for summary (field extraction, latest values)
+
+**Codex Handoff Performance:**
+- Model: gpt-5.2-codex at xhigh reasoning
+- Time: 20 minutes autonomous execution
+- Result: 13 files, +1,652 lines, zero bugs, all tests pass
+- Quality: production-grade, followed existing patterns perfectly
+
+**Files Changed**: 13 files, 1 commit (`9b53151`)
+**Lines Changed**: +1,652
+**Tests**: 11 new test functions, all 15 packages pass with `-race`
 
 ---
 

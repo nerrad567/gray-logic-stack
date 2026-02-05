@@ -4,6 +4,33 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.24 – State History Audit Trail + Metrics Endpoints (2026-02-05)
+
+**Focus: SQLite state audit trail and REST endpoints for device history and VictoriaMetrics metrics**
+
+Codex-assisted implementation (gpt-5.2-codex, xhigh reasoning, 20 minutes autonomous). Adds a local state change audit trail to SQLite and REST endpoints for querying device history and time-series metrics.
+
+### Added
+
+- **State history audit trail**: `state_history` SQLite table records every device state change with device_id, JSON state snapshot, source (mqtt/command/scene), and timestamp. STRICT mode with FK cascade.
+- **`StateHistoryRepository`**: Interface + SQLite implementation with `RecordStateChange`, `GetHistory` (newest-first, configurable limit), and `PruneHistory` (duration-based retention)
+- **Background prune loop**: Daily cleanup of state history entries older than 30 days, context-cancellable on shutdown
+- **`GET /devices/{id}/history`**: Returns state change history from SQLite audit trail with `limit` and `since` query params
+- **`GET /devices/{id}/metrics`**: Proxies PromQL range queries to VictoriaMetrics for device telemetry (start/end/step params)
+- **`GET /devices/{id}/metrics/summary`**: Returns available metric fields and latest values for a device via PromQL instant query
+- **TSDB query methods**: `QueryRange` and `QueryInstant` on tsdb.Client — thin HTTP wrappers returning `json.RawMessage` (zero deserialise/re-serialise overhead)
+- **PromQL injection prevention**: Label values escaped via `strconv.Quote` in query builder
+- **11 new test functions**: Repository tests (record, history ordering, prune), handler tests (history, metrics proxy, summary parsing, TSDB disabled), TSDB query tests (range, instant, errors, timeout)
+
+### Technical Notes
+
+- Migration: `20260205_090000_state_history.up.sql` with indexes on (device_id, created_at DESC) and (created_at DESC)
+- State history is independent of VictoriaMetrics — works even when TSDB is disabled
+- Metrics endpoints return 503 (not 500) when TSDB is nil/disabled — graceful degradation
+- All 15 test packages pass with `-race`
+
+---
+
 ## 1.0.23 – VictoriaMetrics Migration + State Pipeline Wiring (2026-02-05)
 
 **Focus: Replace InfluxDB with VictoriaMetrics and connect the state collection pipeline**
