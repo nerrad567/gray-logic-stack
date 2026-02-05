@@ -119,6 +119,7 @@ This audit performs 7 verification phases:
 | 2. Lint | `golangci-lint` | Code quality, style, security (gosec) |
 | 3. Vulnerabilities | `govulncheck` | Known CVEs in dependencies |
 | 4. AI Code Review | `code-reviewer` plugin | Bugs, logic errors, security issues |
+| 4b. Red Team Spot Check | Adversarial checklist | Auth bypass, privilege escalation, input abuse |
 | 5. Architecture | Manual review | Alignment with Hard Rules |
 | 6. Dependencies | `go.mod` analysis | 20-year stability assessment |
 | 7. Documentation | Sync check | Docs match implementation |
@@ -244,6 +245,36 @@ Report only high-confidence (80%+) issues.
 
 - Any Critical severity finding
 - Any High severity finding affecting security or data integrity
+
+---
+
+## Phase 4b: Red Team Spot Check (Optional but Recommended)
+
+After the defensive AI review, run a targeted adversarial check on security-sensitive code.
+
+This is a lightweight version of `/red-team` — focused on the packages being audited rather than the full system.
+
+### Quick Red Team Checklist
+
+For each audited package, ask:
+
+| Check | Question |
+|-------|----------|
+| **Auth bypass** | Can any endpoint be reached without valid credentials? |
+| **Privilege escalation** | Can a lower-role user trigger higher-role actions? |
+| **Input abuse** | Can oversized, malformed, or malicious input cause unexpected behaviour? |
+| **Race conditions** | Can concurrent requests create inconsistent state? |
+| **Information leakage** | Do error responses reveal internal details? |
+
+### When to Run Full /red-team
+
+- If Phase 4b finds any Medium+ issue → run full `/red-team` on the affected package
+- At milestone boundaries → run `/red-team` on all security-critical packages
+- After any auth-related changes → run `/red-team internal/auth/ internal/api/`
+
+### What Fails This Sub-Phase
+- Any finding that would allow unauthenticated access to protected resources
+- Any finding that allows privilege escalation
 
 ---
 

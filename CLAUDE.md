@@ -325,6 +325,12 @@ cd code/core && make build              # Build binary
 cd code/core && go test -v ./...        # Run tests
 cd code/core && golangci-lint run       # Lint
 
+# Performance + resilience testing
+cd code/core && make test-bench         # Run benchmarks, compare with baseline
+cd code/core && make bench-baseline     # Save benchmark baseline
+cd code/core && make test-fuzz          # Run fuzz tests (30s each)
+cd code/core && make test-resilience    # Run resilience tests (TestResilience_*)
+
 # Production Docker (explicit only)
 cd code/core && make docker-up          # Full containerised stack
 cd code/core && make docker-down        # Stop full stack
@@ -357,14 +363,36 @@ Focused code reviewers for targeted analysis. Each reviews against our documente
 | `/stability` | Stability Reviewer | Error handling, recovery, race conditions, fault tolerance |
 | `/review-all` | Orchestrator | Runs all 4 specialists sequentially with consolidated report |
 
+### Adversarial & Performance Agents
+
+Proactive testing agents that verify the system works under stress and attack.
+
+| Command | Agent | Purpose |
+|---------|-------|---------|
+| `/red-team` | Adversarial Tester | Business logic exploits, auth bypass, privilege escalation, input abuse |
+| `/bench` | Benchmark Runner | Performance baselines, regression detection, profiling |
+| `/chaos` | Resilience Tester | Fault injection, recovery validation, failure mode analysis |
+
 **Usage:** `/standards internal/bridges/knx/` or `/review-all internal/api/`
 
 **When to use which:**
 - `/standards`, `/security`, `/optimise`, `/stability` — Quick focused review of a specific concern during development
 - `/review-all` — Comprehensive review of a file or package across all 4 dimensions
 - `/code-audit` — Full milestone-grade audit that also runs tools (tests, lint, vulncheck)
+- `/red-team` — Offensive security testing (complements `/security` which is defensive)
+- `/bench` — Run after milestones to establish performance baselines; run before commits to detect regressions
+- `/chaos` — Validate resilience patterns actually work; run at milestone boundaries
 
 **Orchestration:** When any single specialist completes, it will offer to run the remaining specialists. Track which have run to avoid duplicates within a session.
+
+### Makefile Test Targets
+
+| Target | Purpose |
+|--------|---------|
+| `make test-bench` | Run all Go benchmarks, compare with saved baseline |
+| `make bench-baseline` | Save current benchmark results as the new baseline |
+| `make test-fuzz` | Run Go fuzz tests (30s per fuzz function) |
+| `make test-resilience` | Run resilience tests only (`TestResilience_*` prefix) |
 
 ## Current Focus
 

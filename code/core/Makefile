@@ -51,7 +51,7 @@ PKG_DIR := ./pkg/...
        build-panel build-panel-dev build-all \
        dev-services dev-services-down dev-run dev-run-quick \
        docker-build docker-up docker-down \
-       kill-stale test-clean
+       kill-stale test-clean test-bench bench-baseline test-fuzz test-resilience
 
 # ============================================================================
 # HELP
@@ -157,6 +157,40 @@ test-coverage: kill-stale
 test-integration: kill-stale
 	@echo "Running integration tests..."
 	$(GO) test -tags=integration -v ./tests/integration/...
+
+## test-bench: Run all benchmarks (5 iterations for stable results)
+test-bench:
+	@echo "Running benchmarks..."
+	$(GO) test -bench=. -benchmem -count=5 -run=^$$ ./... 2>&1 | tee /tmp/bench-current.txt
+	@if [ -f .bench-baseline.txt ]; then \
+		echo ""; echo "=== Comparing with baseline ==="; \
+		benchstat .bench-baseline.txt /tmp/bench-current.txt 2>/dev/null || \
+		echo "Install benchstat: go install golang.org/x/perf/cmd/benchstat@latest"; \
+	else \
+		echo "No baseline found. Run 'make bench-baseline' to establish one."; \
+	fi
+
+## bench-baseline: Save current benchmark results as baseline
+bench-baseline:
+	@echo "Running benchmarks and saving baseline..."
+	$(GO) test -bench=. -benchmem -count=5 -run=^$$ ./... > .bench-baseline.txt 2>&1
+	@echo "Baseline saved to .bench-baseline.txt"
+
+## test-fuzz: Run Go fuzz tests for 30 seconds each
+test-fuzz:
+	@echo "Running fuzz tests (30s each)..."
+	@for pkg in $$($(GO) list ./... | xargs -I{} sh -c '$(GO) test -list "^Fuzz" {} 2>/dev/null | grep -q "^Fuzz" && echo {}'); do \
+		for fuzz in $$($(GO) test -list "^Fuzz" $$pkg 2>/dev/null | grep "^Fuzz"); do \
+			echo "Fuzzing $$pkg / $$fuzz ..."; \
+			$(GO) test -fuzz=$$fuzz -fuzztime=30s -run=^$$ $$pkg || exit 1; \
+		done; \
+	done
+	@echo "Fuzz testing complete"
+
+## test-resilience: Run resilience tests only
+test-resilience: kill-stale
+	@echo "Running resilience tests..."
+	$(GO) test -race -run=TestResilience -v ./...
 
 # ============================================================================
 # CODE QUALITY TARGETS
