@@ -47,6 +47,12 @@ var (
 // Default configuration file path
 const defaultConfigPath = "configs/config.yaml"
 
+const (
+	stateHistoryRetention     = 30 * 24 * time.Hour
+	stateHistoryPruneInterval = 24 * time.Hour
+	stateHistoryPruneTimeout  = 30 * time.Second
+)
+
 func main() {
 	// Create a context that cancels on interrupt signals (Ctrl+C, SIGTERM)
 	// This is the Go pattern for graceful shutdown
@@ -199,6 +205,11 @@ func run(ctx context.Context) error {
 	auditRepo := audit.NewSQLiteRepository(db.DB)
 	log.Info("audit log repository initialised")
 
+	// Initialise state history repository
+	stateHistoryRepo := device.NewSQLiteStateHistoryRepository(db.DB)
+	log.Info("state history repository initialised")
+	startStateHistoryPruneLoop(ctx, stateHistoryRepo, log)
+
 	// Create WebSocket hub (shared between engine and API server)
 	wsHub := api.NewHub(cfg.WebSocket, log)
 	go wsHub.Run(ctx)
@@ -248,6 +259,7 @@ func run(ctx context.Context) error {
 		SceneRepo:     sceneRepo,
 		LocationRepo:  locationRepo,
 		AuditRepo:     auditRepo,
+		StateHistory:  stateHistoryRepo,
 		TSDB:          tsdbClient,
 		DevMode:       cfg.DevMode,
 		PanelDir:      cfg.PanelDir,
@@ -352,6 +364,52 @@ func getConfigPath() string {
 		return path
 	}
 	return defaultConfigPath
+}
+
+// startStateHistoryPruneLoop starts a background task to prune old state history entries.
+//
+// Parameters:
+//   - ctx: Context used for cancellation on shutdown
+//   - repo: State history repository used for pruning
+//   - log: Logger for pruning diagnostics
+func startStateHistoryPruneLoop(ctx context.Context, repo *device.SQLiteStateHistoryRepository, log *logging.Logger) {
+	if repo == nil {
+		return
+	}
+
+	// Run pruning in a background goroutine to avoid blocking startup.
+	go func() {
+		prune := func() {
+			pruneCtx, cancel := context.WithTimeout(ctx, stateHistoryPruneTimeout)
+			defer cancel()
+
+			deleted, err := repo.PruneHistory(pruneCtx, stateHistoryRetention)
+			if err != nil {
+				log.Warn("state history prune failed", "error", err)
+				return
+			}
+			if deleted > 0 {
+				log.Info("state history pruned", "deleted", deleted)
+			} else {
+				log.Debug("state history prune complete", "deleted", deleted)
+			}
+		}
+
+		// Run once on startup.
+		prune()
+
+		ticker := time.NewTicker(stateHistoryPruneInterval)
+		defer ticker.Stop()
+
+		for {
+			select {
+			case <-ctx.Done():
+				return
+			case <-ticker.C:
+				prune()
+			}
+		}
+	}()
 }
 
 // healthCheck verifies all infrastructure connections are healthy.

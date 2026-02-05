@@ -55,6 +55,9 @@ func (s *Server) buildRouter() http.Handler {
 					r.Delete("/", s.handleDeleteDevice)
 					r.Get("/state", s.handleGetDeviceState)
 					r.Put("/state", s.handleSetDeviceState)
+					r.Get("/history", s.handleGetDeviceHistory)
+					r.Get("/metrics", s.handleGetDeviceMetrics)
+					r.Get("/metrics/summary", s.handleGetDeviceMetricsSummary)
 				})
 			})
 

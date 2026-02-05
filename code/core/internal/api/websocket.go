@@ -220,6 +220,13 @@ func (s *Server) subscribeStateUpdates() error {
 					}
 				}
 			}
+
+			// Record state change to local audit trail for history queries.
+			if s.stateHistory != nil {
+				if err := s.stateHistory.RecordStateChange(context.Background(), deviceID, devState, device.StateHistorySourceMQTT); err != nil {
+					s.logger.Debug("state history write failed", "device_id", deviceID, "error", err)
+				}
+			}
 		}
 
 		return nil

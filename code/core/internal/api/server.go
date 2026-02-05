@@ -78,6 +78,7 @@ type Deps struct {
 	SceneRepo     automation.Repository
 	LocationRepo  location.Repository
 	AuditRepo     audit.Repository
+	StateHistory  device.StateHistoryRepository
 	TSDB          *tsdb.Client // Optional: time-series database for device telemetry
 	ExternalHub   *Hub         // If set, the server uses this hub instead of creating its own
 	DevMode       bool         // When true, commands apply state locally without bridge confirmation
@@ -103,6 +104,7 @@ type Server struct {
 	sceneRepo          automation.Repository
 	locationRepo       location.Repository
 	auditRepo          audit.Repository
+	stateHistory       device.StateHistoryRepository
 	tsdb               *tsdb.Client // optional: time-series telemetry writes
 	devMode            bool
 	panelDir           string
@@ -149,6 +151,7 @@ func New(deps Deps) (*Server, error) {
 		sceneRepo:     deps.SceneRepo,
 		locationRepo:  deps.LocationRepo,
 		auditRepo:     deps.AuditRepo,
+		stateHistory:  deps.StateHistory,
 		tsdb:          deps.TSDB,
 		devMode:       deps.DevMode,
 		panelDir:      deps.PanelDir,
