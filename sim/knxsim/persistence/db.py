@@ -1149,10 +1149,11 @@ class Database:
             self.conn.commit()
 
     def update_channel_state_by_ga(self, device_id: str, ga: int, state_updates: dict):
-        """Update a channel's state based on which GA was written to.
+        """Update all channels' state that listen on the given GA.
 
-        Finds the channel whose group_objects contain the given GA,
-        then updates that channel's state.
+        In real KNX, a group address telegram is multicast — all channels
+        listening on that GA receive it. We mirror this by updating every
+        matching channel, not just the first.
 
         Args:
             device_id: Device ID
@@ -1176,20 +1177,18 @@ class Database:
                 state_updates,
             )
 
-            # Find which channel has this GA
-            target_channel = None
+            # Find ALL channels that have this GA (multicast behaviour)
+            target_channels = []
             for channel in channels:
                 for go_name, go_data in channel.get("group_objects", {}).items():
                     if isinstance(go_data, dict) and go_data.get("ga") == ga_str:
-                        target_channel = channel
+                        target_channels.append(channel)
                         logger.debug(
                             "Found target channel: %s (via %s)", channel.get("id"), go_name
                         )
-                        break
-                if target_channel:
-                    break
+                        break  # Don't match same channel twice
 
-            if not target_channel:
+            if not target_channels:
                 logger.debug("No channel found for GA %s in device %s", ga_str, device_id)
                 return
 
@@ -1209,21 +1208,26 @@ class Database:
                 else:
                     normalized_updates[key] = value
 
-            # Update the channel's state (don't carry over stale button_X keys)
-            channel_state = target_channel.get("state", {})
-            # Remove any button_X keys that may have leaked in previously
-            channel_state = {k: v for k, v in channel_state.items() if not k.startswith("button_")}
-            # Only update keys that already exist in the channel state template.
-            # This prevents device-level derived keys (e.g. "on" from ValveActuator)
-            # from leaking into proportional-only channel state.
-            for key, value in normalized_updates.items():
-                if key in channel_state:
-                    channel_state[key] = value
-            target_channel["state"] = channel_state
+            # Update every matching channel's state
+            for target_channel in target_channels:
+                channel_state = target_channel.get("state", {})
+                # Remove any button_X keys that may have leaked in previously
+                channel_state = {
+                    k: v for k, v in channel_state.items() if not k.startswith("button_")
+                }
+                # Only update keys that already exist in the channel state template.
+                # This prevents device-level derived keys (e.g. "on" from ValveActuator)
+                # from leaking into proportional-only channel state.
+                for key, value in normalized_updates.items():
+                    if key in channel_state:
+                        channel_state[key] = value
+                target_channel["state"] = channel_state
 
-            logger.info(
-                "update_channel_state_by_ga: ch %s now %s", target_channel.get("id"), channel_state
-            )
+                logger.info(
+                    "update_channel_state_by_ga: ch %s now %s",
+                    target_channel.get("id"),
+                    channel_state,
+                )
 
             self.conn.execute(
                 "UPDATE devices SET channels = ?, updated_at = ? WHERE id = ?",
@@ -1346,8 +1350,15 @@ class Database:
 
     def create_load(self, premise_id: str, data: dict) -> dict:
         """Create a new load (physical equipment)."""
+        import re
+        import uuid
+
         now = _now()
-        load_id = data.get("id") or f"load-{data['name'].lower().replace(' ', '-')}"
+        if data.get("id"):
+            load_id = data["id"]
+        else:
+            slug = re.sub(r"[^a-z0-9]+", "-", data["name"].lower()).strip("-")
+            load_id = f"load-{slug}-{uuid.uuid4().hex[:6]}"
 
         self.conn.execute(
             """INSERT INTO loads (id, premise_id, room_id, name, type, icon,

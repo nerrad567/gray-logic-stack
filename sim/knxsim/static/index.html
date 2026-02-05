@@ -4,7 +4,7 @@
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>KNXSim</title>
-    <link rel="stylesheet" href="css/style.css?v=32" />
+    <link rel="stylesheet" href="css/style.css?v=43" />
     <!-- Load app.js first to register stores, then Alpine -->
     <script type="module">
       import { initStores, startApp } from "./js/app.js";
@@ -90,27 +90,62 @@
                 const ports = $store.app.premises.map(p => p.port || 3671);
                 return Math.max(...ports, 3671) + 1;
               },
+              get areaLineConflict() {
+                const premises = $store.app.premises || [];
+                return premises.find(p => p.area_number === this.areaNumber && p.line_number === this.lineNumber) || null;
+              },
+              get nextAvailableAreaLine() {
+                const used = new Set($store.app.premises.map(p => `${p.area_number}.${p.line_number}`));
+                for (let a = 1; a <= 15; a++) {
+                  for (let l = 1; l <= 15; l++) {
+                    if (!used.has(`${a}.${l}`)) return { area: a, line: l };
+                  }
+                }
+                return null;
+              },
               port: null,
               creating: false,
-              init() { this.port = this.nextPort; },
+              init() {
+                // Watch for popup being shown and reset form
+                this.$watch('showCreate', (shown) => {
+                  if (shown) this.resetForm();
+                });
+                this.resetForm();
+              },
+              resetForm() {
+                this.name = '';
+                this.port = this.nextPort;
+                // Auto-suggest next available area/line
+                const next = this.nextAvailableAreaLine;
+                if (next) {
+                  this.areaNumber = next.area;
+                  this.lineNumber = next.line;
+                }
+              },
               async create() {
                 if (!this.name.trim()) return;
+                if (this.areaLineConflict) {
+                  alert(`Area ${this.areaNumber}, Line ${this.lineNumber} is already used by '${this.areaLineConflict.name}'`);
+                  return;
+                }
                 this.creating = true;
+                // Suppress welcome modal flicker during premise switch
+                $store.app.suppressWelcomeModal = true;
                 try {
                   const id = this.name.toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/-+$/, '');
                   await API.createPremise({ id, name: this.name.trim(), area_number: this.areaNumber, line_number: this.lineNumber, port: this.port });
-                  // Suppress welcome modal flicker during premise switch
-                  $store.app.connecting = true;
                   await $store.app.loadPremises();
                   await $store.app.selectPremise(id);
-                  $store.app.connecting = false;
                   this.name = '';
                   this.port = this.nextPort;
                   showCreate = false;
+                  // Wait for WebSocket reconnection cycle (disconnect → reconnect)
+                  await $store.app._waitForConnection();
                 } catch (e) {
                   alert('Failed to create: ' + e.message);
                 } finally {
                   this.creating = false;
+                  $store.app.suppressWelcomeModal = false;
                 }
               }
             }"
@@ -144,14 +179,14 @@
                 </div>
               </div>
               <label
-                style="
-                  margin-top: 4px;
-                  font-size: 10px;
-                  color: var(--text-muted);
-                "
+                style="margin-top: 4px; font-size: 10px"
+                :style="areaLineConflict ? 'color: var(--danger)' : 'color: var(--text-muted)'"
                 >Gateway:
-                <span x-text="areaNumber + '.' + lineNumber + '.0'"></span
-              ></label>
+                <span x-text="areaNumber + '.' + lineNumber + '.0'"></span>
+                <span x-show="areaLineConflict" style="margin-left: 4px">
+                  ⚠️ In use by <span x-text="areaLineConflict?.name"></span>
+                </span>
+              </label>
               <label>KNXnet/IP Port</label>
               <input
                 type="number"
@@ -166,7 +201,7 @@
                 <button
                   class="btn btn-sm btn-primary"
                   @click="create()"
-                  :disabled="creating || !name.trim()"
+                  :disabled="creating || !name.trim() || areaLineConflict"
                 >
                   <span x-text="creating ? 'Creating...' : 'Create'"></span>
                 </button>
@@ -238,15 +273,26 @@
             </div>
           </div>
           <!-- Factory Reset button (Engineer Mode only) -->
+          <!-- Normal click = reset current premise; Shift+click = nuke entire database -->
           <button
             class="btn btn-factory-reset"
             x-show="$store.app.engineerMode"
-            @click="$store.modal.confirm(
-              'Factory Reset',
-              'This will delete ALL devices, floors, and rooms, and show the welcome screen. Continue?',
-              async () => { await $store.app.factoryReset(); }
-            )"
-            title="Reset to initial state and show welcome screen"
+            @click="
+              if ($event.shiftKey) {
+                $store.modal.confirm(
+                  '⚠️ GLOBAL Factory Reset',
+                  'This will DELETE THE ENTIRE DATABASE and recreate it fresh. ALL premises will be lost! Hold Shift and click to confirm you meant this.',
+                  async () => { await $store.app.globalFactoryReset(); }
+                );
+              } else {
+                $store.modal.confirm(
+                  'Factory Reset',
+                  'This will delete all devices, floors, and rooms for this premise. Continue? (Shift+click for global reset)',
+                  async () => { await $store.app.factoryReset(); }
+                );
+              }
+            "
+            title="Reset premise (Shift+click to nuke entire database)"
           >
             🔄 Factory Reset
           </button>
@@ -4327,15 +4373,15 @@ STRATEGY 3: By Room Type (Commercial)
                     >
                       <div class="help-empty">
                         <p>
-                          No devices yet. First device will be assigned to a new
+                          No devices yet. First device will be assigned to this
                           line.
                         </p>
                         <button
                           type="button"
                           class="btn btn-small"
-                          @click="form.individual_address = '1.1.1'"
+                          @click="suggestDeviceNumber()"
                         >
-                          Start with 1.1.1
+                          Suggest first address
                         </button>
                       </div>
                     </template>
@@ -4920,16 +4966,46 @@ STRATEGY 3: By Room Type (Commercial)
                   >Free-form type identifier for your custom load</small
                 >
               </div>
-              <!-- Custom load: editable icon -->
-              <div class="form-group" x-show="isCustomLoad">
-                <label for="load-icon-custom">Icon</label>
-                <input
-                  type="text"
-                  id="load-icon-custom"
-                  x-model="form.icon"
-                  placeholder="e.g., 💡"
-                  style="width: 60px"
-                />
+              <!-- Icon picker -->
+              <div class="form-group">
+                <label>Icon</label>
+                <div class="icon-picker" x-data="{ open: false }">
+                  <button
+                    type="button"
+                    class="icon-picker-btn"
+                    @click="open = !open"
+                  >
+                    <span
+                      x-text="form.icon || '?'"
+                      style="font-size: 18px"
+                    ></span>
+                    <span
+                      style="
+                        font-size: 11px;
+                        color: var(--text-muted);
+                        margin-left: 6px;
+                      "
+                      >Change</span
+                    >
+                  </button>
+                  <div
+                    class="icon-picker-grid"
+                    x-show="open"
+                    @click.outside="open = false"
+                  >
+                    <template
+                      x-for="icon in ['💡','🔥','🪟','🌀','💧','🔌','🚪','🌿','🔊','⚙️','🎨','❄️','☀️','🛁','🧯','🔧']"
+                    >
+                      <button
+                        type="button"
+                        class="icon-picker-option"
+                        :class="{ 'selected': form.icon === icon }"
+                        @click="form.icon = icon; open = false"
+                        x-text="icon"
+                      ></button>
+                    </template>
+                  </div>
+                </div>
               </div>
               <div class="form-group">
                 <label for="load-room">Room</label>
@@ -5164,9 +5240,15 @@ STRATEGY 3: By Room Type (Commercial)
       <!-- Welcome Modal (First-Run Setup) -->
       <div
         class="modal-overlay welcome-overlay"
+        x-cloak
         x-show="$store.app.needsSetup && !$store.app.connecting"
         x-transition:enter="modal-enter"
+        x-transition:enter-start="opacity-0"
+        x-transition:enter-end="opacity-100"
         x-transition:leave="modal-leave"
+        x-transition:leave-start="opacity-100"
+        x-transition:leave-end="opacity-0"
+        style="transition-delay: 150ms"
         x-data="{ loading: false }"
       >
         <div class="modal modal-welcome" @click.stop>
@@ -5517,6 +5599,10 @@ STRATEGY 3: By Room Type (Commercial)
                     };
                     this.showHelp = true;
                     this.helpTab = "recommended";
+                    // Auto-fetch IA if not provided
+                    if (!suggestedIA) {
+                      this.suggestDeviceNumber();
+                    }
                   } else {
                     // No template — show Stage 1 (inline template picker)
                     this.selectedTemplate = null;
@@ -5529,6 +5615,10 @@ STRATEGY 3: By Room Type (Commercial)
                       room_id: "",
                       group_addresses: {},
                     };
+                    // Auto-fetch IA if not provided
+                    if (!suggestedIA) {
+                      this.suggestDeviceNumber();
+                    }
                   }
                 }
               }
@@ -6125,7 +6215,9 @@ STRATEGY 3: By Room Type (Commercial)
               );
 
               // Reload devices
-              await this.$store.app.loadDevices();
+              this.$store.app.devices = await API.getDevices(
+                this.$store.app.currentPremiseId,
+              );
 
               this.$store.modal.close();
             } catch (err) {

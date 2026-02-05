@@ -100,7 +100,11 @@ class WebSocketManager {
 
   _handleMessage(data) {
     if (data.type === "state_change") {
-      Alpine.store("app").updateDeviceState(data.device_id, data.state, data.channels);
+      Alpine.store("app").updateDeviceState(
+        data.device_id,
+        data.state,
+        data.channels,
+      );
     }
   }
 
@@ -127,11 +131,14 @@ class WebSocketManager {
     }
 
     if (this.ws) {
+      // Remove onclose handler to prevent it from scheduling a reconnect
+      this.ws.onclose = null;
       this.ws.close();
       this.ws = null;
     }
 
     if (this.telegramWs) {
+      this.telegramWs.onclose = null;
       this.telegramWs.close();
       this.telegramWs = null;
     }

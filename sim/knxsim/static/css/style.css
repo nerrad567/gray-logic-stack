@@ -3984,3 +3984,63 @@ select:focus {
   color: var(--accent-green);
   background: rgba(63, 185, 80, 0.05);
 }
+
+/* Icon picker */
+.icon-picker {
+  position: relative;
+}
+
+.icon-picker-btn {
+  display: flex;
+  align-items: center;
+  padding: 6px 12px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 6px;
+  cursor: pointer;
+  transition: border-color 0.15s;
+}
+
+.icon-picker-btn:hover {
+  border-color: var(--accent-blue);
+}
+
+.icon-picker-grid {
+  position: absolute;
+  z-index: 100;
+  top: 100%;
+  left: 0;
+  margin-top: 4px;
+  display: grid;
+  grid-template-columns: repeat(8, 1fr);
+  gap: 2px;
+  padding: 6px;
+  background: var(--bg-secondary);
+  border: 1px solid var(--border-primary);
+  border-radius: 8px;
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.4);
+}
+
+.icon-picker-option {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 36px;
+  height: 36px;
+  font-size: 20px;
+  background: transparent;
+  border: 2px solid transparent;
+  border-radius: 6px;
+  cursor: pointer;
+  transition: all 0.1s;
+}
+
+.icon-picker-option:hover {
+  background: var(--bg-tertiary);
+  border-color: var(--accent-blue);
+}
+
+.icon-picker-option.selected {
+  background: rgba(56, 139, 253, 0.15);
+  border-color: var(--accent-blue);
+}

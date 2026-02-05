@@ -79,6 +79,12 @@ export const API = {
     });
   },
 
+  async globalFactoryReset() {
+    return request(`/premises/global-factory-reset`, {
+      method: "POST",
+    });
+  },
+
   // ─────────────────────────────────────────────────────────────
   // Devices
   // ─────────────────────────────────────────────────────────────

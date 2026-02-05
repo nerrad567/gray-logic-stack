@@ -126,6 +126,9 @@ export function initStores() {
     connected: false,
     connecting: false,
 
+    // Welcome modal suppression (prevents flicker during data refresh)
+    suppressWelcomeModal: false,
+
     // Data
     premises: [],
     currentPremiseId: null,
@@ -320,6 +323,11 @@ export function initStores() {
 
         // Load group address structure
         Alpine.store("groups").load(premiseId);
+
+        // If currently viewing topology, reload it for the new premise
+        if (this.viewMode === "topology") {
+          await this.loadTopology();
+        }
       } catch (err) {
         console.error("Failed to load premise data:", err);
       }
@@ -385,7 +393,8 @@ export function initStores() {
     async switchView(mode) {
       this.viewMode = mode;
       this.selectedDeviceId = null;
-      if (mode === "topology" && !this.topology) {
+      if (mode === "topology") {
+        // Always reload topology when switching to topology view
         await this.loadTopology();
       }
       if (mode === "groups" && !Alpine.store("groups").loaded) {
@@ -394,9 +403,19 @@ export function initStores() {
     },
 
     async loadTopology() {
-      if (!this.currentPremiseId) return;
+      if (!this.currentPremiseId) {
+        console.warn("loadTopology: no currentPremiseId");
+        return;
+      }
+      console.log("loadTopology: fetching for", this.currentPremiseId);
       try {
-        this.topology = await API.getTopology(this.currentPremiseId);
+        const result = await API.getTopology(this.currentPremiseId);
+        console.log(
+          "loadTopology: got result with",
+          result?.devices?.length,
+          "devices",
+        );
+        this.topology = result;
       } catch (err) {
         console.error("Failed to load topology:", err);
       }
@@ -956,21 +975,22 @@ export function initStores() {
      */
     async resetToSample() {
       if (!this.currentPremiseId) return;
+      // Suppress welcome modal flicker during refresh
+      this.suppressWelcomeModal = true;
       try {
         const result = await API.resetToSample(this.currentPremiseId);
         console.log("Reset to sample:", result);
+        // Refresh premises first to get updated setup_complete status
+        this.premises = await API.getPremises();
         // Reload all data - floors, devices, and topology
         await this.selectPremise(this.currentPremiseId);
         this.selectedDeviceId = null;
-        // Mark setup as complete locally
-        const premise = this.premises.find(
-          (p) => p.id === this.currentPremiseId,
-        );
-        if (premise) premise.setup_complete = true;
       } catch (err) {
         console.error("Failed to reset to sample:", err);
         alert("Failed to reset: " + err.message);
         throw err;
+      } finally {
+        this.suppressWelcomeModal = false;
       }
     },
 
@@ -990,18 +1010,49 @@ export function initStores() {
 
     async factoryReset() {
       if (!this.currentPremiseId) return;
+      // Suppress welcome modal flicker during refresh
+      this.suppressWelcomeModal = true;
       try {
         const result = await API.factoryReset(this.currentPremiseId);
         console.log("Factory reset:", result);
-        // Reload all data
-        await this.selectPremise(this.currentPremiseId);
-        // Refresh premises to get updated setup_complete
+        // Refresh premises first to get updated setup_complete status
         this.premises = await API.getPremises();
+        // Reload all data (now empty after reset)
+        await this.selectPremise(this.currentPremiseId);
         this.selectedDeviceId = null;
+        // Wait for WebSocket to reconnect and DOM to settle
+        await this._waitForConnection();
       } catch (err) {
         console.error("Failed to factory reset:", err);
         alert("Failed to reset: " + err.message);
         throw err;
+      } finally {
+        // Re-enable welcome modal (will show because setup_complete=false)
+        this.suppressWelcomeModal = false;
+      }
+    },
+
+    async globalFactoryReset() {
+      // Nuclear option: delete entire database and recreate fresh
+      this.suppressWelcomeModal = true;
+      try {
+        const result = await API.globalFactoryReset();
+        console.log("Global factory reset:", result);
+        // Refresh premises (will now have just the default premise)
+        this.premises = await API.getPremises();
+        // Select the default premise
+        if (this.premises.length > 0) {
+          await this.selectPremise(this.premises[0].id);
+        }
+        this.selectedDeviceId = null;
+        // Wait for WebSocket to reconnect and DOM to settle
+        await this._waitForConnection();
+      } catch (err) {
+        console.error("Failed to global factory reset:", err);
+        alert("Failed to reset: " + err.message);
+        throw err;
+      } finally {
+        this.suppressWelcomeModal = false;
       }
     },
 
@@ -1009,6 +1060,7 @@ export function initStores() {
      * Check if current premise needs setup (show welcome modal)
      */
     get needsSetup() {
+      if (this.suppressWelcomeModal) return false;
       const premise = this.premises.find((p) => p.id === this.currentPremiseId);
       return premise && !premise.setup_complete;
     },
@@ -1050,6 +1102,20 @@ export function initStores() {
     setConnecting() {
       this.connecting = true;
       this.connected = false;
+    },
+
+    /**
+     * Wait for WebSocket reconnection to stabilize after premise switch.
+     * Simple approach: wait 500ms which is enough for reconnect cycle to complete.
+     */
+    _waitForConnection() {
+      console.log("_waitForConnection: starting 500ms wait");
+      return new Promise((resolve) =>
+        setTimeout(() => {
+          console.log("_waitForConnection: 500ms elapsed, resolving");
+          resolve();
+        }, 500),
+      );
     },
 
     incrementTelegramCount() {

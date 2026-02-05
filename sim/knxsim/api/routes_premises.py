@@ -37,14 +37,20 @@ def get_premise(premise_id: str):
 def create_premise(body: PremiseCreate):
     """Create a new premise and start its KNX server."""
     manager = router.app.state.manager
-    # Check for duplicate
+    # Check for duplicate ID
     if manager.get_premise(body.id):
         raise HTTPException(status_code=409, detail="Premise already exists")
-    # Check for port conflict
+    # Check for port conflict and area/line conflict
     for p in manager.list_premises():
         if p["port"] == body.port:
             raise HTTPException(
                 status_code=409, detail=f"Port {body.port} already in use by '{p['name']}'"
+            )
+        if p["area_number"] == body.area_number and p["line_number"] == body.line_number:
+            raise HTTPException(
+                status_code=409,
+                detail=f"Area {body.area_number}, Line {body.line_number} already in use by '{p['name']}'. "
+                "Each premise must have a unique area/line combination.",
             )
     result = manager.create_premise(body.model_dump())
     result["running"] = True
@@ -310,6 +316,11 @@ def reset_to_sample(premise_id: str):
     loads_created = 0
     for load_config in config.get("loads", []):
         bare_actuator_id = load_config.get("actuator_device_id")
+        raw_room_id = load_config.get("room_id")
+        if raw_room_id:
+            resolved_room_id = room_id_map.get(raw_room_id, raw_room_id)
+        else:
+            resolved_room_id = guess_room_for_load(load_config["id"])
         load_data = {
             "id": f"{prefix}{load_config['id']}",
             "name": load_config["name"],
@@ -319,7 +330,7 @@ def reset_to_sample(premise_id: str):
             if bare_actuator_id
             else None,
             "actuator_channel_id": load_config.get("actuator_channel_id"),
-            "room_id": load_config.get("room_id") or guess_room_for_load(load_config["id"]),
+            "room_id": resolved_room_id,
         }
 
         try:
@@ -372,8 +383,8 @@ def mark_setup_complete(premise_id: str):
 def factory_reset(premise_id: str):
     """Factory reset — delete everything and show welcome modal again.
 
-    Clears all loads, devices, floors, rooms, and sets setup_complete=false
-    so the user sees the welcome modal to choose their setup.
+    Clears all loads, devices, floors, rooms, group addresses, scenarios,
+    and sets setup_complete=false so the user sees the welcome modal.
     """
     manager = router.app.state.manager
     premise = manager.get_premise(premise_id)
@@ -395,6 +406,15 @@ def factory_reset(premise_id: str):
     for floor in existing_floors:
         manager.db.delete_floor(floor["id"])
 
+    # Delete all group addresses (main groups cascade to middle groups)
+    existing_main_groups = manager.db.list_main_groups(premise_id)
+    for mg in existing_main_groups:
+        manager.db.delete_main_group(mg["id"])
+
+    # Delete all scenarios
+    manager.db.conn.execute("DELETE FROM scenarios WHERE premise_id = ?", (premise_id,))
+    manager.db.conn.commit()
+
     # Reset setup_complete to show welcome modal
     now = __import__("datetime").datetime.now(__import__("datetime").timezone.utc).isoformat()
     manager.db.conn.execute(
@@ -413,4 +433,49 @@ def factory_reset(premise_id: str):
         "loads_deleted": len(existing_loads),
         "devices_deleted": len(existing_devices),
         "floors_deleted": len(existing_floors),
+    }
+
+
+@router.post("/global-factory-reset")
+def global_factory_reset():
+    """Nuclear option — wipe the entire database and restart fresh.
+
+    This stops all premises, deletes the database file entirely,
+    recreates a fresh schema, and bootstraps the default premise.
+    """
+    import os
+
+    import yaml
+
+    manager = router.app.state.manager
+
+    # Stop all running premises
+    for premise_id in list(manager.premises.keys()):
+        live_premise = manager.premises.get(premise_id)
+        if live_premise:
+            live_premise.stop()
+        del manager.premises[premise_id]
+
+    # Get database path before closing
+    db_path = manager.db.db_path
+
+    # Close the database connection
+    manager.db.close()
+
+    # Delete the database file
+    if os.path.exists(db_path):
+        os.remove(db_path)
+        logger.info("Deleted database file: %s", db_path)
+
+    # Reconnect (recreates fresh schema)
+    manager.db.connect()
+
+    # Load config and bootstrap default premise
+    with open("/app/config.yaml") as f:
+        config = yaml.safe_load(f)
+    manager.bootstrap_from_config(config)
+
+    return {
+        "status": "ok",
+        "message": "Database deleted and recreated fresh. Default premise bootstrapped.",
     }
