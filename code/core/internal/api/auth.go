@@ -15,8 +15,8 @@ import (
 
 // Auth constants.
 const (
-	// ticketTTL is how long a WebSocket ticket is valid.
-	ticketTTL = 60 * time.Second
+	// ticketTTL is how long a WebSocket ticket is valid (CONSTRAINTS.md §12.2: 2-minute expiry).
+	ticketTTL = 2 * time.Minute
 )
 
 // loginRequest is the request body for POST /auth/login.
@@ -66,8 +66,9 @@ type ticketEntry struct {
 	expiresAt time.Time
 }
 
-var wsTickets = &ticketStore{
-	tickets: make(map[string]ticketEntry),
+// newTicketStore creates a new ticket store for WebSocket authentication.
+func newTicketStore() *ticketStore {
+	return &ticketStore{tickets: make(map[string]ticketEntry)}
 }
 
 // handleLogin authenticates a user and returns JWT access + refresh tokens.
@@ -105,13 +106,7 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:
 		return
 	}
 
-	// Check account is active
-	if !user.IsActive {
-		writeUnauthorized(w, "account is inactive")
-		return
-	}
-
-	// Verify password
+	// Verify password (check before active status to prevent account enumeration)
 	ok, err := auth.VerifyPassword(req.Password, user.PasswordHash)
 	if err != nil {
 		s.logger.Error("login: password verification failed", "error", err)
@@ -128,13 +123,24 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:
 		return
 	}
 
+	// Check account is active (after password check to prevent account enumeration)
+	if !user.IsActive {
+		s.auditLog("login_failed", "user", user.ID, user.ID, map[string]any{
+			"username":   req.Username,
+			"reason":     "account_inactive",
+			"user_agent": r.UserAgent(),
+		})
+		writeUnauthorized(w, "invalid credentials")
+		return
+	}
+
 	// Generate access token
 	ttl := s.secCfg.JWT.AccessTokenTTL
 	if ttl == 0 {
 		ttl = 15 //nolint:mnd // default 15-minute access token TTL
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user, s.secCfg.JWT.Secret, ttl)
+	accessToken, err := auth.GenerateAccessToken(user, s.jwtSecretBytes, ttl)
 	if err != nil {
 		s.logger.Error("login: access token generation failed", "error", err)
 		writeInternalError(w, "authentication failed")
@@ -151,14 +157,14 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:
 
 	refreshTTL := s.secCfg.JWT.RefreshTokenTTL
 	if refreshTTL == 0 {
-		refreshTTL = 10080 //nolint:mnd // default 7 days in minutes
+		refreshTTL = 1440 //nolint:mnd // default 24 hours in minutes (matches config default)
 	}
 
 	rt := &auth.RefreshToken{
 		UserID:     user.ID,
 		TokenHash:  auth.HashToken(rawRefresh),
 		DeviceInfo: r.UserAgent(),
-		ExpiresAt:  time.Now().Add(time.Duration(refreshTTL) * time.Minute),
+		ExpiresAt:  time.Now().UTC().Add(time.Duration(refreshTTL) * time.Minute),
 	}
 
 	if err := s.tokenRepo.Create(r.Context(), rt); err != nil {
@@ -230,8 +236,27 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 	}
 
 	// Check expiry
-	if time.Now().After(storedToken.ExpiresAt) {
+	if time.Now().UTC().After(storedToken.ExpiresAt) {
 		writeUnauthorized(w, "refresh token expired")
+		return
+	}
+
+	// Enforce absolute session lifetime (CONSTRAINTS.md §5.1: 90-day max).
+	// Even if individual refresh tokens haven't expired, the session family
+	// cannot exceed 90 days from first login.
+	const maxSessionDays = 90
+	familyCreated, err := s.tokenRepo.GetFamilyCreatedAt(r.Context(), storedToken.FamilyID)
+	if err != nil {
+		s.logger.Error("refresh: failed to check family age", "error", err)
+		writeInternalError(w, "token refresh failed")
+		return
+	}
+	if time.Now().UTC().Sub(familyCreated) > time.Duration(maxSessionDays)*24*time.Hour {
+		s.auditLog("session_expired", "session", storedToken.FamilyID, storedToken.UserID, map[string]any{
+			"reason":   "absolute_lifetime_exceeded",
+			"max_days": maxSessionDays,
+		})
+		writeUnauthorized(w, "session has exceeded maximum lifetime — please log in again")
 		return
 	}
 
@@ -253,7 +278,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 		ttl = 15 //nolint:mnd // default 15-minute access token TTL
 	}
 
-	accessToken, err := auth.GenerateAccessToken(user, s.secCfg.JWT.Secret, ttl)
+	accessToken, err := auth.GenerateAccessToken(user, s.jwtSecretBytes, ttl)
 	if err != nil {
 		s.logger.Error("refresh: access token generation failed", "error", err)
 		writeInternalError(w, "token refresh failed")
@@ -270,7 +295,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 
 	refreshTTL := s.secCfg.JWT.RefreshTokenTTL
 	if refreshTTL == 0 {
-		refreshTTL = 10080 //nolint:mnd // default 7 days in minutes
+		refreshTTL = 1440 //nolint:mnd // default 24 hours in minutes (matches config default)
 	}
 
 	newRT := &auth.RefreshToken{
@@ -278,7 +303,7 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 		FamilyID:   storedToken.FamilyID, // same family for theft detection
 		TokenHash:  auth.HashToken(rawRefresh),
 		DeviceInfo: r.UserAgent(),
-		ExpiresAt:  time.Now().Add(time.Duration(refreshTTL) * time.Minute),
+		ExpiresAt:  time.Now().UTC().Add(time.Duration(refreshTTL) * time.Minute),
 	}
 
 	// Atomically revoke old token and create new one in a single transaction
@@ -322,6 +347,8 @@ func (s *Server) handleLogout(w http.ResponseWriter, r *http.Request) {
 		if err := s.tokenRepo.RevokeFamily(r.Context(), storedToken.FamilyID); err != nil { //nolint:govet // shadow: err re-declared in nested scope
 			s.logger.Error("logout: failed to revoke token family", "error", err)
 		}
+		// Audit log the logout with the user who owns the token
+		s.auditLog("logout", "user", storedToken.UserID, storedToken.UserID, nil)
 	}
 
 	writeJSON(w, http.StatusOK, map[string]string{"status": "logged_out"})
@@ -344,6 +371,11 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 
 	if req.CurrentPassword == "" || req.NewPassword == "" {
 		writeBadRequest(w, "current_password and new_password are required")
+		return
+	}
+
+	if len(req.CurrentPassword) > 128 { //nolint:mnd // reject before Argon2id to prevent DoS
+		writeUnauthorized(w, "current password is incorrect")
 		return
 	}
 
@@ -384,16 +416,12 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	// Update password
-	if err := s.userRepo.UpdatePassword(r.Context(), user.ID, newHash); err != nil {
+	// Atomically update password and revoke all sessions in a single transaction.
+	// This prevents any window where old sessions remain valid after a password change.
+	if err := s.userRepo.UpdatePasswordAndRevokeSessions(r.Context(), user.ID, newHash); err != nil {
 		s.logger.Error("change-password: update failed", "error", err)
 		writeInternalError(w, "password change failed")
 		return
-	}
-
-	// Revoke all existing sessions (force re-login everywhere)
-	if err := s.tokenRepo.RevokeAllForUser(r.Context(), user.ID); err != nil {
-		s.logger.Error("change-password: session revocation failed", "error", err)
 	}
 
 	s.logger.Info("password changed", "user_id", user.ID)
@@ -409,7 +437,7 @@ func (s *Server) handleWSTicket(w http.ResponseWriter, r *http.Request) {
 	ticket := generateTicket()
 
 	entry := ticketEntry{
-		expiresAt: time.Now().Add(ticketTTL),
+		expiresAt: time.Now().UTC().Add(ticketTTL),
 	}
 
 	// Carry auth identity onto the ticket
@@ -421,9 +449,9 @@ func (s *Server) handleWSTicket(w http.ResponseWriter, r *http.Request) {
 		entry.role = auth.RolePanel
 	}
 
-	wsTickets.mu.Lock()
-	wsTickets.tickets[ticket] = entry
-	wsTickets.mu.Unlock()
+	s.wsTickets.mu.Lock()
+	s.wsTickets.tickets[ticket] = entry
+	s.wsTickets.mu.Unlock()
 
 	writeJSON(w, http.StatusOK, map[string]any{
 		"ticket":     ticket,
@@ -433,17 +461,17 @@ func (s *Server) handleWSTicket(w http.ResponseWriter, r *http.Request) {
 
 // validateTicket checks if a ticket is valid and consumes it (single-use).
 // Returns the ticket entry on success for identity propagation.
-func validateTicket(ticket string) (ticketEntry, bool) { //nolint:unparam // ticketEntry carries identity to WebSocket
-	wsTickets.mu.Lock()
-	defer wsTickets.mu.Unlock()
+func (s *Server) validateTicket(ticket string) (ticketEntry, bool) {
+	s.wsTickets.mu.Lock()
+	defer s.wsTickets.mu.Unlock()
 
-	entry, ok := wsTickets.tickets[ticket]
+	entry, ok := s.wsTickets.tickets[ticket]
 	if !ok {
 		return ticketEntry{}, false
 	}
 
 	// Remove ticket (single-use)
-	delete(wsTickets.tickets, ticket)
+	delete(s.wsTickets.tickets, ticket)
 
 	// Check expiry
 	if time.Now().After(entry.expiresAt) {
@@ -465,14 +493,14 @@ func generateTicket() string {
 }
 
 // cleanExpiredTickets removes expired tickets from the store.
-func cleanExpiredTickets() {
-	wsTickets.mu.Lock()
-	defer wsTickets.mu.Unlock()
+func (s *Server) cleanExpiredTickets() {
+	s.wsTickets.mu.Lock()
+	defer s.wsTickets.mu.Unlock()
 
 	now := time.Now()
-	for ticket, entry := range wsTickets.tickets {
+	for ticket, entry := range s.wsTickets.tickets {
 		if now.After(entry.expiresAt) {
-			delete(wsTickets.tickets, ticket)
+			delete(s.wsTickets.tickets, ticket)
 		}
 	}
 }
@@ -487,7 +515,7 @@ func (s *Server) cleanTicketsLoop(ctx context.Context) {
 		case <-ctx.Done():
 			return
 		case <-ticker.C:
-			cleanExpiredTickets()
+			s.cleanExpiredTickets()
 		}
 	}
 }

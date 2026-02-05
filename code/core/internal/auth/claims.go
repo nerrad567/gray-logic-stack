@@ -19,12 +19,13 @@ type CustomClaims struct {
 
 // GenerateAccessToken creates a signed JWT access token for a user.
 // Access tokens are short-lived (configured TTL) and validated by signature only (no DB hit).
-func GenerateAccessToken(user *User, secret string, ttlMinutes int) (string, error) {
+// The secret should be pre-converted to []byte at startup to avoid per-call allocation.
+func GenerateAccessToken(user *User, secret []byte, ttlMinutes int) (string, error) {
 	if ttlMinutes <= 0 {
 		ttlMinutes = 15 //nolint:mnd // default 15-minute access token TTL
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	claims := CustomClaims{
 		RegisteredClaims: jwt.RegisteredClaims{
 			Subject:   user.ID,
@@ -37,7 +38,7 @@ func GenerateAccessToken(user *User, secret string, ttlMinutes int) (string, err
 	}
 
 	token := jwt.NewWithClaims(jwt.SigningMethodHS256, claims)
-	signed, err := token.SignedString([]byte(secret))
+	signed, err := token.SignedString(secret)
 	if err != nil {
 		return "", fmt.Errorf("signing access token: %w", err)
 	}
@@ -56,9 +57,10 @@ func GenerateRefreshToken() (raw string, err error) {
 
 // ParseToken validates and parses a JWT access token, returning the custom claims.
 // It checks the signature, expiry, and required fields.
-func ParseToken(tokenString, secret string) (*CustomClaims, error) {
+// The secret should be pre-converted to []byte at startup to avoid per-call allocation.
+func ParseToken(tokenString string, secret []byte) (*CustomClaims, error) {
 	token, err := jwt.ParseWithClaims(tokenString, &CustomClaims{}, func(_ *jwt.Token) (any, error) {
-		return []byte(secret), nil
+		return secret, nil
 	}, jwt.WithValidMethods([]string{jwt.SigningMethodHS256.Alg()}))
 	if err != nil {
 		return nil, fmt.Errorf("%w: %w", ErrTokenInvalid, err)

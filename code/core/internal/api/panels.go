@@ -95,6 +95,7 @@ func (s *Server) handleCreatePanel(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
+	s.panelCache.invalidate()
 	s.logger.Info("panel registered", "panel_id", panel.ID, "name", panel.Name, "rooms", len(req.RoomIDs), "created_by", claims.Subject)
 	s.auditLog("create", "panel", panel.ID, claims.Subject, map[string]any{
 		"name":       panel.Name,
@@ -139,6 +140,7 @@ func (s *Server) handleGetPanel(w http.ResponseWriter, r *http.Request) {
 // handleUpdatePanel modifies a panel's mutable fields.
 func (s *Server) handleUpdatePanel(w http.ResponseWriter, r *http.Request) {
 	id := chi.URLParam(r, "id")
+	claims := claimsFromContext(r.Context())
 
 	var req updatePanelRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
@@ -167,6 +169,12 @@ func (s *Server) handleUpdatePanel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.panelCache.invalidate()
+	s.logger.Info("panel updated", "panel_id", id, "updated_by", claims.Subject)
+	s.auditLog("update", "panel", id, claims.Subject, map[string]any{
+		"name": panel.Name,
+	})
+
 	writeJSON(w, http.StatusOK, panel)
 }
 
@@ -185,6 +193,7 @@ func (s *Server) handleDeletePanel(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.panelCache.invalidate()
 	s.logger.Info("panel revoked", "panel_id", id, "deleted_by", claims.Subject)
 	s.auditLog("delete", "panel", id, claims.Subject, nil)
 
@@ -247,6 +256,7 @@ func (s *Server) handleSetPanelRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.panelCache.invalidate()
 	s.logger.Info("panel rooms updated", "panel_id", id, "room_count", len(req.RoomIDs), "updated_by", claims.Subject)
 	s.auditLog("update_rooms", "panel", id, claims.Subject, map[string]any{
 		"room_count": len(req.RoomIDs),

@@ -24,7 +24,9 @@ import (
 )
 
 // testJWTSecret is the shared secret used by test servers.
-const testJWTSecret = "test-secret-key-at-least-32-characters-long"
+//
+//nolint:gochecknoglobals // test helper, not production code
+var testJWTSecret = []byte("test-secret-key-at-least-32-characters-long")
 
 // testAdminToken generates a valid admin JWT for test requests.
 func testAdminToken(t *testing.T) string {
@@ -95,7 +97,7 @@ func testServer(t *testing.T) (*Server, *device.Registry) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         testJWTSecret,
+				Secret:         string(testJWTSecret),
 				AccessTokenTTL: 15,
 			},
 		},
@@ -1069,25 +1071,27 @@ func TestWSTicket_SingleUse(t *testing.T) {
 	}
 
 	// Ticket should be valid once
-	if _, ok := validateTicket(ticket); !ok {
+	if _, ok := srv.validateTicket(ticket); !ok {
 		t.Error("ticket should be valid on first use")
 	}
 
 	// Ticket should be consumed (single-use)
-	if _, ok := validateTicket(ticket); ok {
+	if _, ok := srv.validateTicket(ticket); ok {
 		t.Error("ticket should not be valid on second use")
 	}
 }
 
 func TestWSTicket_Expiry(t *testing.T) {
+	srv, _ := testServer(t)
+
 	ticket := generateTicket()
-	wsTickets.mu.Lock()
-	wsTickets.tickets[ticket] = ticketEntry{
+	srv.wsTickets.mu.Lock()
+	srv.wsTickets.tickets[ticket] = ticketEntry{
 		expiresAt: time.Now().Add(-1 * time.Second),
 	}
-	wsTickets.mu.Unlock()
+	srv.wsTickets.mu.Unlock()
 
-	if _, ok := validateTicket(ticket); ok {
+	if _, ok := srv.validateTicket(ticket); ok {
 		t.Error("expired ticket should not be valid")
 	}
 }
@@ -1635,7 +1639,7 @@ func testServerWithLocation(t *testing.T) (*Server, *mockLocationRepo) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         testJWTSecret,
+				Secret:         string(testJWTSecret),
 				AccessTokenTTL: 15,
 			},
 		},
@@ -2156,7 +2160,7 @@ func testServerWithRealListener(t *testing.T, port int) (*Server, string) { //no
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         testJWTSecret,
+				Secret:         string(testJWTSecret),
 				AccessTokenTTL: 15,
 			},
 		},
@@ -2215,7 +2219,7 @@ func TestServer_StartAndClose(t *testing.T) {
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         testJWTSecret,
+				Secret:         string(testJWTSecret),
 				AccessTokenTTL: 15,
 			},
 		},

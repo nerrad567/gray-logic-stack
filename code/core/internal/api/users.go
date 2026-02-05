@@ -61,6 +61,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) { //no
 		return
 	}
 
+	if !auth.IsValidUsername(req.Username) {
+		writeBadRequest(w, "username must be 1-64 characters: letters, digits, dots, hyphens, underscores")
+		return
+	}
+
 	if len(req.Password) < 8 || len(req.Password) > 128 { //nolint:mnd // password length bounds
 		writeBadRequest(w, "password must be between 8 and 128 characters")
 		return
@@ -342,6 +347,7 @@ func (s *Server) handleSetUserRooms(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	s.scopeCache.invalidate()
 	s.logger.Info("user room access updated", "user_id", id, "room_count", len(req.Rooms), "updated_by", claims.Subject)
 	s.auditLog("update_room_access", "user", id, claims.Subject, map[string]any{
 		"room_count": len(req.Rooms),

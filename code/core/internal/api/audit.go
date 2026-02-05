@@ -8,10 +8,14 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/audit"
 )
 
-// auditLog writes an audit log entry asynchronously (best-effort).
-// Audit write failures are logged but never block the request.
+// auditChanSize is the buffer size for the async audit log channel.
+// Entries beyond this are dropped (best-effort) to avoid back-pressure on requests.
+const auditChanSize = 256
+
+// auditLog enqueues an audit log entry for asynchronous write (best-effort).
+// If the channel is full the entry is dropped and a warning is logged.
 func (s *Server) auditLog(action, entityType, entityID, userID string, details map[string]any) {
-	if s.auditRepo == nil {
+	if s.auditRepo == nil || s.auditCh == nil {
 		return
 	}
 
@@ -24,15 +28,47 @@ func (s *Server) auditLog(action, entityType, entityID, userID string, details m
 		Details:    details,
 	}
 
-	go func() {
-		if err := s.auditRepo.Create(context.Background(), entry); err != nil {
-			s.logger.Error("audit log write failed",
-				"action", action,
-				"entity_type", entityType,
-				"error", err,
-			)
+	select {
+	case s.auditCh <- entry:
+	default:
+		s.logger.Warn("audit log channel full — dropping entry",
+			"action", action,
+			"entity_type", entityType,
+		)
+	}
+}
+
+// drainAuditLog reads entries from the audit channel and writes them serially.
+// This avoids unbounded goroutine creation and is kinder to SQLite's serial write model.
+// It runs until the context is cancelled, then drains remaining entries.
+func (s *Server) drainAuditLog(ctx context.Context) {
+	for {
+		select {
+		case entry := <-s.auditCh:
+			if err := s.auditRepo.Create(context.Background(), entry); err != nil {
+				s.logger.Error("audit log write failed",
+					"action", entry.Action,
+					"entity_type", entry.EntityType,
+					"error", err,
+				)
+			}
+		case <-ctx.Done():
+			// Drain remaining entries before exiting
+			for {
+				select {
+				case entry := <-s.auditCh:
+					if err := s.auditRepo.Create(context.Background(), entry); err != nil {
+						s.logger.Error("audit log write failed during shutdown",
+							"action", entry.Action,
+							"error", err,
+						)
+					}
+				default:
+					return
+				}
+			}
 		}
-	}()
+	}
 }
 
 // handleListAuditLogs returns paginated audit log entries with optional filters.

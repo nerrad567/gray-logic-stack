@@ -10,7 +10,7 @@ func TestGenerateAndParseAccessToken(t *testing.T) {
 		ID:   "usr-001",
 		Role: RoleAdmin,
 	}
-	secret := "test-secret-key-for-jwt-signing"
+	secret := []byte("test-secret-key-for-jwt-signing")
 
 	token, err := GenerateAccessToken(user, secret, 15)
 	if err != nil {
@@ -46,12 +46,12 @@ func TestGenerateAndParseAccessToken(t *testing.T) {
 func TestParseToken_WrongSecret(t *testing.T) {
 	user := &User{ID: "usr-001", Role: RoleUser}
 
-	token, err := GenerateAccessToken(user, "correct-secret", 15)
+	token, err := GenerateAccessToken(user, []byte("correct-secret"), 15)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
 
-	_, err = ParseToken(token, "wrong-secret")
+	_, err = ParseToken(token, []byte("wrong-secret"))
 	if err == nil {
 		t.Error("ParseToken() should fail with wrong secret")
 	}
@@ -65,18 +65,18 @@ func TestParseToken_Expired(t *testing.T) {
 	// Instead, directly test with a manipulated token time by using 0 TTL
 	// which defaults to 15 min — we can't easily expire it in a unit test
 	// without sleeping. Instead, test that a garbage token fails.
-	_, err := ParseToken("not-a-valid-jwt", "secret")
+	_, err := ParseToken("not-a-valid-jwt", []byte("secret"))
 	if err == nil {
 		t.Error("ParseToken() should fail with invalid token string")
 	}
 
 	// Valid token should still parse
-	token, err := GenerateAccessToken(user, "secret", 15)
+	token, err := GenerateAccessToken(user, []byte("secret"), 15)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
 
-	claims, err := ParseToken(token, "secret")
+	claims, err := ParseToken(token, []byte("secret"))
 	if err != nil {
 		t.Fatalf("ParseToken() error = %v", err)
 	}
@@ -89,13 +89,13 @@ func TestParseToken_Expired(t *testing.T) {
 
 func TestParseToken_InvalidSigningMethod(t *testing.T) {
 	// Empty string
-	_, err := ParseToken("", "secret")
+	_, err := ParseToken("", []byte("secret"))
 	if err == nil {
 		t.Error("ParseToken() should fail with empty token")
 	}
 
 	// Malformed JWT (wrong number of segments)
-	_, err = ParseToken("abc.def", "secret")
+	_, err = ParseToken("abc.def", []byte("secret"))
 	if err == nil {
 		t.Error("ParseToken() should fail with malformed JWT")
 	}
@@ -122,12 +122,12 @@ func TestGenerateAccessToken_DefaultTTL(t *testing.T) {
 	user := &User{ID: "usr-001", Role: RoleUser}
 
 	// TTL of 0 should default to 15 minutes
-	token, err := GenerateAccessToken(user, "secret", 0)
+	token, err := GenerateAccessToken(user, []byte("secret"), 0)
 	if err != nil {
 		t.Fatalf("GenerateAccessToken() error = %v", err)
 	}
 
-	claims, err := ParseToken(token, "secret")
+	claims, err := ParseToken(token, []byte("secret"))
 	if err != nil {
 		t.Fatalf("ParseToken() error = %v", err)
 	}

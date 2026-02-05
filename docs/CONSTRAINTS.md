@@ -247,12 +247,14 @@ Every schema change MUST pass the **Rollback Test**:
 
 ### 5.2 Authorization (RBAC)
 
+4-tier role model (implemented in `internal/auth/types.go`):
+
 | Role | Permissions |
 |------|-------------|
-| admin | `all` |
-| facility_manager | Control, configure, view all |
-| user | Control own area, limited view |
-| guest | View only, limited areas |
+| owner | All permissions + factory reset + manage other owners. Emergency-only credentials. |
+| admin | Full system control: devices, scenes, users, panels, settings, audit, commissioning. Bypasses room scoping. |
+| user | Control devices and scenes within explicitly granted rooms. Zero room grants = no access. |
+| panel | Wall-mounted display device identity (not a user account). Read-only subset scoped to assigned rooms. |
 
 **Default deny.** If no permission rule, deny.
 

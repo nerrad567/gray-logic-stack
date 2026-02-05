@@ -3,6 +3,7 @@ package auth
 import (
 	"context"
 	"database/sql"
+	"errors"
 	"fmt"
 	"time"
 
@@ -28,10 +29,9 @@ type SQLitePanelRepository struct {
 }
 
 // NewPanelRepository creates a new SQLite-backed panel repository.
+// Note: Connection pool settings (MaxOpenConns, MaxIdleConns) are managed
+// by the database infrastructure layer, not individual repositories.
 func NewPanelRepository(db *sql.DB) *SQLitePanelRepository {
-	// Ensure in-memory SQLite uses a single connection to avoid per-connection schemas in tests.
-	db.SetMaxOpenConns(1)
-	db.SetMaxIdleConns(1)
 	return &SQLitePanelRepository{db: db}
 }
 
@@ -220,7 +220,7 @@ func (r *SQLitePanelRepository) scanPanel(row *sql.Row) (*Panel, error) {
 	err := row.Scan(&p.ID, &p.Name, &p.TokenHash, &isActive,
 		&lastSeen, &createdBy, &createdAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrPanelNotFound
 		}
 		return nil, fmt.Errorf("scanning panel: %w", err)

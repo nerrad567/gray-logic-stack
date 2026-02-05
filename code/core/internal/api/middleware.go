@@ -16,6 +16,93 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/auth"
 )
 
+// panelCacheTTL is how long panel auth results are cached before re-querying the DB.
+const panelCacheTTL = 30 * time.Second
+
+// panelCacheEntry holds a cached panel authentication result.
+type panelCacheEntry struct {
+	pc       *PanelContext
+	cachedAt time.Time
+}
+
+// panelAuthCache provides a short-lived in-memory cache for panel token lookups.
+// Panel tokens are static and long-lived, so caching avoids redundant DB hits on
+// every request from a panel polling at high frequency.
+type panelAuthCache struct {
+	mu      sync.RWMutex
+	entries map[string]panelCacheEntry // keyed by token hash
+}
+
+func newPanelAuthCache() *panelAuthCache {
+	return &panelAuthCache{entries: make(map[string]panelCacheEntry)}
+}
+
+// get returns the cached PanelContext for a token hash, or nil if expired/missing.
+func (c *panelAuthCache) get(tokenHash string) *PanelContext {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.entries[tokenHash]
+	if !ok || time.Since(entry.cachedAt) > panelCacheTTL {
+		return nil
+	}
+	return entry.pc
+}
+
+// set stores a PanelContext in the cache.
+func (c *panelAuthCache) set(tokenHash string, pc *PanelContext) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[tokenHash] = panelCacheEntry{pc: pc, cachedAt: time.Now()}
+}
+
+// invalidate removes all cached entries (called on panel CRUD operations).
+func (c *panelAuthCache) invalidate() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = make(map[string]panelCacheEntry)
+}
+
+// roomScopeCacheTTL is how long resolved room scopes are cached.
+const roomScopeCacheTTL = 30 * time.Second
+
+// roomScopeCacheEntry holds a cached room scope result.
+type roomScopeCacheEntry struct {
+	scope    *auth.RoomScope
+	cachedAt time.Time
+}
+
+// roomScopeCache provides a short-lived in-memory cache for user room scope resolution.
+type roomScopeCache struct {
+	mu      sync.RWMutex
+	entries map[string]roomScopeCacheEntry // keyed by user ID
+}
+
+func newRoomScopeCache() *roomScopeCache {
+	return &roomScopeCache{entries: make(map[string]roomScopeCacheEntry)}
+}
+
+func (c *roomScopeCache) get(userID string) *auth.RoomScope {
+	c.mu.RLock()
+	defer c.mu.RUnlock()
+	entry, ok := c.entries[userID]
+	if !ok || time.Since(entry.cachedAt) > roomScopeCacheTTL {
+		return nil
+	}
+	return entry.scope
+}
+
+func (c *roomScopeCache) set(userID string, scope *auth.RoomScope) {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries[userID] = roomScopeCacheEntry{scope: scope, cachedAt: time.Now()}
+}
+
+func (c *roomScopeCache) invalidate() {
+	c.mu.Lock()
+	defer c.mu.Unlock()
+	c.entries = make(map[string]roomScopeCacheEntry)
+}
+
 // contextKey is a private type for context keys to avoid collisions.
 type contextKey string
 
@@ -260,6 +347,14 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler { //nolint:gocog
 			}
 
 			tokenHash := auth.HashToken(panelToken)
+
+			// Check cache first to avoid DB hit on every panel request
+			if cached := s.panelCache.get(tokenHash); cached != nil {
+				ctx := context.WithValue(r.Context(), ctxKeyPanel, cached)
+				next.ServeHTTP(w, r.WithContext(ctx))
+				return
+			}
+
 			panel, err := s.panelRepo.GetByTokenHash(r.Context(), tokenHash)
 			if err != nil {
 				writeUnauthorized(w, "invalid panel token")
@@ -288,6 +383,10 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler { //nolint:gocog
 				PanelID: panel.ID,
 				RoomIDs: roomIDs,
 			}
+
+			// Cache the result for subsequent requests
+			s.panelCache.set(tokenHash, pc)
+
 			ctx := context.WithValue(r.Context(), ctxKeyPanel, pc)
 			next.ServeHTTP(w, r.WithContext(ctx))
 			return
@@ -306,7 +405,7 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler { //nolint:gocog
 			return
 		}
 
-		claims, err := auth.ParseToken(parts[1], s.secCfg.JWT.Secret)
+		claims, err := auth.ParseToken(parts[1], s.jwtSecretBytes)
 		if err != nil {
 			writeUnauthorized(w, "invalid or expired token")
 			return
@@ -385,12 +484,21 @@ func (s *Server) resolveRoomScopeMiddleware(next http.Handler) http.Handler {
 			return
 		}
 
+		// Check cache first to avoid DB hit on every request for room-scoped users
+		if cached := s.scopeCache.get(claims.Subject); cached != nil {
+			ctx := context.WithValue(r.Context(), ctxKeyRoomScope, cached)
+			next.ServeHTTP(w, r.WithContext(ctx))
+			return
+		}
+
 		scope, err := s.roomAccessRepo.ResolveRoomScope(r.Context(), claims.Subject)
 		if err != nil {
 			s.logger.Error("failed to resolve room scope", "user_id", claims.Subject, "error", err)
 			writeInternalError(w, "failed to resolve room access")
 			return
 		}
+
+		s.scopeCache.set(claims.Subject, scope)
 
 		ctx := context.WithValue(r.Context(), ctxKeyRoomScope, scope)
 		next.ServeHTTP(w, r.WithContext(ctx))

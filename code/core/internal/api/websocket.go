@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/nerrad567/gray-logic-core/internal/auth"
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
@@ -57,6 +58,10 @@ type WSClient struct {
 	send          chan []byte
 	subscriptions map[string]struct{}
 	mu            sync.RWMutex
+	// Identity fields propagated from the WebSocket ticket.
+	userID  string    // non-empty for user connections
+	role    auth.Role // role of the authenticated caller
+	panelID string    // non-empty for panel connections
 }
 
 // upgrader configures the WebSocket upgrader.
@@ -242,7 +247,8 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		writeUnauthorized(w, "ticket query parameter is required")
 		return
 	}
-	if _, ok := validateTicket(ticket); !ok {
+	entry, ok := s.validateTicket(ticket)
+	if !ok {
 		writeUnauthorized(w, "invalid or expired ticket")
 		return
 	}
@@ -258,6 +264,9 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		conn:          conn,
 		send:          make(chan []byte, wsSendBufferSize),
 		subscriptions: make(map[string]struct{}),
+		userID:        entry.userID,
+		role:          entry.role,
+		panelID:       entry.panelID,
 	}
 
 	s.hub.Register(client)

@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"log/slog"
 )
@@ -46,6 +47,12 @@ func SeedOwner(ctx context.Context, userRepo UserRepository, logger *slog.Logger
 	}
 
 	if err := userRepo.Create(ctx, owner); err != nil {
+		// If another process seeded concurrently, the UNIQUE constraint on
+		// username catches it. Treat as "already seeded" rather than an error.
+		if errors.Is(err, ErrUsernameExists) {
+			logger.Info("seed owner already exists (concurrent seed detected), skipping")
+			return "", nil
+		}
 		return "", fmt.Errorf("creating seed owner: %w", err)
 	}
 

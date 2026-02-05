@@ -2,8 +2,22 @@ package auth
 
 import (
 	"errors"
+	"regexp"
 	"time"
 )
+
+// usernamePattern defines the valid format for usernames:
+// alphanumeric, dots, hyphens, underscores, 1-64 characters.
+var usernamePattern = regexp.MustCompile(`^[a-zA-Z0-9._-]{1,64}$`)
+
+// maxUsernameLength is the maximum allowed username length.
+const maxUsernameLength = 64
+
+// IsValidUsername checks if a username meets format requirements.
+// Usernames must be 1-64 characters, alphanumeric with dots, hyphens, underscores.
+func IsValidUsername(username string) bool {
+	return len(username) <= maxUsernameLength && usernamePattern.MatchString(username)
+}
 
 // Role represents an authorisation tier in the system.
 type Role string

@@ -109,7 +109,7 @@ func testSceneServer(t *testing.T) (*Server, *automation.Registry, *mockMQTTClie
 		},
 		Security: config.SecurityConfig{
 			JWT: config.JWTConfig{
-				Secret:         testJWTSecret,
+				Secret:         string(testJWTSecret),
 				AccessTokenTTL: 15,
 			},
 		},

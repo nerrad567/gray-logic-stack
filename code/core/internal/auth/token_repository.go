@@ -5,6 +5,7 @@ import (
 	"crypto/sha256"
 	"database/sql"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"time"
 
@@ -16,6 +17,7 @@ type TokenRepository interface {
 	Create(ctx context.Context, token *RefreshToken) error
 	GetByID(ctx context.Context, id string) (*RefreshToken, error)
 	GetByTokenHash(ctx context.Context, tokenHash string) (*RefreshToken, error)
+	GetFamilyCreatedAt(ctx context.Context, familyID string) (time.Time, error)
 	Revoke(ctx context.Context, id string) error
 	RevokeFamily(ctx context.Context, familyID string) error
 	RevokeAllForUser(ctx context.Context, userID string) error
@@ -83,7 +85,7 @@ func (r *SQLiteTokenRepository) GetByID(ctx context.Context, id string) (*Refres
 	).Scan(&t.ID, &t.UserID, &t.FamilyID, &t.TokenHash, &deviceInfo,
 		&expiresAt, &revoked, &createdAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTokenInvalid
 		}
 		return nil, fmt.Errorf("getting refresh token: %w", err)
@@ -115,7 +117,7 @@ func (r *SQLiteTokenRepository) GetByTokenHash(ctx context.Context, tokenHash st
 	).Scan(&t.ID, &t.UserID, &t.FamilyID, &t.TokenHash, &deviceInfo,
 		&expiresAt, &revoked, &createdAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if errors.Is(err, sql.ErrNoRows) {
 			return nil, ErrTokenInvalid
 		}
 		return nil, fmt.Errorf("getting refresh token by hash: %w", err)
@@ -129,6 +131,20 @@ func (r *SQLiteTokenRepository) GetByTokenHash(ctx context.Context, tokenHash st
 	t.CreatedAt, _ = time.Parse(time.RFC3339, createdAt) //nolint:errcheck // format is controlled
 
 	return &t, nil
+}
+
+// GetFamilyCreatedAt returns the creation time of the earliest token in a family.
+// This is used to enforce absolute session lifetime (CONSTRAINTS.md §5.1: 90-day max).
+func (r *SQLiteTokenRepository) GetFamilyCreatedAt(ctx context.Context, familyID string) (time.Time, error) {
+	var createdAt string
+	err := r.db.QueryRowContext(ctx,
+		`SELECT MIN(created_at) FROM refresh_tokens WHERE family_id = ?`, familyID,
+	).Scan(&createdAt)
+	if err != nil {
+		return time.Time{}, fmt.Errorf("getting family creation time: %w", err)
+	}
+	t, _ := time.Parse(time.RFC3339, createdAt) //nolint:errcheck // format is controlled
+	return t, nil
 }
 
 // Revoke marks a single refresh token as revoked.

@@ -5,6 +5,7 @@ import (
 	"database/sql"
 	"errors"
 	"fmt"
+	"strings"
 	"time"
 
 	"github.com/google/uuid"
@@ -18,6 +19,7 @@ type UserRepository interface {
 	List(ctx context.Context) ([]User, error)
 	Update(ctx context.Context, user *User) error
 	UpdatePassword(ctx context.Context, id, passwordHash string) error
+	UpdatePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string) error
 	Delete(ctx context.Context, id string) error
 	Count(ctx context.Context) (int, error)
 }
@@ -112,6 +114,42 @@ func (r *SQLiteUserRepository) Update(ctx context.Context, user *User) error {
 	rows, _ := result.RowsAffected() //nolint:errcheck // always succeeds on SQLite
 	if rows == 0 {
 		return ErrUserNotFound
+	}
+	return nil
+}
+
+// UpdatePasswordAndRevokeSessions atomically updates the password and revokes
+// all refresh tokens for the user in a single transaction. This ensures no
+// window where old sessions remain valid after a password change.
+func (r *SQLiteUserRepository) UpdatePasswordAndRevokeSessions(ctx context.Context, id, passwordHash string) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning password change transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback is no-op after commit
+
+	now := time.Now().UTC().Format(time.RFC3339)
+
+	result, err := tx.ExecContext(ctx,
+		`UPDATE users SET password_hash = ?, updated_at = ? WHERE id = ?`,
+		passwordHash, now, id,
+	)
+	if err != nil {
+		return fmt.Errorf("updating password: %w", err)
+	}
+	rows, _ := result.RowsAffected() //nolint:errcheck // always succeeds on SQLite
+	if rows == 0 {
+		return ErrUserNotFound
+	}
+
+	if _, err := tx.ExecContext(ctx,
+		`UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?`, id,
+	); err != nil {
+		return fmt.Errorf("revoking sessions: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing password change: %w", err)
 	}
 	return nil
 }
@@ -234,19 +272,6 @@ func boolToInt(b bool) int {
 
 // isUniqueViolation checks if a SQLite error is a UNIQUE constraint violation.
 func isUniqueViolation(err error) bool {
-	return err != nil && (contains(err.Error(), "UNIQUE constraint failed") ||
-		contains(err.Error(), "unique constraint"))
-}
-
-func contains(s, substr string) bool {
-	return len(s) >= len(substr) && searchString(s, substr)
-}
-
-func searchString(s, substr string) bool {
-	for i := 0; i <= len(s)-len(substr); i++ {
-		if s[i:i+len(substr)] == substr {
-			return true
-		}
-	}
-	return false
+	return err != nil && (strings.Contains(err.Error(), "UNIQUE constraint failed") ||
+		strings.Contains(err.Error(), "unique constraint"))
 }

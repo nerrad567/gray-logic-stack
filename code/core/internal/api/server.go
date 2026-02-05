@@ -130,8 +130,13 @@ type Server struct {
 	externalHub        bool               // true if hub was injected externally
 	cancel             context.CancelFunc // cancels background goroutines on Close()
 	rateLimiter        *rateLimiter
-	knxBridge          KNXBridgeReloader  // optional: for reloading devices after ETS import
-	knxMetricsProvider KNXMetricsProvider // optional: for metrics endpoint
+	panelCache         *panelAuthCache      // in-memory cache for panel token auth lookups
+	scopeCache         *roomScopeCache      // in-memory cache for user room scope resolution
+	wsTickets          *ticketStore         // WebSocket auth ticket store (moved from package-level)
+	jwtSecretBytes     []byte               // pre-converted JWT secret to avoid per-request allocation
+	auditCh            chan *audit.AuditLog // buffered channel for async audit log writes
+	knxBridge          KNXBridgeReloader    // optional: for reloading devices after ETS import
+	knxMetricsProvider KNXMetricsProvider   // optional: for metrics endpoint
 }
 
 // New creates a new API server with the given dependencies.
@@ -181,6 +186,11 @@ func New(deps Deps) (*Server, error) {
 		version:        deps.Version,
 		startTime:      time.Now(),
 		rateLimiter:    newRateLimiter(),
+		panelCache:     newPanelAuthCache(),
+		scopeCache:     newRoomScopeCache(),
+		wsTickets:      newTicketStore(),
+		jwtSecretBytes: []byte(deps.Security.JWT.Secret),
+		auditCh:        make(chan *audit.AuditLog, auditChanSize),
 	}
 
 	// Use externally-provided hub if available (needed when Engine also
@@ -226,6 +236,11 @@ func (s *Server) Start(ctx context.Context) error {
 	if s.hub == nil {
 		s.hub = NewHub(s.wsCfg, s.logger)
 		go s.hub.Run(srvCtx)
+	}
+
+	// Start audit log drain goroutine (replaces per-call goroutines)
+	if s.auditRepo != nil {
+		go s.drainAuditLog(srvCtx)
 	}
 
 	// Start periodic ticket cleanup to prevent memory leaks
