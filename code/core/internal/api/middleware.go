@@ -365,11 +365,15 @@ func (s *Server) authMiddleware(next http.Handler) http.Handler { //nolint:gocog
 				return
 			}
 
-			// Update last seen (best-effort, don't block the request)
-			go func() {
+			// Update last seen (best-effort, don't block the request).
+			// Uses a short timeout context rather than context.Background()
+			// to avoid outliving server shutdown and racing with DB close.
+			go func(id string) {
+				updateCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second) //nolint:mnd // short timeout for best-effort update
+				defer cancel()
 				//nolint:errcheck // best-effort last-seen update
-				s.panelRepo.UpdateLastSeen(context.Background(), panel.ID)
-			}()
+				s.panelRepo.UpdateLastSeen(updateCtx, id)
+			}(panel.ID)
 
 			// Resolve panel's room assignments
 			roomIDs, err := s.panelRepo.GetRoomIDs(r.Context(), panel.ID)

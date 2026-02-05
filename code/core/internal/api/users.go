@@ -49,7 +49,7 @@ func (s *Server) handleListUsers(w http.ResponseWriter, r *http.Request) {
 }
 
 // handleCreateUser creates a new user account.
-func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) { //nolint:gocognit // user creation: validation + permission checks + password hashing pipeline
+func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // user creation: validation + permission checks + password hashing pipeline
 	var req createUserRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid JSON body")
@@ -58,6 +58,11 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) { //no
 
 	if req.Username == "" || req.Password == "" || req.DisplayName == "" {
 		writeBadRequest(w, "username, password, and display_name are required")
+		return
+	}
+
+	if len(req.DisplayName) > 128 { //nolint:mnd // display name length limit
+		writeBadRequest(w, "display_name must be 128 characters or fewer")
 		return
 	}
 
@@ -193,6 +198,10 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) { //no
 
 	// Apply patches
 	if req.DisplayName != nil {
+		if len(*req.DisplayName) > 128 { //nolint:mnd // display name length limit
+			writeBadRequest(w, "display_name must be 128 characters or fewer")
+			return
+		}
 		user.DisplayName = *req.DisplayName
 	}
 	if req.Email != nil {
