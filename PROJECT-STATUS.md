@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-05 (Session 32 - State History Audit Trail + Metrics Endpoints)
-**Current milestone:** Year 1 Foundation Complete + Full State Pipeline + History/Metrics API
+**Last session:** 2026-02-05 (Session 33 - Zero-Warning Lint Baseline)
+**Current milestone:** Year 1 Foundation Complete + Full State Pipeline + History/Metrics API + Clean Lint Baseline
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
@@ -1117,6 +1117,29 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 **Files Changed**: 13 files, 1 commit (`9b53151`)
 **Lines Changed**: +1,652
 **Tests**: 11 new test functions, all 15 packages pass with `-race`
+
+### Session 33: 2026-02-05 — Zero-Warning Lint Baseline
+
+**Goal:** Thorough review and cleanup of all golangci-lint warnings (174 → 0)
+
+**Real code fixes (not just suppressions):**
+- wrapcheck: wrapped ~23 bare `return err` with `fmt.Errorf` context in location/repository, state_history, ga_recorder
+- goconst: extracted domain/type/location string literals to named constants in commissioning/etsimport
+- revive: renamed `SqlDB()` → `SQLDB()` for Go acronym conventions (+ docs)
+- unused: deleted dead `checkBusHealth()` (159 lines, superseded) and `parseKNXProj()` wrapper
+
+**Per-line //nolint suppressions (confirmed false positives):**
+- misspell (11): American "color" required by KNX DPT standard
+- govet/shadow (22): idiomatic `if err := fn(); err != nil {}` pattern
+- mnd (30): protocol byte literals, KNX frame sizes, confidence scores
+- gocognit/gocyclo (39): domain-complex functions (ETS parsing, KNX telegrams, validation)
+- revive/dupl/goconst/wrapcheck/unparam/errcheck (6): structural duplicates, domain types
+
+**Config change:** reverted blanket "color" ignore-word in `.golangci.yml`, replaced with per-line nolint to preserve linter coverage for genuine typos
+
+**Files Changed**: 46 files, 1 commit (`b34dd08`)
+**Lines Changed**: +292 / -376 (net reduction — dead code removed)
+**Quality**: `golangci-lint run` = 0 warnings, all 15 test packages pass with `-race`
 
 ---
 

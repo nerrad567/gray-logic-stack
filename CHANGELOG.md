@@ -4,6 +4,30 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.25 – Zero-Warning Lint Baseline (2026-02-05)
+
+**Focus: Comprehensive golangci-lint cleanup — 174 warnings reduced to 0**
+
+### Fixed
+
+- **wrapcheck**: Wrapped ~23 bare `return err` with `fmt.Errorf` context across location/repository, state_history, ga_recorder — error chains now carry debugging context
+- **goconst**: Extracted domain, type, and location string literals to named constants in commissioning/etsimport
+- **revive (naming)**: Renamed `SqlDB()` → `SQLDB()` for Go acronym conventions (interface + implementation + docs)
+- **unused**: Deleted dead `checkBusHealth()` (159 lines, superseded by `checkBusHealthWithGroupAddresses`) and `parseKNXProj()` wrapper
+
+### Changed
+
+- **`.golangci.yml`**: Reverted blanket "color" ignore-word, replaced with per-line `//nolint:misspell` on 11 lines where American spelling is required by KNX DPT standard
+- **Per-line `//nolint` directives**: Added 108 targeted suppressions with justification comments for confirmed false positives (shadow, mnd, gocognit/gocyclo, misspell, dupl, revive)
+
+### Technical Notes
+
+- Net line change: +292 / -376 (code removed > code added)
+- All 15 test packages pass with `-race`
+- Future lint warnings are genuine issues — zero-noise baseline established
+
+---
+
 ## 1.0.24 – State History Audit Trail + Metrics Endpoints (2026-02-05)
 
 **Focus: SQLite state audit trail and REST endpoints for device history and VictoriaMetrics metrics**
