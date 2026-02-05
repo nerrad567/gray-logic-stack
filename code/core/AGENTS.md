@@ -22,7 +22,7 @@ Before working on Gray Logic Core, you MUST read:
 Only use Docker for the Go core when explicitly told "production build".
 
 ```bash
-make dev-services       # Start mosquitto, knxsim, influxdb
+make dev-services       # Start mosquitto, knxsim, victoriametrics
 make dev-run            # Build + run Go core (~2-3s rebuild)
 make dev-run-quick      # Fastest loop (skip fmt/vet)
 make dev-services-down  # Stop support services
@@ -56,7 +56,7 @@ code/core/
 │   └── graylogic/          # Main entry point
 │       └── main.go
 ├── internal/               # Private packages
-│   ├── infrastructure/     # DB, MQTT, InfluxDB, HTTP, Config
+│   ├── infrastructure/     # DB, MQTT, TSDB, HTTP, Config
 │   ├── device/             # Device registry, state, commands
 │   ├── automation/         # Scenes, schedules, modes, events
 │   ├── intelligence/       # Voice, PHM, AI
@@ -299,11 +299,11 @@ func run(ctx context.Context) error {
     }
     defer mqtt.Close() // Closed second
 
-    influx, err := influxdb.Connect(cfg.InfluxDB)
+    tsdbClient, err := tsdb.Connect(ctx, cfg.TSDB)
     if err != nil {
-        return fmt.Errorf("influxdb: %w", err)
+        return fmt.Errorf("tsdb: %w", err)
     }
-    defer influx.Close() // Closed first
+    defer tsdbClient.Close() // Closed first
 
     // Start services...
 
@@ -568,7 +568,7 @@ make precommit
 | `internal/infrastructure/config/` | Configuration loading |
 | `internal/infrastructure/database/` | SQLite connection and migrations |
 | `internal/infrastructure/mqtt/` | MQTT client wrapper |
-| `internal/infrastructure/influxdb/` | InfluxDB client for PHM |
+| `internal/infrastructure/tsdb/` | VictoriaMetrics client for telemetry/PHM |
 
 ---
 

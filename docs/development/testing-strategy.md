@@ -88,7 +88,7 @@ func TestFireAlarmOpensBlinds(t *testing.T) {
 
 ### 2. Integration Tests (Simulated)
 - **Scope:** Core + SQLite + MQTT + Simulator.
-- **Deps:** Docker (for Mosquitto/InfluxDB) or embedded replacements.
+- **Deps:** Docker (for Mosquitto/VictoriaMetrics) or embedded replacements.
 - **Speed:** < 5s.
 - **Coverage Goal:** Critical paths (Scenes, Scheduler, Rules).
 - **Example:** "Verify 'Good Night' scene turns off all simulated lights."

@@ -538,7 +538,7 @@ make all
 
 ### Integration Tests
 
-Some packages have integration tests that require external services (MQTT broker, InfluxDB).
+Some packages have integration tests that require external services (MQTT broker, VictoriaMetrics).
 
 ```bash
 # Start dev services first
@@ -574,7 +574,7 @@ The foundation is complete. Next we'll implement:
 
 3. **Docker Compose**
    - Mosquitto MQTT broker
-   - InfluxDB for time-series data
+   - VictoriaMetrics for time-series data
 
 4. **Wire Up Configuration**
    - Load config in main.go

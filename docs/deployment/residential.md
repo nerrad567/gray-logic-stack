@@ -56,7 +56,7 @@ Gray Logic residential deployment suits:
 │  │                    GRAY LOGIC SERVER                         │    │
 │  │  • Gray Logic Core                                          │    │
 │  │  • Voice Bridge                                             │    │
-│  │  • InfluxDB (PHM)                                          │    │
+│  │  • VictoriaMetrics (PHM)                                          │    │
 │  └─────────────────────────────────────────────────────────────┘    │
 │                                                                      │
 │  ┌─────────────────────────────────────────────────────────────┐    │
@@ -198,7 +198,7 @@ power_protection:
   # Non-critical (can shut down)
   non_critical:
     - "Voice Bridge"
-    - "InfluxDB (PHM data)"
+    - "VictoriaMetrics (PHM data)"
     - "Audio/Video Matrices"
 ```
 

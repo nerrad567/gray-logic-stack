@@ -8,7 +8,7 @@ A building automation platform I'm developing to teach myself BMS architecture a
 
 | Component | Status | Description |
 |-----------|--------|-------------|
-| **Core Infrastructure** | ✅ Complete | Config, logging, MQTT client, InfluxDB client, SQLite |
+| **Core Infrastructure** | ✅ Complete | Config, logging, MQTT client, VictoriaMetrics client, SQLite |
 | **KNX Bridge** | ✅ Complete | Protocol bridge connecting KNX bus to internal MQTT |
 | **knxd Manager** | ✅ Complete | Manages knxd daemon with health monitoring and auto-restart |
 | **Device Registry** | ✅ Complete | Central device catalogue with SQLite persistence and caching |
@@ -25,7 +25,7 @@ All 6 milestones delivered:
 
 | Milestone | What It Does |
 |-----------|-------------|
-| M1.1 Infrastructure | Config loading, SQLite, MQTT client, InfluxDB, structured logging |
+| M1.1 Infrastructure | Config loading, SQLite, MQTT client, VictoriaMetrics, structured logging |
 | M1.2 KNX Bridge | Bidirectional KNX↔MQTT with DPT encoding, reconnection, health checks |
 | M1.3 Device Registry | Device CRUD, state management, capability model, caching |
 | M1.4 REST API | Chi router, JWT auth, WebSocket hub, CORS, middleware |
@@ -51,7 +51,7 @@ All 6 milestones delivered:
 │        │                │                │                            │
 │  ┌─────▼────────────────▼────────────────▼──────────────────────┐    │
 │  │              Infrastructure Layer                             │    │
-│  │   Config  •  SQLite  •  MQTT Client  •  InfluxDB  •  Logging │    │
+│  │   Config  •  SQLite  •  MQTT Client  •  VictoriaMetrics  •  Logging │    │
 │  └──────────────────────────┬────────────────────────────────────┘    │
 └─────────────────────────────┼────────────────────────────────────────┘
                               │ Internal MQTT Bus
@@ -146,7 +146,7 @@ go test -race ./...
 # Lint
 golangci-lint run
 
-# Start dev services (MQTT + InfluxDB)
+# Start dev services (MQTT + VictoriaMetrics)
 docker compose -f docker-compose.dev.yml up -d
 ```
 

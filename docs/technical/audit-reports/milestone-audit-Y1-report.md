@@ -157,7 +157,7 @@ No vulnerabilities found.
 | internal/device | 85.8% | 80% | ✅ PASS |
 | internal/infrastructure/database | 82.7% | 80% | ✅ PASS |
 | internal/infrastructure/mqtt | 82.3% | 80% | ✅ PASS |
-| internal/infrastructure/influxdb | 79.8% | 70% | ✅ PASS |
+| internal/infrastructure/tsdb | 79.8% | 70% | ✅ PASS |
 | internal/location | 76.5% | 70% | ✅ PASS |
 | internal/api | 68.0% | 50% | ✅ PASS |
 | internal/process | 61.6% | 60% | ✅ PASS |
@@ -169,7 +169,7 @@ No vulnerabilities found.
 
 | Package | Before | After | Delta |
 |---------|--------|-------|-------|
-| internal/infrastructure/influxdb | 19.2% | 79.8% | +60.6% |
+| internal/infrastructure/tsdb | 19.2% | 79.8% | +60.6% |
 | internal/api | 42.3% | 68.0% | +25.7% |
 | internal/knxd | 25.2% | 47.8% | +22.6% |
 | internal/bridges/knx | 51.4% | 60.5% | +9.1% |
@@ -182,7 +182,7 @@ No vulnerabilities found.
 - `internal/bridges/knx/bridge_test.go`: Helper functions (idToName, deriveDeviceType, deriveSensorType, deriveDomain, deriveCapabilities)
 - `internal/bridges/knx/telegram_test.go`: GroupAddress URL encoding/parsing, IsValid
 - `internal/bridges/knx/dpt_test.go`: Comprehensive DPT encoding/decoding tests (DPT1, DPT3, DPT5, DPT5Angle, DPT9, DPT17, DPT18, DPT232)
-- `internal/infrastructure/influxdb/client_test.go`: Fixed token configuration
+- `internal/infrastructure/tsdb/client_test.go`: Fixed token configuration
 - `internal/knxd/manager_test.go`: KNXSim integration tests, USB device presence checks, USB reset tests with real Weinzierl interface, full USB backend integration test
 
 ---
@@ -248,7 +248,7 @@ All 14 packages pass with race detector enabled. No race conditions detected.
 | KNXSim Integration | knxd connects to IP tunnel backend, start/stop/health check lifecycle works |
 | WebSocket | Real HTTP server accepts connections, subscribe/unsubscribe/broadcast work |
 | DPT Encoding | KNX datapoint encoding/decoding correct (DPT1, DPT3, DPT5, DPT9, DPT17, DPT18, DPT232) |
-| InfluxDB | Client connects and authenticates with token |
+| VictoriaMetrics | Client connects and authenticates with token |
 | Device Registry | CRUD operations, queries by area/health/gateway work |
 | REST API | HTTP handlers respond correctly, validation works |
 | Static Analysis | No gosec warnings, no unchecked errors |

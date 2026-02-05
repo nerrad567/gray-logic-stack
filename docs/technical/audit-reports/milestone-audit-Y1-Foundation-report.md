@@ -127,7 +127,7 @@ Issues M1-M6 are documented but not blocking. They can be addressed in future it
 | Tier | Target | Packages | Passing |
 |------|--------|----------|---------|
 | Critical (85%) | api, device | 1/2 | device ✅, api ❌ (68%) |
-| Infrastructure (75%) | config, database, influxdb, logging, mqtt, knxd, location | 6/7 | knxd ❌ (47.9%) |
+| Infrastructure (75%) | config, database, victoriametrics, logging, mqtt, knxd, location | 6/7 | knxd ❌ (47.9%) |
 | Bridge (50%) | bridges/knx | 1/1 | ✅ (60.5%) |
 | Integration (40%) | cmd/graylogic, process | 1/2 | process ✅, cmd ❌ (5.2%) |
 

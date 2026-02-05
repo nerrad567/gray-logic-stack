@@ -22,7 +22,7 @@ dependencies:
 │    Go core binary ──► localhost:8090 (API + Panel)          │
 │         │                                                   │
 │         ├── MQTT ─────► localhost:1883  (Docker: mosquitto)  │
-│         ├── InfluxDB ─► localhost:8086  (Docker: influxdb)   │
+│         ├── VictoriaMetrics ─► localhost:8428  (Docker: victoriametrics)   │
 │         └── KNX sim ──► localhost:3671  (Docker: knxsim)     │
 └─────────────────────────────────────────────────────────────┘
 
@@ -31,7 +31,7 @@ dependencies:
 │                                                             │
 │  Docker network (graylogic):                                │
 │    graylogic ──► mosquitto:1883                              │
-│              ──► influxdb:8086                                │
+│              ──► victoria-metrics:8428                                │
 │              ──► knxsim:3671                                  │
 │    All containers communicate via Docker DNS                 │
 └─────────────────────────────────────────────────────────────┘
@@ -93,13 +93,13 @@ make dev-services-down
 | Service    | Port      | Protocol | Purpose                    |
 |------------|-----------|----------|----------------------------|
 | mosquitto  | 1883      | MQTT     | Internal message bus       |
-| influxdb   | 8086      | HTTP     | Time-series (PHM, energy)  |
+| victoriametrics   | 8428      | HTTP     | Time-series (PHM, energy)  |
 | knxsim     | 3671/udp  | KNXnet/IP| KNX gateway simulator      |
 | knxsim     | 9090      | HTTP     | Simulator web UI           |
 
 All ports are bound to `127.0.0.1` (localhost only).
 
-### InfluxDB Credentials (dev only)
+### VictoriaMetrics Credentials (dev only)
 
 | Field    | Value               |
 |----------|---------------------|
@@ -195,7 +195,7 @@ On some systems you may need `gcc` or `build-essential` installed.
 
 ### Port conflicts
 
-If port 1883 or 8086 is already in use:
+If port 1883 or 8428 is already in use:
 ```bash
 # Check what's using the port
 ss -tlnp | grep 1883

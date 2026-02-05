@@ -241,7 +241,7 @@ func (b *DALIBridge) pollDeviceStatus(ctx context.Context) {
         // Publish to internal bus
         b.mqttClient.Publish(fmt.Sprintf("graylogic/dali/%d/state", addr), status)
         
-        // PHM: Log to InfluxDB for trending
+        // PHM: Log to VictoriaMetrics for trending
         b.influx.WritePoint("dali_diagnostics", map[string]interface{}{
             "voltage":       status.Voltage,
             "current":       status.Current,

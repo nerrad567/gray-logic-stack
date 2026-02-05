@@ -82,7 +82,7 @@ Gray Logic is a **future-proof, offline-first building intelligence platform** d
 |-----------|------------|---------|
 | **Core Engine** | Go (single binary) | Automation, state management, API |
 | **Database** | SQLite | Configuration, device state, audit logs |
-| **Time-Series** | InfluxDB | Energy data, PHM telemetry, trends |
+| **Time-Series** | VictoriaMetrics | Energy data, PHM telemetry, trends |
 | **Message Bus** | MQTT | Bridge communication, events |
 | **Local AI** | Whisper + Piper | Speech-to-text, text-to-speech |
 

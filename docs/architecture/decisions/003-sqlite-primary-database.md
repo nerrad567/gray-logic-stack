@@ -81,7 +81,7 @@ CREATE TABLE devices (...) STRICT;
 
 ### Time-Series Data
 
-SQLite is used for configuration and state. Time-series data (energy readings, temperature history) goes to **InfluxDB** — a separate system optimized for that purpose.
+SQLite is used for configuration and state. Time-series data (energy readings, temperature history) goes to **VictoriaMetrics** — a separate system optimized for that purpose.
 
 See: [Infrastructure & Data Strategy](../../operations/infrastructure.md)
 

@@ -114,7 +114,7 @@ sequenceDiagram
 | `devices` | Device registry | Light, sensor, switch |
 | `audit_logs` | Command history | Who, what, when |
 
-### InfluxDB (Time-Series)
+### VictoriaMetrics (Time-Series)
 
 | Measurement | Purpose | Example Data |
 |-------------|---------|--------------|

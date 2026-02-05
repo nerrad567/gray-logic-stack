@@ -95,7 +95,7 @@ docker compose -f ../../docker-compose.dev.yml up -d
 
 # Verify health:
 mosquitto_pub -h localhost -p 1883 -t test -m "ping" && echo "MQTT: OK"
-curl -sf http://localhost:8086/health && echo "InfluxDB: OK"
+curl -sf http://localhost:8428/health && echo "VictoriaMetrics: OK"
 
 # Run integration tests:
 go test -tags=integration -race -cover -v ./...
@@ -118,7 +118,7 @@ Integration tests require the dev services stack:
 | Service | Image | Port | Purpose | Health Check |
 |---------|-------|------|---------|-------------|
 | Mosquitto | `eclipse-mosquitto:2.0.18` | 1883 (MQTT), 9001 (WS) | MQTT broker | `mosquitto_pub -t test -m hello` |
-| InfluxDB | `influxdb:2.7-alpine` | 8086 | Time-series for PHM/energy | `curl -s http://localhost:8086/health` |
+| VictoriaMetrics | `victoriametrics/victoria-metrics:v1.135.0` | 8428 | Time-series for PHM/energy | `curl -s http://localhost:8428/health` |
 
 ### Starting Services
 
@@ -140,7 +140,7 @@ docker compose -f docker-compose.dev.yml down
 
 | Service | Username | Password | Notes |
 |---------|----------|----------|-------|
-| InfluxDB | graylogic | dev-password-only | Set in docker-compose env vars |
+| VictoriaMetrics | graylogic | dev-password-only | Set in docker-compose env vars |
 | MQTT | *(none)* | *(none)* | Anonymous access for dev |
 
 ---
@@ -428,5 +428,5 @@ See `.claude/commands/milestone-audit.md` for the full procedure.
 - `.claude/commands/milestone-audit.md` — End-of-milestone quality gate
 - `.claude/commands/code-audit.md` — Per-package bug-finding audit
 - `.claude/commands/pre-commit.md` — Quick pre-commit checks
-- `docker-compose.dev.yml` — Dev services (MQTT, InfluxDB)
+- `docker-compose.dev.yml` — Dev services (MQTT, VictoriaMetrics)
 - `code/core/test-reports/TEST-AUDIT.md` — Historical test results

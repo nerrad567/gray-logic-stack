@@ -33,7 +33,7 @@ This document specifies Gray Logic's backup strategy, recovery procedures, and d
 | **Device registry** | SQLite database | Critical | Daily |
 | **Scenes/Schedules** | SQLite database | Critical | Daily |
 | **User accounts** | SQLite database | Critical | Daily |
-| **Time-series data** | InfluxDB | Important | Daily |
+| **Time-series data** | VictoriaMetrics | Important | Daily |
 | **Certificates** | /etc/graylogic/certs | Critical | On change |
 | **Bridge configs** | /etc/graylogic/bridges | Critical | On change |
 | **System config** | /etc/graylogic/*.yaml | Critical | On change |
@@ -50,7 +50,7 @@ backup_types:
   full:
     includes:
       - "SQLite database"
-      - "InfluxDB data"
+      - "VictoriaMetrics data"
       - "Configuration files"
       - "Certificates"
       - "Bridge configurations"
@@ -154,30 +154,30 @@ sqlite_backup:
     monthly: 3
 ```
 
-### InfluxDB Time-Series
+### VictoriaMetrics Time-Series
 
 Historical PHM and energy data.
 
 ```yaml
-influxdb_backup:
-  # Using InfluxDB backup command
-  method: "influx backup"
+victoriametrics_backup:
+  # Using VictoriaMetrics backup command
+  method: "VictoriaMetrics snapshot API"
   
   # Backup script
   script: |
     #!/bin/bash
-    BACKUP_DIR="/var/backup/graylogic/influxdb"
+    BACKUP_DIR="/var/backup/graylogic/victoriametrics"
     TIMESTAMP=$(date +%Y%m%d_%H%M%S)
     
     # Create backup
-    influx backup "${BACKUP_DIR}/influx_${TIMESTAMP}" \
-      --org graylogic \
+    VictoriaMetrics snapshot API "${BACKUP_DIR}/vm_snapshot_${TIMESTAMP}" \
+       \
       --bucket phm \
-      --token "${INFLUXDB_TOKEN}"
+      --token "${TSDB_TOKEN}"
     
     # Compress
-    tar -czf "${BACKUP_DIR}/influx_${TIMESTAMP}.tar.gz" "${BACKUP_DIR}/influx_${TIMESTAMP}"
-    rm -rf "${BACKUP_DIR}/influx_${TIMESTAMP}"
+    tar -czf "${BACKUP_DIR}/vm_snapshot_${TIMESTAMP}.tar.gz" "${BACKUP_DIR}/vm_snapshot_${TIMESTAMP}"
+    rm -rf "${BACKUP_DIR}/vm_snapshot_${TIMESTAMP}"
     
   # Retention
   retention:
@@ -287,7 +287,7 @@ backup_schedule:
     time: "03:00"
     actions:
       - "SQLite incremental backup"
-      - "InfluxDB backup"
+      - "VictoriaMetrics backup"
       - "Config backup (if changed)"
       - "Rotate old backups"
       
@@ -297,7 +297,7 @@ backup_schedule:
     time: "04:00"
     actions:
       - "Full SQLite backup"
-      - "Full InfluxDB backup"
+      - "Full VictoriaMetrics backup"
       - "Full config backup"
       - "Secrets backup (encrypted)"
       - "Copy to USB drive"
@@ -352,7 +352,7 @@ backup_verification:
       action: "PRAGMA integrity_check"
       expected: "ok"
       
-    influxdb:
+    tsdb:
       action: "Query test data from backup"
       expected: "Data matches source"
       
@@ -505,10 +505,10 @@ full_recovery:
         - "gpg --decrypt backup/secrets_latest.yaml.gpg > /etc/graylogic/secrets.yaml"
         - "chmod 600 /etc/graylogic/secrets.yaml"
         
-    4_restore_influxdb:
+    4_restore_victoriametrics:
       commands:
-        - "tar -xzf backup/influx_latest.tar.gz"
-        - "influx restore ./influx_latest --org graylogic"
+        - "tar -xzf backup/vm_snapshot_latest.tar.gz"
+        - "VictoriaMetrics restore ./vm_snapshot_latest "
         
     5_start_services:
       commands:

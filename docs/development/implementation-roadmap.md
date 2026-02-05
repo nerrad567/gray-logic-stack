@@ -36,16 +36,16 @@ This document breaks down the Year 1 milestones defined in `DEVELOPMENT-STRATEGY
 - [ ] Implement `infrastructure/sqlite` package with migration runner
 
 ### 1.1.3 Message Bus (MQTT)
-- [ ] Create `docker-compose.yml` for Mosquitto and InfluxDB
+- [ ] Create `docker-compose.yml` for Mosquitto and VictoriaMetrics
 - [ ] Configure Mosquitto persistence (`mosquitto.conf`)
 - [ ] Implement `infrastructure/mqtt` package:
   - Connection handling with auto-reconnect
   - Publish/Subscribe interface
   - Quality of Service (QoS 1) enforcement
 
-### 1.1.4 Time-Series (InfluxDB)
-- [ ] Configure InfluxDB bucket `graylogic`
-- [ ] Implement `infrastructure/influx` package for telemetry
+### 1.1.4 Time-Series (VictoriaMetrics)
+- [ ] Configure VictoriaMetrics bucket `graylogic`
+- [ ] Implement `infrastructure/tsdb` package for telemetry
 
 ---
 

@@ -83,7 +83,7 @@ Compare when code packages were last modified vs their documentation:
 cd /home/graylogic-dev/gray-logic-stack
 
 # For each package, compare code vs doc modification
-for pkg in config database mqtt influxdb logging; do
+for pkg in config database mqtt victoriametrics logging; do
   code_dir="code/core/internal/infrastructure/$pkg"
   doc_file="code/core/docs/technical/packages/$pkg.md"
   

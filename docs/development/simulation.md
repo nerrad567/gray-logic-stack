@@ -42,7 +42,7 @@ A layered testing approach with increasing fidelity and risk:
 │          Risk: MEDIUM — Can break test equipment                             │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Level 2: Integration (Containers)                                            │
-│          Real Core + simulated bridges + real MQTT/InfluxDB                  │
+│          Real Core + simulated bridges + real MQTT/VictoriaMetrics                  │
 │          Risk: LOW — Can corrupt dev data                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │ Level 1: Unit (Mocks)                                                        │
@@ -97,7 +97,7 @@ func TestSupervisor_HandleUnhealthy(t *testing.T) {
 
 ### Mode 2: Integration Testing (Level 2)
 
-Real Core, real MQTT broker, real InfluxDB, but simulated bridges.
+Real Core, real MQTT broker, real VictoriaMetrics, but simulated bridges.
 
 ```yaml
 # docker-compose.test.yml
@@ -106,8 +106,8 @@ services:
   mqtt:
     image: eclipse-mosquitto:2.0.18
     
-  influxdb:
-    image: influxdb:2.7-alpine
+  tsdb:
+    image: victoriametrics/victoria-metrics:v1.135.0
     
   # Simulated bridges (respond to commands, generate fake state)
   mock-knx-bridge:

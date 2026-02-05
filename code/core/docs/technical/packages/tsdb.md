@@ -1,16 +1,16 @@
-# InfluxDB Package Design
+# VictoriaMetrics Package Design
 
-> `internal/infrastructure/influxdb/` — Time-series storage for PHM and energy telemetry
+> `internal/infrastructure/tsdb/` — Time-series storage for PHM and energy telemetry
 
 ## Purpose
 
-Provides InfluxDB v2 connectivity for Gray Logic Core with:
+Provides VictoriaMetrics v2 connectivity for Gray Logic Core with:
 - Non-blocking batched writes for high-frequency data
 - Connection management with ping-based health checks
 - Domain-specific helpers for device, energy, and PHM metrics
 - Graceful shutdown with pending write flush
 
-**Why InfluxDB?** See [ADR-004: InfluxDB for Time-Series](../../../../../docs/architecture/decisions/004-influxdb-time-series.md) *(planned)*
+**Why VictoriaMetrics?** See [ADR-004: VictoriaMetrics for Time-Series](../../../../../docs/architecture/decisions/004-victoriametrics-time-series.md) *(planned)*
 
 ---
 
@@ -18,17 +18,17 @@ Provides InfluxDB v2 connectivity for Gray Logic Core with:
 
 ```
 ┌─────────────────────────────────────────────────────────────┐
-│                     influxdb.Client                          │
+│                     tsdb.Client                          │
 │  ┌─────────────────┐  ┌─────────────────┐  ┌─────────────┐  │
-│  │ influxdb2.Client│  │   WriteAPI      │  │ HealthCheck │  │
+│  │ http.Client│  │   WriteAPI      │  │ HealthCheck │  │
 │  │   (wrapped)     │  │  (non-blocking) │  │   (Ping)    │  │
 │  └─────────────────┘  └─────────────────┘  └─────────────┘  │
 └─────────────────────────────────────────────────────────────┘
                               │
                               ▼ HTTP
               ┌──────────────────────────────┐
-              │       InfluxDB Server        │
-              │    (127.0.0.1:8086 / :8087)  │
+              │       VictoriaMetrics Server        │
+              │    (127.0.0.1:8428 / :8087)  │
               └──────────────────────────────┘
                               │
                               ▼
@@ -42,14 +42,14 @@ Provides InfluxDB v2 connectivity for Gray Logic Core with:
 
 | Type | File | Purpose |
 |------|------|---------|
-| `Client` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/client.go#L28-L39) | Wraps InfluxDB client with lifecycle and health |
-| `ErrNotConnected` | [errors.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/errors.go) | Sentinel error types |
+| `Client` | [client.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/tsdb/client.go#L28-L39) | Wraps VictoriaMetrics client with lifecycle and health |
+| `ErrNotConnected` | [errors.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/tsdb/errors.go) | Sentinel error types |
 
 ### External Dependencies
 
 | Dependency | Version | Purpose |
 |------------|---------|---------|
-| `github.com/influxdata/influxdb-client-go/v2` | v2.14.0 | Official InfluxDB v2 client |
+| `github.com/influxdata/net/http (stdlib)/v2` | v2.14.0 | Official VictoriaMetrics v2 client |
 
 ---
 
@@ -59,9 +59,9 @@ Provides InfluxDB v2 connectivity for Gray Logic Core with:
 
 ```go
 // 1. Create config (typically from config.yaml)
-cfg := config.InfluxDBConfig{
+cfg := config.VictoriaMetricsConfig{
     Enabled:       true,
-    URL:           "http://localhost:8086",
+    URL:           "http://localhost:8428",
     Token:         "your-token",
     Org:           "graylogic",
     Bucket:        "metrics",
@@ -69,9 +69,9 @@ cfg := config.InfluxDBConfig{
     FlushInterval: 10,
 }
 
-// 2. Connect to InfluxDB (context for cancellation/timeout)
+// 2. Connect to VictoriaMetrics (context for cancellation/timeout)
 ctx := context.Background()
-client, err := influxdb.Connect(ctx, cfg)
+client, err := victoriametrics.Connect(ctx, cfg)
 if err != nil {
     log.Fatal(err)
 }
@@ -115,7 +115,7 @@ client.WritePoint("system_stats",
 
 ```go
 if err := client.Close(); err != nil {
-    log.Printf("Error closing InfluxDB: %v", err)
+    log.Printf("Error closing VictoriaMetrics: %v", err)
 }
 ```
 
@@ -146,7 +146,7 @@ if err := client.Close(); err != nil {
 
 | Package | Purpose |
 |---------|---------|
-| `config` | Reads InfluxDB configuration |
+| `config` | Reads VictoriaMetrics configuration |
 
 ### Dependents (what uses this package)
 
@@ -164,17 +164,17 @@ Package defines domain-specific errors in `errors.go`:
 
 ```go
 var (
-    ErrNotConnected     = errors.New("influxdb: not connected")
-    ErrConnectionFailed = errors.New("influxdb: connection failed")
-    ErrWriteFailed      = errors.New("influxdb: write failed")
-    ErrDisabled         = errors.New("influxdb: disabled in configuration")
+    ErrNotConnected     = errors.New("victoriametrics: not connected")
+    ErrConnectionFailed = errors.New("victoriametrics: connection failed")
+    ErrWriteFailed      = errors.New("victoriametrics: write failed")
+    ErrDisabled         = errors.New("victoriametrics: disabled in configuration")
 )
 ```
 
 **Async write errors:**
 ```go
 client.SetOnError(func(err error) {
-    log.Printf("InfluxDB write error: %v", err)
+    log.Printf("VictoriaMetrics write error: %v", err)
 })
 ```
 
@@ -199,13 +199,13 @@ client.SetOnError(func(err error) {
 From `configs/config.yaml`:
 
 ```yaml
-influxdb:
-  # Enable InfluxDB integration
+tsdb:
+  # Enable VictoriaMetrics integration
   enabled: false
 
   # Connection settings
-  url: "http://localhost:8086"
-  token: ""  # Set via GRAYLOGIC_INFLUXDB_TOKEN
+  url: "http://localhost:8428"
+  token: ""  # Set via GRAYLOGIC_TSDB_URL
   org: "graylogic"
   bucket: "metrics"
 
@@ -218,7 +218,7 @@ influxdb:
 
 ## Testing
 
-**Integration tests:** Require running InfluxDB (via Docker Compose).
+**Integration tests:** Require running VictoriaMetrics (via Docker Compose).
 
 ```bash
 # Start Docker services
@@ -226,7 +226,7 @@ cd /home/graylogic-dev/gray-logic-stack/code/core
 docker compose up -d
 
 # Run tests
-make test PKG=./internal/infrastructure/influxdb/...
+make test PKG=./internal/infrastructure/tsdb/...
 ```
 
 **Test coverage:** 11 tests covering connection, health check, and write operations.
@@ -244,5 +244,5 @@ make test PKG=./internal/infrastructure/influxdb/...
 
 ## Related Documents
 
-- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/influxdb/doc.go) — Package-level godoc
-- [docker-compose.dev.yml](file:///home/graylogic-dev/gray-logic-stack/docker-compose.dev.yml) — InfluxDB container config (dev services)
+- [doc.go](file:///home/graylogic-dev/gray-logic-stack/code/core/internal/infrastructure/tsdb/doc.go) — Package-level godoc
+- [docker-compose.dev.yml](file:///home/graylogic-dev/gray-logic-stack/docker-compose.dev.yml) — VictoriaMetrics container config (dev services)

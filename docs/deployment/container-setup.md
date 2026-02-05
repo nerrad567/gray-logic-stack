@@ -156,24 +156,19 @@ services:
       - ./docker/mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf:ro
       - mosquitto-data:/mosquitto/data
 
-  # InfluxDB for time-series (optional)
-  influxdb:
-    image: influxdb:2.7
-    container_name: graylogic-influxdb
+  # VictoriaMetrics for time-series (optional)
+  tsdb:
+    image: victoriametrics/victoria-metrics:v1.135.0
+    container_name: graylogic-victoriametrics
     ports:
-      - "8086:8086"
+      - "8428:8428"
     environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=admin
-      - DOCKER_INFLUXDB_INIT_PASSWORD=graylogic123
-      - DOCKER_INFLUXDB_INIT_ORG=graylogic
-      - DOCKER_INFLUXDB_INIT_BUCKET=metrics
     volumes:
-      - influxdb-data:/var/lib/influxdb2
+      - victoriametrics-data:/victoria-metrics-data
 
 volumes:
   mosquitto-data:
-  influxdb-data:
+  victoriametrics-data:
 ```
 
 ### Production
@@ -210,7 +205,7 @@ services:
     environment:
       - TZ=${TZ:-Europe/London}
       - GRAYLOGIC_DATABASE_PATH=/app/data/graylogic.db
-      - GRAYLOGIC_INFLUXDB_TOKEN=${INFLUXDB_TOKEN:-}
+      - GRAYLOGIC_TSDB_URL=${TSDB_TOKEN:-}
 
     depends_on:
       - mosquitto
@@ -243,7 +238,7 @@ volumes:
 VERSION=1.0.0
 TZ=Europe/London
 GRAYLOGIC_GID=1000
-INFLUXDB_TOKEN=your-token-here
+TSDB_TOKEN=your-token-here
 ```
 
 ## Build Commands

@@ -579,7 +579,7 @@ Purpose: Verify components work together correctly.
 What this proves:
   ✓ Packages integrate without errors
   ✓ No race conditions (with -race flag)
-  ✓ Real infrastructure connections work (MQTT, InfluxDB, etc.)
+  ✓ Real infrastructure connections work (MQTT, VictoriaMetrics, etc.)
 
 What this does NOT prove:
   ✗ End-to-end system works (needs real hardware)

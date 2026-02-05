@@ -55,7 +55,7 @@ Task comes in
 |-----------|------|-------|
 | Core | Go 1.25+ | Single binary, CGO for SQLite |
 | Database | SQLite (WAL mode) | Strict mode, additive-only migrations |
-| Time-series | InfluxDB | PHM data, energy monitoring |
+| Time-series | VictoriaMetrics | PHM data, energy monitoring |
 | Message Bus | MQTT (Mosquitto) | Internal comms, QoS 1 |
 | UI | Flutter | Wall panels + mobile |
 | Voice | Whisper (STT), Piper (TTS) | Local processing |
@@ -140,7 +140,7 @@ gray-logic-stack/
 │   │   │   ├── config/           # YAML config loading
 │   │   │   ├── database/         # SQLite with WAL, migrations
 │   │   │   ├── mqtt/             # Paho MQTT wrapper with reconnect
-│   │   │   ├── influxdb/         # InfluxDB client for time-series
+│   │   │   ├── tsdb/              # VictoriaMetrics client for time-series
 │   │   │   └── logging/          # Structured slog logging
 │   │   │
 │   │   ├── knxd/                 # knxd subprocess manager
@@ -449,7 +449,7 @@ docker compose -f docker-compose.dev.yml up -d
 KNXSim UI: http://10.6.0.6:9090/ui/
 Core API: http://10.6.0.6:8090/api/v1/
 Mosquitto: 127.0.0.1:1883
-InfluxDB: 127.0.0.1:8086
+VictoriaMetrics: 127.0.0.1:8428
 
 # Build
 cd code/core && make build
@@ -466,7 +466,7 @@ cd code/core && go test ./...
 
 | Milestone | Status |
 |-----------|--------|
-| M1.1 Infrastructure | ✅ SQLite, MQTT, InfluxDB, Config, Logging |
+| M1.1 Infrastructure | ✅ SQLite, MQTT, VictoriaMetrics, Config, Logging |
 | M1.2 KNX Bridge | ✅ Telegram parsing, knxd client, MQTT translation |
 | M1.3 Device Registry | ✅ 50+ types, thread-safe cache, SQLite |
 | M1.4 REST API + WebSocket | ✅ Chi router, JWT auth, WS hub |

@@ -58,7 +58,7 @@ User Interfaces (Wall Panels, Mobile, Voice, Web Admin)
 |-----------|------|-----------|
 | Core | Go | Single binary, multi-decade stability |
 | DB | SQLite | Embedded, zero maintenance |
-| Time-series | InfluxDB | PHM, energy data |
+| Time-series | VictoriaMetrics | PHM, energy data |
 | Message bus | MQTT | Simple, proven |
 | UI | Flutter | Cross-platform |
 

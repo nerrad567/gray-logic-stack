@@ -61,7 +61,7 @@ If the Gray Logic Core server (Industrial PC) fails, the entire system configura
 3.  **Restore:** Select "Restore from Backup".
 4.  **Upload:** Upload the latest `.glb` (Gray Logic Backup) file.
 5.  **Decrypt:** Enter the backup encryption password.
-6.  **Verify:** System checks integrity of SQLite and InfluxDB data.
+6.  **Verify:** System checks integrity of SQLite and VictoriaMetrics data.
 7.  **Re-Key (Optional):** If the old hardware was stolen, the admin can choose "Rotate Secrets" to invalidate old API keys and certificates.
 
 ---
@@ -70,7 +70,7 @@ If the Gray Logic Core server (Industrial PC) fails, the entire system configura
 
 To ensure performance over decades, the database requires periodic grooming.
 
-### Time-Series Retention (InfluxDB)
+### Time-Series Retention (VictoriaMetrics)
 
 Data is downsampled automatically to save space:
 

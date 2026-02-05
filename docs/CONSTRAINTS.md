@@ -296,7 +296,7 @@ Every schema change MUST pass the **Rollback Test**:
 | Level | Speed | Dependencies | Coverage Goal |
 |-------|-------|--------------|---------------|
 | Unit Tests | <10ms | Mocked interfaces | 80%+ |
-| Integration Tests (Simulated) | <5s | Docker (MQTT, InfluxDB) | Critical paths |
+| Integration Tests (Simulated) | <5s | Docker (MQTT, VictoriaMetrics) | Critical paths |
 | Hardware-in-Loop | Minutes | Physical devices | Pre-release |
 
 ### 6.2 Virtual Site Simulator
@@ -462,7 +462,7 @@ For every failure, define:
 - **Battery-backed RTC is MANDATORY** (prevents boot deadlocks)
 - Industrial-grade hardware only (no Raspberry Pi for Core)
 - AI workloads require dedicated NPU/TPU
-- Industrial-grade NVMe for InfluxDB
+- Industrial-grade NVMe for VictoriaMetrics
 
 ---
 

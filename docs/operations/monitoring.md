@@ -222,7 +222,7 @@ The Core periodically pushes a lightweight, anonymized health packet to a centra
 **Architecture:**
 ```
 [Site A Core] ──(HTTPS Push)──▶ [Installer Collector]
-[Site B Core] ──(HTTPS Push)──▶ [      (Influx)     ]
+[Site B Core] ──(HTTPS Push)──▶ [      (VictoriaMetrics)     ]
                                 [      (Grafana)    ]
 ```
 
@@ -418,8 +418,8 @@ health_checks:
     check: "Connected to broker"
     interval: 10s
 
-  influxdb:
-    check: "Can ping InfluxDB"
+  tsdb:
+    check: "Can ping VictoriaMetrics"
     interval: 60s
 
   bridges:

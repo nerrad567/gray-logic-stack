@@ -37,8 +37,8 @@ pgrep -f '[g]raylogic-knxd' | xargs -r kill 2>/dev/null || true
 cd code/core && make dev-services-down
 
 # 1d. Verify nothing remains
-#     Ports 8090 (API), 6720 (knxd), 1883 (MQTT), 8086 (InfluxDB) should all be clear
-ss -tlnp | grep -E '8090|6720|1883|8086|9090' || echo "All ports clear"
+#     Ports 8090 (API), 6720 (knxd), 1883 (MQTT), 8428 (VictoriaMetrics) should all be clear
+ss -tlnp | grep -E '8090|6720|1883|8428|9090' || echo "All ports clear"
 ```
 
 If any port is still occupied, identify and kill the process before proceeding.
@@ -53,8 +53,8 @@ rm -f code/core/data/graylogic.db \
       code/core/data/graylogic.db-shm \
       code/core/data/graylogic.db-wal
 
-# 2b. Remove Docker volumes (MQTT data, InfluxDB data, KNX sim data)
-docker volume rm gray-logic-stack_influxdb_data 2>/dev/null || true
+# 2b. Remove Docker volumes (MQTT data, VictoriaMetrics data, KNX sim data)
+docker volume rm gray-logic-stack_victoriametrics_data 2>/dev/null || true
 docker volume rm gray-logic-stack_knxsim_data 2>/dev/null || true
 docker volume rm gray-logic-stack_mosquitto_data 2>/dev/null || true
 docker volume rm gray-logic-stack_mosquitto_log 2>/dev/null || true
@@ -102,7 +102,7 @@ If the Go build fails, STOP and report the error. Do not proceed to Phase 4.
 Start services in dependency order: Docker services first, then GLCore.
 
 ```bash
-# 4a. Start Docker dev services (mosquitto, influxdb, knxsim)
+# 4a. Start Docker dev services (mosquitto, victoriametrics, knxsim)
 cd code/core && make dev-services
 
 # 4b. Wait for services to be healthy
@@ -140,7 +140,7 @@ tail -3 /tmp/graylogic.log
 curl -s http://127.0.0.1:8090/api/v1/devices
 
 # 5d. Check all expected ports are listening
-ss -tlnp | grep -E '8090|6720|1883|8086|9090'
+ss -tlnp | grep -E '8090|6720|1883|8428|9090'
 
 # 5e. Verify fresh database (0 devices, 0 scenes)
 curl -s http://127.0.0.1:8090/api/v1/devices
@@ -155,7 +155,7 @@ ALL of the following must be true:
 - [ ] All Docker volumes freshly created (no old data)
 - [ ] SQLite database freshly created via migrations (0 devices, 0 scenes)
 - [ ] GLCore binary compiled from current source
-- [ ] Docker services running: mosquitto (1883), influxdb (8086), knxsim (9090)
+- [ ] Docker services running: mosquitto (1883), victoriametrics (8428), knxsim (9090)
 - [ ] GLCore running and stable: API (8090), knxd (6720)
 - [ ] API responding with empty device/scene lists
 - [ ] GLCore log shows "initialisation complete, waiting for shutdown signal"
@@ -169,7 +169,7 @@ After all phases complete, print a summary table:
 
 | Component        | Status | Details                    |
 |------------------|--------|----------------------------|
-| Docker Services  | ...    | mosquitto, influxdb, knxsim|
+| Docker Services  | ...    | mosquitto, victoriametrics, knxsim|
 | GLCore           | ...    | PID, uptime                |
 | knxd             | ...    | managed, port 6720         |
 | KNX Bridge       | ...    | connected, 0 devices       |

@@ -17,7 +17,7 @@ This document defines how developers run Gray Logic Core locally during active d
 ## Philosophy
 
 1. **Fast Iteration** — No Docker rebuild for code changes
-2. **Real Dependencies** — Use real MQTT broker and InfluxDB (containerized)
+2. **Real Dependencies** — Use real MQTT broker and VictoriaMetrics (containerized)
 3. **Safety Isolation** — Prevent catastrophic operations from affecting the host system
 4. **Production Parity** — Same dependency versions as production
 
@@ -92,25 +92,19 @@ services:
       - graylogic-dev-mqtt-data:/mosquitto/data
     restart: unless-stopped
 
-  influxdb:
-    image: influxdb:2.7-alpine
-    container_name: graylogic-dev-influxdb
+  tsdb:
+    image: victoriametrics/victoria-metrics:v1.135.0
+    container_name: graylogic-dev-victoriametrics
     ports:
-      - "8086:8086"
+      - "8428:8428"
     environment:
-      DOCKER_INFLUXDB_INIT_MODE: setup
-      DOCKER_INFLUXDB_INIT_USERNAME: graylogic
-      DOCKER_INFLUXDB_INIT_PASSWORD: devpassword123
-      DOCKER_INFLUXDB_INIT_ORG: graylogic
-      DOCKER_INFLUXDB_INIT_BUCKET: phm
-      DOCKER_INFLUXDB_INIT_ADMIN_TOKEN: dev-token-do-not-use-in-prod
     volumes:
-      - graylogic-dev-influxdb-data:/var/lib/influxdb2
+      - graylogic-dev-victoriametrics-data:/victoria-metrics-data
     restart: unless-stopped
 
 volumes:
   graylogic-dev-mqtt-data:
-  graylogic-dev-influxdb-data:
+  graylogic-dev-victoriametrics-data:
 ```
 
 **Mosquitto configuration for dev:**
@@ -231,8 +225,8 @@ mqtt:
   broker: "tcp://localhost:1883"
   client_id: "graylogic-core-dev"
 
-influxdb:
-  url: "http://localhost:8086"
+tsdb:
+  url: "http://localhost:8428"
   token: "dev-token-do-not-use-in-prod"
   org: "graylogic"
   bucket: "phm"

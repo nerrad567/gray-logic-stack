@@ -99,7 +99,7 @@ To align expectations with installed hardware, PHM features are grouped into thr
 ### Data Flow
 
 ```
-Equipment → Bridges → MQTT → Core → InfluxDB
+Equipment → Bridges → MQTT → Core → VictoriaMetrics
                               ↓
                          PHM Engine
                               ↓
@@ -115,7 +115,7 @@ Equipment → Bridges → MQTT → Core → InfluxDB
 | Component | Responsibility |
 |-----------|----------------|
 | **Bridges** | Collect raw telemetry from equipment |
-| **InfluxDB** | Store time-series data for analysis |
+| **VictoriaMetrics** | Store time-series data for analysis |
 | **PHM Engine** | Baseline learning, anomaly detection, predictions |
 | **Alert Service** | Generate and route PHM alerts |
 | **API/Dashboard** | Expose health scores and recommendations |
@@ -132,9 +132,9 @@ phm:
   baseline_learning_days: 7         # Days to learn baseline
   retention_days: 365               # Keep PHM history
   
-  # InfluxDB connection
-  influxdb:
-    url: "http://localhost:8086"
+  # VictoriaMetrics connection
+  tsdb:
+    url: "http://localhost:8428"
     org: "graylogic"
     bucket: "phm"
 ```
@@ -145,10 +145,10 @@ phm:
 
 ### 1. Data Collection
 
-Equipment telemetry flows through bridges to InfluxDB:
+Equipment telemetry flows through bridges to VictoriaMetrics:
 
 ```yaml
-# Example: Pump telemetry written to InfluxDB
+# Example: Pump telemetry written to VictoriaMetrics
 measurement: equipment_telemetry
 tags:
   device_id: "pump-chw-1"
@@ -1212,11 +1212,11 @@ phm:
     alerts_days: 730
     
   # Storage
-  influxdb:
-    url: "http://localhost:8086"
+  tsdb:
+    url: "http://localhost:8428"
     org: "graylogic"
     bucket: "phm"
-    token_env: "INFLUXDB_TOKEN"
+    token_env: "TSDB_TOKEN"
 ```
 
 ### Device-Specific Configuration
@@ -1268,7 +1268,7 @@ device:
 ### Commissioning Workflow
 
 1. **Add device to PHM** — Enable PHM in device configuration
-2. **Verify data flow** — Confirm telemetry arriving in InfluxDB
+2. **Verify data flow** — Confirm telemetry arriving in VictoriaMetrics
 3. **Start baseline learning** — Typically 7 days of normal operation
 4. **Review baseline** — Check calculated thresholds are sensible
 5. **Adjust if needed** — Set external limits, modify thresholds

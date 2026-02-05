@@ -308,7 +308,7 @@ cat go.mod
 | `gopkg.in/yaml.v3` | Community | 🟢 Very Low |
 | `paho.mqtt.golang` | Eclipse Foundation | 🟢 Very Low |
 | `go-sqlite3` | Community (mattn) | 🟢 Very Low |
-| `influxdb-client-go` | InfluxData | 🟢 Low |
+| `net/http` (stdlib) | Go standard library | 🟢 Low |
 | `gorilla/websocket` | Community | 🟢 Very Low |
 
 ### What Fails This Phase

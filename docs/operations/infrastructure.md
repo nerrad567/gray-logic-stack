@@ -45,12 +45,12 @@ services:
       - ./mosquitto/data:/mosquitto/data
 
   # Time Series Data
-  influxdb:
-    image: influxdb:2.7-alpine
+  tsdb:
+    image: victoriametrics/victoria-metrics:v1.135.0
     restart: always
     volumes:
-      - ./influxdb/data:/var/lib/influxdb2
-      - ./influxdb/config:/etc/influxdb2
+      - ./victoriametrics/data:/victoria-metrics-data
+      - 
 
   # Bridges (Separate Containers)
   bridge-knx:
@@ -114,7 +114,7 @@ All persistent data lives in a single directory structure:
 /opt/graylogic/
 ├── config/          # YAML config, secrets, certificates
 ├── data/            # SQLite db (core.db)
-├── influxdb/        # History (metrics)
+├── victoriametrics/  # History (metrics)
 └── mosquitto/       # Retained messages
 ```
 
@@ -124,8 +124,8 @@ A strict backup strategy is enforced by the Core (see `system/backup` API).
 
 **Process:**
 1.  **Lock:** SQLite `VACUUM INTO '/backup/core.db'` (safe hot backup).
-2.  **Snapshot:** InfluxDB `backup` command.
-3.  **Archive:** Tar/Gzip config + SQLite backup + Influx snapshot.
+2.  **Snapshot:** VictoriaMetrics `backup` command.
+3.  **Archive:** Tar/Gzip config + SQLite backup + VictoriaMetrics snapshot.
 4.  **Export:** Copy to external USB or upload to remote target (if configured).
 
 **Retention:**

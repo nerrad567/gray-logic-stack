@@ -1061,7 +1061,7 @@ secrets:
     - JWT_SECRET
     - DB_ENCRYPTION_KEY
     - LDAP_BIND_PASSWORD
-    - INFLUXDB_TOKEN
+    - TSDB_TOKEN
     - MQTT_PASSWORD
 ```
 

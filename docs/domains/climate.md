@@ -138,7 +138,7 @@ GLCore reads all climate data from the bus:
 
 This data is used for:
 - Dashboard display
-- Historical trending (InfluxDB)
+- Historical trending (VictoriaMetrics)
 - Energy monitoring
 - Predictive Health Monitoring (PHM)
 

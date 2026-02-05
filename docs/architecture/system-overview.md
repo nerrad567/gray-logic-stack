@@ -354,7 +354,7 @@ User says "Hey Gray, turn on the kitchen lights"
 - **Strict Hardware Requirement:** Consumer hardware (Raspberry Pi, standard NUCs) is **NOT SUPPORTED** for Core due to lack of reliable RTC and thermal throttling risk.
 - **RTC Deadlock Prevention:** A battery-backed Hardware RTC is mandatory to prevent boot deadlocks during offline power recovery (Time source required for Auth/Cert validation).
 - **AI Reliability:** Local LLM and Whisper STT workloads require dedicated acceleration (Coral/NPU) to ensure the main CPU remains available for automation.
-- **Storage:** Industrial-grade NVMe with high TBW (Terabytes Written) rating is required for InfluxDB reliability.
+- **Storage:** Industrial-grade NVMe with high TBW (Terabytes Written) rating is required for VictoriaMetrics reliability.
 
 ### Wall Panels
 
@@ -411,7 +411,7 @@ The system uses strict resource limits to prioritize Automation over Intelligenc
 |-----------|------------|-----------|
 | **Core** | Go | Single binary, no runtime, cross-compiles, multi-decade stability |
 | **Database** | SQLite | Embedded, zero maintenance, reliable |
-| **Time-Series** | InfluxDB | PHM data, energy monitoring |
+| **Time-Series** | VictoriaMetrics | PHM data, energy monitoring, device telemetry |
 | **Message Bus** | MQTT (Mosquitto) | Simple, proven, debuggable |
 | **API** | REST + WebSocket | Universal client support |
 | **Wall Panel UI** | Flutter | Cross-platform, native performance |
@@ -494,13 +494,13 @@ Sites remain fully independent — no cross-site automation or shared state.
 | Resource | Estimate |
 |----------|----------|
 | RAM per device | ~10 KB |
-| InfluxDB per device per day | ~0.5 MB |
-| Per 100 devices per year (InfluxDB) | ~18 GB |
+| VictoriaMetrics per device per day | ~0.5 MB |
+| Per 100 devices per year (VictoriaMetrics) | ~18 GB |
 | SQLite per device per year | ~1 KB |
 
 **Example: 200 devices**
 - Core RAM: ~32 MB
-- Storage per year: ~40 GB (mostly InfluxDB)
+- Storage per year: ~40 GB (mostly VictoriaMetrics)
 
 ### Scaling Limits
 

@@ -123,11 +123,11 @@ func main() {
     // 1. Initialize infrastructure (existing)
     db := database.New(cfg.Database)
     mqtt := mqtt.NewClient(cfg.MQTT)
-    influx := influxdb.NewClient(cfg.InfluxDB)
+    tsdbClient := tsdb.Connect(ctx, cfg.TSDB)
     
     // 2. Initialize Supervisor (new - v2.0)
     supervisor := resilience.NewSupervisor(
-        resilience.WithHealthSources(db, mqtt, influx),
+        resilience.WithHealthSources(db, mqtt, tsdbClient),
         resilience.WithPlaybooks(loadPlaybooks()),
         resilience.WithConfig(cfg.Supervisor),
     )
@@ -339,7 +339,7 @@ escalation:
 |-----------|-------------------|------------------|
 | **MQTT Broker** | Connection status, message latency | Connection lost, high latency |
 | **Database** | Query time, disk space, integrity | Slow queries, disk full, corruption |
-| **InfluxDB** | Write success rate, queue depth | Write failures, queue overflow |
+| **VictoriaMetrics** | Write success rate, queue depth | Write failures, queue overflow |
 | **Bridges** | Heartbeat presence, clock skew | Missing heartbeats, skew >60s |
 | **Scene Engine** | Execution time, success rate | Timeout, high failure rate |
 | **API Server** | Response time, error rate | Slow responses, 5xx errors |
@@ -451,7 +451,7 @@ supervisor:
 
 **Deliverables:**
 - [ ] Define `HealthChecker` interface
-- [ ] Implement health checkers for: Database, MQTT, InfluxDB
+- [ ] Implement health checkers for: Database, MQTT, VictoriaMetrics
 - [ ] Implement `Aggregator` to collect health states
 - [ ] Expose `/api/v1/system/health` endpoint
 
@@ -486,7 +486,7 @@ supervisor:
 **Deliverables:**
 - [ ] Implement circuit breaker pattern
 - [ ] Apply to MQTT client connection
-- [ ] Apply to InfluxDB client writes
+- [ ] Apply to VictoriaMetrics client writes
 
 **Acceptance:**
 - After N failures, circuit opens (stops retrying)

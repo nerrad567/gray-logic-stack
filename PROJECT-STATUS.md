@@ -1,17 +1,17 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-02-04
+> **Last Updated:** 2026-02-05
 > **Current Phase:** Implementation (Year 1 Complete + Commissioning Tools)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-04 (Session 31 - KNXSim Topology Refactor)
-**Current milestone:** Year 1 Foundation Complete + KNXSim Phase 2 Complete + Topology Refactor
+**Last session:** 2026-02-05 (Session 32 - VictoriaMetrics Migration + State Pipeline)
+**Current milestone:** Year 1 Foundation Complete + VictoriaMetrics + State Pipeline
 
 **What's done:**
-- M1.1 Core Infrastructure (SQLite, MQTT, InfluxDB, Config, Logging) ✅
+- M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
 - M1.2 KNX Bridge (telegram parsing, knxd client, MQTT translation, 4 audit cycles) ✅
 - M1.3 Device Registry (50+ types, thread-safe cache, SQLite persistence, KNX integration) ✅
 - M1.4 REST API + WebSocket (Chi router, device CRUD, state commands, WebSocket hub, JWT auth) ✅
@@ -24,7 +24,7 @@
   - 2.4 Technical Inspection (device panel, telegram inspector, bus stats, filtering)
   - 2.5 Device/Room Management (full CRUD, template browser, topology, GA hierarchy, conflict detection)
   - Codex consolidation (107 tests: DPT codec, cEMI frames, GA normalisation)
-- **KNXSim Topology Refactor ✅ NEW** — One Premise = One TP Line:
+- KNXSim Topology Refactor ✅ — One Premise = One TP Line:
   - Premise now stores `area_number`/`line_number`, gateway/client addresses derived
   - Removed Area/Line CRUD (20+ methods, 12 API endpoints, UI modals)
   - Flat topology view with educational info banner
@@ -32,6 +32,14 @@
   - ETS export uses premise area/line (Codex fix)
   - Reference guide expanded: physical topology, address meaning, port vs IP
   - 146 tests passing, async httpx client (Codex improvement)
+- **VictoriaMetrics Migration + State Pipeline ✅ NEW** (ADR-004):
+  - Replaced InfluxDB 2.7 with VictoriaMetrics (free OSS clustering, 10x less RAM)
+  - Rewrote tsdb package: zero external Go deps (net/http + InfluxDB line protocol)
+  - Removed influxdb-client-go/v2 dependency (closed MEDIUM-HIGH audit risk)
+  - Wired MQTT → Device Registry: incoming bus telegrams now update registry state
+  - Wired MQTT → VictoriaMetrics: numeric/boolean state fields written as telemetry
+  - Full state pipeline: MQTT → WebSocket broadcast → Registry update → TSDB write
+  - Docker Compose updated (dev + prod), config simplified (TSDBConfig)
 - ETS Import Commissioning ✅ (parser, device detection, location auto-creation, room assignment fix)
 - ETS Device Classification Pipeline ✅ (Tier 1 Function Types + Tier 2 DPT fallback, manufacturer metadata, 14 new tests)
 - KNX Pipeline Robustness ✅ (structured DPT storage, canonical function registry, import normalisation, pipeline integration tests)

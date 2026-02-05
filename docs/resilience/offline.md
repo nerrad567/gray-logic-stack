@@ -75,7 +75,7 @@ Gray Logic is **offline-first**, not merely offline-capable:
 | **Database** | In-memory state, physical controls | Persistence, configuration changes |
 | **KNX Bridge** | Other bridges, scenes (partial) | KNX device control |
 | **Voice Bridge** | All control except voice | Voice commands |
-| **InfluxDB** | All control, automation | PHM analysis, historical data |
+| **VictoriaMetrics** | All control, automation | PHM analysis, historical data |
 | **Gray Logic Core** | Physical controls, **frost protection (hardware-based)**, security panel, fire alarm | All automation, scenes, UI, PHM |
 
 ### Detailed Failure Scenarios
@@ -225,12 +225,12 @@ voice_bridge_down:
     user_impact: "Low — voice is convenience, not primary control"
 ```
 
-#### InfluxDB Down
+#### VictoriaMetrics Down
 
 **Impact:** Low — only time-series data affected.
 
 ```yaml
-influxdb_down:
+victoriametrics_down:
   works:
     - "All device control"
     - "Scenes, schedules, automation"
@@ -555,7 +555,7 @@ degradation_levels:
     description: "Some devices unreachable"
     examples:
       - "One protocol bridge down"
-      - "InfluxDB down"
+      - "VictoriaMetrics down"
     indicator: "orange"
     
   - level: 3
@@ -811,7 +811,7 @@ health_checks:
     query: "SELECT 1"
     interval_seconds: 60
     
-  influxdb:
+  tsdb:
     method: "Ping"
     interval_seconds: 60
 ```
@@ -841,7 +841,7 @@ GET /api/v1/health
       "status": "healthy",
       "last_write": "2026-01-13T10:29:55Z"
     },
-    "influxdb": {
+    "victoriametrics": {
       "status": "healthy",
       "connected": true
     },
@@ -1098,7 +1098,7 @@ offline:
   # Queue management
   queues:
     command_queue_size: 1000
-    influxdb_queue_size_mb: 100
+    tsdb_queue_size_mb: 100
     queue_overflow_action: "drop_oldest"
     
   # Health monitoring

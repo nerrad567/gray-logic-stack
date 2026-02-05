@@ -38,7 +38,7 @@ Provides configuration loading for Gray Logic Core with:
 | `DatabaseConfig` | SQLite settings |
 | `MQTTConfig` | MQTT broker connection |
 | `APIConfig` | HTTP server settings |
-| `InfluxDBConfig` | Time-series database |
+| `VictoriaMetricsConfig` | Time-series database |
 | `LoggingConfig` | Logging configuration |
 | `SecurityConfig` | Auth and JWT settings |
 | `ProtocolsConfig` | Protocol bridge settings |
@@ -165,10 +165,10 @@ websocket:               # WebSocketConfig
   ping_interval: 30
   pong_timeout: 10
 
-influxdb:                # InfluxDBConfig
+tsdb:                # VictoriaMetricsConfig
   enabled: false
-  url: "http://localhost:8086"
-  token: ""              # Set via GRAYLOGIC_INFLUXDB_TOKEN
+  url: "http://localhost:8428"
+  token: ""              # Set via GRAYLOGIC_TSDB_URL
   org: "graylogic"
   bucket: "metrics"
   batch_size: 100        # Points per batch (max 100,000)
@@ -253,7 +253,7 @@ None — config is the root of the dependency tree.
 | `cmd/graylogic/main.go` | Loads configuration at startup |
 | `database` | Uses `cfg.Database` for connection |
 | `mqtt` | Uses `cfg.MQTT` for broker connection |
-| `influxdb` | Uses `cfg.InfluxDB` for time-series |
+| `tsdb` | Uses `cfg.TSDB` for time-series |
 | `internal/knxd` | Uses `cfg.Protocols.KNX.KNXD` for daemon management |
 | `internal/bridges/knx` | Uses `cfg.Protocols.KNX` for bridge settings |
 | `api` | Uses `cfg.API`, `cfg.Security`, `cfg.PanelDir` for server |

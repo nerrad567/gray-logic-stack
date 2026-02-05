@@ -21,7 +21,7 @@ Verifies that your development environment has all required tools and services.
 | Service | Port | Purpose |
 |---------|------|---------|
 | Mosquitto (MQTT) | 1883 | Message bus |
-| InfluxDB | 8086 | Time-series |
+| VictoriaMetrics | 8428 | Time-series |
 
 ## Commands
 
@@ -42,8 +42,8 @@ docker compose -f docker-compose.dev.yml ps
 # Test MQTT connectivity
 docker exec mosquitto mosquitto_pub -t test -m "ping" 2>/dev/null && echo "✓ MQTT OK"
 
-# Test InfluxDB connectivity
-curl -s http://localhost:8086/ping && echo "✓ InfluxDB OK"
+# Test VictoriaMetrics connectivity
+curl -s http://localhost:8428/ping && echo "✓ VictoriaMetrics OK"
 ```
 
 ## Quick Fix: Start Dev Services
@@ -51,7 +51,7 @@ curl -s http://localhost:8086/ping && echo "✓ InfluxDB OK"
 If services aren't running:
 
 ```bash
-# Start MQTT and InfluxDB
+# Start MQTT and VictoriaMetrics
 docker compose -f docker-compose.dev.yml up -d
 
 # Verify
@@ -73,11 +73,11 @@ go build ./... ✓
 
 === Dev Services ===
 mosquitto:      running (port 1883) ✓
-influxdb:       running (port 8086) ✓
+tsdb:       running (port 8428) ✓
 
 === Connectivity ===
 MQTT pub/sub:   working ✓
-InfluxDB ping:  working ✓
+VictoriaMetrics ping:  working ✓
 
 Environment healthy — ready to develop.
 ```
@@ -90,4 +90,4 @@ Environment healthy — ready to develop.
 | golangci-lint not found | `go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest` |
 | Docker not running | `sudo systemctl start docker` |
 | Services not started | `docker compose -f docker-compose.dev.yml up -d` |
-| Port conflict | Check `lsof -i :1883` or `lsof -i :8086` |
+| Port conflict | Check `lsof -i :1883` or `lsof -i :8428` |

@@ -102,7 +102,7 @@ failure_record:
   context:
     system_health:
       database: "healthy"
-      influxdb: "healthy"
+      victoriametrics: "healthy"
       bridges:
         knx: "healthy"
         dali: "degraded"

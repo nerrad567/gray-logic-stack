@@ -19,7 +19,7 @@ User Interfaces → REST API + WebSocket → GRAY LOGIC CORE (Go) → MQTT → P
 
 - **Gray Logic Core**: Single Go binary containing all automation logic (~30MB RAM)
 - **Protocol Bridges**: Separate processes for KNX (via knxd), DALI, Modbus, audio/video matrices
-- **Database**: SQLite (config/state), InfluxDB (PHM time-series)
+- **Database**: SQLite (config/state), VictoriaMetrics (PHM time-series)
 - **UIs**: Flutter (wall panels, mobile), React/Svelte (web admin)
 - **Local AI**: Whisper (STT) + local LLM (NLU) + Piper (TTS)
 

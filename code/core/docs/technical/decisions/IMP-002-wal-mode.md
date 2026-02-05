@@ -16,7 +16,7 @@ Gray Logic Core uses SQLite for persistent storage. The default rollback journal
 This causes contention when:
 - API serves multiple concurrent read requests
 - State updates write frequently
-- InfluxDB sync reads while automations write
+- VictoriaMetrics sync reads while automations write
 
 ## Decision
 

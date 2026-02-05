@@ -119,7 +119,7 @@ No violations or concerns. The fallback-chain design (stored DPT → canonical r
 
 | Dependency | Risk | Action |
 |------------|------|--------|
-| `influxdata/influxdb-client-go/v2` | **MEDIUM-HIGH** — v2 client in maintenance mode; InfluxDB 3 transition underway | Year 2-3 roadmap: evaluate v3 migration or alternative time-series store |
+| `influxdata/net/http (stdlib)/v2` | **MEDIUM-HIGH** — v2 client in maintenance mode; VictoriaMetrics 3 transition underway | Year 2-3 roadmap: evaluate v3 migration or alternative time-series store |
 | `gorilla/websocket` | **MEDIUM** — rocky maintenance history (archived 2022, revived 2023) | Consider `coder/websocket` migration when convenient |
 | `gopkg.in/yaml.v3` | **LOW** — unmaintained since April 2025 | Swap to `go.yaml.in/yaml/v3` (drop-in replacement) |
 
@@ -167,4 +167,4 @@ No violations or concerns. The fallback-chain design (stored DPT → canonical r
 4. **Fix M2**: Tighten `migrateInferDPT` substring matching
 5. **Fix M3**: Consistent casing in normalisation functions
 6. **Update 5 stale docs** to new `functions` format
-7. **Roadmap**: Track InfluxDB v3 migration, gorilla/websocket replacement, yaml.v3 swap
+7. **Roadmap**: Track VictoriaMetrics v3 migration, gorilla/websocket replacement, yaml.v3 swap

@@ -4,6 +4,44 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.23 – VictoriaMetrics Migration + State Pipeline Wiring (2026-02-05)
+
+**Focus: Replace InfluxDB with VictoriaMetrics and connect the state collection pipeline**
+
+ADR-004: Replaced InfluxDB 2.7 with VictoriaMetrics as the time-series database. VictoriaMetrics provides free OSS clustering (InfluxDB 3 locks HA behind paid Enterprise), 10x lower RAM usage, and accepts InfluxDB line protocol — making it a drop-in wire-protocol replacement. The Go client was rewritten with zero external dependencies (net/http only).
+
+Additionally, wired the previously-disconnected state pipeline: MQTT state messages from the KNX bridge now flow through WebSocket broadcast → Device Registry update → VictoriaMetrics telemetry writes.
+
+### Added
+
+- **State pipeline wiring**: MQTT device state updates now write through to Device Registry (SQLite) and VictoriaMetrics (if enabled). Previously, incoming bus telegrams (physical switch presses, sensor updates) only broadcast to WebSocket — the registry and TSDB were never updated.
+- **TSDB client in API server**: `tsdb.Client` passed as optional dependency to API server for telemetry writes during state ingestion
+- **Boolean-to-float conversion**: Boolean state fields (on/off) written to VictoriaMetrics as 0.0/1.0 for time-series analytics
+
+### Changed
+
+- **Docker Compose**: `influxdb:2.7-alpine` → `victoriametrics/victoria-metrics:v1.135.0` (dev + prod)
+- **Config**: `InfluxDBConfig` → `TSDBConfig` — removed Token, Org, Bucket fields (not needed for VM single-node)
+- **Package rename**: `internal/infrastructure/influxdb/` → `internal/infrastructure/tsdb/`
+- **TSDB client rewrite**: Pure `net/http` client with internal batching (configurable batch size + flush interval), InfluxDB line protocol formatting, health checks via `GET /health`, writes via `POST /write`
+- **go.mod**: Removed `influxdb-client-go/v2` and `line-protocol` dependencies (zero external TSDB deps)
+- **Makefile**: Updated dev-services comment for victoriametrics
+- **main.go**: TSDB connection moved before API server start (required for state pipeline wiring)
+
+### Removed
+
+- **InfluxDB 2.7 dependency**: Docker image, Go client library, and all associated configuration
+- **influxdb-client-go/v2**: Eliminated MEDIUM-HIGH audit risk item from 2026-02-04 report
+
+### Technical Notes
+
+- VictoriaMetrics accepts InfluxDB line protocol on `POST /write` — write-side code pattern stays similar
+- Queries use PromQL via `GET /api/v1/query_range` (better for time-series analytics than Flux/SQL)
+- Deployment tiers: Tier 1 (residential, VM on NUC), Tier 2 (commercial, dedicated VM), Tier 3 (campus, free OSS VM cluster)
+- TSDB is value-add for analytics/PHM — KNX field layer works independently, TSDB can be disabled without breaking control
+
+---
+
 ## 1.0.22 – KNXSim Topology Refactor: One Premise = One TP Line (2026-02-04)
 
 **Focus: Align KNXSim's topology model with real-world KNX hardware**

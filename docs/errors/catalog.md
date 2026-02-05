@@ -71,7 +71,7 @@ Example: ERR-MQTT-CONN-001
 
 | Domain | Description | Examples |
 |--------|-------------|----------|
-| `INFRA` | Infrastructure layer | Database, MQTT, InfluxDB |
+| `INFRA` | Infrastructure layer | Database, MQTT, VictoriaMetrics |
 | `DEVICE` | Device layer | Registry, state, discovery |
 | `AUTO` | Automation layer | Scenes, scheduler, modes |
 | `INTEL` | Intelligence layer | Voice, PHM, AI |
@@ -225,8 +225,8 @@ playbooks:
 | `ERR-INFRA-DB-001` | Database connection failed | Critical | Partial |
 | `ERR-INFRA-DB-002` | Database query timeout | High | Yes |
 | `ERR-INFRA-DB-003` | Database integrity error | Critical | No |
-| `ERR-INFRA-INFLUX-001` | InfluxDB connection failed | Medium | Yes |
-| `ERR-INFRA-INFLUX-002` | InfluxDB write failed | Medium | Yes (queue) |
+| `ERR-INFRA-INFLUX-001` | VictoriaMetrics connection failed | Medium | Yes |
+| `ERR-INFRA-INFLUX-002` | VictoriaMetrics write failed | Medium | Yes (queue) |
 
 ### Device Errors (ERR-DEVICE-*)
 

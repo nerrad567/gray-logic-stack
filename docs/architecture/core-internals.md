@@ -754,7 +754,7 @@ Predictive Health Monitoring for equipment.
 
 type Monitor struct {
     db         *database.Database
-    influx     *influxdb.Client
+    tsdb       *tsdb.Client
     baselines  map[string]*Baseline
     alerter    *Alerter
 }
@@ -898,7 +898,7 @@ Gray Logic follows strict timezone handling to ensure schedules work correctly a
 │                         TIMEZONE HANDLING                                    │
 ├─────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│   STORAGE (SQLite, InfluxDB)                                                │
+│   STORAGE (SQLite, VictoriaMetrics)                                                │
 │   └── Always UTC: "2026-01-17T14:30:00Z"                                    │
 │                                                                              │
 │   CORE INTERNAL                                                             │
@@ -1190,7 +1190,7 @@ func main() {
     registry := registry.New(db)
     stateManager := state.New(db, mqttClient)
     cmdProcessor := command.New(registry, mqttClient)
-    healthMonitor := health.New(db, cfg.Influx)
+    healthMonitor := health.New(db, cfg.TSDB)
     
     // 6. Initialize automation layer
     modeManager := mode.New(db)
@@ -1342,9 +1342,9 @@ site:
 database:
   path: "/var/lib/graylogic/graylogic.db"
   
-influxdb:
-  url: "http://localhost:8086"
-  token: "${INFLUX_TOKEN}"
+tsdb:
+  url: "http://localhost:8428"
+  token: "${TSDB_TOKEN}"
   org: "graylogic"
   bucket: "phm"
 

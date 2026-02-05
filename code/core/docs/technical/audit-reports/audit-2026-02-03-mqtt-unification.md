@@ -4,7 +4,7 @@ version: 1.0.0
 status: complete
 audit_date: 2026-02-03
 auditor: Claude Code (claude-opus-4-5-20251101)
-scope: MQTT topic scheme unification and InfluxDB credential fix
+scope: MQTT topic scheme unification and VictoriaMetrics credential fix
 previous_audit: audit-2026-01-24-m1.5-panel.md
 commit: 78c6b43
 ---
@@ -13,18 +13,18 @@ commit: 78c6b43
 
 **Audit Date:** 2026-02-03
 **Auditor:** Claude Code
-**Scope:** Session 23 changes — MQTT topic unification (7 Go files), InfluxDB token fix, package doc updates
+**Scope:** Session 23 changes — MQTT topic unification (7 Go files), VictoriaMetrics token fix, package doc updates
 **Packages Reviewed:**
 - `internal/infrastructure/mqtt` (topics.go, publish.go, subscribe.go, client_test.go)
 - `internal/automation` (engine.go, engine_test.go)
 - `internal/device` (validation.go)
-- `internal/infrastructure/influxdb` (client_test.go)
+- `internal/infrastructure/tsdb` (client_test.go)
 
 ---
 
 ## Executive Summary
 
-This audit covers the MQTT topic scheme unification that standardised all bridges on the flat topic format (`graylogic/{category}/{protocol}/{address}`). The primary change fixed a live bug where scene commands were published to topics no bridge subscribed to. The audit also covers the InfluxDB credential fix (deterministic dev token).
+This audit covers the MQTT topic scheme unification that standardised all bridges on the flat topic format (`graylogic/{category}/{protocol}/{address}`). The primary change fixed a live bug where scene commands were published to topics no bridge subscribed to. The audit also covers the VictoriaMetrics credential fix (deterministic dev token).
 
 ### Audit Progression
 
@@ -36,7 +36,7 @@ This audit covers the MQTT topic scheme unification that standardised all bridge
 
 | Category | Score | Notes |
 |----------|-------|-------|
-| Tests | 9/10 | 16/16 packages pass, race-free. InfluxDB was failing (token), now fixed. |
+| Tests | 9/10 | 16/16 packages pass, race-free. VictoriaMetrics was failing (token), now fixed. |
 | Security | 9/10 | No vulnerabilities. Medium: topic segment injection defense-in-depth. |
 | Reliability | 9/10 | Scene routing bug fixed. Medium: topic construction centralisation. |
 | Lint | 8/10 | 96 warnings (pre-existing: complexity, magic numbers, duplication). |
@@ -60,7 +60,7 @@ This audit covers the MQTT topic scheme unification that standardised all bridge
 |---------|----------|--------|--------|
 | config | 95.9% | 80% | ✅ |
 | database | 82.3% | 80% | ✅ |
-| influxdb | 79.8% | 70% | ✅ |
+| victoriametrics | 79.8% | 70% | ✅ |
 | logging | 100.0% | 80% | ✅ |
 | mqtt | 82.5% | 80% | ✅ |
 | device | 85.4% | 80% | ✅ |
@@ -116,7 +116,7 @@ See Issues section below.
 | gopkg.in/yaml.v3 | Community | 10+ years | 🟢 Very Low |
 | paho.mqtt.golang | Eclipse Foundation | 8+ years | 🟢 Very Low |
 | go-sqlite3 | mattn (community) | 12+ years | 🟢 Very Low |
-| influxdb-client-go/v2 | InfluxData | 5+ years | 🟢 Low |
+| net/http (stdlib)/v2 | InfluxData | 5+ years | 🟢 Low |
 | gorilla/websocket | Community | 10+ years | 🟢 Very Low |
 | go-chi/v5 | Community | 8+ years | 🟢 Very Low |
 | golang-jwt/v5 | Community | 7+ years | 🟢 Very Low |
@@ -125,9 +125,9 @@ See Issues section below.
 ### Phase 7: Documentation ✅ PASS
 
 All package docs synced this session:
-- config.md: PanelDir, SecurityConfig, InfluxDB/Logging/KNXD fields, fixed defaults
+- config.md: PanelDir, SecurityConfig, VictoriaMetrics/Logging/KNXD fields, fixed defaults
 - database.md: SqlDB(), MigrateDown(), GetMigrationStatus()
-- influxdb.md: Bounds validation, context timeout, Close() rationale
+- victoriametrics.md: Bounds validation, context timeout, Close() rationale
 
 ---
 
@@ -169,13 +169,13 @@ All package docs synced this session:
 
 ## Issues Fixed This Session
 
-#### F1: InfluxDB test authentication — FIXED
+#### F1: VictoriaMetrics test authentication — FIXED
 
 | Attribute | Value |
 |-----------|-------|
 | **File** | `client_test.go:23`, `docker-compose.dev.yml:44` |
 | **Issue** | Hardcoded token didn't match auto-generated container token |
-| **Fix** | Added `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=dev-token-graylogic-influxdb-local` to compose; updated test to match |
+| **Fix** | Added `DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=dev-token-graylogic-victoriametrics-local` to compose; updated test to match |
 
 ---
 

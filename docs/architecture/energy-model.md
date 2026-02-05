@@ -818,7 +818,7 @@ energy_alerts:
 
 ---
 
-## InfluxDB Storage
+## VictoriaMetrics Storage
 
 ### Time-Series Schema
 

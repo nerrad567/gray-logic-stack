@@ -34,7 +34,7 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 
 ### Key Technologies
 - **Core**: Go (Single binary, stability)
-- **Database**: SQLite (Configuration/State), InfluxDB (Time-series/PHM)
+- **Database**: SQLite (Configuration/State), VictoriaMetrics (Time-series/PHM)
 - **Message Bus**: MQTT (Internal communication)
 - **UI**: Flutter (Wall panels and mobile)
 - **Local AI**: Whisper (STT), Piper (TTS), local LLM (NLU)
@@ -101,7 +101,7 @@ cd code/core && golangci-lint run
 # Run locally (once complete)
 ./code/core/bin/graylogic --config config/dev.yaml
 
-# Start dev services (MQTT + InfluxDB)
+# Start dev services (MQTT + VictoriaMetrics)
 docker compose -f docker-compose.dev.yml up -d
 ```
 

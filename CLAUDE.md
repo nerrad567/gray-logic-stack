@@ -40,7 +40,7 @@ User Interfaces (Wall Panels, Mobile App, Voice, Web Admin)
 - **Gray Logic Core**: Single Go binary containing all automation logic
 - **Protocol Bridges**: Separate processes for KNX (via knxd), DALI, Modbus, audio/video matrices
 - **SQLite**: Configuration and state persistence
-- **InfluxDB**: Time-series for PHM and energy monitoring
+- **VictoriaMetrics**: Time-series for PHM, energy monitoring, and device telemetry
 - **MQTT**: Internal message bus between Core and bridges
 - **Flutter**: Wall panel and mobile app UIs
 - **Local AI**: Whisper (STT) + local LLM (NLU) + Piper (TTS)
@@ -88,7 +88,7 @@ gray-logic-stack/
 │       │   ├── api/           # REST API + WebSocket server (M1.4)
 │       │   ├── bridges/knx/   # KNX protocol bridge (M1.2)
 │       │   ├── device/        # Device registry (M1.3)
-│       │   ├── infrastructure/# Config, database, MQTT, InfluxDB (M1.1)
+│       │   ├── infrastructure/# Config, database, MQTT, TSDB (M1.1)
 │       │   ├── knxd/          # knxd subprocess manager
 │       │   └── process/       # Generic subprocess lifecycle
 │       ├── configs/           # Configuration templates
@@ -119,7 +119,7 @@ Archived (for reference):
 |-----------|------------|-----------|
 | Core | Go | Single binary, no runtime, multi-decade stability |
 | Database | SQLite | Embedded, zero maintenance |
-| Time-Series | InfluxDB | PHM data, energy monitoring |
+| Time-Series | VictoriaMetrics | PHM data, energy monitoring, device telemetry (zero external Go deps) |
 | Message Bus | MQTT | Simple, proven, debuggable |
 | Wall Panel/Mobile | Flutter | Cross-platform native |
 | Voice STT | Whisper | Local, accurate, open |
@@ -134,7 +134,7 @@ Archived (for reference):
 ### Dev Mode (Default — every session)
 
 ```bash
-cd code/core && make dev-services    # starts mosquitto, knxsim, influxdb
+cd code/core && make dev-services    # starts mosquitto, knxsim, victoriametrics
 cd code/core && make dev-run         # builds + runs Go core natively (~2-3s)
 ```
 

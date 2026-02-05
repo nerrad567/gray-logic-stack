@@ -25,7 +25,7 @@ This document defines the process for initializing a new Gray Logic installation
 
 A raw installation (e.g., a fresh SD card image or Docker container) needs:
 1.  Cryptographically secure secrets (JWT keys, DB encryption keys).
-2.  Unique passwords for infrastructure (MQTT, InfluxDB).
+2.  Unique passwords for infrastructure (MQTT, VictoriaMetrics).
 3.  An initial Administrator account.
 4.  Site-specific configuration (Timezone, Location).
 

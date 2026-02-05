@@ -55,7 +55,7 @@ Within the boundaries of the Hard Rules, every implementation decision must sati
 |-----------|------------|-----------|
 | Core | Go | Single binary, no runtime, multi-decade stability |
 | Database | SQLite | Embedded, zero maintenance, portable |
-| Time-Series | InfluxDB | PHM data, energy monitoring, historical trends |
+| Time-Series | VictoriaMetrics | PHM data, energy monitoring, historical trends |
 | Message Bus | MQTT (Mosquitto) | Simple, proven, debuggable |
 | Wall Panel/Mobile | Flutter | Cross-platform native performance |
 | Voice STT | Whisper | Local, accurate, open source |
@@ -75,7 +75,7 @@ Infrastructure → Device Layer → Basic Automation → UI
 ```
 
 **Milestones:**
-1. **M1.1** — SQLite database, MQTT broker, InfluxDB running
+1. **M1.1** — SQLite database, MQTT broker, VictoriaMetrics running
 2. **M1.2** — KNX bridge operational (read/write telegrams)
 3. **M1.3** — Device registry with KNX actuators and switches
 4. **M1.4** — REST API + WebSocket serving state
@@ -319,7 +319,7 @@ Full Function → Automation Disabled → Manual Control Only
 | Database corruption | Read-only mode, use backup | Critical alert | Manual restore required |
 | Internet down | Full local operation | Info message | Auto-resume when back |
 | Power loss | Resume from saved state | Log event | Automatic on power restore |
-| InfluxDB down | PHM disabled, Core continues | Warning | Auto-reconnect |
+| VictoriaMetrics down | PHM disabled, Core continues | Warning | Auto-reconnect |
 
 ### Data Integrity
 
@@ -327,7 +327,7 @@ Full Function → Automation Disabled → Manual Control Only
 - Device state written to SQLite on every change
 - Scene definitions in version-controlled YAML
 - Configuration changes logged with timestamp + user
-- Time-series data in InfluxDB (PHM, energy)
+- Time-series data in VictoriaMetrics (PHM, energy)
 
 **Backup strategy:**
 - Automatic daily backup to USB drive
@@ -448,7 +448,7 @@ Full Function → Automation Disabled → Manual Control Only
   "components": {
     "database": "healthy",
     "mqtt": "healthy",
-    "influxdb": "healthy",
+    "victoriametrics": "healthy",
     "knx_bridge": "healthy",
     "dali_bridge": "degraded"
   },
@@ -470,13 +470,13 @@ Full Function → Automation Disabled → Manual Control Only
 **Deliverables:**
 - SQLite database schema created and migrated
 - MQTT broker (Mosquitto) running
-- InfluxDB running with graylogic bucket
+- VictoriaMetrics running with graylogic bucket
 - Core binary compiles and starts
 
 **Acceptance:**
 - `sqlite3 /var/lib/graylogic/core.db ".tables"` shows schema
 - `mosquitto_sub -t '#' -v` receives test messages
-- InfluxDB health check passes
+- VictoriaMetrics health check passes
 - Core logs "Server started on :8080"
 
 ---
