@@ -50,7 +50,8 @@ PKG_DIR := ./pkg/...
 .PHONY: help build run clean test test-coverage lint fmt vet tidy vendor check all dev \
        build-panel build-panel-dev build-all \
        dev-services dev-services-down dev-run dev-run-quick \
-       docker-build docker-up docker-down
+       docker-build docker-up docker-down \
+       kill-stale test-clean
 
 # ============================================================================
 # HELP
@@ -122,24 +123,38 @@ clean:
 # TEST TARGETS
 # ============================================================================
 
-## test: Run all tests
-test:
+## kill-stale: Kill stale knxd/graylogic processes and clean PID/socket files
+kill-stale:
+	@echo "Cleaning stale processes and artifacts..."
+	@-pkill -x knxd 2>/dev/null; true
+	@-pkill -x $(APP_NAME) 2>/dev/null; true
+	@sleep 0.5
+	@rm -f /tmp/graylogic-knxd.pid /tmp/graylogic-knxd.sock
+	@echo "✓ Stale processes and PID files cleaned"
+
+## test: Run all tests (kills stale processes first to prevent port conflicts)
+test: kill-stale
 	@echo "Running tests..."
 	$(GO) test -v ./...
 
+## test-race: Run all tests with race detection (kills stale processes first)
+test-race: kill-stale
+	@echo "Running tests with race detection..."
+	$(GO) test -race -count=1 ./...
+
 ## test-short: Run tests without verbose output
-test-short:
+test-short: kill-stale
 	$(GO) test ./...
 
 ## test-coverage: Run tests with coverage report
-test-coverage:
+test-coverage: kill-stale
 	@echo "Running tests with coverage..."
 	$(GO) test -coverprofile=coverage.out ./...
 	$(GO) tool cover -html=coverage.out -o coverage.html
 	@echo "Coverage report: coverage.html"
 
 ## test-integration: Run integration tests (requires test environment)
-test-integration:
+test-integration: kill-stale
 	@echo "Running integration tests..."
 	$(GO) test -tags=integration -v ./tests/integration/...
 

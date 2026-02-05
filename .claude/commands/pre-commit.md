@@ -17,11 +17,14 @@ Runs all quality gates before committing code.
 ```bash
 cd code/core
 
+# 0. Kill stale processes to prevent port conflicts during tests
+make kill-stale
+
 # 1. Lint check
 golangci-lint run
 
 # 2. Run tests with race detection
-go test -race -v ./...
+go test -race -count=1 ./...
 
 # 3. Check for cloud/external dependencies in new code
 git diff --cached --name-only | xargs grep -l -E "(http\.Get|http\.Post|cloud)" || echo "✓ No cloud calls"
@@ -44,8 +47,9 @@ git commit -m "feat(scope): description"
 ## Example Output
 
 ```
+✓ Stale processes and PID files cleaned
 ✓ golangci-lint: 0 issues
-✓ go test: 15 tests passed
+✓ go test: 15 packages passed (race detection on)
 ✓ No cloud calls detected
 ✓ No safety control attempts
 All checks passed — safe to commit.
