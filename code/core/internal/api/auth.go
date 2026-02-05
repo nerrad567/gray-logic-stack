@@ -71,7 +71,7 @@ var wsTickets = &ticketStore{
 }
 
 // handleLogin authenticates a user and returns JWT access + refresh tokens.
-func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:gocognit // auth login: credential check + token generation pipeline
+func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // auth login: credential check + token generation pipeline
 	var req loginRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		writeBadRequest(w, "invalid JSON body")
@@ -80,6 +80,11 @@ func (s *Server) handleLogin(w http.ResponseWriter, r *http.Request) { //nolint:
 
 	if req.Username == "" || req.Password == "" {
 		writeBadRequest(w, "username and password are required")
+		return
+	}
+
+	if len(req.Password) > 128 { //nolint:mnd // max password length — reject before Argon2id
+		writeUnauthorized(w, "invalid credentials")
 		return
 	}
 
@@ -230,13 +235,6 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 		return
 	}
 
-	// Revoke the current token (it's been consumed)
-	if err := s.tokenRepo.Revoke(r.Context(), storedToken.ID); err != nil { //nolint:govet // shadow: err re-declared in nested scope
-		s.logger.Error("failed to revoke consumed refresh token", "error", err)
-		writeInternalError(w, "token refresh failed")
-		return
-	}
-
 	// Look up user to generate new access token
 	user, err := s.userRepo.GetByID(r.Context(), storedToken.UserID)
 	if err != nil {
@@ -283,8 +281,9 @@ func (s *Server) handleRefresh(w http.ResponseWriter, r *http.Request) { //nolin
 		ExpiresAt:  time.Now().Add(time.Duration(refreshTTL) * time.Minute),
 	}
 
-	if err := s.tokenRepo.Create(r.Context(), newRT); err != nil {
-		s.logger.Error("refresh: new token storage failed", "error", err)
+	// Atomically revoke old token and create new one in a single transaction
+	if err := s.tokenRepo.RotateRefreshToken(r.Context(), storedToken.ID, newRT); err != nil {
+		s.logger.Error("refresh: token rotation failed", "error", err)
 		writeInternalError(w, "token refresh failed")
 		return
 	}
@@ -348,8 +347,8 @@ func (s *Server) handleChangePassword(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if len(req.NewPassword) < 8 { //nolint:mnd // minimum password length
-		writeBadRequest(w, "new password must be at least 8 characters")
+	if len(req.NewPassword) < 8 || len(req.NewPassword) > 128 { //nolint:mnd // password length bounds
+		writeBadRequest(w, "new password must be between 8 and 128 characters")
 		return
 	}
 

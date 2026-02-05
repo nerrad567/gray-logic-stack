@@ -35,7 +35,7 @@ func NewUserRepository(db *sql.DB) *SQLiteUserRepository {
 // Create inserts a new user account. The ID is generated if empty.
 func (r *SQLiteUserRepository) Create(ctx context.Context, user *User) error {
 	if user.ID == "" {
-		user.ID = "usr-" + uuid.NewString()[:8]
+		user.ID = "usr-" + uuid.NewString()[:16]
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)

@@ -157,29 +157,16 @@ func (s *Server) buildRoomCounts(ctx context.Context) (map[string]int, map[strin
 }
 
 // buildRoomZoneMap returns a map of room_id → {domain: zone_id} for all rooms.
+// Uses a single bulk query instead of per-room lookups.
 func (s *Server) buildRoomZoneMap(ctx context.Context) map[string]map[string]string {
-	roomZones := make(map[string]map[string]string)
-
 	if s.zoneRepo == nil {
-		return roomZones
+		return make(map[string]map[string]string)
 	}
 
-	// Get all rooms, then look up zones for each
-	rooms, err := s.locationRepo.ListRooms(ctx)
+	roomZones, err := s.zoneRepo.GetAllRoomZoneMappings(ctx)
 	if err != nil {
-		return roomZones
-	}
-
-	for _, room := range rooms {
-		zones, zoneErr := s.zoneRepo.GetZonesForRoom(ctx, room.ID)
-		if zoneErr != nil || len(zones) == 0 {
-			continue
-		}
-		zoneMap := make(map[string]string, len(zones))
-		for _, z := range zones {
-			zoneMap[string(z.Domain)] = z.ID
-		}
-		roomZones[room.ID] = zoneMap
+		s.logger.Error("failed to get room zone mappings", "error", err)
+		return make(map[string]map[string]string)
 	}
 
 	return roomZones

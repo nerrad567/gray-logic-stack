@@ -15,6 +15,7 @@ type PanelRepository interface {
 	GetByID(ctx context.Context, id string) (*Panel, error)
 	GetByTokenHash(ctx context.Context, tokenHash string) (*Panel, error)
 	List(ctx context.Context) ([]Panel, error)
+	UpdateName(ctx context.Context, id, name string) error
 	Delete(ctx context.Context, id string) error
 	UpdateLastSeen(ctx context.Context, id string) error
 	SetRooms(ctx context.Context, panelID string, roomIDs []string) error
@@ -37,7 +38,7 @@ func NewPanelRepository(db *sql.DB) *SQLitePanelRepository {
 // Create inserts a new panel device identity. The ID is generated if empty.
 func (r *SQLitePanelRepository) Create(ctx context.Context, panel *Panel) error {
 	if panel.ID == "" {
-		panel.ID = "pnl-" + uuid.NewString()[:8]
+		panel.ID = "pnl-" + uuid.NewString()[:16]
 	}
 
 	now := time.Now().UTC().Format(time.RFC3339)
@@ -112,6 +113,21 @@ func (r *SQLitePanelRepository) List(ctx context.Context) ([]Panel, error) {
 		panels = []Panel{}
 	}
 	return panels, nil
+}
+
+// UpdateName changes a panel's display name.
+func (r *SQLitePanelRepository) UpdateName(ctx context.Context, id, name string) error {
+	result, err := r.db.ExecContext(ctx,
+		"UPDATE panels SET name = ? WHERE id = ?", name, id)
+	if err != nil {
+		return fmt.Errorf("updating panel name: %w", err)
+	}
+
+	rows, _ := result.RowsAffected() //nolint:errcheck // always succeeds on SQLite
+	if rows == 0 {
+		return ErrPanelNotFound
+	}
+	return nil
 }
 
 // Delete removes a panel by ID. Room assignments are cascade-deleted.

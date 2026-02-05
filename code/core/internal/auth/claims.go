@@ -1,6 +1,8 @@
 package auth
 
 import (
+	"crypto/rand"
+	"encoding/hex"
 	"fmt"
 	"time"
 
@@ -42,10 +44,14 @@ func GenerateAccessToken(user *User, secret string, ttlMinutes int) (string, err
 	return signed, nil
 }
 
-// GenerateRefreshToken creates a random refresh token string and its SHA-256 hash.
+// GenerateRefreshToken creates a cryptographically random refresh token (256-bit).
 // The raw token is returned to the client; the hash is stored in the database.
 func GenerateRefreshToken() (raw string, err error) {
-	return uuid.NewString(), nil
+	b := make([]byte, 32) //nolint:mnd // 256-bit token
+	if _, err := rand.Read(b); err != nil {
+		return "", fmt.Errorf("generating refresh token: %w", err)
+	}
+	return hex.EncodeToString(b), nil
 }
 
 // ParseToken validates and parses a JWT access token, returning the custom claims.

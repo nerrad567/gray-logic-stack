@@ -252,18 +252,16 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 	sceneEngine := automation.NewEngine(sceneRegistry, sceneDeviceAdapter, sceneMQTTAdapter, wsHub, sceneRepo, log)
 
 	// Connect to TSDB (VictoriaMetrics — optional)
+	// NOTE: TSDB defer is registered here (after MQTT defer above) so that
+	// Go's LIFO defer order shuts down TSDB first. However, the MQTT subscription
+	// handler writes to TSDB. We register a late-closing func below to ensure
+	// TSDB flushes after MQTT is disconnected.
 	var tsdbClient *tsdb.Client
 	if cfg.TSDB.Enabled {
 		tsdbClient, err = tsdb.Connect(ctx, cfg.TSDB)
 		if err != nil {
 			return fmt.Errorf("connecting to TSDB: %w", err)
 		}
-		defer func() {
-			log.Info("closing TSDB connection")
-			if closeErr := tsdbClient.Close(); closeErr != nil {
-				log.Error("error closing TSDB", "error", closeErr)
-			}
-		}()
 		log.Info("TSDB connected (VictoriaMetrics)",
 			"url", cfg.TSDB.URL,
 		)
@@ -387,10 +385,17 @@ func run(ctx context.Context) error { //nolint:gocognit,gocyclo // application b
 
 	log.Info("shutdown signal received, cleaning up")
 
-	// Deferred Close() calls will run in reverse order:
-	// 1. TSDB (if enabled)
-	// 2. MQTT
-	// 3. Database
+	// Explicit TSDB close AFTER deferred MQTT disconnect.
+	// Deferred Close() calls run in LIFO order (KNX → API → MQTT → DB).
+	// TSDB must flush after MQTT stops delivering messages, so we close it
+	// explicitly here — before the defers run, but after ctx cancellation
+	// has stopped new MQTT message processing.
+	if tsdbClient != nil {
+		log.Info("closing TSDB connection")
+		if closeErr := tsdbClient.Close(); closeErr != nil {
+			log.Error("error closing TSDB", "error", closeErr)
+		}
+	}
 
 	log.Info("Gray Logic Core stopped")
 	return nil

@@ -40,8 +40,8 @@ func (s *Server) handleCreateGroup(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if group.Name == "" {
-		writeBadRequest(w, "name is required")
+	if group.Name == "" || len(group.Name) > 128 { //nolint:mnd // max name length
+		writeBadRequest(w, "name is required and must be at most 128 characters")
 		return
 	}
 	if group.Type == "" {
@@ -118,6 +118,10 @@ func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) { //n
 	if v, ok := raw["name"]; ok {
 		var name string
 		if json.Unmarshal(v, &name) == nil && name != "" {
+			if len(name) > 128 { //nolint:mnd // max name length
+				writeBadRequest(w, "name must be at most 128 characters")
+				return
+			}
 			group.Name = name
 			group.Slug = slugify(name)
 		}
@@ -131,6 +135,24 @@ func (s *Server) handleUpdateGroup(w http.ResponseWriter, r *http.Request) { //n
 	if v, ok := raw["type"]; ok {
 		var t device.GroupType
 		if json.Unmarshal(v, &t) == nil && isValidGroupType(t) {
+			// Guard against inconsistent type changes
+			if t != group.Type {
+				// Changing to dynamic requires filter_rules
+				if t == device.GroupTypeDynamic && group.FilterRules == nil {
+					if _, hasRules := raw["filter_rules"]; !hasRules {
+						writeBadRequest(w, "changing to dynamic type requires filter_rules")
+						return
+					}
+				}
+				// Changing away from static: warn if members exist
+				if group.Type == device.GroupTypeStatic && (t == device.GroupTypeDynamic) {
+					members, mErr := s.groupRepo.GetMemberDeviceIDs(r.Context(), id)
+					if mErr == nil && len(members) > 0 {
+						writeBadRequest(w, "clear explicit members before changing from static to dynamic")
+						return
+					}
+				}
+			}
 			group.Type = t
 		}
 	}
@@ -218,6 +240,11 @@ func (s *Server) handleSetGroupMembers(w http.ResponseWriter, r *http.Request) {
 	}
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeBadRequest(w, "invalid JSON body")
+		return
+	}
+
+	if len(body.DeviceIDs) > 500 { //nolint:mnd // max members per group
+		writeBadRequest(w, "too many members (max 500 per group)")
 		return
 	}
 

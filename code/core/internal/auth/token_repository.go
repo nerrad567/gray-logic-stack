@@ -19,6 +19,7 @@ type TokenRepository interface {
 	Revoke(ctx context.Context, id string) error
 	RevokeFamily(ctx context.Context, familyID string) error
 	RevokeAllForUser(ctx context.Context, userID string) error
+	RotateRefreshToken(ctx context.Context, oldID string, newToken *RefreshToken) error
 	ListActiveByUser(ctx context.Context, userID string) ([]RefreshToken, error)
 	DeleteExpired(ctx context.Context) (int64, error)
 }
@@ -43,7 +44,7 @@ func HashToken(raw string) string {
 // Create inserts a new refresh token. The ID is generated if empty.
 func (r *SQLiteTokenRepository) Create(ctx context.Context, token *RefreshToken) error {
 	if token.ID == "" {
-		token.ID = "rt-" + uuid.NewString()[:8]
+		token.ID = "rt-" + uuid.NewString()[:16]
 	}
 	if token.FamilyID == "" {
 		token.FamilyID = uuid.NewString()
@@ -159,6 +160,49 @@ func (r *SQLiteTokenRepository) RevokeAllForUser(ctx context.Context, userID str
 		"UPDATE refresh_tokens SET revoked = 1 WHERE user_id = ?", userID)
 	if err != nil {
 		return fmt.Errorf("revoking all tokens for user: %w", err)
+	}
+	return nil
+}
+
+// RotateRefreshToken atomically revokes the old token and creates a new one
+// in the same family. This prevents TOCTOU races during token refresh.
+func (r *SQLiteTokenRepository) RotateRefreshToken(ctx context.Context, oldID string, newToken *RefreshToken) error {
+	tx, err := r.db.BeginTx(ctx, nil)
+	if err != nil {
+		return fmt.Errorf("beginning rotation transaction: %w", err)
+	}
+	defer tx.Rollback() //nolint:errcheck // rollback is no-op after commit
+
+	// Revoke the consumed token
+	if _, err := tx.ExecContext(ctx,
+		"UPDATE refresh_tokens SET revoked = 1 WHERE id = ?", oldID); err != nil {
+		return fmt.Errorf("revoking old token: %w", err)
+	}
+
+	// Insert the new token
+	if newToken.ID == "" {
+		newToken.ID = "rt-" + uuid.NewString()[:16]
+	}
+	if newToken.FamilyID == "" {
+		newToken.FamilyID = uuid.NewString()
+	}
+
+	now := time.Now().UTC().Format(time.RFC3339)
+	newToken.CreatedAt, _ = time.Parse(time.RFC3339, now) //nolint:errcheck // format is controlled
+
+	if _, err := tx.ExecContext(ctx,
+		`INSERT INTO refresh_tokens (id, user_id, family_id, token_hash, device_info, expires_at, revoked, created_at)
+		 VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
+		newToken.ID, newToken.UserID, newToken.FamilyID, newToken.TokenHash,
+		nullString(newToken.DeviceInfo),
+		newToken.ExpiresAt.UTC().Format(time.RFC3339),
+		boolToInt(newToken.Revoked), now,
+	); err != nil {
+		return fmt.Errorf("creating new token: %w", err)
+	}
+
+	if err := tx.Commit(); err != nil {
+		return fmt.Errorf("committing rotation: %w", err)
 	}
 	return nil
 }

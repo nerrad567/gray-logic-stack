@@ -31,6 +31,9 @@ type ZoneRepository interface {
 
 	// List all zones a room belongs to (across all domains)
 	GetZonesForRoom(ctx context.Context, roomID string) ([]InfrastructureZone, error)
+
+	// GetAllRoomZoneMappings returns room_id → {domain: zone_id} for all rooms in one query.
+	GetAllRoomZoneMappings(ctx context.Context) (map[string]map[string]string, error)
 }
 
 // SQLiteZoneRepository implements ZoneRepository using SQLite.
@@ -474,6 +477,38 @@ func (r *SQLiteZoneRepository) GetZonesForRoom(ctx context.Context, roomID strin
 		ORDER BY z.domain, z.sort_order, z.name`
 
 	return r.queryZones(ctx, query, roomID)
+}
+
+// GetAllRoomZoneMappings returns room_id → {domain: zone_id} for all rooms in one bulk query.
+// This replaces the N+1 per-room GetZonesForRoom calls used in hierarchy building.
+func (r *SQLiteZoneRepository) GetAllRoomZoneMappings(ctx context.Context) (map[string]map[string]string, error) {
+	query := `SELECT zr.room_id, z.domain, z.id
+		FROM infrastructure_zone_rooms zr
+		JOIN infrastructure_zones z ON z.id = zr.zone_id
+		ORDER BY zr.room_id, z.domain`
+
+	rows, err := r.db.QueryContext(ctx, query)
+	if err != nil {
+		return nil, fmt.Errorf("querying room zone mappings: %w", err)
+	}
+	defer rows.Close()
+
+	result := make(map[string]map[string]string)
+	for rows.Next() {
+		var roomID, domain, zoneID string
+		if err := rows.Scan(&roomID, &domain, &zoneID); err != nil {
+			return nil, fmt.Errorf("scanning room zone mapping: %w", err)
+		}
+		if result[roomID] == nil {
+			result[roomID] = make(map[string]string)
+		}
+		result[roomID][domain] = zoneID
+	}
+	if err := rows.Err(); err != nil {
+		return nil, fmt.Errorf("iterating room zone mappings: %w", err)
+	}
+
+	return result, nil
 }
 
 // queryZones runs a zone query and returns zone models.

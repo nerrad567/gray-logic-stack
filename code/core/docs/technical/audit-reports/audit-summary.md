@@ -2,13 +2,13 @@
 title: Audit Summary & History
 version: 2.0.0
 status: active
-last_updated: 2026-02-03
+last_updated: 2026-02-05
 auditor: Multiple (Gemini, Claude Code)
 ---
 
 # Audit Summary & History
 
-> **Current Readiness Score:** 9.6 / 10 (Production Ready)
+> **Current Readiness Score:** 8.6 / 10 (Fix High Items → Production Ready)
 
 This document summarizes the comprehensive audit process conducted across two phases:
 1. **Documentation Phase** (January 17-18, 2026) — Specification audits by Gemini
@@ -40,6 +40,7 @@ This document summarizes the comprehensive audit process conducted across two ph
 | **12** | Jan 23-24 | M1.6 Basic Scenes | **9.4** | Fixed 10 issues (5 iterations): race, DoS, timeout, validation, abort logic, DeepCopy. Final Advisory: SHIP IT. |
 | **13** | Jan 24 | M1.5 Wall Panel (Go) | **9.5** | Fixed 7 issues (1 iteration): goroutine leak, unchecked errors, unused type, errorlint, staticcheck. SHIP IT. |
 | **14** | Feb 03 | MQTT Topic Unification | **9.3** | 0 Critical/High, 3 Medium (defense-in-depth). Fixed VictoriaMetrics token auth. SHIP IT. |
+| **15** | Feb 05 | M1.7 Auth + M2.1 + State Pipeline | **8.6** | 3 High (log leak, TSDB injection, rate limit bypass), 15 Medium, 10 Low. Fix H1-H3 before shipping. |
 
 > **Note:** Code audits follow 7-phase verification (tests, lint, vulncheck, AI review, architecture, deps, docs).
 
@@ -128,6 +129,10 @@ This document summarizes the comprehensive audit process conducted across two ph
 
 | File | Date | Scope | Issues Fixed |
 |------|------|-------|--------------|
+| `audit-2026-02-05-m17-m21-full-stack.md` | Feb 05 | M1.7 auth, M2.1 tags/groups/zones, TSDB, state pipeline | 0 (findings reported, fixes pending) |
+| `audit-2026-02-04-pipeline-refactor.md` | Feb 04 | KNX pipeline robustness refactor | 12 |
+| `audit-2026-02-03-mqtt-unification.md` | Feb 03 | MQTT topic unification | 1 |
+| `audit-2026-01-24-m1.5-panel.md` | Jan 24 | Wall panel Go embed, panel handler | 7 |
 | `audit-2026-01-23-m1.6-scenes.md` | Jan 23-24 | automation package, scene API handlers | 10 (5 iterations, Final Advisory) |
 | `audit-2026-01-23-m1.4-api.md` | Jan 23 | REST API, WebSocket hub, middleware | 12 |
 | `audit-2026-01-22-m1.2-knxd.md` | Jan 22 | knxd manager, process manager, bus monitor | 8 |

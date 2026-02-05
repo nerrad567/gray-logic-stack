@@ -3,9 +3,19 @@ package api
 import (
 	"encoding/json"
 	"net/http"
+	"regexp"
 
 	"github.com/go-chi/chi/v5"
 )
+
+// Tag validation constants.
+const (
+	maxTagLength     = 64
+	maxTagsPerDevice = 50
+)
+
+// validTagRe matches lowercase alphanumeric strings with hyphens and underscores.
+var validTagRe = regexp.MustCompile(`^[a-z0-9][a-z0-9_-]*$`)
 
 // handleListAllTags returns all unique tags across all devices.
 //
@@ -44,6 +54,21 @@ func (s *Server) handleSetDeviceTags(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&body); err != nil {
 		writeBadRequest(w, "invalid JSON body")
 		return
+	}
+
+	if len(body.Tags) > maxTagsPerDevice {
+		writeBadRequest(w, "too many tags (max 50 per device)")
+		return
+	}
+	for _, tag := range body.Tags {
+		if len(tag) == 0 || len(tag) > maxTagLength {
+			writeBadRequest(w, "each tag must be 1-64 characters")
+			return
+		}
+		if !validTagRe.MatchString(tag) {
+			writeBadRequest(w, "tags must be lowercase alphanumeric with hyphens/underscores: "+tag)
+			return
+		}
 	}
 
 	if err := s.tagRepo.SetTags(r.Context(), id, body.Tags); err != nil {

@@ -161,12 +161,11 @@ func (s *Server) handleUpdatePanel(w http.ResponseWriter, r *http.Request) {
 		panel.Name = *req.Name
 	}
 
-	// Panel update is limited — we update via direct SQL since the repo
-	// doesn't have a general Update method. For now, delete and recreate
-	// is overkill; just update the name. We'll use a direct query approach.
-	// Since PanelRepository doesn't have Update, we do it via the name field.
-	// For M1.7 scope, name-only update via a simple method is sufficient.
-	// TODO: add Update method to PanelRepository if more fields become mutable.
+	if err := s.panelRepo.UpdateName(r.Context(), id, panel.Name); err != nil {
+		s.logger.Error("update panel failed", "error", err)
+		writeInternalError(w, "failed to update panel")
+		return
+	}
 
 	writeJSON(w, http.StatusOK, panel)
 }

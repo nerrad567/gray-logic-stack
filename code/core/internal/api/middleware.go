@@ -91,7 +91,7 @@ func (s *Server) corsMiddleware(next http.Handler) http.Handler {
 		if origin != "" && s.isAllowedOrigin(origin) {
 			w.Header().Set("Access-Control-Allow-Origin", origin)
 			w.Header().Set("Access-Control-Allow-Methods", joinOrDefault(s.cfg.CORS.AllowedMethods, "GET, POST, PUT, PATCH, DELETE, OPTIONS"))
-			w.Header().Set("Access-Control-Allow-Headers", joinOrDefault(s.cfg.CORS.AllowedHeaders, "Authorization, Content-Type, X-Request-ID"))
+			w.Header().Set("Access-Control-Allow-Headers", joinOrDefault(s.cfg.CORS.AllowedHeaders, "Authorization, Content-Type, X-Request-ID, X-Panel-Token"))
 			w.Header().Set("Access-Control-Max-Age", "86400")
 		}
 
@@ -523,21 +523,12 @@ func retryAfterSeconds(duration time.Duration) int {
 	return seconds
 }
 
+// clientIP extracts the client IP from the TCP connection's RemoteAddr.
+// X-Forwarded-For and X-Real-IP are intentionally ignored because they are
+// trivially spoofable on a LAN (Gray Logic's deployment target) and would
+// allow rate-limit bypass. If a trusted reverse proxy is added later,
+// introduce a "trusted proxy" config to selectively honour forwarded headers.
 func clientIP(r *http.Request) string {
-	if forwarded := r.Header.Get("X-Forwarded-For"); forwarded != "" {
-		parts := strings.Split(forwarded, ",")
-		if len(parts) > 0 {
-			ip := strings.TrimSpace(parts[0])
-			if ip != "" {
-				return ip
-			}
-		}
-	}
-
-	if realIP := strings.TrimSpace(r.Header.Get("X-Real-IP")); realIP != "" {
-		return realIP
-	}
-
 	host, _, err := net.SplitHostPort(r.RemoteAddr)
 	if err == nil && host != "" {
 		return host

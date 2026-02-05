@@ -61,8 +61,8 @@ func (s *Server) handleCreateZone(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if zone.Name == "" {
-		writeBadRequest(w, "name is required")
+	if zone.Name == "" || len(zone.Name) > 128 { //nolint:mnd // max name length
+		writeBadRequest(w, "name is required and must be at most 128 characters")
 		return
 	}
 	if zone.Domain == "" {
@@ -159,6 +159,10 @@ func (s *Server) handleUpdateZone(w http.ResponseWriter, r *http.Request) {
 	if v, ok := raw["name"]; ok {
 		var name string
 		if json.Unmarshal(v, &name) == nil && name != "" {
+			if len(name) > 128 { //nolint:mnd // max name length
+				writeBadRequest(w, "name must be at most 128 characters")
+				return
+			}
 			zone.Name = name
 			zone.Slug = slugify(name)
 		}

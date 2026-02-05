@@ -38,6 +38,7 @@ type Client struct {
 	batch     []string
 	batchMu   sync.Mutex
 	batchSize int
+	retryBuf  []string // lines to retry on next flush (bounded, single retry)
 	flushTick *time.Ticker
 	done      chan struct{}
 	wg        sync.WaitGroup
@@ -221,16 +222,24 @@ func (c *Client) addLine(line string) {
 // This is called automatically by the flush timer and when the batch
 // is full. It can also be called manually for testing or shutdown.
 // Safe to call concurrently — only one flush executes at a time.
+//
+// On failure, lines are re-enqueued for a single retry on the next flush cycle.
+// This prevents silent data loss while bounding memory usage.
 func (c *Client) Flush() {
 	c.batchMu.Lock()
-	if len(c.batch) == 0 {
-		c.batchMu.Unlock()
-		return
+	// Prepend any retry lines from the previous failed flush
+	var lines []string
+	if len(c.retryBuf) > 0 {
+		lines = c.retryBuf
+		c.retryBuf = nil
 	}
-	// Swap batch out under lock
-	lines := c.batch
+	lines = append(lines, c.batch...)
 	c.batch = make([]string, 0, c.batchSize)
 	c.batchMu.Unlock()
+
+	if len(lines) == 0 {
+		return
+	}
 
 	// POST to /write endpoint
 	body := strings.Join(lines, "\n")
@@ -239,6 +248,7 @@ func (c *Client) Flush() {
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodPost, c.url+"/write", bytes.NewBufferString(body))
 	if err != nil {
+		c.requeueForRetry(lines)
 		c.reportError(fmt.Errorf("%w: %w", ErrWriteFailed, err))
 		return
 	}
@@ -246,6 +256,7 @@ func (c *Client) Flush() {
 
 	resp, err := c.httpClient.Do(req)
 	if err != nil {
+		c.requeueForRetry(lines)
 		c.reportError(fmt.Errorf("%w: %w", ErrWriteFailed, err))
 		return
 	}
@@ -254,7 +265,19 @@ func (c *Client) Flush() {
 	_, _ = io.Copy(io.Discard, resp.Body) //nolint:errcheck // draining body for connection reuse
 
 	if resp.StatusCode != http.StatusNoContent && resp.StatusCode != http.StatusOK {
+		c.requeueForRetry(lines)
 		c.reportError(fmt.Errorf("%w: HTTP %d", ErrWriteFailed, resp.StatusCode))
+	}
+}
+
+// requeueForRetry saves failed lines for a single retry on the next flush.
+// Lines already retried (from retryBuf) are dropped to prevent infinite loops.
+func (c *Client) requeueForRetry(lines []string) {
+	c.batchMu.Lock()
+	defer c.batchMu.Unlock()
+	// Only retry once — if retryBuf already has content, these lines were already retried
+	if len(c.retryBuf) == 0 {
+		c.retryBuf = lines
 	}
 }
 

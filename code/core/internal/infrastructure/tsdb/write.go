@@ -2,6 +2,7 @@ package tsdb
 
 import (
 	"fmt"
+	"sort"
 	"strings"
 	"time"
 )
@@ -122,21 +123,32 @@ func (c *Client) WritePointWithTime(measurement string, tags map[string]string, 
 func formatLineProtocol(measurement string, tags map[string]string, fields map[string]interface{}, t time.Time) string {
 	var b strings.Builder
 
-	// Measurement
-	b.WriteString(measurement)
+	// Measurement (escaped to prevent injection)
+	b.WriteString(escapeMeasurement(measurement))
 
-	// Tags (sorted order not required by VM, but consistent for testability)
-	for k, v := range tags {
+	// Tags (sorted for deterministic output and testability)
+	tagKeys := make([]string, 0, len(tags))
+	for k := range tags {
+		tagKeys = append(tagKeys, k)
+	}
+	sort.Strings(tagKeys)
+	for _, k := range tagKeys {
 		b.WriteByte(',')
 		b.WriteString(escapeTag(k))
 		b.WriteByte('=')
-		b.WriteString(escapeTag(v))
+		b.WriteString(escapeTag(tags[k]))
 	}
 
-	// Fields
+	// Fields (sorted for deterministic output)
+	fieldKeys := make([]string, 0, len(fields))
+	for k := range fields {
+		fieldKeys = append(fieldKeys, k)
+	}
+	sort.Strings(fieldKeys)
 	b.WriteByte(' ')
 	first := true
-	for k, v := range fields {
+	for _, k := range fieldKeys {
+		v := fields[k]
 		if !first {
 			b.WriteByte(',')
 		}
@@ -172,9 +184,22 @@ func formatLineProtocol(measurement string, tags map[string]string, fields map[s
 
 // escapeTag escapes special characters in tag keys/values per line protocol spec.
 // Commas, equals signs, and spaces must be backslash-escaped.
+// Newlines are stripped to prevent line protocol injection.
 func escapeTag(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
 	s = strings.ReplaceAll(s, " ", "\\ ")
 	s = strings.ReplaceAll(s, ",", "\\,")
 	s = strings.ReplaceAll(s, "=", "\\=")
+	return s
+}
+
+// escapeMeasurement escapes special characters in measurement names.
+// Newlines are stripped to prevent line protocol injection.
+func escapeMeasurement(s string) string {
+	s = strings.ReplaceAll(s, "\n", "")
+	s = strings.ReplaceAll(s, "\r", "")
+	s = strings.ReplaceAll(s, " ", "\\ ")
+	s = strings.ReplaceAll(s, ",", "\\,")
 	return s
 }

@@ -57,6 +57,16 @@ func (r *SQLiteStateHistoryRepository) RecordStateChange(ctx context.Context, de
 		return fmt.Errorf("marshalling state: %w", err)
 	}
 
+	// Deduplicate: skip if the most recent entry for this device has identical state.
+	var lastState string
+	err = r.db.QueryRowContext(ctx,
+		"SELECT state FROM state_history WHERE device_id = ? ORDER BY created_at DESC LIMIT 1",
+		deviceID,
+	).Scan(&lastState)
+	if err == nil && lastState == string(stateJSON) {
+		return nil // identical to last recorded state — skip
+	}
+
 	_, err = r.db.ExecContext(ctx,
 		"INSERT INTO state_history (device_id, state, source) VALUES (?, ?, ?)",
 		deviceID,

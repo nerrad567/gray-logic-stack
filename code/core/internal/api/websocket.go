@@ -433,6 +433,7 @@ func (c *WSClient) isSubscribed(channel string) bool {
 }
 
 // sendResponse sends a response message to the client.
+// Routes through trySend to safely handle closed channels during shutdown.
 func (c *WSClient) sendResponse(id, msgType string, payload any) {
 	msg := WSMessage{
 		Type:      msgType,
@@ -444,10 +445,7 @@ func (c *WSClient) sendResponse(id, msgType string, payload any) {
 	if err != nil {
 		return
 	}
-	select {
-	case c.send <- data:
-	default:
-	}
+	c.trySend(data)
 }
 
 // sendError sends an error message to the client.

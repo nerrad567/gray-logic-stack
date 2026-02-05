@@ -38,12 +38,6 @@ func (s *Server) buildRouter() http.Handler {
 		r.With(s.rateLimitMiddleware(loginRateLimit, rateLimitWindow)).Post("/auth/login", s.handleLogin)
 		r.With(s.rateLimitMiddleware(refreshRateLimit, rateLimitWindow)).Post("/auth/refresh", s.handleRefresh)
 
-		// System metrics (no auth required for basic monitoring)
-		r.Get("/metrics", s.handleMetrics)
-
-		// Discovery data (passive KNX bus scan results)
-		r.Get("/discovery", s.handleListDiscovery)
-
 		// WebSocket (auth via ticket, validated in handler — not behind JWT middleware)
 		r.Get("/ws", s.handleWebSocket)
 
@@ -165,6 +159,10 @@ func (s *Server) buildRouter() http.Handler {
 			// ── system:admin — admin, owner ──
 			r.Group(func(r chi.Router) {
 				r.Use(s.requirePermission(auth.PermSystemAdmin))
+
+				// System metrics and discovery (admin-only)
+				r.Get("/metrics", s.handleMetrics)
+				r.Get("/discovery", s.handleListDiscovery)
 
 				r.Get("/site", s.handleGetSite)
 				r.Post("/site", s.handleCreateSite)

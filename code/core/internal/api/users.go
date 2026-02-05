@@ -61,8 +61,8 @@ func (s *Server) handleCreateUser(w http.ResponseWriter, r *http.Request) { //no
 		return
 	}
 
-	if len(req.Password) < 8 { //nolint:mnd // minimum password length
-		writeBadRequest(w, "password must be at least 8 characters")
+	if len(req.Password) < 8 || len(req.Password) > 128 { //nolint:mnd // password length bounds
+		writeBadRequest(w, "password must be between 8 and 128 characters")
 		return
 	}
 
@@ -167,6 +167,12 @@ func (s *Server) handleUpdateUser(w http.ResponseWriter, r *http.Request) { //no
 	// Self-protection: cannot demote yourself
 	if req.Role != nil && id == claims.Subject && *req.Role != claims.Role {
 		writeForbidden(w, "cannot change your own role")
+		return
+	}
+
+	// Validate role if provided
+	if req.Role != nil && !auth.IsValidUserRole(*req.Role) {
+		writeBadRequest(w, "invalid role: must be user, admin, or owner")
 		return
 	}
 

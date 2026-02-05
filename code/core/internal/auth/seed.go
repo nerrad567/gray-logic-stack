@@ -51,9 +51,14 @@ func SeedOwner(ctx context.Context, userRepo UserRepository, logger *slog.Logger
 
 	logger.Warn("seed owner account created",
 		"username", "owner",
-		"password", password,
 		"action_required", "change this password immediately",
 	)
+
+	// Print password to stdout only — never persist in structured logs.
+	fmt.Println("========================================")
+	fmt.Println("  SEED OWNER PASSWORD (change immediately):")
+	fmt.Println(" ", password)
+	fmt.Println("========================================")
 
 	return password, nil
 }
