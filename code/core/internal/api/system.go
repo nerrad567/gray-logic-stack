@@ -46,6 +46,14 @@ func (s *Server) handleFactoryReset(w http.ResponseWriter, r *http.Request) { //
 		return
 	}
 
+	// Serialise factory reset operations to prevent confusing concurrent resets.
+	// TryLock returns false if another reset is in progress.
+	if !s.factoryResetMu.TryLock() {
+		writeError(w, http.StatusConflict, ErrCodeConflict, "factory reset already in progress")
+		return
+	}
+	defer s.factoryResetMu.Unlock()
+
 	ctx := r.Context()
 	db := s.db.SQLDB()
 	deleted := make(map[string]int)

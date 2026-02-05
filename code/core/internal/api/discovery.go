@@ -3,6 +3,7 @@ package api
 import (
 	"database/sql"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -52,7 +53,7 @@ func (s *Server) handleListDiscovery(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	now := time.Now()
+	now := time.Now().UTC()
 	fiveMinAgo := now.Add(-5 * time.Minute).Unix()
 	oneHourAgo := now.Add(-1 * time.Hour).Unix()
 
@@ -82,6 +83,7 @@ func (s *Server) handleListDiscovery(w http.ResponseWriter, r *http.Request) {
 		var hasReadResponse int
 
 		if err := gaRows.Scan(&ga.GroupAddress, &lastSeenUnix, &ga.MessageCount, &hasReadResponse); err != nil { //nolint:govet // shadow: err re-declared in nested scope, checked immediately
+			s.logger.Debug("discovery: failed to scan group address row", "error", err)
 			continue
 		}
 
@@ -126,6 +128,7 @@ func (s *Server) handleListDiscovery(w http.ResponseWriter, r *http.Request) {
 		var lastSeenUnix int64
 
 		if err := deviceRows.Scan(&dev.IndividualAddress, &lastSeenUnix, &dev.MessageCount); err != nil {
+			s.logger.Debug("discovery: failed to scan device row", "error", err)
 			continue
 		}
 
@@ -174,36 +177,20 @@ func formatDuration(d time.Duration) string {
 		if mins == 1 {
 			return "1 min ago"
 		}
-		return formatInt(mins) + " mins ago"
+		return strconv.Itoa(mins) + " mins ago"
 	}
 	if d < 24*time.Hour {
 		hours := int(d.Hours())
 		if hours == 1 {
 			return "1 hour ago"
 		}
-		return formatInt(hours) + " hours ago"
+		return strconv.Itoa(hours) + " hours ago"
 	}
 	days := int(d.Hours() / 24) //nolint:mnd // 24 hours per day
 	if days == 1 {
 		return "1 day ago"
 	}
-	return formatInt(days) + " days ago"
-}
-
-// formatInt converts an int to string without importing strconv.
-func formatInt(n int) string {
-	if n == 0 {
-		return "0"
-	}
-	if n < 0 {
-		return "-" + formatInt(-n)
-	}
-	var digits []byte
-	for n > 0 {
-		digits = append([]byte{byte('0' + n%10)}, digits...)
-		n /= 10
-	}
-	return string(digits)
+	return strconv.Itoa(days) + " days ago"
 }
 
 // getDB returns the database handle, checking if it implements the interface.

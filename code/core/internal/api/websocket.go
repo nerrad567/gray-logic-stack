@@ -64,14 +64,27 @@ type WSClient struct {
 	panelID string    // non-empty for panel connections
 }
 
-// upgrader configures the WebSocket upgrader.
-var upgrader = websocket.Upgrader{
-	ReadBufferSize:  1024,
-	WriteBufferSize: 1024,
-	CheckOrigin: func(_ *http.Request) bool {
-		// Origin checking is handled by CORS middleware
-		return true
-	},
+// defaultUpgraderBufferSize is the read/write buffer size for WebSocket connections.
+const defaultUpgraderBufferSize = 1024
+
+// newUpgrader creates a WebSocket upgrader with origin checking.
+// Origin validation uses the same AllowedOrigins config as the CORS middleware.
+// If AllowedOrigins is empty (dev mode), all origins are allowed.
+// The ticket-based auth provides authentication; origin checking provides
+// defence-in-depth against cross-site WebSocket hijacking.
+func (s *Server) newUpgrader() websocket.Upgrader {
+	return websocket.Upgrader{
+		ReadBufferSize:  defaultUpgraderBufferSize,
+		WriteBufferSize: defaultUpgraderBufferSize,
+		CheckOrigin: func(r *http.Request) bool {
+			origin := r.Header.Get("Origin")
+			if origin == "" {
+				// No origin header (e.g., non-browser client) — allow
+				return true
+			}
+			return s.isAllowedOrigin(origin)
+		},
+	}
 }
 
 // NewHub creates a new WebSocket hub.
@@ -206,9 +219,13 @@ func (s *Server) subscribeStateUpdates() error { //nolint:gocognit // MQTT subsc
 			for k, v := range stateMap {
 				devState[k] = v
 			}
-			if err := s.registry.SetDeviceState(context.Background(), deviceID, devState); err != nil {
+			// Use timeout context to avoid blocking during shutdown.
+			// Registry writes are fast (in-memory cache + async DB), so 2s is generous.
+			stateCtx, cancel := context.WithTimeout(context.Background(), 2*time.Second)
+			if err := s.registry.SetDeviceState(stateCtx, deviceID, devState); err != nil {
 				s.logger.Debug("state update to registry failed", "device_id", deviceID, "error", err)
 			}
+			cancel()
 
 			// Write numeric state fields to time-series DB for telemetry
 			if s.tsdb != nil {
@@ -228,9 +245,11 @@ func (s *Server) subscribeStateUpdates() error { //nolint:gocognit // MQTT subsc
 
 			// Record state change to local audit trail for history queries.
 			if s.stateHistory != nil {
-				if err := s.stateHistory.RecordStateChange(context.Background(), deviceID, devState, device.StateHistorySourceMQTT); err != nil {
+				histCtx, histCancel := context.WithTimeout(context.Background(), 2*time.Second)
+				if err := s.stateHistory.RecordStateChange(histCtx, deviceID, devState, device.StateHistorySourceMQTT); err != nil {
 					s.logger.Debug("state history write failed", "device_id", deviceID, "error", err)
 				}
+				histCancel()
 			}
 		}
 
@@ -253,6 +272,7 @@ func (s *Server) handleWebSocket(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	upgrader := s.newUpgrader()
 	conn, err := upgrader.Upgrade(w, r, nil)
 	if err != nil {
 		s.logger.Error("websocket upgrade failed", "error", err)

@@ -23,6 +23,10 @@ func (s *Server) handleCreateArea(w http.ResponseWriter, r *http.Request) {
 		writeBadRequest(w, "id, name, and site_id are required")
 		return
 	}
+	if len(area.ID) > 128 || len(area.Name) > 128 { //nolint:mnd // max ID/name length
+		writeBadRequest(w, "id and name must be at most 128 characters")
+		return
+	}
 	if area.Slug == "" {
 		area.Slug = area.ID
 	}
@@ -48,6 +52,10 @@ func (s *Server) handleCreateRoom(w http.ResponseWriter, r *http.Request) {
 	}
 	if room.ID == "" || room.Name == "" || room.AreaID == "" {
 		writeBadRequest(w, "id, name, and area_id are required")
+		return
+	}
+	if len(room.ID) > 128 || len(room.Name) > 128 { //nolint:mnd // max ID/name length
+		writeBadRequest(w, "id and name must be at most 128 characters")
 		return
 	}
 	if room.Slug == "" {

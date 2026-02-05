@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net/http"
+	"sync"
 	"time"
 
 	"github.com/nerrad567/gray-logic-core/internal/audit"
@@ -137,6 +138,7 @@ type Server struct {
 	auditCh            chan *audit.AuditLog // buffered channel for async audit log writes
 	knxBridge          KNXBridgeReloader    // optional: for reloading devices after ETS import
 	knxMetricsProvider KNXMetricsProvider   // optional: for metrics endpoint
+	factoryResetMu     sync.Mutex           // serialises factory reset operations
 }
 
 // New creates a new API server with the given dependencies.
