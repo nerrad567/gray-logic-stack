@@ -1,0 +1,393 @@
+{
+  "version": "1.0.0",
+  "description": "Persistent tracking for /review-all across sessions. Claude MUST read this file at the start of every /review-all invocation.",
+  "created": "2026-02-05",
+  "last_updated": "2026-02-05",
+
+  "codebase_map": {
+    "total_packages": 13,
+    "total_go_files": 155,
+    "total_test_files": 35,
+    "total_loc_approx": 23500,
+    "packages": {
+      "cmd/graylogic": {
+        "files": 2,
+        "test_files": 1,
+        "loc": 400,
+        "category": "entrypoint"
+      },
+      "internal/api": {
+        "files": 26,
+        "test_files": 3,
+        "loc": 3200,
+        "category": "api"
+      },
+      "internal/auth": {
+        "files": 19,
+        "test_files": 8,
+        "loc": 1900,
+        "category": "security"
+      },
+      "internal/device": {
+        "files": 21,
+        "test_files": 6,
+        "loc": 2800,
+        "category": "domain"
+      },
+      "internal/automation": {
+        "files": 12,
+        "test_files": 5,
+        "loc": 1700,
+        "category": "domain"
+      },
+      "internal/bridges/knx": {
+        "files": 22,
+        "test_files": 7,
+        "loc": 4500,
+        "category": "protocol"
+      },
+      "internal/knxd": {
+        "files": 4,
+        "test_files": 1,
+        "loc": 1400,
+        "category": "protocol"
+      },
+      "internal/process": {
+        "files": 3,
+        "test_files": 1,
+        "loc": 850,
+        "category": "infrastructure"
+      },
+      "internal/location": {
+        "files": 8,
+        "test_files": 2,
+        "loc": 1200,
+        "category": "domain"
+      },
+      "internal/commissioning/etsimport": {
+        "files": 6,
+        "test_files": 1,
+        "loc": 2800,
+        "category": "commissioning"
+      },
+      "internal/audit": {
+        "files": 1,
+        "test_files": 0,
+        "loc": 200,
+        "category": "infrastructure"
+      },
+      "internal/infrastructure/database": {
+        "files": 5,
+        "test_files": 2,
+        "loc": 600,
+        "category": "infrastructure"
+      },
+      "internal/infrastructure/logging": {
+        "files": 3,
+        "test_files": 1,
+        "loc": 250,
+        "category": "infrastructure"
+      },
+      "internal/infrastructure/mqtt": {
+        "files": 9,
+        "test_files": 2,
+        "loc": 800,
+        "category": "infrastructure"
+      },
+      "internal/infrastructure/tsdb": {
+        "files": 7,
+        "test_files": 2,
+        "loc": 500,
+        "category": "infrastructure"
+      },
+      "internal/infrastructure/config": {
+        "files": 3,
+        "test_files": 1,
+        "loc": 900,
+        "category": "infrastructure"
+      },
+      "internal/panel": {
+        "files": 3,
+        "test_files": 1,
+        "loc": 350,
+        "category": "infrastructure"
+      }
+    }
+  },
+
+  "review_plan": {
+    "description": "Systematic full-codebase review in 5 sessions, ordered by risk and complexity",
+    "sessions": [
+      {
+        "session": 1,
+        "name": "Latest Changes + Security Core",
+        "status": "completed",
+        "completed_date": "2026-02-05",
+        "packages": [
+          "internal/auth",
+          "internal/api (auth handlers: auth.go, users.go, panels.go, middleware.go)"
+        ],
+        "focus": "Review latest audit fixes + workflow integration. Then deep security review of auth package and auth-related API handlers.",
+        "estimated_time": "30-45 min"
+      },
+      {
+        "session": 2,
+        "name": "API Layer + WebSocket",
+        "status": "pending",
+        "packages": [
+          "internal/api (remaining handlers: devices.go, scenes.go, locations.go, groups.go, zones.go, tags.go, hierarchy.go, state_history.go, discovery.go, commissioning.go, audit.go, metrics.go, system.go)",
+          "internal/api (websocket.go, errors.go, server.go, router.go)"
+        ],
+        "focus": "All non-auth API handlers, WebSocket hub, error handling, routing, server lifecycle.",
+        "estimated_time": "30-45 min"
+      },
+      {
+        "session": 3,
+        "name": "Domain Logic + State Management",
+        "status": "pending",
+        "packages": [
+          "internal/device",
+          "internal/automation",
+          "internal/location"
+        ],
+        "focus": "Device registry, state management, group resolution, scene engine, location hierarchy. Thread safety, cache consistency, data integrity.",
+        "estimated_time": "30-45 min"
+      },
+      {
+        "session": 4,
+        "name": "Protocol Layer + Subprocess Management",
+        "status": "pending",
+        "packages": [
+          "internal/bridges/knx",
+          "internal/knxd",
+          "internal/process",
+          "internal/commissioning/etsimport"
+        ],
+        "focus": "KNX bridge, DPT encoding, telegram handling, knxd subprocess, process lifecycle, ETS import. Protocol compliance, fault tolerance, input validation.",
+        "estimated_time": "30-45 min"
+      },
+      {
+        "session": 5,
+        "name": "Infrastructure + Integration + Wiring",
+        "status": "pending",
+        "packages": [
+          "internal/infrastructure/database",
+          "internal/infrastructure/mqtt",
+          "internal/infrastructure/tsdb",
+          "internal/infrastructure/config",
+          "internal/infrastructure/logging",
+          "internal/panel",
+          "internal/audit",
+          "cmd/graylogic"
+        ],
+        "focus": "Database layer, MQTT client, TSDB client, config validation, logging, panel serving, audit trail, main.go wiring and shutdown ordering. Cross-cutting integration concerns.",
+        "estimated_time": "30-45 min"
+      }
+    ]
+  },
+
+  "completed_reviews": [
+    {
+      "session": 1,
+      "date": "2026-02-05",
+      "name": "Latest Changes + Security Core",
+      "packages_reviewed": [
+        "internal/auth",
+        "internal/api (auth.go, users.go, panels.go, middleware.go)"
+      ],
+      "loc_reviewed": 5100,
+      "specialists_run": ["standards", "security", "performance", "stability"],
+      "previous_fixes_verified": 10,
+      "findings": {
+        "critical": [
+          {
+            "id": "C1",
+            "title": "Missing index on refresh_tokens.token_hash and panels.token_hash",
+            "files": ["migrations/*.sql"],
+            "found_by": ["performance", "stability"],
+            "status": "open"
+          },
+          {
+            "id": "C2",
+            "title": "Panel auth middleware fires 2 DB queries + goroutine per request",
+            "files": ["middleware.go:254-293"],
+            "found_by": ["performance"],
+            "status": "open"
+          }
+        ],
+        "high": [
+          {
+            "id": "H1",
+            "title": "errors.Is() not used for sql.ErrNoRows (3 locations)",
+            "files": ["panel_repository.go:223", "token_repository.go:86,118"],
+            "found_by": ["standards", "security", "stability"],
+            "status": "open"
+          },
+          {
+            "id": "H2",
+            "title": "time.Now() without .UTC() in claims.go and auth.go (4 locations)",
+            "files": ["claims.go:27", "auth.go:161,281,412"],
+            "found_by": ["standards", "security"],
+            "status": "open"
+          },
+          {
+            "id": "H3",
+            "title": "RBAC role set diverges from CONSTRAINTS.md",
+            "files": ["types.go", "CONSTRAINTS.md"],
+            "found_by": ["standards"],
+            "status": "open"
+          },
+          {
+            "id": "H4",
+            "title": "No 90-day absolute session lifetime enforcement",
+            "files": ["token_repository.go", "auth.go"],
+            "found_by": ["standards"],
+            "status": "open"
+          },
+          {
+            "id": "H5",
+            "title": "Seed owner race condition (check-then-act without transaction)",
+            "files": ["seed.go:17-63"],
+            "found_by": ["stability"],
+            "status": "open"
+          }
+        ],
+        "medium": [
+          {
+            "id": "M1",
+            "title": "Login handler leaks account existence via 'inactive' message",
+            "files": ["auth.go:109-112"],
+            "found_by": ["standards", "security"],
+            "status": "open"
+          },
+          {
+            "id": "M2",
+            "title": "handleUpdatePanel missing audit log + claims extraction",
+            "files": ["panels.go:140-171"],
+            "found_by": ["standards"],
+            "status": "open"
+          },
+          {
+            "id": "M3",
+            "title": "No username format validation on creation",
+            "files": ["users.go:59"],
+            "found_by": ["security"],
+            "status": "open"
+          },
+          {
+            "id": "M4",
+            "title": "Missing max-length on current_password in change-password",
+            "files": ["auth.go:345-368"],
+            "found_by": ["security"],
+            "status": "open"
+          },
+          {
+            "id": "M5",
+            "title": "NewPanelRepository mutates shared DB pool (MaxOpenConns)",
+            "files": ["panel_repository.go:33-34"],
+            "found_by": ["standards", "performance", "stability"],
+            "status": "open"
+          },
+          {
+            "id": "M6",
+            "title": "[]byte(secret) allocation per JWT parse/sign",
+            "files": ["claims.go:40,61"],
+            "found_by": ["performance"],
+            "status": "open"
+          },
+          {
+            "id": "M7",
+            "title": "Password change + session revocation not atomic",
+            "files": ["auth.go:388-397"],
+            "found_by": ["stability"],
+            "status": "open"
+          },
+          {
+            "id": "M8",
+            "title": "Unbounded goroutine spawning for audit log",
+            "files": ["audit.go:27"],
+            "found_by": ["performance"],
+            "status": "open"
+          },
+          {
+            "id": "M9",
+            "title": "Refresh token TTL default inconsistency (1440 vs 10080)",
+            "files": ["config.go:374", "auth.go:154,272"],
+            "found_by": ["standards"],
+            "status": "open"
+          },
+          {
+            "id": "M10",
+            "title": "resolveRoomScopeMiddleware hits DB every request",
+            "files": ["middleware.go:362-397"],
+            "found_by": ["performance"],
+            "status": "open"
+          },
+          {
+            "id": "M11",
+            "title": "WebSocket ticket TTL 60s vs CONSTRAINTS.md 2-minute spec",
+            "files": ["auth.go:19"],
+            "found_by": ["standards"],
+            "status": "open"
+          }
+        ],
+        "low": [
+          {
+            "id": "L1",
+            "title": "Global mutable wsTickets (package-level var)",
+            "files": ["auth.go:69-71"],
+            "found_by": ["standards", "security", "stability"],
+            "status": "open"
+          },
+          {
+            "id": "L2",
+            "title": "WebSocket ticket validation discards identity info",
+            "files": ["websocket.go:245"],
+            "found_by": ["security"],
+            "status": "open"
+          },
+          {
+            "id": "L3",
+            "title": "Custom contains/searchString reimplements strings.Contains",
+            "files": ["user_repository.go:241-252"],
+            "found_by": ["standards", "performance"],
+            "status": "open"
+          },
+          {
+            "id": "L4",
+            "title": "No logout audit log",
+            "files": ["auth.go:300-328"],
+            "found_by": ["standards"],
+            "status": "open"
+          }
+        ]
+      },
+      "positive_observations": [
+        "Family-based token theft detection with atomic rotation",
+        "Argon2id with exact OWASP 2025 parameters + constant-time comparison",
+        "Compile-time permission model (static map, no DB-backed escalation)",
+        "Zero-access default room scoping",
+        "Parameterised SQL everywhere (no string concatenation)",
+        "X-Forwarded-For intentionally ignored with documented rationale",
+        "Comprehensive self-protection guards",
+        "Password never logged or serialised (json:\"-\" on all hash fields)",
+        "Defence-in-depth (recovery middleware, panic recovery, body limits, rate limiting)",
+        "Proper resource cleanup (rows.Close, rows.Err, token lifecycle)"
+      ]
+    }
+  ],
+
+  "findings_summary": {
+    "total_findings": 22,
+    "by_severity": { "critical": 2, "high": 5, "medium": 11, "low": 4 },
+    "by_specialist": {
+      "standards": 14,
+      "security": 10,
+      "performance": 9,
+      "stability": 8
+    },
+    "fixed": 0,
+    "accepted": 0,
+    "deferred": 0
+  }
+}
