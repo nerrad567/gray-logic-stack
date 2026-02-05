@@ -30,21 +30,18 @@ services:
     networks:
       - graylogic
 
-  # Time Series Database
-  influxdb:
-    image: influxdb:2.7-alpine
-    container_name: graylogic-influxdb
+  # Time Series Database (VictoriaMetrics — InfluxDB line protocol on /write)
+  victoriametrics:
+    image: victoriametrics/victoria-metrics:v1.135.0
+    container_name: graylogic-victoriametrics
     ports:
-      - "127.0.0.1:8086:8086"
-    environment:
-      - DOCKER_INFLUXDB_INIT_MODE=setup
-      - DOCKER_INFLUXDB_INIT_USERNAME=graylogic
-      - DOCKER_INFLUXDB_INIT_PASSWORD=dev-password-only
-      - DOCKER_INFLUXDB_INIT_ORG=graylogic
-      - DOCKER_INFLUXDB_INIT_BUCKET=graylogic
-      - DOCKER_INFLUXDB_INIT_ADMIN_TOKEN=dev-token-graylogic-influxdb-local
+      - "127.0.0.1:8428:8428"
+    command:
+      - "-storageDataPath=/victoria-metrics-data"
+      - "-retentionPeriod=3y"
+      - "-httpListenAddr=:8428"
     volumes:
-      - influxdb_data:/var/lib/influxdb2
+      - victoriametrics_data:/victoria-metrics-data
     networks:
       - graylogic
 
@@ -85,7 +82,7 @@ services:
 volumes:
   mosquitto_data:
   mosquitto_log:
-  influxdb_data:
+  victoriametrics_data:
   knxsim_data:
   graylogic_data:
 

@@ -29,9 +29,9 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/database"
-	"github.com/nerrad567/gray-logic-core/internal/infrastructure/influxdb"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt"
+	"github.com/nerrad567/gray-logic-core/internal/infrastructure/tsdb"
 	"github.com/nerrad567/gray-logic-core/internal/knxd"
 	"github.com/nerrad567/gray-logic-core/internal/location"
 )
@@ -208,6 +208,31 @@ func run(ctx context.Context) error {
 	sceneMQTTAdapter := &sceneMQTTClientAdapter{client: mqttClient}
 	sceneEngine := automation.NewEngine(sceneRegistry, sceneDeviceAdapter, sceneMQTTAdapter, wsHub, sceneRepo, log)
 
+	// Connect to TSDB (VictoriaMetrics — optional)
+	var tsdbClient *tsdb.Client
+	if cfg.TSDB.Enabled {
+		tsdbClient, err = tsdb.Connect(ctx, cfg.TSDB)
+		if err != nil {
+			return fmt.Errorf("connecting to TSDB: %w", err)
+		}
+		defer func() {
+			log.Info("closing TSDB connection")
+			if closeErr := tsdbClient.Close(); closeErr != nil {
+				log.Error("error closing TSDB", "error", closeErr)
+			}
+		}()
+		log.Info("TSDB connected (VictoriaMetrics)",
+			"url", cfg.TSDB.URL,
+		)
+
+		// Set up TSDB error callback
+		tsdbClient.SetOnError(func(err error) {
+			log.Error("TSDB write error", "error", err)
+		})
+	} else {
+		log.Info("TSDB disabled")
+	}
+
 	// Start API server
 	apiServer, err := api.New(api.Deps{
 		Config:        cfg.API,
@@ -223,6 +248,7 @@ func run(ctx context.Context) error {
 		SceneRepo:     sceneRepo,
 		LocationRepo:  locationRepo,
 		AuditRepo:     auditRepo,
+		TSDB:          tsdbClient,
 		DevMode:       cfg.DevMode,
 		PanelDir:      cfg.PanelDir,
 		ExternalHub:   wsHub,
@@ -241,33 +267,6 @@ func run(ctx context.Context) error {
 		}
 	}()
 	log.Info("API server started", "address", fmt.Sprintf("%s:%d", cfg.API.Host, cfg.API.Port))
-
-	// Connect to InfluxDB (optional)
-	var influxClient *influxdb.Client
-	if cfg.InfluxDB.Enabled {
-		influxClient, err = influxdb.Connect(ctx, cfg.InfluxDB)
-		if err != nil {
-			return fmt.Errorf("connecting to InfluxDB: %w", err)
-		}
-		defer func() {
-			log.Info("closing InfluxDB connection")
-			if closeErr := influxClient.Close(); closeErr != nil {
-				log.Error("error closing InfluxDB", "error", closeErr)
-			}
-		}()
-		log.Info("InfluxDB connected",
-			"url", cfg.InfluxDB.URL,
-			"org", cfg.InfluxDB.Org,
-			"bucket", cfg.InfluxDB.Bucket,
-		)
-
-		// Set up InfluxDB error callback
-		influxClient.SetOnError(func(err error) {
-			log.Error("InfluxDB write error", "error", err)
-		})
-	} else {
-		log.Info("InfluxDB disabled")
-	}
 
 	// Start knxd daemon (if managed)
 	var knxdManager *knxd.Manager
@@ -325,7 +324,7 @@ func run(ctx context.Context) error {
 	}
 
 	// Verify all connections are healthy
-	if err := healthCheck(ctx, db, mqttClient, influxClient); err != nil {
+	if err := healthCheck(ctx, db, mqttClient, tsdbClient); err != nil {
 		return fmt.Errorf("health check failed: %w", err)
 	}
 	log.Info("all health checks passed")
@@ -338,7 +337,7 @@ func run(ctx context.Context) error {
 	log.Info("shutdown signal received, cleaning up")
 
 	// Deferred Close() calls will run in reverse order:
-	// 1. InfluxDB (if enabled)
+	// 1. TSDB (if enabled)
 	// 2. MQTT
 	// 3. Database
 
@@ -361,11 +360,11 @@ func getConfigPath() string {
 //   - ctx: Context for timeout/cancellation
 //   - db: Database connection to check
 //   - mqttClient: MQTT client to check
-//   - influxClient: InfluxDB client to check (may be nil if disabled)
+//   - tsdbClient: TSDB client to check (may be nil if disabled)
 //
 // Returns:
 //   - error: First health check failure, or nil if all healthy
-func healthCheck(ctx context.Context, db *database.DB, mqttClient *mqtt.Client, influxClient *influxdb.Client) error {
+func healthCheck(ctx context.Context, db *database.DB, mqttClient *mqtt.Client, tsdbClient *tsdb.Client) error {
 	// Check database
 	if err := db.HealthCheck(ctx); err != nil {
 		return fmt.Errorf("database: %w", err)
@@ -376,10 +375,10 @@ func healthCheck(ctx context.Context, db *database.DB, mqttClient *mqtt.Client, 
 		return fmt.Errorf("mqtt: %w", err)
 	}
 
-	// Check InfluxDB (if enabled)
-	if influxClient != nil {
-		if err := influxClient.HealthCheck(ctx); err != nil {
-			return fmt.Errorf("influxdb: %w", err)
+	// Check TSDB (if enabled)
+	if tsdbClient != nil {
+		if err := tsdbClient.HealthCheck(ctx); err != nil {
+			return fmt.Errorf("tsdb: %w", err)
 		}
 	}
 

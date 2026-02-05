@@ -17,7 +17,7 @@ type Config struct {
 	MQTT      MQTTConfig      `yaml:"mqtt"`
 	API       APIConfig       `yaml:"api"`
 	WebSocket WebSocketConfig `yaml:"websocket"`
-	InfluxDB  InfluxDBConfig  `yaml:"influxdb"`
+	TSDB      TSDBConfig      `yaml:"tsdb"`
 	Logging   LoggingConfig   `yaml:"logging"`
 	Protocols ProtocolsConfig `yaml:"protocols"`
 	Security  SecurityConfig  `yaml:"security"`
@@ -106,15 +106,14 @@ type WebSocketConfig struct {
 	PongTimeout    int    `yaml:"pong_timeout"`
 }
 
-// InfluxDBConfig contains InfluxDB connection settings.
-type InfluxDBConfig struct {
+// TSDBConfig contains time-series database connection settings.
+// Uses VictoriaMetrics with InfluxDB line protocol for writes
+// and PromQL for queries.
+type TSDBConfig struct {
 	Enabled       bool   `yaml:"enabled"`
 	URL           string `yaml:"url"`
-	Token         string `yaml:"token"`
-	Org           string `yaml:"org"`
-	Bucket        string `yaml:"bucket"`
 	BatchSize     int    `yaml:"batch_size"`
-	FlushInterval int    `yaml:"flush_interval"`
+	FlushInterval int    `yaml:"flush_interval"` // seconds
 }
 
 // LoggingConfig contains logging settings.
@@ -406,9 +405,9 @@ func applyEnvOverrides(cfg *Config) {
 		cfg.API.Host = v
 	}
 
-	// InfluxDB
-	if v := os.Getenv("GRAYLOGIC_INFLUXDB_TOKEN"); v != "" {
-		cfg.InfluxDB.Token = v
+	// Time-series database (VictoriaMetrics)
+	if v := os.Getenv("GRAYLOGIC_TSDB_URL"); v != "" {
+		cfg.TSDB.URL = v
 	}
 
 	// KNXD backend

@@ -241,7 +241,7 @@ func TestApplyEnvOverrides(t *testing.T) {
 	t.Setenv("GRAYLOGIC_MQTT_USERNAME", "testuser")
 	t.Setenv("GRAYLOGIC_MQTT_PASSWORD", "testpass")
 	t.Setenv("GRAYLOGIC_API_HOST", "192.168.1.1")
-	t.Setenv("GRAYLOGIC_INFLUXDB_TOKEN", "secret-token")
+	t.Setenv("GRAYLOGIC_TSDB_URL", "http://vm.example.com:8428")
 	t.Setenv("GRAYLOGIC_JWT_SECRET", "jwt-secret")
 
 	applyEnvOverrides(cfg)
@@ -266,8 +266,8 @@ func TestApplyEnvOverrides(t *testing.T) {
 		t.Errorf("API.Host = %q, want %q", cfg.API.Host, "192.168.1.1")
 	}
 
-	if cfg.InfluxDB.Token != "secret-token" {
-		t.Errorf("InfluxDB.Token = %q, want %q", cfg.InfluxDB.Token, "secret-token")
+	if cfg.TSDB.URL != "http://vm.example.com:8428" {
+		t.Errorf("TSDB.URL = %q, want %q", cfg.TSDB.URL, "http://vm.example.com:8428")
 	}
 
 	if cfg.Security.JWT.Secret != "jwt-secret" {

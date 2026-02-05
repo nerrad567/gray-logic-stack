@@ -134,22 +134,20 @@ websocket:
   pong_timeout: 10 # seconds
 
 # ============================================================================
-# INFLUXDB (Time-Series Data)
+# TIME-SERIES DATABASE (VictoriaMetrics)
 # ============================================================================
 
-influxdb:
-  # Enable InfluxDB integration for PHM and energy data
+tsdb:
+  # Enable time-series integration for PHM, energy, and device telemetry
   enabled: false
 
-  # Connection settings
-  url: "http://localhost:8086"
-  token: "" # Set via GRAYLOGIC_INFLUXDB_TOKEN environment variable
-  org: "graylogic"
-  bucket: "metrics"
+  # VictoriaMetrics HTTP API endpoint
+  # Accepts InfluxDB line protocol on /write, PromQL queries on /api/v1/query
+  url: "http://localhost:8428"
 
   # Write batch settings
-  batch_size: 100
-  flush_interval: 10 # seconds
+  batch_size: 1000
+  flush_interval: 1 # seconds
 
 # ============================================================================
 # LOGGING

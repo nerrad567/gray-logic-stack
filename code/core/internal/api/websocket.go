@@ -9,6 +9,7 @@ import (
 
 	"github.com/gorilla/websocket"
 
+	"github.com/nerrad567/gray-logic-core/internal/device"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 )
@@ -188,6 +189,39 @@ func (s *Server) subscribeStateUpdates() error {
 
 		s.logger.Debug("broadcasting state to WebSocket", "topic", t, "device_id", stateMsg["device_id"])
 		s.hub.Broadcast("device.state_changed", stateMsg)
+
+		// Update device registry with state from bus.
+		// Write-through commands are already handled by the bridge; this covers
+		// incoming bus telegrams (physical switch presses, sensor updates).
+		deviceID, _ := stateMsg["device_id"].(string)
+		stateMap, _ := stateMsg["state"].(map[string]any)
+
+		if deviceID != "" && stateMap != nil {
+			devState := make(device.State, len(stateMap))
+			for k, v := range stateMap {
+				devState[k] = v
+			}
+			if err := s.registry.SetDeviceState(context.Background(), deviceID, devState); err != nil {
+				s.logger.Debug("state update to registry failed", "device_id", deviceID, "error", err)
+			}
+
+			// Write numeric state fields to time-series DB for telemetry
+			if s.tsdb != nil {
+				for field, val := range stateMap {
+					switch v := val.(type) {
+					case float64:
+						s.tsdb.WriteDeviceMetric(deviceID, field, v)
+					case bool:
+						boolVal := 0.0
+						if v {
+							boolVal = 1.0
+						}
+						s.tsdb.WriteDeviceMetric(deviceID, field, boolVal)
+					}
+				}
+			}
+		}
+
 		return nil
 	})
 }

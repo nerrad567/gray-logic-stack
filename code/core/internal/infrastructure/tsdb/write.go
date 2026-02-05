@@ -1,31 +1,27 @@
-package influxdb
+package tsdb
 
 import (
+	"fmt"
+	"strings"
 	"time"
-
-	"github.com/influxdata/influxdb-client-go/v2/api/write"
 )
 
-// WriteDeviceMetric writes a single device measurement to InfluxDB.
+// WriteDeviceMetric writes a single device measurement to VictoriaMetrics.
 //
 // This is the primary method for recording device telemetry data.
 // The write is non-blocking; data is batched and sent asynchronously.
 //
 // Parameters:
 //   - deviceID: Unique identifier for the device (e.g., "light-living-01")
-//   - measurement: The metric name (e.g., "power_watts", "temperature_c")
+//   - measurement: The metric name (e.g., "power_watts", "temperature")
 //   - value: The numeric value to record
 //
 // Example:
 //
-//	client.WriteDeviceMetric("thermostat-01", "temperature_c", 21.5)
+//	client.WriteDeviceMetric("thermostat-01", "temperature", 21.5)
 //	client.WriteDeviceMetric("light-kitchen", "power_watts", 23.0)
 func (c *Client) WriteDeviceMetric(deviceID string, measurement string, value float64) {
-	if !c.IsConnected() {
-		return
-	}
-
-	point := write.NewPoint(
+	c.addLine(formatLineProtocol(
 		"device_metrics",
 		map[string]string{
 			"device_id":   deviceID,
@@ -35,9 +31,7 @@ func (c *Client) WriteDeviceMetric(deviceID string, measurement string, value fl
 			"value": value,
 		},
 		time.Now(),
-	)
-
-	c.writeAPI.WritePoint(point)
+	))
 }
 
 // WriteEnergyMetric writes an energy consumption measurement.
@@ -47,12 +41,8 @@ func (c *Client) WriteDeviceMetric(deviceID string, measurement string, value fl
 // Parameters:
 //   - deviceID: Device identifier
 //   - powerWatts: Current power draw in watts
-//   - energyKWh: Cumulative energy consumption in kWh (optional, use 0 if unknown)
+//   - energyKWh: Cumulative energy consumption in kWh (use 0 if unknown)
 func (c *Client) WriteEnergyMetric(deviceID string, powerWatts float64, energyKWh float64) {
-	if !c.IsConnected() {
-		return
-	}
-
 	fields := map[string]interface{}{
 		"power_watts": powerWatts,
 	}
@@ -60,16 +50,14 @@ func (c *Client) WriteEnergyMetric(deviceID string, powerWatts float64, energyKW
 		fields["energy_kwh"] = energyKWh
 	}
 
-	point := write.NewPoint(
+	c.addLine(formatLineProtocol(
 		"energy",
 		map[string]string{
 			"device_id": deviceID,
 		},
 		fields,
 		time.Now(),
-	)
-
-	c.writeAPI.WritePoint(point)
+	))
 }
 
 // WritePHMMetric writes a Predictive Health Monitoring measurement.
@@ -82,11 +70,7 @@ func (c *Client) WriteEnergyMetric(deviceID string, powerWatts float64, energyKW
 //   - metricName: PHM metric (e.g., "runtime_hours", "cycle_count", "anomaly_score")
 //   - value: The metric value
 func (c *Client) WritePHMMetric(deviceID string, metricName string, value float64) {
-	if !c.IsConnected() {
-		return
-	}
-
-	point := write.NewPoint(
+	c.addLine(formatLineProtocol(
 		"phm",
 		map[string]string{
 			"device_id": deviceID,
@@ -96,9 +80,7 @@ func (c *Client) WritePHMMetric(deviceID string, metricName string, value float6
 			"value": value,
 		},
 		time.Now(),
-	)
-
-	c.writeAPI.WritePoint(point)
+	))
 }
 
 // WritePoint writes a custom point with full control over tags and fields.
@@ -116,12 +98,7 @@ func (c *Client) WritePHMMetric(deviceID string, metricName string, value float6
 //	    map[string]string{"host": "core-01"},
 //	    map[string]interface{}{"cpu_percent": 45.2, "memory_mb": 512})
 func (c *Client) WritePoint(measurement string, tags map[string]string, fields map[string]interface{}) {
-	if !c.IsConnected() {
-		return
-	}
-
-	point := write.NewPoint(measurement, tags, fields, time.Now())
-	c.writeAPI.WritePoint(point)
+	c.addLine(formatLineProtocol(measurement, tags, fields, time.Now()))
 }
 
 // WritePointWithTime writes a custom point with a specific timestamp.
@@ -134,10 +111,70 @@ func (c *Client) WritePoint(measurement string, tags map[string]string, fields m
 //   - fields: Key-value pairs for the data
 //   - timestamp: The exact time for this data point
 func (c *Client) WritePointWithTime(measurement string, tags map[string]string, fields map[string]interface{}, timestamp time.Time) {
-	if !c.IsConnected() {
-		return
+	c.addLine(formatLineProtocol(measurement, tags, fields, timestamp))
+}
+
+// formatLineProtocol formats a data point as an InfluxDB line protocol string.
+//
+// Format: measurement,tag1=val1,tag2=val2 field1=val1,field2=val2 timestamp_ns
+//
+// VictoriaMetrics accepts this format on the /write endpoint.
+func formatLineProtocol(measurement string, tags map[string]string, fields map[string]interface{}, t time.Time) string {
+	var b strings.Builder
+
+	// Measurement
+	b.WriteString(measurement)
+
+	// Tags (sorted order not required by VM, but consistent for testability)
+	for k, v := range tags {
+		b.WriteByte(',')
+		b.WriteString(escapeTag(k))
+		b.WriteByte('=')
+		b.WriteString(escapeTag(v))
 	}
 
-	point := write.NewPoint(measurement, tags, fields, timestamp)
-	c.writeAPI.WritePoint(point)
+	// Fields
+	b.WriteByte(' ')
+	first := true
+	for k, v := range fields {
+		if !first {
+			b.WriteByte(',')
+		}
+		first = false
+		b.WriteString(escapeTag(k))
+		b.WriteByte('=')
+		switch val := v.(type) {
+		case float64:
+			b.WriteString(fmt.Sprintf("%g", val))
+		case int:
+			b.WriteString(fmt.Sprintf("%di", val))
+		case int64:
+			b.WriteString(fmt.Sprintf("%di", val))
+		case bool:
+			if val {
+				b.WriteString("true")
+			} else {
+				b.WriteString("false")
+			}
+		case string:
+			b.WriteString(fmt.Sprintf("%q", val))
+		default:
+			b.WriteString(fmt.Sprintf("%v", val))
+		}
+	}
+
+	// Timestamp in nanoseconds
+	b.WriteByte(' ')
+	b.WriteString(fmt.Sprintf("%d", t.UnixNano()))
+
+	return b.String()
+}
+
+// escapeTag escapes special characters in tag keys/values per line protocol spec.
+// Commas, equals signs, and spaces must be backslash-escaped.
+func escapeTag(s string) string {
+	s = strings.ReplaceAll(s, " ", "\\ ")
+	s = strings.ReplaceAll(s, ",", "\\,")
+	s = strings.ReplaceAll(s, "=", "\\=")
+	return s
 }

@@ -53,7 +53,7 @@ mqtt:
     initial_delay: 1
     max_delay: 60
 
-influxdb:
+tsdb:
   enabled: false
 
 logging:
@@ -115,9 +115,9 @@ func TestGetConfigPath_EnvOverride(t *testing.T) {
 	}
 }
 
-// TestHealthCheck_NilInfluxClient verifies health check works with nil InfluxDB.
+// TestHealthCheck_NilTSDBClient verifies health check works with nil TSDB client.
 // This test is skipped because healthCheck requires valid db/mqtt clients.
-func TestHealthCheck_NilInfluxClient(t *testing.T) {
+func TestHealthCheck_NilTSDBClient(t *testing.T) {
 	t.Skip("healthCheck requires valid db and mqtt clients - cannot test with nils")
 }
 
@@ -148,7 +148,7 @@ mqtt:
     initial_delay: 1
     max_delay: 5
 
-influxdb:
+tsdb:
   enabled: false
 
 logging:
@@ -210,7 +210,7 @@ mqtt:
     initial_delay: 1
     max_delay: 5
 
-influxdb:
+tsdb:
   enabled: false
 
 logging:

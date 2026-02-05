@@ -27,6 +27,7 @@ import (
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/config"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/logging"
 	"github.com/nerrad567/gray-logic-core/internal/infrastructure/mqtt"
+	"github.com/nerrad567/gray-logic-core/internal/infrastructure/tsdb"
 	"github.com/nerrad567/gray-logic-core/internal/location"
 )
 
@@ -77,9 +78,10 @@ type Deps struct {
 	SceneRepo     automation.Repository
 	LocationRepo  location.Repository
 	AuditRepo     audit.Repository
-	ExternalHub   *Hub   // If set, the server uses this hub instead of creating its own
-	DevMode       bool   // When true, commands apply state locally without bridge confirmation
-	PanelDir      string // Dev only: serve Flutter panel from filesystem instead of embed
+	TSDB          *tsdb.Client // Optional: time-series database for device telemetry
+	ExternalHub   *Hub         // If set, the server uses this hub instead of creating its own
+	DevMode       bool         // When true, commands apply state locally without bridge confirmation
+	PanelDir      string       // Dev only: serve Flutter panel from filesystem instead of embed
 	Version       string
 }
 
@@ -101,6 +103,7 @@ type Server struct {
 	sceneRepo          automation.Repository
 	locationRepo       location.Repository
 	auditRepo          audit.Repository
+	tsdb               *tsdb.Client // optional: time-series telemetry writes
 	devMode            bool
 	panelDir           string
 	version            string
@@ -146,6 +149,7 @@ func New(deps Deps) (*Server, error) {
 		sceneRepo:     deps.SceneRepo,
 		locationRepo:  deps.LocationRepo,
 		auditRepo:     deps.AuditRepo,
+		tsdb:          deps.TSDB,
 		devMode:       deps.DevMode,
 		panelDir:      deps.PanelDir,
 		version:       deps.Version,

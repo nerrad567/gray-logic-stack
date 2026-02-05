@@ -208,7 +208,7 @@ migrate-down:
 # DEV WORKFLOW TARGETS (default mode — native Go + Docker support services)
 # ============================================================================
 
-## dev-services: Start support services (mosquitto, knxsim, influxdb)
+## dev-services: Start support services (mosquitto, knxsim, victoriametrics)
 dev-services:
 	docker compose -f ../../docker-compose.dev.yml up -d --remove-orphans
 
