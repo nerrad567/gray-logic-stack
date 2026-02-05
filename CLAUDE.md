@@ -192,6 +192,7 @@ When working on this project:
 6. **Document changes**: Update relevant docs when making changes
 7. **Session log sync**: After completing significant coding work (milestone completion, multi-file feature implementation, or when the user indicates they're done), offer to run `/docs-sync` to update CHANGELOG.md and PROJECT-STATUS.md. Ask: *"Session work looks complete — shall I run `/docs-sync` to update project logs?"*
 8. **Codex delegation check**: Before starting any non-trivial task, evaluate whether part or all of it would be better suited to GPT-5.2-Codex. See "Multi-Agent Workflow" below.
+9. **Atomic commits per milestone/feature**: Never combine work from multiple milestones or independent features into a single commit. Each milestone or logical feature gets its own commit so it can be reverted independently. When working on multiple milestones in parallel (e.g. Claude on M2.1 API layer while Codex handles M2.1 repos), commit each milestone's work separately — not as one combined blob. If shared files (router.go, server.go, main.go) have changes from multiple milestones, commit the first milestone's changes to those files before starting the second milestone's modifications.
 
 ## Multi-Agent Workflow — Claude as Orchestrator
 
