@@ -12,8 +12,9 @@ import 'thermostat_tile.dart';
 /// based on its type and capabilities.
 class DeviceGrid extends StatelessWidget {
   final List<Device> devices;
+  final bool shrinkWrap;
 
-  const DeviceGrid({super.key, required this.devices});
+  const DeviceGrid({super.key, required this.devices, this.shrinkWrap = false});
 
   @override
   Widget build(BuildContext context) {
@@ -49,6 +50,8 @@ class DeviceGrid extends StatelessWidget {
 
         return GridView.builder(
           padding: const EdgeInsets.all(12),
+          shrinkWrap: shrinkWrap,
+          physics: shrinkWrap ? const NeverScrollableScrollPhysics() : null,
           gridDelegate: SliverGridDelegateWithFixedCrossAxisCount(
             crossAxisCount: crossAxisCount,
             crossAxisSpacing: 12,

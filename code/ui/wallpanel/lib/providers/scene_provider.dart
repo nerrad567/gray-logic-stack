@@ -82,6 +82,20 @@ class AllScenesNotifier extends Notifier<AsyncValue<List<Scene>>> {
     }
   }
 
+  /// Activate a scene with visual feedback (used by panel mode).
+  Future<void> activateScene(String sceneId) async {
+    ref.read(activeSceneIdProvider.notifier).state = sceneId;
+    try {
+      await _sceneRepo.activate(sceneId);
+    } finally {
+      Future.delayed(const Duration(milliseconds: 800), () {
+        if (ref.mounted) {
+          ref.read(activeSceneIdProvider.notifier).state = null;
+        }
+      });
+    }
+  }
+
   /// Create a new scene and refresh list.
   Future<Scene> createScene(Map<String, dynamic> data) async {
     final scene = await _sceneRepo.createScene(data);

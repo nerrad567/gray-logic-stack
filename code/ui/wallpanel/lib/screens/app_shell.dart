@@ -8,6 +8,7 @@ import '../providers/location_provider.dart';
 import '../widgets/room_nav_bar.dart';
 import 'config_screen.dart';
 import 'onboarding_screen.dart';
+import 'panel_shell.dart';
 import 'room_view.dart';
 
 /// Top-level shell that gates the app behind authentication.
@@ -168,6 +169,12 @@ class _AuthenticatedShellState extends ConsumerState<_AuthenticatedShell> {
     // Show onboarding if no devices configured
     if (_isEmpty) {
       return OnboardingScreen(onRefresh: _refresh);
+    }
+
+    // Panel mode: stripped-down kiosk with swipe navigation
+    final identity = ref.watch(identityProvider);
+    if (identity?.isPanel == true) {
+      return const PanelShell();
     }
 
     final selectedRoom = ref.watch(selectedRoomProvider);

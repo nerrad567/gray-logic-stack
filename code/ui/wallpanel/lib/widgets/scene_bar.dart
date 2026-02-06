@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/scene.dart';
+import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/scene_provider.dart';
 import 'scene_button.dart';
@@ -26,24 +27,26 @@ class SceneBar extends ConsumerWidget {
   Widget _buildBar(BuildContext context, WidgetRef ref, List<Scene> scenes) {
     // Only show enabled scenes
     final enabled = scenes.where((s) => s.enabled).toList();
+    final identity = ref.watch(identityProvider);
+    final canEdit = identity?.isPanel != true;
 
     return SizedBox(
       height: 56,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: enabled.length + 1, // +1 for add button
+        itemCount: enabled.length + (canEdit ? 1 : 0),
         separatorBuilder: (_, i) => const SizedBox(width: 8),
         itemBuilder: (_, index) {
           if (index < enabled.length) {
             return Center(
               child: SceneButton(
                 scene: enabled[index],
-                onLongPress: () => _openEditor(context, ref, enabled[index]),
+                onLongPress: canEdit ? () => _openEditor(context, ref, enabled[index]) : null,
               ),
             );
           }
-          // Add button at end
+          // Add button at end (only for non-panel identities)
           return Center(child: _AddSceneButton(
             onTap: () => _openEditor(context, ref, null),
           ));
