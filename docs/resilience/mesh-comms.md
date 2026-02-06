@@ -775,6 +775,151 @@ testing:
 
 ---
 
+## Retro Panel — Integrated Mesh Node
+
+### Panel as Meshtastic Endpoint
+
+The Elecrow CrowPanel Advance 3.5" has a modular wireless slot that accepts
+a LoRa SX1262 radio module. This means **every retro panel can be a
+Meshtastic node** — not just a display, but a full mesh participant that can
+route messages, relay commands, and operate as a repeater.
+
+```
+                    LoRa Mesh (868/915 MHz, AES-256)
+                              │
+    ┌─────────────┐    ┌──────┴──────┐    ┌─────────────┐
+    │ Core Server │    │   Retro     │    │   Retro     │
+    │ + USB       │◄──►│   Panel     │◄──►│   Panel     │
+    │   Gateway   │    │ (Kitchen)   │    │ (Garage)    │
+    └─────────────┘    │ WiFi + LoRa │    │ LoRa only   │
+                       └─────────────┘    └──────┬──────┘
+                                                 │
+                                          ┌──────┴──────┐
+                                          │ Solar Node  │
+                                          │ (Gate Post) │
+                                          └─────────────┘
+```
+
+**Key capabilities:**
+
+| Capability | Description |
+|------------|-------------|
+| **Secure control** | Send device commands (toggle, dim, scene) over encrypted LoRa when WiFi is down |
+| **Mesh repeater** | Panel routes messages between other nodes, extending estate coverage |
+| **Fallback comms** | WiFi fails → panel auto-switches to LoRa for command/state traffic |
+| **Alert display** | Fire/intrusion/leak alerts from remote nodes displayed on panel screen |
+| **Battery resilience** | Panel's LiFePO4 battery keeps mesh alive during power outages |
+| **Remote rooms** | Garage, pool house, garden room — panels in areas with no WiFi coverage operate via LoRa |
+
+### Secure Control Channel
+
+The panel can send commands to Gray Logic Core over LoRa when the primary
+network (WiFi/Ethernet) is unavailable. This uses a compact binary protocol
+over Meshtastic's encrypted channel (AES-256).
+
+```yaml
+mesh_control:
+  # Authentication — panel must prove identity over mesh
+  auth:
+    method: "pre-shared panel token"
+    token_source: "NVS flash (same as REST X-Panel-Token)"
+    challenge_response: true       # Prevents replay attacks
+
+  # Command format — compact for LoRa bandwidth
+  command_message:
+    panel_id: uint16               # Panel short ID (registered at Core)
+    sequence: uint16               # Anti-replay sequence counter
+    hmac: bytes[8]                 # Truncated HMAC-SHA256 of payload
+    payload:
+      type: "command"              # command | scene | query
+      device_id_hash: uint16       # CRC16 of device UUID (saves bytes)
+      command: uint8               # 0=off, 1=on, 2=toggle, 3=set_level, etc.
+      value: uint8                 # Level/position 0-100, or scene index
+
+  # State response format
+  state_message:
+    device_id_hash: uint16
+    state_flags: uint8             # Bit field: on, level_present, pos_present
+    level: uint8                   # 0-100 if present
+    position: uint8                # 0-100 if present
+```
+
+**Why this is safe:**
+1. LoRa channel encrypted with AES-256 (Meshtastic standard)
+2. Panel token authenticates the sender (same token as REST API)
+3. HMAC prevents message tampering
+4. Sequence counter prevents replay attacks
+5. Core validates panel's room scope — can only control authorised rooms
+6. Read-only by default — command capability requires explicit grant
+
+### Network Fallback Logic
+
+```
+Panel boot / network change:
+  1. Check Ethernet (docked?) → use if available
+  2. Check WiFi → use if available
+  3. Check LoRa module present?
+     a. YES → activate Meshtastic, join mesh
+     b. NO  → offline mode (local UI only)
+
+Command routing:
+  IF Ethernet/WiFi connected:
+    → REST API (fast, full bandwidth)
+  ELSE IF LoRa mesh active:
+    → Mesh command protocol (slow, essential commands only)
+  ELSE:
+    → Queue commands, retry when connectivity returns
+
+State updates:
+  IF MQTT connected:
+    → Full real-time state via MQTT subscription
+  ELSE IF LoRa mesh active:
+    → Request state on demand (poll, not push — saves bandwidth)
+    → Critical alerts pushed automatically via mesh
+```
+
+### Panel Mesh Roles
+
+| Mode | Mesh Role | Behaviour |
+|------|-----------|-----------|
+| **Docked (WiFi + LoRa)** | Router | Routes mesh traffic for other nodes. WiFi for own commands |
+| **Portable (WiFi + LoRa)** | Router | Dual-path: WiFi primary, LoRa fallback for commands |
+| **Portable (LoRa only)** | Client | No WiFi — all commands via mesh. State polling only |
+| **No LoRa module** | None | Standard panel — WiFi/Ethernet only |
+
+### Repeater Functionality
+
+Any panel with a LoRa module automatically acts as a **mesh repeater** when
+configured as a router node. This means:
+
+- Installing a panel in the garage (mains powered, LoRa module) extends mesh
+  coverage to the garden shed, gate, and neighbouring outbuildings
+- A panel on every floor of a large house creates a reliable indoor mesh
+- Battery-powered panels keep the mesh alive during power outages (hours to
+  days depending on backlight/WiFi state)
+
+Meshtastic handles all routing automatically — no manual configuration needed
+beyond setting the same channel/PSK on all nodes.
+
+### Hardware: LoRa Module for Elecrow CrowPanel
+
+The CrowPanel's modular wireless slot accepts:
+
+| Module | Frequency | Range | Cost |
+|--------|-----------|-------|------|
+| SX1262 LoRa (868MHz EU) | 868 MHz | 1-10 km LOS | ~$5-8 |
+| SX1262 LoRa (915MHz US) | 915 MHz | 1-10 km LOS | ~$5-8 |
+
+The module plugs into the CrowPanel's expansion slot — no soldering required.
+Flash Meshtastic firmware onto the LoRa module, configure same channel/PSK
+as the gateway, and the panel joins the mesh.
+
+For the Waveshare board (no wireless slot), an external SX1262 module
+connects via SPI (4 GPIO pins). This requires a small breakout board but
+is functionally identical.
+
+---
+
 ## Limitations
 
 ### What Mesh Comms Can Do
