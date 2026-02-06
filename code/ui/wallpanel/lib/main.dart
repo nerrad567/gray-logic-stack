@@ -7,6 +7,8 @@ import 'config/theme.dart';
 import 'screens/app_shell.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+
   // Disable the browser's long-press context menu — this is a wall panel app,
   // never needs right-click/long-press browser menus.
   if (kIsWeb) {
