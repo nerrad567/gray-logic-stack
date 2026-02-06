@@ -14,6 +14,7 @@ import '../models/site.dart';
 import '../models/metrics.dart';
 import '../models/room.dart';
 import '../models/scene.dart';
+import '../models/panel.dart';
 import '../models/user.dart';
 import 'token_storage.dart';
 
@@ -248,6 +249,44 @@ class ApiClient {
       'rooms': rooms.map((r) => r.toJson()).toList(),
     });
     return RoomAccessResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  // --- Panels ---
+
+  Future<PanelListResponse> getPanels() async {
+    final response = await _dio.get('/panels');
+    return PanelListResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<PanelCreateResponse> createPanel(Map<String, dynamic> data) async {
+    final response = await _dio.post('/panels', data: data);
+    return PanelCreateResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<PanelDetailResponse> getPanel(String id) async {
+    final response = await _dio.get('/panels/$id');
+    return PanelDetailResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<Panel> updatePanel(String id, Map<String, dynamic> data) async {
+    final response = await _dio.patch('/panels/$id', data: data);
+    return Panel.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<void> deletePanel(String id) async {
+    await _dio.delete('/panels/$id');
+  }
+
+  Future<PanelRoomsResponse> getPanelRooms(String id) async {
+    final response = await _dio.get('/panels/$id/rooms');
+    return PanelRoomsResponse.fromJson(response.data as Map<String, dynamic>);
+  }
+
+  Future<PanelRoomsResponse> setPanelRooms(String id, List<String> roomIds) async {
+    final response = await _dio.put('/panels/$id/rooms', data: {
+      'room_ids': roomIds,
+    });
+    return PanelRoomsResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   // --- Health ---

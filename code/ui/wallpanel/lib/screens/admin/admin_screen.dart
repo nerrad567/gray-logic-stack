@@ -11,6 +11,7 @@ import 'metrics_tab.dart';
 import 'scenes_tab.dart';
 import 'site_tab.dart';
 import 'system_tab.dart';
+import 'panels_tab.dart';
 import 'users_tab.dart';
 
 /// Admin screen with tabbed interface for system management.
@@ -63,6 +64,10 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
       _AdminTab(
         tab: const Tab(icon: Icon(Icons.people_outline), text: 'Users'),
         body: const UsersTab(),
+      ),
+      _AdminTab(
+        tab: const Tab(icon: Icon(Icons.tablet_outlined), text: 'Panels'),
+        body: const PanelsTab(),
       ),
       _AdminTab(
         tab: const Tab(icon: Icon(Icons.location_on_outlined), text: 'Locations'),
