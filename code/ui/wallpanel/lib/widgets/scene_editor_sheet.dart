@@ -1,7 +1,9 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/device.dart';
 import '../models/scene.dart';
+import '../providers/device_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/scene_provider.dart';
 import 'scene_action_row.dart';
@@ -209,6 +211,8 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                 ),
               ),
               const Divider(),
+              // Quick presets (create mode only)
+              if (!_isEdit) _buildPresetsRow(context),
               // Scrollable form
               Expanded(
                 child: Form(
@@ -459,6 +463,66 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
     );
   }
 
+  Widget _buildPresetsRow(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('Quick Presets',
+              style: theme.textTheme.labelMedium?.copyWith(
+                color: theme.colorScheme.onSurfaceVariant,
+              )),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 8,
+            runSpacing: 4,
+            children: [
+              for (final preset in _scenePresets)
+                ActionChip(
+                  avatar: Icon(preset.iconData, size: 16),
+                  label: Text(preset.name),
+                  onPressed: () => _applyPreset(preset),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _applyPreset(_ScenePreset preset) {
+    // Get room devices if available
+    final devicesAsync = ref.read(roomDevicesProvider);
+    final devices = devicesAsync.value ?? <Device>[];
+
+    final actions = <SceneActionData>[];
+
+    for (final device in devices) {
+      final template = preset.actionForDomain(device.domain);
+      if (template != null) {
+        actions.add(SceneActionData(
+          deviceId: device.id,
+          command: template.command,
+          parameters: Map<String, dynamic>.from(template.parameters),
+          delayMs: 0,
+          fadeMs: template.fadeMs,
+          parallel: true,
+          continueOnError: true,
+        ));
+      }
+    }
+
+    setState(() {
+      _nameController.text = preset.name;
+      _icon = preset.icon;
+      _colour = preset.colour;
+      _category = preset.category;
+      _actions = actions;
+    });
+  }
+
   void _addAction() {
     setState(() {
       _actions.add(SceneActionData(
@@ -496,6 +560,116 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
     'welcome': Icons.waving_hand,
   };
 }
+
+/// A quick-create preset that pre-fills the scene editor.
+class _ScenePreset {
+  final String name;
+  final String icon;
+  final String colour;
+  final String category;
+  final IconData iconData;
+  final Map<String, _PresetAction> domainActions;
+
+  const _ScenePreset({
+    required this.name,
+    required this.icon,
+    required this.colour,
+    required this.category,
+    required this.iconData,
+    required this.domainActions,
+  });
+
+  _PresetAction? actionForDomain(String domain) => domainActions[domain];
+}
+
+class _PresetAction {
+  final String command;
+  final Map<String, dynamic> parameters;
+  final int fadeMs;
+
+  const _PresetAction({
+    required this.command,
+    this.parameters = const {},
+    this.fadeMs = 0,
+  });
+}
+
+const _scenePresets = <_ScenePreset>[
+  _ScenePreset(
+    name: 'Movie',
+    icon: 'movie',
+    colour: '#7B1FA2',
+    category: 'media',
+    iconData: Icons.movie,
+    domainActions: {
+      'lighting': _PresetAction(command: 'off', fadeMs: 2000),
+      'blinds': _PresetAction(
+        command: 'set_position',
+        parameters: {'position': 0},
+      ),
+    },
+  ),
+  _ScenePreset(
+    name: 'Reading',
+    icon: 'reading',
+    colour: '#FFA726',
+    category: 'comfort',
+    iconData: Icons.menu_book,
+    domainActions: {
+      'lighting': _PresetAction(
+        command: 'set_level',
+        parameters: {'level': 80},
+        fadeMs: 1000,
+      ),
+    },
+  ),
+  _ScenePreset(
+    name: 'Night',
+    icon: 'night',
+    colour: '#1A237E',
+    category: 'comfort',
+    iconData: Icons.nightlight_round,
+    domainActions: {
+      'lighting': _PresetAction(command: 'off', fadeMs: 3000),
+      'blinds': _PresetAction(
+        command: 'set_position',
+        parameters: {'position': 0},
+      ),
+    },
+  ),
+  _ScenePreset(
+    name: 'Morning',
+    icon: 'morning',
+    colour: '#FFD54F',
+    category: 'comfort',
+    iconData: Icons.wb_twilight,
+    domainActions: {
+      'lighting': _PresetAction(
+        command: 'set_level',
+        parameters: {'level': 100},
+        fadeMs: 2000,
+      ),
+      'blinds': _PresetAction(
+        command: 'set_position',
+        parameters: {'position': 100},
+      ),
+    },
+  ),
+  _ScenePreset(
+    name: 'Relax',
+    icon: 'relax',
+    colour: '#26A69A',
+    category: 'comfort',
+    iconData: Icons.spa,
+    domainActions: {
+      'lighting': _PresetAction(
+        command: 'set_level',
+        parameters: {'level': 40},
+        fadeMs: 2000,
+      ),
+    },
+  ),
+];
 
 /// Mutable action data used in the editor.
 class SceneActionData {

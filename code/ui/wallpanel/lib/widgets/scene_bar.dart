@@ -27,9 +27,6 @@ class SceneBar extends ConsumerWidget {
     // Only show enabled scenes
     final enabled = scenes.where((s) => s.enabled).toList();
 
-    // Always show bar if we have scenes or want to allow adding
-    if (enabled.isEmpty && scenes.isEmpty) return const SizedBox.shrink();
-
     return SizedBox(
       height: 56,
       child: ListView.separated(
@@ -80,25 +77,28 @@ class _AddSceneButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Material(
-      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-      borderRadius: BorderRadius.circular(12),
-      child: InkWell(
+    return Tooltip(
+      message: 'Create scene',
+      child: Material(
+        color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         borderRadius: BorderRadius.circular(12),
-        onTap: onTap,
-        child: Container(
-          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-          decoration: BoxDecoration(
-            borderRadius: BorderRadius.circular(12),
-            border: Border.all(
-              color: theme.colorScheme.outlineVariant,
-              style: BorderStyle.solid,
+        child: InkWell(
+          borderRadius: BorderRadius.circular(12),
+          onTap: onTap,
+          child: Container(
+            padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+            decoration: BoxDecoration(
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(
+                color: theme.colorScheme.outlineVariant,
+                style: BorderStyle.solid,
+              ),
             ),
-          ),
-          child: Icon(
-            Icons.add,
-            size: 18,
-            color: theme.colorScheme.onSurfaceVariant,
+            child: Icon(
+              Icons.add,
+              size: 18,
+              color: theme.colorScheme.onSurfaceVariant,
+            ),
           ),
         ),
       ),
