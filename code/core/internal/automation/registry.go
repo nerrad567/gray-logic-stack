@@ -37,9 +37,9 @@ func (noopLogger) Error(string, ...any) {}
 // All public methods are thread-safe.
 type Registry struct {
 	repo         Repository
-	cache        map[string]*Scene  // Cached scenes by ID
-	activeScenes map[string]string  // roomID -> sceneID (in-memory only)
-	cacheMu      sync.RWMutex       // Protects cache and activeScenes
+	cache        map[string]*Scene // Cached scenes by ID
+	activeScenes map[string]string // roomID -> sceneID (in-memory only)
+	cacheMu      sync.RWMutex      // Protects cache and activeScenes
 	logger       Logger
 }
 
