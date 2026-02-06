@@ -33,6 +33,7 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
   late int _priority;
   late List<SceneActionData> _actions;
   bool _saving = false;
+  List<Device>? _devices;
 
   bool get _isEdit => widget.scene != null;
 
@@ -60,6 +61,19 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                 ))
             .toList() ??
         [];
+    _loadDevices();
+  }
+
+  Future<void> _loadDevices() async {
+    try {
+      final repo = ref.read(deviceRepositoryProvider);
+      final devices = _roomId != null
+          ? await repo.getDevicesByRoom(_roomId!)
+          : await repo.getAllDevices();
+      if (mounted) setState(() => _devices = devices);
+    } catch (_) {
+      if (mounted) setState(() => _devices = []);
+    }
   }
 
   @override
@@ -440,7 +454,7 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                                   '${_actions[index].deviceId}_$index'),
                               action: _actions[index],
                               index: index,
-                              roomId: _roomId,
+                              devices: _devices,
                               onChanged: (updated) {
                                 setState(() => _actions[index] = updated);
                               },

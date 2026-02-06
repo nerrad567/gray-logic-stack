@@ -1,16 +1,15 @@
 import 'package:flutter/material.dart';
-import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/device.dart';
-import '../providers/auth_provider.dart';
 import 'scene_editor_sheet.dart';
 
 /// A single action row within the scene editor.
 /// Shows device picker, command, parameters, and timing options.
-class SceneActionRow extends ConsumerStatefulWidget {
+/// Devices are loaded once by the parent [SceneEditorSheet] and passed in.
+class SceneActionRow extends StatefulWidget {
   final SceneActionData action;
   final int index;
-  final String? roomId;
+  final List<Device>? devices;
   final ValueChanged<SceneActionData> onChanged;
   final VoidCallback onDelete;
 
@@ -18,51 +17,26 @@ class SceneActionRow extends ConsumerStatefulWidget {
     super.key,
     required this.action,
     required this.index,
-    required this.roomId,
+    required this.devices,
     required this.onChanged,
     required this.onDelete,
   });
 
   @override
-  ConsumerState<SceneActionRow> createState() => _SceneActionRowState();
+  State<SceneActionRow> createState() => _SceneActionRowState();
 }
 
-class _SceneActionRowState extends ConsumerState<SceneActionRow> {
+class _SceneActionRowState extends State<SceneActionRow> {
   bool _expanded = false;
-  List<Device>? _devices;
-  bool _loadingDevices = false;
-
-  @override
-  void initState() {
-    super.initState();
-    _loadDevices();
-  }
-
-  Future<void> _loadDevices() async {
-    setState(() => _loadingDevices = true);
-    try {
-      final apiClient = ref.read(apiClientProvider);
-      final response = widget.roomId != null
-          ? await apiClient.getDevices(roomId: widget.roomId)
-          : await apiClient.getDevices();
-      if (mounted) {
-        setState(() {
-          _devices = response.devices;
-          _loadingDevices = false;
-        });
-      }
-    } catch (_) {
-      if (mounted) setState(() => _loadingDevices = false);
-    }
-  }
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final a = widget.action;
+    final devices = widget.devices;
 
     // Determine commands based on selected device
-    final selectedDevice = _devices?.where((d) => d.id == a.deviceId).firstOrNull;
+    final selectedDevice = devices?.where((d) => d.id == a.deviceId).firstOrNull;
     final commands = _commandsForDevice(selectedDevice);
 
     return Card(
@@ -93,7 +67,7 @@ class _SceneActionRowState extends ConsumerState<SceneActionRow> {
                 // Device dropdown
                 Expanded(
                   flex: 3,
-                  child: _loadingDevices
+                  child: devices == null
                       ? const LinearProgressIndicator()
                       : DropdownButtonFormField<String>(
                           value: a.deviceId.isEmpty ? null : a.deviceId,
@@ -104,12 +78,12 @@ class _SceneActionRowState extends ConsumerState<SceneActionRow> {
                                 horizontal: 12, vertical: 8),
                             isDense: true,
                           ),
-                          items: _devices
-                              ?.where((d) => d.isCommandable)
+                          items: devices
+                              .where((d) => d.isCommandable)
                               .map((d) => DropdownMenuItem(
                                 value: d.id,
                                 child: Text(d.name, overflow: TextOverflow.ellipsis),
-                              )).toList() ?? [],
+                              )).toList(),
                           onChanged: (v) {
                             if (v == null) return;
                             widget.onChanged(SceneActionData(
