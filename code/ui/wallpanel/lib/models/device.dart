@@ -178,6 +178,34 @@ class Device {
   /// Whether this device supports dimming.
   bool get hasDim => capabilities.contains('dim');
 
+  /// Whether this device supports position control (blinds).
+  bool get hasPosition => capabilities.contains('position');
+
+  /// Whether this device supports tilt/slat angle control.
+  bool get hasTilt => capabilities.contains('tilt');
+
+  /// Whether this device supports temperature setpoint control.
+  bool get hasTemperatureSet => capabilities.contains('temperature_set');
+
+  /// Whether this device supports colour temperature control.
+  bool get hasColorTemp => capabilities.contains('color_temp');
+
+  /// Whether this device supports RGB colour control.
+  bool get hasColorRGB => capabilities.contains('color_rgb');
+
+  /// Whether this device supports fan speed control.
+  bool get hasSpeed => capabilities.contains('speed');
+
+  /// Control capabilities — anything that can be commanded in a scene.
+  static const _controlCapabilities = {
+    'on_off', 'dim', 'position', 'tilt', 'temperature_set',
+    'color_temp', 'color_rgb', 'speed', 'lock_unlock', 'arm_disarm',
+  };
+
+  /// True if device has any control capability (sensors are not commandable).
+  bool get isCommandable =>
+      capabilities.any((c) => _controlCapabilities.contains(c));
+
   /// Whether the device is considered reachable for UI interaction.
   /// Devices with 'unknown' health are treated as available (no health data yet).
   /// Only explicitly 'offline' devices are disabled.

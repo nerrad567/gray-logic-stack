@@ -146,7 +146,7 @@ const kDeviceTypes = <DeviceTypeInfo>[
     label: 'Blind Switch',
     category: 'Blinds',
     domain: 'blinds',
-    defaultCapabilities: ['position'],
+    defaultCapabilities: ['on_off'],
     addressFunctions: [
       AddressFunction('move', 'Move Up/Down', required: true, dpt: '1.008', flags: ['write']),
       AddressFunction('stop', 'Stop', dpt: '1.007', flags: ['write']),

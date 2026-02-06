@@ -104,7 +104,9 @@ class _SceneActionRowState extends ConsumerState<SceneActionRow> {
                                 horizontal: 12, vertical: 8),
                             isDense: true,
                           ),
-                          items: _devices?.map((d) => DropdownMenuItem(
+                          items: _devices
+                              ?.where((d) => d.isCommandable)
+                              .map((d) => DropdownMenuItem(
                                 value: d.id,
                                 child: Text(d.name, overflow: TextOverflow.ellipsis),
                               )).toList() ?? [],
@@ -204,6 +206,27 @@ class _SceneActionRowState extends ConsumerState<SceneActionRow> {
                   onChanged: (v) {
                     final params = Map<String, dynamic>.from(a.parameters);
                     params['position'] = v.round();
+                    widget.onChanged(SceneActionData(
+                      deviceId: a.deviceId,
+                      command: a.command,
+                      parameters: params,
+                      delayMs: a.delayMs,
+                      fadeMs: a.fadeMs,
+                      parallel: a.parallel,
+                      continueOnError: a.continueOnError,
+                    ));
+                  },
+                ),
+              ),
+            if (a.command == 'set_tilt')
+              Padding(
+                padding: const EdgeInsets.only(top: 8),
+                child: _LevelSlider(
+                  label: 'Tilt',
+                  value: (a.parameters['tilt'] as num?)?.toDouble() ?? 50,
+                  onChanged: (v) {
+                    final params = Map<String, dynamic>.from(a.parameters);
+                    params['tilt'] = v.round();
                     widget.onChanged(SceneActionData(
                       deviceId: a.deviceId,
                       command: a.command,
@@ -344,21 +367,37 @@ class _SceneActionRowState extends ConsumerState<SceneActionRow> {
     );
   }
 
-  /// Return available commands based on device domain/type.
+  /// Return available commands based on device capabilities.
   List<String> _commandsForDevice(Device? device) {
     if (device == null) return ['on', 'off', 'toggle'];
 
-    switch (device.domain) {
-      case 'lighting':
-        if (device.hasDim) return ['on', 'off', 'toggle', 'dim', 'set_level'];
-        return ['on', 'off', 'toggle'];
-      case 'blinds':
-        return ['on', 'off', 'set_position', 'stop'];
-      case 'climate':
-        return ['set_setpoint'];
-      default:
-        return ['on', 'off', 'toggle'];
+    final commands = <String>[];
+
+    if (device.hasOnOff) {
+      commands.addAll(['on', 'off', 'toggle']);
     }
+    if (device.hasDim) {
+      commands.addAll(['dim', 'set_level']);
+    }
+    // blind_switch has position capability but no position GA — only move/stop
+    if (device.hasPosition && device.type != 'blind_switch') {
+      commands.add('set_position');
+    }
+    if (device.hasTilt) {
+      commands.add('set_tilt');
+    }
+    if (device.domain == 'blinds') {
+      commands.add('stop');
+      // blind_switch needs on/off for binary move up/down
+      if (!device.hasOnOff && device.type == 'blind_switch') {
+        commands.insertAll(0, ['on', 'off']);
+      }
+    }
+    if (device.hasTemperatureSet) {
+      commands.add('set_setpoint');
+    }
+
+    return commands.isEmpty ? ['on', 'off', 'toggle'] : commands;
   }
 }
 

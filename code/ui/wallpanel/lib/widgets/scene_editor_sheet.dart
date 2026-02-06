@@ -500,18 +500,38 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
     final actions = <SceneActionData>[];
 
     for (final device in devices) {
+      if (!device.isCommandable) continue;
+
       final template = preset.actionForDomain(device.domain);
-      if (template != null) {
-        actions.add(SceneActionData(
-          deviceId: device.id,
-          command: template.command,
-          parameters: Map<String, dynamic>.from(template.parameters),
-          delayMs: 0,
-          fadeMs: template.fadeMs,
-          parallel: true,
-          continueOnError: true,
-        ));
+      if (template == null) continue;
+
+      var command = template.command;
+      var parameters = Map<String, dynamic>.from(template.parameters);
+
+      // Downgrade commands the device can't execute
+      if ((command == 'set_level' || command == 'dim') && !device.hasDim) {
+        // Switch-only light: downgrade dim/set_level to on
+        command = 'on';
+        parameters = {};
+      } else if (command == 'set_position' &&
+          (!device.hasPosition || device.type == 'blind_switch')) {
+        // blind_switch or no position GA: downgrade to on/off
+        final posValue = (template.parameters['position'] as num?) ?? 0;
+        command = posValue > 50 ? 'on' : 'off';
+        parameters = {};
+      } else if (command == 'set_setpoint' && !device.hasTemperatureSet) {
+        continue; // Skip — device can't accept setpoints
       }
+
+      actions.add(SceneActionData(
+        deviceId: device.id,
+        command: command,
+        parameters: parameters,
+        delayMs: 0,
+        fadeMs: template.fadeMs,
+        parallel: true,
+        continueOnError: true,
+      ));
     }
 
     setState(() {
