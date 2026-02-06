@@ -100,8 +100,8 @@ class _RoomViewState extends ConsumerState<RoomView> {
           ),
         ),
 
-        // Scene bar (bottom)
-        if (scenesAsync.value?.isNotEmpty ?? false)
+        // Scene bar (bottom) — always show once loaded so (+) is accessible
+        if (scenesAsync.value != null)
           const Padding(
             padding: EdgeInsets.only(bottom: 16),
             child: SceneBar(),
