@@ -4,6 +4,39 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.29 – Retro Panel (Phases 1-3) + Meshtastic Panel Integration (2026-02-06)
+
+### Added
+
+- **Retro Panel — LVGL native wall panel** (`code/ui/retropanel/`, 44 files):
+  - Phase 1 — Visual Theme: 6 custom LVGL widgets (VU meter, nixie display, bakelite button, scene bar, blind slider, scanline overlay), retro amber-on-charcoal palette, dual custom fonts (Nixie One 48px + Share Tech Mono 16/18px)
+  - Phase 2 — Data Layer: REST client (libcurl) for boot loading hierarchy/devices/scenes, MQTT client (libmosquitto) with thread-safe ring buffer for live state updates, conditional compile via `PANEL_HAS_NETWORKING` for graceful demo-mode fallback
+  - Phase 3 — Interactive Controls: Touch callbacks send commands via REST (toggle, dim, position, setpoint, scene activate), widget state refreshed from MQTT in real-time
+  - SDL simulator for desktop development (`make sim-build && make sim-run`), ESP32-S3 target planned
+  - Comprehensive README with dockable panel product design, parts list, and manufacturing roadmap
+
+- **Meshtastic mesh node integration** (`docs/resilience/mesh-comms.md`):
+  - Retro panel as full Meshtastic mesh participant via Elecrow CrowPanel's LoRa SX1262 slot
+  - Secure command channel over encrypted LoRa (AES-256 + HMAC + panel token + sequence counter)
+  - Automatic mesh repeater — panel routes messages, extending estate coverage
+  - Network fallback logic: Ethernet → WiFi → LoRa → offline queue
+  - Panel mesh roles: router (docked), router (portable), client (LoRa-only)
+
+- **Project milestones** (PROJECT-STATUS.md):
+  - M2.10: Retro Panel Software (Phases 1-3 complete, 4-8 planned)
+  - M2.11: Retro Panel Hardware Prototype (Phase A parts sourced, ready to order)
+  - M5.8: Retro Panel Manufacturing (future — custom PCB, enclosure, CE/FCC)
+
+### Changed
+
+- **Prototype parts list corrected** after component research:
+  - Sunton CYD eliminated (regular ESP32, no PSRAM, TN panel — not ESP32-S3)
+  - TP4056 replaced with TP5000 (TP4056 has fixed 4.2V in silicon, cannot charge LiFePO4)
+  - 18650 cells replaced with 26650 (JGNE 4000mAh — 2.7x capacity for 8mm wider)
+  - Board recommendations: Elecrow CrowPanel Advance 3.5" ($25) or Waveshare ESP32-S3-Touch-LCD-3.5 ($26)
+
+---
+
 ## 1.0.28 – Capability-Aware Scene Editor & Flutter Fixes (2026-02-06)
 
 ### Fixed

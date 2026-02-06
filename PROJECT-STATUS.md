@@ -1366,6 +1366,42 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 
 ---
 
+### Session 37: 2026-02-06 — Retro Panel Phases 1-3 + Hardware Sourcing + Meshtastic
+
+**Goal:** Complete retro panel visual theme, networking, and controls; source hardware prototype parts; document Meshtastic panel integration
+
+**Retro Panel — LVGL Native Wall Panel** (`code/ui/retropanel/`, 44 files):
+- Phase 1 (Visual Theme): 6 custom widgets — VU meter (48px arc with tick marks), nixie display (glowing digits), bakelite button (3D brown toggle), scene bar (colour dot + name), blind slider (vertical position), scanline overlay (CRT effect). Retro amber/charcoal/cream palette. Nixie One + Share Tech Mono fonts via lv_font_conv.
+- Phase 2 (Data Layer): REST boot loading (hierarchy→devices→scenes via libcurl), MQTT live state (ring buffer + mutex between mosquitto thread and LVGL thread), `#ifdef PANEL_HAS_NETWORKING` conditional compile for demo fallback.
+- Phase 3 (Interactive Controls): Touch callbacks → REST commands (toggle, dim, position, setpoint, scene). `room_view_t` struct maps device_id → widget pointers for MQTT-driven updates.
+- SDL simulator: `make sim-build && make sim-run` on desktop Linux. 480x320 window.
+
+**Hardware Parts Research:**
+- Sunton CYD eliminated — regular ESP32 (not S3), TN panel, no PSRAM
+- TP4056 eliminated — 4.2V charge voltage fixed in silicon, cannot charge LiFePO4
+- Recommended boards: Elecrow CrowPanel Advance 3.5" ($25, modular LoRa slot) or Waveshare ESP32-S3-Touch-LCD-3.5 ($26, IMU+RTC+audio)
+- Battery: JGNE 26650 LiFePO4 4000mAh ($4, 2.7x capacity of 18650)
+- Charger: TP5000 with solder jumper for 3.6V LiFePO4 mode
+- Phase A total: ~$86 including optional LoRa module
+
+**Meshtastic Panel Integration** (`docs/resilience/mesh-comms.md`):
+- Panel as mesh node: Elecrow's modular SX1262 slot enables LoRa mesh participation
+- Secure command channel: AES-256 + HMAC + panel token + sequence counter
+- Repeater mode: panel automatically routes mesh traffic for other nodes
+- Network fallback: Ethernet → WiFi → LoRa → offline queue
+- Panel mesh roles: router (docked/portable with WiFi), client (LoRa-only)
+
+**Milestones Added:**
+- M2.10: Retro Panel Software (Phases 1-3 done, 4-8 planned)
+- M2.11: Retro Panel Hardware Prototype (10 tasks, Phase A parts ready to order)
+- M5.8: Retro Panel Manufacturing (6 tasks, future — PCB, enclosure, CE/FCC)
+
+**Files Created**: 44 (retro panel source) + 1 (updated mesh-comms.md)
+**Files Modified**: PROJECT-STATUS.md, CHANGELOG.md
+**Commits**: 3 (`77f5458`, `e387784`, `5fdaa19`)
+
+---
+
 ## Notes
 
 - Project started: 2026-01-18
