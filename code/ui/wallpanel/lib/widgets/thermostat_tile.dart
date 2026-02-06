@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
@@ -119,7 +121,7 @@ class ThermostatTile extends ConsumerWidget {
   }
 }
 
-class _SetpointControls extends StatelessWidget {
+class _SetpointControls extends StatefulWidget {
   final Device device;
   final double? setpoint;
   final bool isOnline;
@@ -137,12 +139,121 @@ class _SetpointControls extends StatelessWidget {
   });
 
   @override
+  State<_SetpointControls> createState() => _SetpointControlsState();
+}
+
+class _SetpointControlsState extends State<_SetpointControls> {
+  /// Local optimistic setpoint — null means use the server value.
+  double? _localSetpoint;
+
+  /// Timer for hold-to-repeat acceleration.
+  Timer? _repeatTimer;
+
+  /// Safety timer — kills the repeat timer if onLongPressEnd never fires
+  /// (e.g. browser context menu steals the touch event).
+  Timer? _safetyTimer;
+
+  /// Debounce timer — sends final value to backend after user stops adjusting.
+  Timer? _debounceTimer;
+
+  /// How many repeat ticks have fired in the current hold gesture.
+  int _repeatCount = 0;
+
+  /// The effective setpoint to display (local override or server value).
+  double? get _displaySetpoint => _localSetpoint ?? widget.setpoint;
+
+  @override
+  void didUpdateWidget(_SetpointControls old) {
+    super.didUpdateWidget(old);
+    // When the server confirms a value and we're not mid-gesture, clear local.
+    if (_repeatTimer == null && _debounceTimer == null) {
+      _localSetpoint = null;
+    }
+  }
+
+  @override
+  void dispose() {
+    _repeatTimer?.cancel();
+    _safetyTimer?.cancel();
+    _debounceTimer?.cancel();
+    super.dispose();
+  }
+
+  /// Kill any running repeat timer (idempotent).
+  void _cancelRepeat() {
+    _repeatTimer?.cancel();
+    _repeatTimer = null;
+    _safetyTimer?.cancel();
+    _safetyTimer = null;
+    _repeatCount = 0;
+  }
+
+  /// Step once and start the hold-to-repeat timer.
+  void _onHoldStart(double direction) {
+    // Always kill previous timer first — prevents orphan timers when
+    // rapidly alternating between + and -.
+    _cancelRepeat();
+    _step(direction);
+    _repeatTimer = Timer.periodic(const Duration(milliseconds: 300), (_) {
+      if (!mounted) {
+        _cancelRepeat();
+        return;
+      }
+      _repeatCount++;
+      // Accelerate: after 4 ticks double-step, after 8 triple-step.
+      final steps = _repeatCount < 4 ? 1 : (_repeatCount < 8 ? 2 : 3);
+      for (var i = 0; i < steps; i++) {
+        _step(direction);
+      }
+    });
+    // Safety kill: if onLongPressEnd never fires (e.g. focus loss, browser
+    // event theft), auto-stop after 8 seconds and send what we have.
+    _safetyTimer = Timer(const Duration(seconds: 8), () {
+      _onHoldEnd();
+    });
+  }
+
+  /// Stop repeating and debounce-send to backend.
+  void _onHoldEnd() {
+    _cancelRepeat();
+    _debounceSend();
+  }
+
+  /// Apply a single 0.5° step locally (optimistic).
+  void _step(double direction) {
+    if (!mounted) return;
+    setState(() {
+      final current = _displaySetpoint ?? 20.0;
+      _localSetpoint = (current + direction * 0.5).clamp(5.0, 35.0);
+    });
+    // Reset debounce on every step so we only send after user stops.
+    _debounceTimer?.cancel();
+    _debounceTimer = null;
+  }
+
+  /// Send the final value to the backend after a short pause.
+  void _debounceSend() {
+    _debounceTimer?.cancel();
+    _debounceTimer = Timer(const Duration(milliseconds: 400), () {
+      _debounceTimer = null;
+      if (!mounted) return;
+      final value = _localSetpoint;
+      if (value != null) {
+        widget.ref
+            .read(roomDevicesProvider.notifier)
+            .setSetpoint(widget.device.id, value);
+      }
+    });
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final canAdjust = isOnline && !isPending && setpoint != null;
+    final canAdjust =
+        widget.isOnline && !widget.isPending && _displaySetpoint != null;
+    final isLocal = _localSetpoint != null;
 
     return Column(
       children: [
-        // Setpoint label
         Text(
           'Setpoint',
           style: TextStyle(
@@ -151,95 +262,126 @@ class _SetpointControls extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 4),
-
-        // Setpoint value with +/- buttons
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [
             // Decrease button
-            _AdjustButton(
-              icon: Icons.remove,
-              onPressed: canAdjust
-                  ? () => _adjustSetpoint(-0.5)
-                  : null,
-              theme: theme,
+            Expanded(
+              child: _AdjustButton(
+                icon: Icons.remove,
+                onPressed: canAdjust ? () => _step(-1) : null,
+                onHoldStart: canAdjust ? () => _onHoldStart(-1) : null,
+                onHoldEnd: canAdjust ? _onHoldEnd : null,
+                theme: widget.theme,
+              ),
             ),
 
-            // Setpoint display
+            // Setpoint display — highlight while local (unsent)
             Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 8),
+              padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
-                setpoint != null
-                    ? '${setpoint!.toStringAsFixed(1)}°'
+                _displaySetpoint != null
+                    ? '${_displaySetpoint!.toStringAsFixed(1)}°'
                     : '--',
                 style: TextStyle(
                   fontSize: 18,
                   fontWeight: FontWeight.w600,
-                  color: isPending
-                      ? theme.colorScheme.primary
-                      : theme.colorScheme.onSurface,
+                  color: isLocal
+                      ? widget.theme.colorScheme.primary
+                      : widget.isPending
+                          ? widget.theme.colorScheme.primary
+                          : widget.theme.colorScheme.onSurface,
                 ),
               ),
             ),
 
             // Increase button
-            _AdjustButton(
-              icon: Icons.add,
-              onPressed: canAdjust
-                  ? () => _adjustSetpoint(0.5)
-                  : null,
-              theme: theme,
+            Expanded(
+              child: _AdjustButton(
+                icon: Icons.add,
+                onPressed: canAdjust ? () => _step(1) : null,
+                onHoldStart: canAdjust ? () => _onHoldStart(1) : null,
+                onHoldEnd: canAdjust ? _onHoldEnd : null,
+                theme: widget.theme,
+              ),
             ),
           ],
         ),
       ],
     );
   }
-
-  void _adjustSetpoint(double delta) {
-    final newSetpoint = (setpoint ?? 20.0) + delta;
-    // Clamp to reasonable range (5-35°C)
-    final clamped = newSetpoint.clamp(5.0, 35.0);
-
-    ref.read(roomDevicesProvider.notifier).setSetpoint(device.id, clamped);
-  }
 }
 
-class _AdjustButton extends StatelessWidget {
+class _AdjustButton extends StatefulWidget {
   final IconData icon;
   final VoidCallback? onPressed;
+  final VoidCallback? onHoldStart;
+  final VoidCallback? onHoldEnd;
   final ThemeData theme;
 
   const _AdjustButton({
     required this.icon,
     required this.onPressed,
+    this.onHoldStart,
+    this.onHoldEnd,
     required this.theme,
   });
 
   @override
-  Widget build(BuildContext context) {
-    final enabled = onPressed != null;
+  State<_AdjustButton> createState() => _AdjustButtonState();
+}
 
-    return InkWell(
-      onTap: onPressed,
-      borderRadius: BorderRadius.circular(8),
-      child: Container(
-        width: 32,
-        height: 32,
+class _AdjustButtonState extends State<_AdjustButton> {
+  bool _pressed = false;
+
+  void _setPressed(bool v) {
+    if (v != _pressed) setState(() => _pressed = v);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final enabled = widget.onPressed != null;
+    final accent = widget.theme.colorScheme.primary;
+
+    return GestureDetector(
+      behavior: HitTestBehavior.opaque,
+      onTapDown: (_) => _setPressed(true),
+      onTapUp: (_) => _setPressed(false),
+      onTapCancel: () => _setPressed(false),
+      onTap: () {
+        widget.onHoldEnd?.call();
+        widget.onPressed?.call();
+        widget.onHoldEnd?.call();
+      },
+      onLongPressStart: (_) {
+        _setPressed(true);
+        widget.onHoldStart?.call();
+      },
+      onLongPressEnd: (_) {
+        _setPressed(false);
+        widget.onHoldEnd?.call();
+      },
+      child: AnimatedContainer(
+        duration: const Duration(milliseconds: 80),
+        height: 48,
         decoration: BoxDecoration(
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(10),
+          color: _pressed && enabled
+              ? accent.withValues(alpha: 0.25)
+              : enabled
+                  ? accent.withValues(alpha: 0.08)
+                  : Colors.grey.shade900,
           border: Border.all(
             color: enabled
-                ? theme.colorScheme.primary.withValues(alpha: 0.5)
+                ? accent.withValues(alpha: _pressed ? 0.8 : 0.35)
                 : Colors.grey.shade700,
+            width: _pressed ? 1.5 : 1.0,
           ),
         ),
         child: Icon(
-          icon,
-          size: 18,
-          color: enabled
-              ? theme.colorScheme.primary
-              : Colors.grey.shade600,
+          widget.icon,
+          size: 22,
+          color: enabled ? accent : Colors.grey.shade600,
         ),
       ),
     );

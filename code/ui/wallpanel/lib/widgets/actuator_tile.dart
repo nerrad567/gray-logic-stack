@@ -254,16 +254,15 @@ class _ChannelIndicator extends StatelessWidget {
   }
 
   /// Get the status text for this channel from the device state.
-  /// State keys are prefixed: ch_a_switch_status, ch_a_valve_status, etc.
-  /// Falls back to command keys (ch_a_switch, ch_a_valve) when status
-  /// keys haven't been received yet.
+  /// State keys use the Go StateKeyForFunction convention:
+  ///   ch_a_switch → ch_a_on, ch_a_valve → ch_a_valve
   String _getStatusText() {
     if (channel.isSpare) return '--';
 
     final prefix = 'ch_${channel.letter.toLowerCase()}';
 
     if (isValveType) {
-      // Look for valve percentage — prefer command (immediate) over status (delayed feedback)
+      // Valve state key: ch_X_valve (matches Go StateKeyForFunction)
       for (final suffix in ['_valve', '_valve_status']) {
         final val = deviceState['$prefix$suffix'];
         if (val is num) return '${val.toInt()}%';
@@ -271,12 +270,10 @@ class _ChannelIndicator extends StatelessWidget {
       return '?';
     }
 
-    // Switch/dimmer actuator — prefer command over status
-    for (final suffix in ['_switch', '_switch_status']) {
-      final sw = deviceState['$prefix$suffix'];
-      if (sw == true) return 'ON';
-      if (sw == false) return 'OFF';
-    }
+    // Switch state key: ch_X_on (Go maps "switch" → state key "on")
+    final sw = deviceState['${prefix}_on'];
+    if (sw == true) return 'ON';
+    if (sw == false) return 'OFF';
     return '?';
   }
 
@@ -322,10 +319,9 @@ class _ChannelIndicator extends StatelessWidget {
       return false;
     }
 
-    for (final suffix in ['_switch', '_switch_status']) {
-      final sw = deviceState['$prefix$suffix'];
-      if (sw is bool) return sw;
-    }
+    // Switch state key: ch_X_on (Go maps "switch" → state key "on")
+    final sw = deviceState['${prefix}_on'];
+    if (sw is bool) return sw;
     return false;
   }
 
