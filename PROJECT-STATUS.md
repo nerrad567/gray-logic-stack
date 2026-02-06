@@ -7,8 +7,8 @@
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-06 (Session 36 - Capability-Aware Scene Editor & Flutter Fixes)
-**Current milestone:** Year 2 Active — M2.1 Complete, Flutter panel hardening in progress
+**Last session:** 2026-02-06 (Session 37 - Retro Panel Phases 1-3 + Hardware Sourcing)
+**Current milestone:** Year 2 Active — M2.1 Complete, M2.10 Phases 1-3 Complete, M2.11 Parts Sourced
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
@@ -86,8 +86,9 @@
 - Flutter Dep Upgrade ✅ (Riverpod v3, file_picker v10, dio v5.9, all 55 tests passing, 3s analyze)
 
 **What's next:**
-- **Priority 1**: M2.2 Advanced Scenes (group targeting, area-scoped scenes, multi-action sequences)
-- **Priority 2**: Flutter auth integration (login screen, token storage, role-based UI) + Flutter M2.1 integration (hierarchy screen, zone management)
+- **Priority 1**: M2.11 — Order retro panel prototype parts, begin ESP-IDF port
+- **Priority 2**: M2.2 Advanced Scenes (group targeting, area-scoped scenes, multi-action sequences)
+- **Priority 3**: Flutter auth integration (login screen, token storage, role-based UI) + Flutter M2.1 integration (hierarchy screen, zone management)
 - **Parking lot**: ETS domain filter i18n, KNXSim config.yaml schema validation, domain-specific access scoping (CCTV, locks, fire, energy — see `notes/domain-access-scoping.md`)
 - **Future architecture**: KNXSim multi-container mode (one container per premise = separate IPs like real hardware)
 - **Strategic**: Multi-agent workflow (Claude orchestrator + Codex for security/refactoring tasks — see CLAUDE.md)
@@ -226,6 +227,8 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | DALI Bridge | ❌ Not started | Spec complete (Year 2) |
 | Modbus Bridge | ❌ Not started | Spec complete (Year 2) |
 | Flutter Wall Panel | ✅ Complete | Riverpod, Dio, WebSocket, optimistic UI, embedded web serving |
+| Retro Panel (Software) | ✅ Phases 1-3 | LVGL SDL simulator: visual theme, REST/MQTT networking, touch controls |
+| Retro Panel (Hardware) | 🔄 Parts sourced | ESP32-S3 boards identified, parts list finalised, ready to order |
 | Location API | ✅ Complete | Area/room endpoints, SQLite repository |
 | Voice Pipeline | ❌ Not started | Year 4 |
 
@@ -302,13 +305,15 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 |-----------|------|--------|
 | **M2.1** | Location Hierarchy, Device Groups & Infrastructure Zones | ✅ Complete |
 | M2.2 | Advanced Scenes (group targeting, multi-action) | |
-| M2.3 | Mode system (Home/Away/Night/Holiday) |
-| M2.4 | Astronomical clock + scheduler |
-| M2.5 | DALI bridge (Lunatone IoT Gateway REST API integration) |
-| M2.6 | Blind control |
-| M2.7 | Climate integration (Modbus → HVAC) |
-| M2.8 | Flutter mobile app |
-| M2.9 | Matter bridge (Apple/Google/Alexa via Matterbridge) |
+| M2.3 | Mode system (Home/Away/Night/Holiday) | |
+| M2.4 | Astronomical clock + scheduler | |
+| M2.5 | DALI bridge (Lunatone IoT Gateway REST API integration) | |
+| M2.6 | Blind control | |
+| M2.7 | Climate integration (Modbus → HVAC) | |
+| M2.8 | Flutter mobile app | |
+| M2.9 | Matter bridge (Apple/Google/Alexa via Matterbridge) | |
+| **M2.10** | **Retro Panel — Software (SDL simulator)** | **Phases 1-3 ✅** |
+| **M2.11** | **Retro Panel — Hardware Prototype (ESP32-S3)** | **Parts sourced** |
 
 ### Year 3 — Integration & Resilience (2028)
 | Milestone | Goal |
@@ -348,6 +353,68 @@ All documentation is complete. See `CHANGELOG.md` entries from 2026-01-12 to 202
 | M5.5 | Customer handover pack generator |
 | M5.6 | Automated testing framework |
 | M5.7 | First customer deployment |
+| **M5.8** | **Retro Panel — Manufacturing (custom PCB, enclosure, CE/FCC)** |
+
+---
+
+## M2.10 Retro Panel — Software (SDL Simulator)
+
+LVGL-based native wall panel with 1960s/70s aesthetic. $80/room vs $2,500+
+Crestron. Dockable: PoE wall dock + portable handheld with battery + WiFi.
+
+Full documentation: `code/ui/retropanel/README.md`
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Visual theme (retro colours, Nixie font, VU meters, bakelite buttons, scanlines) | ✅ Complete |
+| 2 | Data layer (REST boot loading, MQTT live updates, ring buffer, cJSON) | ✅ Complete |
+| 3 | Interactive controls (touch→REST commands, optimistic UI, scene activation) | ✅ Complete |
+| 4 | Room selector screen (grid of rooms for portable mode) | Planned |
+| 5 | Settings/setup wizard screen (WiFi, server URL, token, room) | Planned |
+| 6 | Power UI (battery indicator, charging icon, WiFi/Ethernet status) | Planned |
+| 7 | Polish and effects (VU sweep animation, nixie glow, screen warm-up) | Planned |
+
+## M2.11 Retro Panel — Hardware Prototype
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Order Phase A parts (ESP32-S3 board + battery + LD2410C + charger) | Ready to order |
+| 2 | ESP-IDF port — get LVGL rendering on Elecrow/Waveshare board | Planned |
+| 3 | WiFi + MQTT integration on ESP32-S3 | Planned |
+| 4 | LiFePO4 battery + TP5000 charging circuit | Planned |
+| 5 | LD2410C presence sensor integration (backlight control) | Planned |
+| 6 | Power management (CPU freq scaling, WiFi modem sleep, backlight-off) | Planned |
+| 7 | Order Phase B parts (dock: PoE splitter, pogo pins, W5500 Ethernet) | After Phase A works |
+| 8 | W5500 Ethernet + dock detection (VCC pogo pin sense) | Planned |
+| 9 | Network handover (Ethernet ↔ WiFi automatic switching) | Planned |
+| 10 | Enclosure prototype (3D printed, magnetic alignment) | Planned |
+
+### Phase A Parts (ready to order — ~$80)
+
+| Component | Specific Part | Qty | Price | Source |
+|-----------|---------------|-----|-------|--------|
+| Display board | Elecrow CrowPanel Advance 3.5" (ESP32-S3, IPS, 16MB/8MB) | 1 | ~$25 | elecrow.com |
+| Display board alt | Waveshare ESP32-S3-Touch-LCD-3.5 (IPS, 16MB/8MB) | 1 | ~$26 | waveshare.com |
+| mmWave sensor | HLK-LD2410C (24GHz, BLE config) | 2 | ~$3 ea | AliExpress |
+| LiFePO4 cells | JGNE 26650 3.2V 4000mAh | 2 | ~$4 ea | 18650batterystore.com |
+| Battery holder | Single 26650 holder with leads | 2 | ~$1 ea | AliExpress |
+| Charge module | TP5000 (set solder jumper to 3.6V LiFePO4 mode) | 3 | ~$2 ea | AliExpress |
+| USB-C breakout | USB-C female breakout board | 2 | ~$2 ea | AliExpress |
+| Dupont wires | Male-female jumper wires 40pc | 1 | ~$3 | AliExpress |
+| Breadboard | Half-size solderless | 2 | ~$3 ea | AliExpress |
+
+**Do NOT buy:** Sunton CYD (regular ESP32, no PSRAM, TN panel), TP4056 (4.2V fixed in silicon — will damage LiFePO4)
+
+## M5.8 Retro Panel — Manufacturing (future)
+
+| # | Task | Status |
+|---|------|--------|
+| 1 | Custom PCB design — single board: ESP32-S3 + display + battery + peripherals | Future |
+| 2 | Dock PCB design — minimal: PoE splitter + magnetics + pogo connector | Future |
+| 3 | Enclosure design — injection mould or CNC aluminium, wall plate fitment | Future |
+| 4 | CE/FCC certification — WiFi + Ethernet emissions testing | Future |
+| 5 | Small batch production (10 units) — own home + beta testers | Future |
+| 6 | Production tooling — if demand warrants, optimise for volume | Future |
 
 ---
 
