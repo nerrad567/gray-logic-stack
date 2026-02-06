@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import '../models/auth.dart';
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
 import '../screens/admin/admin_screen.dart';
@@ -9,7 +10,7 @@ import '../screens/ets_import_screen.dart';
 
 /// Horizontal scrollable navigation bar showing rooms grouped by area.
 /// Tapping a room pill switches the view to that room's devices.
-/// Includes a settings menu for commissioning tools.
+/// Includes a settings menu filtered by the caller's role.
 class RoomNavBar extends ConsumerWidget {
   const RoomNavBar({super.key});
 
@@ -125,7 +126,13 @@ class RoomNavBar extends ConsumerWidget {
   }
 }
 
-/// Settings/tools menu button with commissioning options.
+/// Settings/tools menu button with role-filtered options.
+///
+/// Menu items by role:
+/// - Panel: Refresh only
+/// - User: Change Password, Refresh, Logout
+/// - Admin: Admin, Import KNX, Change Password, Refresh, Logout
+/// - Owner: Admin, Import KNX, Change Password, Refresh, Logout
 class _SettingsMenu extends StatelessWidget {
   final WidgetRef ref;
 
@@ -133,6 +140,8 @@ class _SettingsMenu extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final identity = ref.watch(identityProvider);
+
     return PopupMenuButton<String>(
       icon: Icon(
         Icons.settings_outlined,
@@ -140,59 +149,84 @@ class _SettingsMenu extends StatelessWidget {
       ),
       tooltip: 'Settings',
       onSelected: (value) => _handleMenuSelection(context, value),
-      itemBuilder: (context) => [
-        const PopupMenuItem(
-          value: 'admin',
-          child: ListTile(
-            leading: Icon(Icons.admin_panel_settings_outlined),
-            title: Text('Admin'),
-            subtitle: Text('Metrics, devices & import'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'import_ets',
-          child: ListTile(
-            leading: Icon(Icons.upload_file_outlined),
-            title: Text('Import KNX Devices'),
-            subtitle: Text('From ETS project'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'change_password',
-          child: ListTile(
-            leading: Icon(Icons.lock_outline),
-            title: Text('Change Password'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuItem(
-          value: 'refresh',
-          child: ListTile(
-            leading: Icon(Icons.refresh_outlined),
-            title: Text('Refresh'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-        const PopupMenuDivider(),
-        const PopupMenuItem(
-          value: 'logout',
-          child: ListTile(
-            leading: Icon(Icons.logout_outlined),
-            title: Text('Logout'),
-            dense: true,
-            contentPadding: EdgeInsets.zero,
-          ),
-        ),
-      ],
+      itemBuilder: (context) => _buildMenuItems(identity),
     );
+  }
+
+  List<PopupMenuEntry<String>> _buildMenuItems(Identity? identity) {
+    final items = <PopupMenuEntry<String>>[];
+    final isAdmin = identity?.isAdmin ?? false;
+    final isPanel = identity?.isPanel ?? false;
+
+    // Admin menu (admin + owner only)
+    if (isAdmin) {
+      items.add(const PopupMenuItem(
+        value: 'admin',
+        child: ListTile(
+          leading: Icon(Icons.admin_panel_settings_outlined),
+          title: Text('Admin'),
+          subtitle: Text('Metrics, devices & system'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ));
+      items.add(const PopupMenuDivider());
+    }
+
+    // Import KNX (admin + owner only)
+    if (isAdmin) {
+      items.add(const PopupMenuItem(
+        value: 'import_ets',
+        child: ListTile(
+          leading: Icon(Icons.upload_file_outlined),
+          title: Text('Import KNX Devices'),
+          subtitle: Text('From ETS project'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ));
+      items.add(const PopupMenuDivider());
+    }
+
+    // Change password (users only — not panels)
+    if (!isPanel) {
+      items.add(const PopupMenuItem(
+        value: 'change_password',
+        child: ListTile(
+          leading: Icon(Icons.lock_outline),
+          title: Text('Change Password'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ));
+    }
+
+    // Refresh (everyone)
+    items.add(const PopupMenuItem(
+      value: 'refresh',
+      child: ListTile(
+        leading: Icon(Icons.refresh_outlined),
+        title: Text('Refresh'),
+        dense: true,
+        contentPadding: EdgeInsets.zero,
+      ),
+    ));
+
+    // Logout (users only — not panels)
+    if (!isPanel) {
+      items.add(const PopupMenuDivider());
+      items.add(const PopupMenuItem(
+        value: 'logout',
+        child: ListTile(
+          leading: Icon(Icons.logout_outlined),
+          title: Text('Logout'),
+          dense: true,
+          contentPadding: EdgeInsets.zero,
+        ),
+      ));
+    }
+
+    return items;
   }
 
   void _handleMenuSelection(BuildContext context, String value) {
