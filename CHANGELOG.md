@@ -4,6 +4,25 @@ All notable changes to this project will be documented in this file.
 
 ---
 
+## 1.0.28 – Capability-Aware Scene Editor & Flutter Fixes (2026-02-06)
+
+### Fixed
+
+- **Scene editor command selection** — Rewrote `_commandsForDevice()` from domain-based switch to capability-driven logic. Devices now only show commands matching their actual capabilities:
+  - `heating_actuator` (on_off only): shows on/off/toggle instead of set_setpoint
+  - `blind_switch` (binary move): shows on/off/stop instead of set_position
+  - Sensors (`presence_sensor`, etc.): hidden from device dropdown entirely (read-only, not commandable)
+- **Scene presets** — Capability-aware downgrading: `set_level` on switch-only lights becomes `on`, `set_position` on blind switches becomes `on`/`off` based on target position
+- **`blind_switch` default capabilities** — Changed from `['position']` to `['on_off']` in device type config (only affects manual device creation; ETS imports use Go commissioning)
+- **Flutter web startup error** — Added `WidgetsFlutterBinding.ensureInitialized()` before `BrowserContextMenu.disableContextMenu()` call in `main.dart` to prevent `OptionalMethodChannel` crash during engine init
+
+### Added
+
+- **Device capability getters** — `hasPosition`, `hasTilt`, `hasTemperatureSet`, `hasColorTemp`, `hasColorRGB`, `hasSpeed`, `isCommandable` on Device model
+- **Tilt slider UI** — `set_tilt` command with tilt angle slider (0-100%) for blinds with slat control
+
+---
+
 ## 1.0.27 – M2.1 Location Hierarchy, Device Groups & Infrastructure Zones (2026-02-05)
 
 **Milestone: M2.1 Location Hierarchy — Complete (Phases 1-5)**

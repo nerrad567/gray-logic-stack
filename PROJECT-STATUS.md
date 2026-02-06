@@ -1,14 +1,14 @@
 # Gray Logic — Project Status
 
-> **Last Updated:** 2026-02-05
-> **Current Phase:** Implementation (Year 1 Complete + Commissioning Tools)
+> **Last Updated:** 2026-02-06
+> **Current Phase:** Implementation (Year 1 Complete + Year 2 Active)
 
 ---
 
 ## RESUME HERE — Next Session
 
-**Last session:** 2026-02-05 (Session 35 - M2.1 Location Hierarchy, Device Groups & Infrastructure Zones)
-**Current milestone:** Year 2 Kick-off — M2.1 Complete (Tags, Groups, Zones, Hierarchy, Referential Safety)
+**Last session:** 2026-02-06 (Session 36 - Capability-Aware Scene Editor & Flutter Fixes)
+**Current milestone:** Year 2 Active — M2.1 Complete, Flutter panel hardening in progress
 
 **What's done:**
 - M1.1 Core Infrastructure (SQLite, MQTT, VictoriaMetrics, Config, Logging) ✅
@@ -1278,6 +1278,24 @@ Devices imported via the Flutter panel were ending up with empty `room_id` and `
 **Files Modified**: 11 (auth.go, middleware.go, router.go, server.go, errors.go, websocket.go, audit/repository.go, config.go, main.go, go.mod, server_test.go)
 **Tests**: All 16 packages pass with `-race`, 0 lint warnings
 **CHANGELOG**: v1.0.26
+
+---
+
+### Session 36: 2026-02-06 — Capability-Aware Scene Editor & Flutter Fixes
+
+**Goal:** Fix scene editor showing invalid commands for devices, fix Flutter web startup error
+
+**Capability-Aware Scene Editor** (4 Flutter files):
+- `device.dart`: Added 6 capability getters + `_controlCapabilities` set + `isCommandable` property
+- `scene_action_row.dart`: Rewrote `_commandsForDevice()` from domain-switch to capability-driven, filtered device dropdown to exclude sensors, added `set_tilt` slider UI
+- `scene_editor_sheet.dart`: Made `_applyPreset()` capability-aware — skips sensors, downgrades `set_level`→`on` for non-dimmable, `set_position`→`on/off` for blind_switch
+- `device_types.dart`: Fixed `blind_switch` default capabilities from `['position']` to `['on_off']`
+
+**Flutter Web Fix** (1 Flutter file):
+- `main.dart`: Added `WidgetsFlutterBinding.ensureInitialized()` before `BrowserContextMenu.disableContextMenu()` — fixes `OptionalMethodChannel` crash during engine init
+
+**Files Modified**: 5 Dart files
+**Commits**: 2 (`3906b93`, `d90ecc5`)
 
 ---
 
