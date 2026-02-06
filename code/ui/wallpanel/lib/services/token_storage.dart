@@ -78,6 +78,35 @@ class TokenStorage {
     await prefs.setString(AppConstants.roomIdStorageKey, roomId);
   }
 
+  // --- Panel Token ---
+
+  Future<String?> getPanelToken() async {
+    final prefs = await _instance;
+    return prefs.getString(AppConstants.panelTokenStorageKey);
+  }
+
+  Future<void> setPanelToken(String token) async {
+    final prefs = await _instance;
+    await prefs.setString(AppConstants.panelTokenStorageKey, token);
+  }
+
+  Future<void> clearPanelToken() async {
+    final prefs = await _instance;
+    await prefs.remove(AppConstants.panelTokenStorageKey);
+  }
+
+  // --- Auth Mode (user / panel) ---
+
+  Future<String> getAuthMode() async {
+    final prefs = await _instance;
+    return prefs.getString(AppConstants.authModeStorageKey) ?? 'user';
+  }
+
+  Future<void> setAuthMode(String mode) async {
+    final prefs = await _instance;
+    await prefs.setString(AppConstants.authModeStorageKey, mode);
+  }
+
   // --- Check if configured ---
 
   Future<bool> isConfigured() async {
@@ -94,6 +123,8 @@ class TokenStorage {
     final prefs = await _instance;
     await prefs.remove(AppConstants.tokenStorageKey);
     await prefs.remove(AppConstants.refreshTokenStorageKey);
+    await prefs.remove(AppConstants.panelTokenStorageKey);
+    await prefs.remove(AppConstants.authModeStorageKey);
     await prefs.remove(AppConstants.coreUrlStorageKey);
     await prefs.remove(AppConstants.roomIdStorageKey);
   }

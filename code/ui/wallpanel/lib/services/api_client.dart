@@ -74,6 +74,12 @@ class ApiClient {
     });
   }
 
+  /// Get the current caller's identity, accessible rooms, and permissions.
+  Future<Identity> getMe() async {
+    final response = await _dio.get('/auth/me');
+    return Identity.fromJson(response.data as Map<String, dynamic>);
+  }
+
   // --- Devices ---
 
   Future<DeviceListResponse> getDevices({String? roomId, String? domain}) async {
@@ -397,7 +403,8 @@ class ApiClient {
   }
 }
 
-/// Interceptor that adds the Bearer token to all requests (except login).
+/// Interceptor that adds auth credentials to all requests (except login/health).
+/// Supports dual auth mode: user JWT (Bearer token) or panel token (X-Panel-Token).
 class _AuthInterceptor extends Interceptor {
   final TokenStorage _tokenStorage;
 
@@ -405,15 +412,23 @@ class _AuthInterceptor extends Interceptor {
 
   @override
   Future<void> onRequest(RequestOptions options, RequestInterceptorHandler handler) async {
-    // Skip auth for login endpoint
-    if (options.path.contains('/auth/login')) {
+    // Skip auth for login and health endpoints
+    if (options.path.contains('/auth/login') || options.path.contains('/health')) {
       handler.next(options);
       return;
     }
 
-    final token = await _tokenStorage.getToken();
-    if (token != null) {
-      options.headers['Authorization'] = 'Bearer $token';
+    final mode = await _tokenStorage.getAuthMode();
+    if (mode == 'panel') {
+      final panelToken = await _tokenStorage.getPanelToken();
+      if (panelToken != null) {
+        options.headers['X-Panel-Token'] = panelToken;
+      }
+    } else {
+      final token = await _tokenStorage.getToken();
+      if (token != null) {
+        options.headers['Authorization'] = 'Bearer $token';
+      }
     }
     handler.next(options);
   }

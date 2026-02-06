@@ -24,6 +24,8 @@ class AppConstants {
   static const String refreshTokenStorageKey = 'auth_refresh_token';
   static const String coreUrlStorageKey = 'core_base_url';
   static const String roomIdStorageKey = 'configured_room_id';
+  static const String panelTokenStorageKey = 'panel_token';
+  static const String authModeStorageKey = 'auth_mode';
   static const String locationCacheKey = 'cached_location_data';
 
   // UI
