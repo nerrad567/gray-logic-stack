@@ -10,6 +10,7 @@ import '../models/device.dart';
 import '../models/ets_import.dart';
 import '../models/discovery.dart';
 import '../models/factory_reset.dart';
+import '../models/hierarchy.dart';
 import '../models/site.dart';
 import '../models/metrics.dart';
 import '../models/room.dart';
@@ -201,6 +202,15 @@ class ApiClient {
   /// Delete a room.
   Future<void> deleteRoom(String id) async {
     await _dio.delete('/rooms/$id');
+  }
+
+  // --- Hierarchy ---
+
+  /// Get the full site → areas → rooms tree in a single call.
+  /// Includes device/scene counts and zone membership per room.
+  Future<HierarchyResponse> getHierarchy() async {
+    final response = await _dio.get('/hierarchy');
+    return HierarchyResponse.fromJson(response.data as Map<String, dynamic>);
   }
 
   // --- Users ---

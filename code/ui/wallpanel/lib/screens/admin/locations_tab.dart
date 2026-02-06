@@ -1,8 +1,8 @@
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import '../../models/area.dart';
-import '../../models/room.dart';
+import '../../models/hierarchy.dart';
 import '../../providers/auth_provider.dart';
 import '../../providers/location_provider.dart';
 
@@ -16,7 +16,8 @@ const _roomTypes = [
 ];
 
 /// Location management tab — view, create, edit, and delete areas and rooms
-/// in a hierarchical tree layout.
+/// in a hierarchical tree layout. Uses the single-call /hierarchy endpoint
+/// for efficient loading with device/scene counts.
 class LocationsTab extends ConsumerStatefulWidget {
   const LocationsTab({super.key});
 
@@ -27,8 +28,7 @@ class LocationsTab extends ConsumerStatefulWidget {
 class _LocationsTabState extends ConsumerState<LocationsTab> {
   bool _loading = true;
   String? _error;
-  List<Area> _areas = [];
-  List<Room> _rooms = [];
+  HierarchySite? _site;
 
   @override
   void initState() {
@@ -43,12 +43,10 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     });
     try {
       final api = ref.read(apiClientProvider);
-      final areasResp = await api.getAreas();
-      final roomsResp = await api.getRooms();
+      final resp = await api.getHierarchy();
       if (mounted) {
         setState(() {
-          _areas = areasResp.areas;
-          _rooms = roomsResp.rooms;
+          _site = resp.site;
           _loading = false;
         });
       }
@@ -62,10 +60,8 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     }
   }
 
-  List<Room> _roomsForArea(String areaId) {
-    return _rooms.where((r) => r.areaId == areaId).toList()
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
-  }
+  int get _totalRooms =>
+      _site?.areas.fold<int>(0, (sum, a) => sum + a.rooms.length) ?? 0;
 
   @override
   Widget build(BuildContext context) {
@@ -96,7 +92,9 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
       );
     }
 
-    if (_areas.isEmpty) {
+    final areas = _site?.areas ?? [];
+
+    if (areas.isEmpty) {
       return Center(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -123,8 +121,7 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
       );
     }
 
-    final sortedAreas = List<Area>.from(_areas)
-      ..sort((a, b) => a.sortOrder.compareTo(b.sortOrder));
+    final totalRooms = _totalRooms;
 
     return Column(
       children: [
@@ -134,8 +131,8 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
           child: Row(
             children: [
               Text(
-                '${_areas.length} area${_areas.length == 1 ? '' : 's'}, '
-                '${_rooms.length} room${_rooms.length == 1 ? '' : 's'}',
+                '${areas.length} area${areas.length == 1 ? '' : 's'}, '
+                '$totalRooms room${totalRooms == 1 ? '' : 's'}',
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant),
               ),
@@ -155,17 +152,15 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
             onRefresh: _loadData,
             child: ListView.builder(
               padding: const EdgeInsets.only(bottom: 80),
-              itemCount: sortedAreas.length,
+              itemCount: areas.length,
               itemBuilder: (context, index) {
-                final area = sortedAreas[index];
-                final rooms = _roomsForArea(area.id);
+                final area = areas[index];
                 return _AreaSection(
                   area: area,
-                  rooms: rooms,
                   onEditArea: () => _showEditAreaDialog(area),
                   onDeleteArea: () => _confirmDeleteArea(area),
                   onAddRoom: () => _showCreateRoomDialog(area),
-                  onEditRoom: (room) => _showEditRoomDialog(room),
+                  onEditRoom: (room) => _showEditRoomDialog(room, area.id),
                   onDeleteRoom: (room) => _confirmDeleteRoom(room),
                 );
               },
@@ -183,7 +178,7 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _AreaFormSheet(
-        siteId: 'site-001', // Default site ID
+        siteId: _site?.id ?? 'site-001',
         onSave: (data) async {
           final api = ref.read(apiClientProvider);
           await api.createArea(data);
@@ -196,12 +191,15 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     }
   }
 
-  Future<void> _showEditAreaDialog(Area area) async {
+  Future<void> _showEditAreaDialog(HierarchyArea area) async {
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _AreaFormSheet(
-        area: area,
+        areaId: area.id,
+        areaName: area.name,
+        areaType: area.type,
+        areaSortOrder: area.sortOrder,
         onSave: (data) async {
           final api = ref.read(apiClientProvider);
           await api.updateArea(area.id, data);
@@ -214,27 +212,23 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     }
   }
 
-  Future<void> _confirmDeleteArea(Area area) async {
-    final rooms = _roomsForArea(area.id);
+  Future<void> _confirmDeleteArea(HierarchyArea area) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
         title: const Text('Delete Area'),
-        content: rooms.isNotEmpty
-            ? Text('Cannot delete "${area.name}" — it has ${rooms.length} room${rooms.length == 1 ? '' : 's'}. Delete the rooms first.')
-            : Text('Delete "${area.name}"? This cannot be undone.'),
+        content: Text('Delete "${area.name}"? This cannot be undone.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(ctx).pop(false),
-            child: Text(rooms.isNotEmpty ? 'OK' : 'Cancel'),
+            child: const Text('Cancel'),
           ),
-          if (rooms.isEmpty)
-            FilledButton(
-              onPressed: () => Navigator.of(ctx).pop(true),
-              style: FilledButton.styleFrom(
-                backgroundColor: Theme.of(ctx).colorScheme.error),
-              child: const Text('Delete'),
-            ),
+          FilledButton(
+            onPressed: () => Navigator.of(ctx).pop(true),
+            style: FilledButton.styleFrom(
+              backgroundColor: Theme.of(ctx).colorScheme.error),
+            child: const Text('Delete'),
+          ),
         ],
       ),
     );
@@ -250,6 +244,12 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
             SnackBar(content: Text('Deleted area "${area.name}"')),
           );
         }
+      } on DioException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_extractErrorMessage(e, 'delete area'))),
+          );
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -262,13 +262,14 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
 
   // --- Room dialogs ---
 
-  Future<void> _showCreateRoomDialog(Area parentArea) async {
+  Future<void> _showCreateRoomDialog(HierarchyArea parentArea) async {
+    final areas = _site?.areas ?? [];
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _RoomFormSheet(
         areaId: parentArea.id,
-        areas: _areas,
+        areas: areas,
         onSave: (data) async {
           final api = ref.read(apiClientProvider);
           await api.createRoom(data);
@@ -281,14 +282,18 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     }
   }
 
-  Future<void> _showEditRoomDialog(Room room) async {
+  Future<void> _showEditRoomDialog(HierarchyRoom room, String areaId) async {
+    final areas = _site?.areas ?? [];
     final result = await showModalBottomSheet<bool>(
       context: context,
       isScrollControlled: true,
       builder: (ctx) => _RoomFormSheet(
-        room: room,
-        areaId: room.areaId,
-        areas: _areas,
+        roomId: room.id,
+        roomName: room.name,
+        roomType: room.type,
+        roomSortOrder: room.sortOrder,
+        areaId: areaId,
+        areas: areas,
         onSave: (data) async {
           final api = ref.read(apiClientProvider);
           await api.updateRoom(room.id, data);
@@ -301,7 +306,7 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
     }
   }
 
-  Future<void> _confirmDeleteRoom(Room room) async {
+  Future<void> _confirmDeleteRoom(HierarchyRoom room) async {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
@@ -333,6 +338,12 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
             SnackBar(content: Text('Deleted room "${room.name}"')),
           );
         }
+      } on DioException catch (e) {
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(content: Text(_extractErrorMessage(e, 'delete room'))),
+          );
+        }
       } catch (e) {
         if (mounted) {
           ScaffoldMessenger.of(context).showSnackBar(
@@ -341,6 +352,19 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
         }
       }
     }
+  }
+
+  /// Extract a user-friendly error message from a DioException.
+  /// For 409 Conflict, uses the backend's "error" field which explains
+  /// why the deletion was blocked (e.g. "area has rooms: delete rooms first").
+  String _extractErrorMessage(DioException e, String action) {
+    final status = e.response?.statusCode;
+    final data = e.response?.data;
+    if (status == 409 && data is Map<String, dynamic>) {
+      final msg = data['error'] as String?;
+      if (msg != null && msg.isNotEmpty) return msg;
+    }
+    return 'Failed to $action';
   }
 
   void _invalidateLocationProvider() {
@@ -353,17 +377,15 @@ class _LocationsTabState extends ConsumerState<LocationsTab> {
 // ---------------------------------------------------------------------------
 
 class _AreaSection extends StatelessWidget {
-  final Area area;
-  final List<Room> rooms;
+  final HierarchyArea area;
   final VoidCallback onEditArea;
   final VoidCallback onDeleteArea;
   final VoidCallback onAddRoom;
-  final void Function(Room) onEditRoom;
-  final void Function(Room) onDeleteRoom;
+  final void Function(HierarchyRoom) onEditRoom;
+  final void Function(HierarchyRoom) onDeleteRoom;
 
   const _AreaSection({
     required this.area,
-    required this.rooms,
     required this.onEditArea,
     required this.onDeleteArea,
     required this.onAddRoom,
@@ -387,7 +409,7 @@ class _AreaSection extends StatelessWidget {
         ),
         title: Text(area.name, style: const TextStyle(fontWeight: FontWeight.w600)),
         subtitle: Text(
-          '${_formatType(area.type)} • ${rooms.length} room${rooms.length == 1 ? '' : 's'}',
+          '${_formatType(area.type)} • ${area.roomCount} room${area.roomCount == 1 ? '' : 's'}',
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant),
         ),
@@ -408,7 +430,7 @@ class _AreaSection extends StatelessWidget {
           ],
         ),
         children: [
-          ...rooms.map((room) => _RoomTile(
+          ...area.rooms.map((room) => _RoomTile(
                 room: room,
                 onEdit: () => onEditRoom(room),
                 onDelete: () => onDeleteRoom(room),
@@ -434,7 +456,7 @@ class _AreaSection extends StatelessWidget {
 }
 
 class _RoomTile extends StatelessWidget {
-  final Room room;
+  final HierarchyRoom room;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
 
@@ -448,13 +470,22 @@ class _RoomTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
 
+    // Build subtitle with type and counts
+    final parts = <String>[_formatType(room.type)];
+    if (room.deviceCount > 0) {
+      parts.add('${room.deviceCount} device${room.deviceCount == 1 ? '' : 's'}');
+    }
+    if (room.sceneCount > 0) {
+      parts.add('${room.sceneCount} scene${room.sceneCount == 1 ? '' : 's'}');
+    }
+
     return ListTile(
       contentPadding: const EdgeInsets.only(left: 72, right: 16),
       leading: Icon(_roomIcon(room.type),
           color: theme.colorScheme.onSurfaceVariant, size: 20),
       title: Text(room.name),
       subtitle: Text(
-        _formatType(room.type),
+        parts.join(' • '),
         style: theme.textTheme.bodySmall?.copyWith(
           color: theme.colorScheme.onSurfaceVariant),
       ),
@@ -503,11 +534,21 @@ class _RoomTile extends StatelessWidget {
 // ---------------------------------------------------------------------------
 
 class _AreaFormSheet extends StatefulWidget {
-  final Area? area;
+  final String? areaId;
+  final String? areaName;
+  final String? areaType;
+  final int? areaSortOrder;
   final String? siteId;
   final Future<void> Function(Map<String, dynamic>) onSave;
 
-  const _AreaFormSheet({this.area, this.siteId, required this.onSave});
+  const _AreaFormSheet({
+    this.areaId,
+    this.areaName,
+    this.areaType,
+    this.areaSortOrder,
+    this.siteId,
+    required this.onSave,
+  });
 
   @override
   State<_AreaFormSheet> createState() => _AreaFormSheetState();
@@ -520,15 +561,15 @@ class _AreaFormSheetState extends State<_AreaFormSheet> {
   late String _type;
   bool _saving = false;
 
-  bool get _isNew => widget.area == null;
+  bool get _isNew => widget.areaId == null;
 
   @override
   void initState() {
     super.initState();
-    _nameCtl = TextEditingController(text: widget.area?.name ?? '');
+    _nameCtl = TextEditingController(text: widget.areaName ?? '');
     _sortCtl = TextEditingController(
-        text: widget.area?.sortOrder.toString() ?? '0');
-    _type = widget.area?.type ?? 'floor';
+        text: (widget.areaSortOrder ?? 0).toString());
+    _type = widget.areaType ?? 'floor';
   }
 
   @override
@@ -659,13 +700,19 @@ class _AreaFormSheetState extends State<_AreaFormSheet> {
 // ---------------------------------------------------------------------------
 
 class _RoomFormSheet extends StatefulWidget {
-  final Room? room;
+  final String? roomId;
+  final String? roomName;
+  final String? roomType;
+  final int? roomSortOrder;
   final String areaId;
-  final List<Area> areas;
+  final List<HierarchyArea> areas;
   final Future<void> Function(Map<String, dynamic>) onSave;
 
   const _RoomFormSheet({
-    this.room,
+    this.roomId,
+    this.roomName,
+    this.roomType,
+    this.roomSortOrder,
     required this.areaId,
     required this.areas,
     required this.onSave,
@@ -683,16 +730,16 @@ class _RoomFormSheetState extends State<_RoomFormSheet> {
   late String _areaId;
   bool _saving = false;
 
-  bool get _isNew => widget.room == null;
+  bool get _isNew => widget.roomId == null;
 
   @override
   void initState() {
     super.initState();
-    _nameCtl = TextEditingController(text: widget.room?.name ?? '');
+    _nameCtl = TextEditingController(text: widget.roomName ?? '');
     _sortCtl = TextEditingController(
-        text: widget.room?.sortOrder.toString() ?? '0');
-    _type = widget.room?.type ?? 'other';
-    _areaId = widget.room?.areaId ?? widget.areaId;
+        text: (widget.roomSortOrder ?? 0).toString());
+    _type = widget.roomType ?? 'other';
+    _areaId = widget.areaId;
   }
 
   @override
