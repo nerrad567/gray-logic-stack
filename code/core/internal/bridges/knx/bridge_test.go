@@ -1257,6 +1257,99 @@ func TestBridgeDimMissingLevel(t *testing.T) {
 	}
 }
 
+func TestResolveFunction(t *testing.T) {
+	deviceGAs := map[string]AddressConfig{
+		"switch":             {GA: "1/0/1", DPT: "1.001"},
+		"switch_status":      {GA: "1/0/2", DPT: "1.001"},
+		"ch_a_switch":        {GA: "2/0/1", DPT: "1.001"},
+		"ch_a_switch_status": {GA: "2/0/2", DPT: "1.001"},
+		"ch_b_switch":        {GA: "2/0/10", DPT: "1.001"},
+		"ch_b_switch_status": {GA: "2/0/11", DPT: "1.001"},
+		"brightness":         {GA: "1/0/3", DPT: "5.001"},
+	}
+
+	tests := []struct {
+		name      string
+		params    map[string]any
+		fallbacks []string
+		wantGA    string
+		wantFn    string
+		wantOK    bool
+	}{
+		{
+			name:      "canonical fallback",
+			params:    nil,
+			fallbacks: []string{"switch"},
+			wantGA:    "1/0/1",
+			wantFn:    "switch",
+			wantOK:    true,
+		},
+		{
+			name:      "explicit function param overrides fallback",
+			params:    map[string]any{"function": "ch_a_switch"},
+			fallbacks: []string{"switch"},
+			wantGA:    "2/0/1",
+			wantFn:    "ch_a_switch",
+			wantOK:    true,
+		},
+		{
+			name:      "explicit function for channel B",
+			params:    map[string]any{"function": "ch_b_switch"},
+			fallbacks: []string{"switch"},
+			wantGA:    "2/0/10",
+			wantFn:    "ch_b_switch",
+			wantOK:    true,
+		},
+		{
+			name:      "explicit function not found falls through to fallback",
+			params:    map[string]any{"function": "ch_z_switch"},
+			fallbacks: []string{"switch"},
+			wantGA:    "1/0/1",
+			wantFn:    "switch",
+			wantOK:    true,
+		},
+		{
+			name:      "no match at all",
+			params:    nil,
+			fallbacks: []string{"position"},
+			wantGA:    "",
+			wantFn:    "",
+			wantOK:    false,
+		},
+		{
+			name:      "multiple fallbacks uses first match",
+			params:    nil,
+			fallbacks: []string{"brightness", "switch"},
+			wantGA:    "1/0/3",
+			wantFn:    "brightness",
+			wantOK:    true,
+		},
+		{
+			name:      "empty function param ignored",
+			params:    map[string]any{"function": ""},
+			fallbacks: []string{"switch"},
+			wantGA:    "1/0/1",
+			wantFn:    "switch",
+			wantOK:    true,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			addr, fn, ok := resolveFunction(tt.params, deviceGAs, tt.fallbacks...)
+			if ok != tt.wantOK {
+				t.Errorf("resolveFunction() ok = %v, want %v", ok, tt.wantOK)
+			}
+			if fn != tt.wantFn {
+				t.Errorf("resolveFunction() fn = %q, want %q", fn, tt.wantFn)
+			}
+			if ok && addr.GA != tt.wantGA {
+				t.Errorf("resolveFunction() GA = %q, want %q", addr.GA, tt.wantGA)
+			}
+		})
+	}
+}
+
 func TestBridge_StateKeyForFunction(t *testing.T) {
 	tests := []struct {
 		function string

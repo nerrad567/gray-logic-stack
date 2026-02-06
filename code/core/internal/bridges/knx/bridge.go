@@ -546,10 +546,34 @@ func (b *Bridge) executeCommand(cmd CommandMessage, deviceGAs map[string]Address
 	}
 }
 
+// resolveFunction finds the address config for a command by checking:
+//  1. An explicit "function" parameter (e.g. "ch_a_switch" for multi-channel actuators)
+//  2. The canonical function names provided as fallbacks
+//
+// This allows multi-channel infrastructure devices (switch actuators, heating
+// actuators) to be controlled via Parameters["function"] while room-level
+// devices continue to work with canonical names like "switch" or "brightness".
+func resolveFunction(params map[string]any, deviceGAs map[string]AddressConfig, fallbacks ...string) (AddressConfig, string, bool) {
+	// Explicit function override — used by multi-channel actuators
+	if fnName, ok := params["function"].(string); ok && fnName != "" {
+		if addr, exists := deviceGAs[fnName]; exists {
+			return addr, fnName, true
+		}
+	}
+
+	// Fall back to canonical function names
+	for _, name := range fallbacks {
+		if addr, ok := deviceGAs[name]; ok {
+			return addr, name, true
+		}
+	}
+	return AddressConfig{}, "", false
+}
+
 // executeOnOff sends an on/off command (DPT 1.001).
 func (b *Bridge) executeOnOff(ctx context.Context, cmd CommandMessage, deviceGAs map[string]AddressConfig, on bool) error {
-	// Find the switch address
-	addr, ok := deviceGAs["switch"]
+	// Find the switch address (supports multi-channel via "function" parameter)
+	addr, fnName, ok := resolveFunction(cmd.Parameters, deviceGAs, "switch")
 	if !ok {
 		b.publishAckError(cmd, "", ErrCodeNotConfigured,
 			"device has no switch address", 0)
@@ -578,7 +602,7 @@ func (b *Bridge) executeOnOff(ctx context.Context, cmd CommandMessage, deviceGAs
 
 	// Write-through: publish confirmed state immediately so the UI
 	// updates without waiting for the device echo.
-	b.publishWriteThrough(cmd.DeviceID, addr.GA, "switch", on)
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, fnName, on)
 
 	return nil
 }
@@ -607,16 +631,12 @@ func (b *Bridge) executeDim(ctx context.Context, cmd CommandMessage, deviceGAs m
 		return fmt.Errorf("level out of range: %.2f", level)
 	}
 
-	// Find the brightness address
-	addr, ok := deviceGAs["brightness"]
+	// Find the brightness address (supports multi-channel via "function" parameter)
+	addr, fnName, ok := resolveFunction(cmd.Parameters, deviceGAs, "brightness", "switch")
 	if !ok {
-		// Fall back to switch address for basic dimmers
-		addr, ok = deviceGAs["switch"]
-		if !ok {
-			b.publishAckError(cmd, "", ErrCodeNotConfigured,
-				"device has no brightness address", 0)
-			return fmt.Errorf("no brightness address")
-		}
+		b.publishAckError(cmd, "", ErrCodeNotConfigured,
+			"device has no brightness address", 0)
+		return fmt.Errorf("no brightness address")
 	}
 
 	ga, err := ParseGroupAddress(addr.GA)
@@ -640,7 +660,7 @@ func (b *Bridge) executeDim(ctx context.Context, cmd CommandMessage, deviceGAs m
 	}
 
 	// Write-through: publish confirmed brightness so the UI updates immediately.
-	b.publishWriteThrough(cmd.DeviceID, addr.GA, "brightness", level)
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, fnName, level)
 
 	return nil
 }
@@ -669,8 +689,8 @@ func (b *Bridge) executeSetPosition(ctx context.Context, cmd CommandMessage, dev
 		return fmt.Errorf("position out of range: %.2f", position)
 	}
 
-	// Find the position address
-	addr, ok := deviceGAs["position"]
+	// Find the position address (supports multi-channel via "function" parameter)
+	addr, fnName, ok := resolveFunction(cmd.Parameters, deviceGAs, "position")
 	if !ok {
 		b.publishAckError(cmd, "", ErrCodeNotConfigured,
 			"device has no position address", 0)
@@ -698,22 +718,19 @@ func (b *Bridge) executeSetPosition(ctx context.Context, cmd CommandMessage, dev
 	}
 
 	// Write-through: publish confirmed position so the UI updates immediately.
-	b.publishWriteThrough(cmd.DeviceID, addr.GA, "position", position)
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, fnName, position)
 
 	return nil
 }
 
 // executeStop sends a stop command for blinds (DPT 1.007).
 func (b *Bridge) executeStop(ctx context.Context, cmd CommandMessage, deviceGAs map[string]AddressConfig) error {
-	// Find the stop address (or use move address with stop value)
-	addr, ok := deviceGAs["stop"]
+	// Find the stop address (supports multi-channel via "function" parameter)
+	addr, _, ok := resolveFunction(cmd.Parameters, deviceGAs, "stop", "move")
 	if !ok {
-		addr, ok = deviceGAs["move"]
-		if !ok {
-			b.publishAckError(cmd, "", ErrCodeNotConfigured,
-				"device has no stop/move address", 0)
-			return fmt.Errorf("no stop address")
-		}
+		b.publishAckError(cmd, "", ErrCodeNotConfigured,
+			"device has no stop/move address", 0)
+		return fmt.Errorf("no stop address")
 	}
 
 	ga, err := ParseGroupAddress(addr.GA)
@@ -763,8 +780,8 @@ func (b *Bridge) executeSetSetpoint(ctx context.Context, cmd CommandMessage, dev
 		return fmt.Errorf("knx: setpoint out of range: %.2f", setpoint)
 	}
 
-	// Find the setpoint address
-	addr, ok := deviceGAs["setpoint"]
+	// Find the setpoint address (supports multi-channel via "function" parameter)
+	addr, fnName, ok := resolveFunction(cmd.Parameters, deviceGAs, "setpoint")
 	if !ok {
 		b.publishAckError(cmd, "", ErrCodeNotConfigured,
 			"device has no setpoint address", 0)
@@ -800,7 +817,7 @@ func (b *Bridge) executeSetSetpoint(ctx context.Context, cmd CommandMessage, dev
 	// Many KNX thermostats echo the written setpoint back as a response
 	// telegram, but not all do (and simulators often don't).  Publishing
 	// here ensures the UI gets the confirmed value without waiting.
-	b.publishWriteThrough(cmd.DeviceID, addr.GA, "setpoint", setpoint)
+	b.publishWriteThrough(cmd.DeviceID, addr.GA, fnName, setpoint)
 
 	return nil
 }
