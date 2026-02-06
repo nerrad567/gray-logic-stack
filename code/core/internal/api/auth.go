@@ -505,6 +505,159 @@ func (s *Server) cleanExpiredTickets() {
 	}
 }
 
+// meResponse is the response body for GET /auth/me.
+type meResponse struct {
+	Type        string   `json:"type"`                  // "user" or "panel"
+	User        *meUser  `json:"user,omitempty"`        // present when type=user
+	Panel       *mePanel `json:"panel,omitempty"`       // present when type=panel
+	Rooms       []meRoom `json:"rooms"`                 // accessible rooms with area info
+	Permissions []string `json:"permissions,omitempty"` // permission strings for users
+}
+
+type meUser struct {
+	ID          string    `json:"id"`
+	Username    string    `json:"username"`
+	DisplayName string    `json:"display_name"`
+	Role        auth.Role `json:"role"`
+}
+
+type mePanel struct {
+	ID   string `json:"id"`
+	Name string `json:"name"`
+}
+
+type meRoom struct {
+	ID              string `json:"id"`
+	Name            string `json:"name"`
+	AreaID          string `json:"area_id"`
+	AreaName        string `json:"area_name"`
+	CanManageScenes bool   `json:"can_manage_scenes,omitempty"`
+}
+
+// handleMe returns the caller's identity, accessible rooms, and permissions.
+// It supports both user (JWT) and panel (X-Panel-Token) authentication.
+func (s *Server) handleMe(w http.ResponseWriter, r *http.Request) { //nolint:gocognit,gocyclo // identity endpoint: dual-path (panel + user) with room resolution
+	ctx := r.Context()
+
+	// Path 1: Panel identity
+	if pc := panelFromContext(ctx); pc != nil {
+		resp := meResponse{
+			Type:  "panel",
+			Panel: &mePanel{ID: pc.PanelID},
+			Rooms: []meRoom{},
+		}
+
+		// Resolve panel name
+		if s.panelRepo != nil {
+			if panel, err := s.panelRepo.GetByID(ctx, pc.PanelID); err == nil {
+				resp.Panel.Name = panel.Name
+			}
+		}
+
+		// Build room list from panel's assigned room IDs
+		if s.locationRepo != nil {
+			areaCache := s.buildAreaCache(ctx)
+			for _, roomID := range pc.RoomIDs {
+				if room, err := s.locationRepo.GetRoom(ctx, roomID); err == nil {
+					resp.Rooms = append(resp.Rooms, meRoom{
+						ID:       room.ID,
+						Name:     room.Name,
+						AreaID:   room.AreaID,
+						AreaName: areaCache[room.AreaID],
+					})
+				}
+			}
+		}
+
+		writeJSON(w, http.StatusOK, resp)
+		return
+	}
+
+	// Path 2: User identity (JWT)
+	claims := claimsFromContext(ctx)
+	if claims == nil {
+		writeUnauthorized(w, "authentication required")
+		return
+	}
+
+	resp := meResponse{
+		Type:  "user",
+		User:  &meUser{ID: claims.Subject, Role: claims.Role},
+		Rooms: []meRoom{},
+	}
+
+	// Resolve user details (username, display name)
+	if s.userRepo != nil {
+		if user, err := s.userRepo.GetByID(ctx, claims.Subject); err == nil {
+			resp.User.Username = user.Username
+			resp.User.DisplayName = user.DisplayName
+		}
+	}
+
+	// Build permission list from role
+	perms := auth.PermissionsForRole(claims.Role)
+	resp.Permissions = make([]string, len(perms))
+	for i, p := range perms {
+		resp.Permissions[i] = string(p)
+	}
+
+	// Build room list based on role
+	if s.locationRepo != nil {
+		areaCache := s.buildAreaCache(ctx)
+
+		if auth.IsRoomScoped(claims.Role) {
+			// User role: return only assigned rooms with scene-manage flags
+			if s.roomAccessRepo != nil {
+				if access, err := s.roomAccessRepo.GetRoomAccess(ctx, claims.Subject); err == nil {
+					for _, ra := range access {
+						if room, err := s.locationRepo.GetRoom(ctx, ra.RoomID); err == nil { //nolint:govet // shadow: err in nested scope
+							resp.Rooms = append(resp.Rooms, meRoom{
+								ID:              room.ID,
+								Name:            room.Name,
+								AreaID:          room.AreaID,
+								AreaName:        areaCache[room.AreaID],
+								CanManageScenes: ra.CanManageScenes,
+							})
+						}
+					}
+				}
+			}
+		} else {
+			// Admin/owner: return all rooms
+			if rooms, err := s.locationRepo.ListRooms(ctx); err == nil {
+				for _, room := range rooms {
+					resp.Rooms = append(resp.Rooms, meRoom{
+						ID:              room.ID,
+						Name:            room.Name,
+						AreaID:          room.AreaID,
+						AreaName:        areaCache[room.AreaID],
+						CanManageScenes: true,
+					})
+				}
+			}
+		}
+	}
+
+	writeJSON(w, http.StatusOK, resp)
+}
+
+// buildAreaCache loads all areas and returns a map of area ID → area name.
+// Used by handleMe to avoid N+1 queries when resolving room area names.
+func (s *Server) buildAreaCache(ctx context.Context) map[string]string {
+	cache := make(map[string]string)
+	if s.locationRepo == nil {
+		return cache
+	}
+	areas, err := s.locationRepo.ListAreas(ctx)
+	if err != nil {
+		return cache
+	}
+	for _, a := range areas {
+		cache[a.ID] = a.Name
+	}
+	return cache
+}
+
 // cleanTicketsLoop runs cleanExpiredTickets periodically until the context is cancelled.
 func (s *Server) cleanTicketsLoop(ctx context.Context) {
 	ticker := time.NewTicker(ticketTTL)

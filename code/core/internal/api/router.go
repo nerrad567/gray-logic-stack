@@ -45,7 +45,8 @@ func (s *Server) buildRouter() http.Handler {
 		r.Group(func(r chi.Router) {
 			r.Use(s.authMiddleware)
 
-			// Auth session management (users only)
+			// Auth identity + session management
+			r.Get("/auth/me", s.handleMe)
 			r.Post("/auth/ws-ticket", s.handleWSTicket)
 			r.Post("/auth/logout", s.handleLogout)
 			r.Post("/auth/change-password", s.handleChangePassword)
