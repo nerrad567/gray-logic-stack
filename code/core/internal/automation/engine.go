@@ -219,6 +219,13 @@ func (e *Engine) ActivateScene(ctx context.Context, sceneID, triggerType, trigge
 		e.logger.Error("failed to update execution record", "error", updateErr)
 	}
 
+	// Track active scene per room (last-wins).
+	// Only set on successful or partial completion — failed/cancelled scenes
+	// should not be considered "active" for the room.
+	if scene.RoomID != nil && (exec.Status == StatusCompleted || exec.Status == StatusPartial) {
+		e.registry.SetActiveScene(*scene.RoomID, sceneID)
+	}
+
 	e.logger.Info("scene activation complete",
 		"scene_id", sceneID,
 		"execution_id", exec.ID,
@@ -234,6 +241,7 @@ func (e *Engine) ActivateScene(ctx context.Context, sceneID, triggerType, trigge
 		e.hub.Broadcast("scene.activated", map[string]any{
 			"scene_id":     sceneID,
 			"scene_name":   scene.Name,
+			"room_id":      scene.RoomID,
 			"execution_id": exec.ID,
 			"status":       string(exec.Status),
 			"duration_ms":  duration,

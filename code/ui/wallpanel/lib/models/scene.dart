@@ -129,19 +129,27 @@ class SceneAction {
 }
 
 /// Response wrapper for GET /scenes.
+/// Includes `active_scenes` map (roomID -> sceneID) from the API.
 class SceneListResponse {
   final List<Scene> scenes;
   final int count;
+  final Map<String, String> activeScenes;
 
-  const SceneListResponse({required this.scenes, required this.count});
+  const SceneListResponse({
+    required this.scenes,
+    required this.count,
+    this.activeScenes = const {},
+  });
 
   factory SceneListResponse.fromJson(Map<String, dynamic> json) {
     final list = (json['scenes'] as List<dynamic>?) ?? [];
+    final activeMap = (json['active_scenes'] as Map<String, dynamic>?) ?? {};
     return SceneListResponse(
       scenes: list
           .map((s) => Scene.fromJson(s as Map<String, dynamic>))
           .toList(),
       count: (json['count'] as num?)?.toInt() ?? list.length,
+      activeScenes: activeMap.map((k, v) => MapEntry(k, v as String)),
     );
   }
 }

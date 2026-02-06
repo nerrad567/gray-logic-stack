@@ -4,44 +4,73 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../models/scene.dart';
 import '../providers/scene_provider.dart';
 
-/// A button for activating a scene. Shows a brief pulse animation on activation.
+/// A button for activating a scene with three visual states:
+/// - **Active** (persistent): Filled background, bold border, check icon
+/// - **Activating** (transient ~800ms): Spinner overlay
+/// - **Inactive** (default): Muted style
+///
 /// Long-press opens the scene editor.
 class SceneButton extends ConsumerWidget {
   final Scene scene;
+  final String? roomId;
   final VoidCallback? onLongPress;
 
-  const SceneButton({super.key, required this.scene, this.onLongPress});
+  const SceneButton({
+    super.key,
+    required this.scene,
+    this.roomId,
+    this.onLongPress,
+  });
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final activeSceneId = ref.watch(activeSceneIdProvider);
-    final isActivating = activeSceneId == scene.id;
+    final activeScenes = ref.watch(activeScenePerRoomProvider);
+    final isActive = roomId != null && activeScenes[roomId] == scene.id;
+    final isActivating = ref.watch(activatingSceneIdProvider) == scene.id;
+
     final theme = Theme.of(context);
     final accentColour = _parseColour(scene.colour) ?? theme.colorScheme.secondary;
+
+    // Visual state hierarchy: activating > active > inactive
+    final Color bgColor;
+    final Color borderColor;
+    final double borderWidth;
+    final FontWeight fontWeight;
+
+    if (isActivating) {
+      bgColor = accentColour.withValues(alpha: 0.3);
+      borderColor = accentColour;
+      borderWidth = 2;
+      fontWeight = FontWeight.w600;
+    } else if (isActive) {
+      bgColor = accentColour.withValues(alpha: 0.25);
+      borderColor = accentColour;
+      borderWidth = 2;
+      fontWeight = FontWeight.w600;
+    } else {
+      bgColor = accentColour.withValues(alpha: 0.1);
+      borderColor = accentColour.withValues(alpha: 0.3);
+      borderWidth = 1;
+      fontWeight = FontWeight.w500;
+    }
 
     return AnimatedContainer(
       duration: const Duration(milliseconds: 200),
       child: Material(
-        color: isActivating
-            ? accentColour.withValues(alpha: 0.3)
-            : accentColour.withValues(alpha: 0.1),
+        color: bgColor,
         borderRadius: BorderRadius.circular(12),
         child: InkWell(
           borderRadius: BorderRadius.circular(12),
           onTap: isActivating
               ? null
-              : () => ref.read(roomScenesProvider.notifier).activateScene(scene.id),
+              : () => ref.read(roomScenesProvider.notifier)
+                  .activateScene(scene.id, roomId: roomId),
           onLongPress: onLongPress,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(
               borderRadius: BorderRadius.circular(12),
-              border: Border.all(
-                color: isActivating
-                    ? accentColour
-                    : accentColour.withValues(alpha: 0.3),
-                width: isActivating ? 2 : 1,
-              ),
+              border: Border.all(color: borderColor, width: borderWidth),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -58,7 +87,7 @@ class SceneButton extends ConsumerWidget {
                   scene.name,
                   style: TextStyle(
                     fontSize: 14,
-                    fontWeight: FontWeight.w500,
+                    fontWeight: fontWeight,
                     color: accentColour,
                   ),
                 ),
@@ -72,6 +101,9 @@ class SceneButton extends ConsumerWidget {
                       valueColor: AlwaysStoppedAnimation<Color>(accentColour),
                     ),
                   ),
+                ] else if (isActive) ...[
+                  const SizedBox(width: 8),
+                  Icon(Icons.check_circle, size: 14, color: accentColour),
                 ],
               ],
             ),

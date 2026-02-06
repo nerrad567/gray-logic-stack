@@ -606,6 +606,70 @@ func TestEngine_ActivateScene_WebSocketBroadcast(t *testing.T) {
 	}
 }
 
+func TestEngine_ActivateScene_SetsActiveScene(t *testing.T) {
+	engine, _, hub, repo := setupEngine(t)
+	ctx := context.Background()
+
+	roomID := "room-living"
+	scene := &Scene{
+		ID:       "room-scene",
+		Name:     "Room Scene",
+		Slug:     "room-scene",
+		RoomID:   &roomID,
+		Enabled:  true,
+		Priority: 50,
+		Actions:  []SceneAction{{DeviceID: "light-01", Command: "set", ContinueOnError: true}},
+	}
+	repo.scenes["room-scene"] = scene
+	_ = engine.registry.RefreshCache(ctx)
+
+	_, err := engine.ActivateScene(ctx, "room-scene", "manual", "api")
+	if err != nil {
+		t.Fatalf("ActivateScene: %v", err)
+	}
+
+	// Verify active scene was set for the room
+	got := engine.registry.GetActiveScene(roomID)
+	if got != "room-scene" {
+		t.Errorf("active scene = %q, want %q", got, "room-scene")
+	}
+
+	// Verify room_id is in WebSocket broadcast
+	broadcasts := hub.getBroadcasts()
+	if len(broadcasts) != 1 {
+		t.Fatalf("expected 1 broadcast, got %d", len(broadcasts))
+	}
+	payload, ok := broadcasts[0].Payload.(map[string]any)
+	if !ok {
+		t.Fatal("payload is not map[string]any")
+	}
+	broadcastRoomID, ok := payload["room_id"].(*string)
+	if !ok || broadcastRoomID == nil || *broadcastRoomID != roomID {
+		t.Errorf("broadcast room_id = %v, want %q", payload["room_id"], roomID)
+	}
+}
+
+func TestEngine_ActivateScene_NoActiveForGlobal(t *testing.T) {
+	engine, _, _, repo := setupEngine(t)
+	ctx := context.Background()
+
+	// Scene without room — should not set any active scene
+	createTestScene(repo, engine.registry, "global", "Global Scene", []SceneAction{
+		{DeviceID: "light-01", Command: "set", ContinueOnError: true},
+	})
+
+	_, err := engine.ActivateScene(ctx, "global", "manual", "api")
+	if err != nil {
+		t.Fatalf("ActivateScene: %v", err)
+	}
+
+	// No active scenes should be set
+	active := engine.registry.GetActiveScenes()
+	if len(active) != 0 {
+		t.Errorf("active scenes = %v, want empty (global scene)", active)
+	}
+}
+
 func TestEngine_ActivateScene_NilHub(t *testing.T) {
 	repo := newMockRepository()
 	registry := NewRegistry(repo)

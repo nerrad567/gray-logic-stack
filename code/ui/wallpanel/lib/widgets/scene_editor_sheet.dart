@@ -6,9 +6,10 @@ import '../models/scene.dart';
 import '../providers/device_provider.dart';
 import '../providers/location_provider.dart';
 import '../providers/scene_provider.dart';
-import 'scene_action_row.dart';
+import 'device_mode_selector.dart';
 
 /// Bottom sheet for creating or editing a scene.
+/// Shows all room devices with mode selectors (default "Leave as-is").
 /// Pass [scene] = null for create mode, or an existing scene for edit mode.
 /// Pass [preselectedRoomId] to pre-fill the room when creating from room view.
 class SceneEditorSheet extends ConsumerStatefulWidget {
@@ -31,9 +32,12 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
   late String? _category;
   late bool _enabled;
   late int _priority;
-  late List<SceneActionData> _actions;
   bool _saving = false;
   List<Device>? _devices;
+
+  /// Device modes: deviceId -> DeviceSceneMode.
+  /// Devices not in this map or with mode 'leave_as_is' are excluded from actions.
+  late Map<String, DeviceSceneMode> _deviceModes;
 
   bool get _isEdit => widget.scene != null;
 
@@ -49,18 +53,22 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
     _category = s?.category;
     _enabled = s?.enabled ?? true;
     _priority = s?.priority ?? 50;
-    _actions = s?.actions
-            .map((a) => SceneActionData(
-                  deviceId: a.deviceId,
-                  command: a.command,
-                  parameters: Map<String, dynamic>.from(a.parameters ?? {}),
-                  delayMs: a.delayMs,
-                  fadeMs: a.fadeMs,
-                  parallel: a.parallel,
-                  continueOnError: a.continueOnError,
-                ))
-            .toList() ??
-        [];
+
+    // Reconstruct device modes from existing scene actions
+    _deviceModes = {};
+    if (s != null) {
+      for (final action in s.actions) {
+        _deviceModes[action.deviceId] = DeviceSceneMode(
+          mode: action.command,
+          parameters: Map<String, dynamic>.from(action.parameters ?? {}),
+          delayMs: action.delayMs,
+          fadeMs: action.fadeMs,
+          parallel: action.parallel,
+          continueOnError: action.continueOnError,
+        );
+      }
+    }
+
     _loadDevices();
   }
 
@@ -90,12 +98,16 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
         .replaceAll(RegExp(r'^-|-$'), '');
   }
 
+  /// Count devices with a non-leave-as-is mode.
+  int get _configuredCount =>
+      _deviceModes.values.where((m) => !m.isLeaveAsIs).length;
+
   Future<void> _save() async {
     if (!_formKey.currentState!.validate()) return;
-    if (_actions.isEmpty) {
+    if (_configuredCount == 0) {
       ScaffoldMessenger.of(context).showSnackBar(
         const SnackBar(
-          content: Text('Add at least one action'),
+          content: Text('Configure at least one device'),
           behavior: SnackBarBehavior.floating,
         ),
       );
@@ -104,16 +116,24 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
 
     setState(() => _saving = true);
 
-    final actions = _actions.asMap().entries.map((e) => {
-          'device_id': e.value.deviceId,
-          'command': e.value.command,
-          if (e.value.parameters.isNotEmpty) 'parameters': e.value.parameters,
-          'delay_ms': e.value.delayMs,
-          'fade_ms': e.value.fadeMs,
-          'parallel': e.value.parallel,
-          'continue_on_error': e.value.continueOnError,
-          'sort_order': e.key,
-        }).toList();
+    // Convert device modes to action list, excluding 'leave_as_is'
+    final actions = <Map<String, dynamic>>[];
+    int sortOrder = 0;
+    for (final entry in _deviceModes.entries) {
+      if (entry.value.isLeaveAsIs) continue;
+      actions.add({
+        'device_id': entry.key,
+        'command': entry.value.mode,
+        if (entry.value.parameters.isNotEmpty)
+          'parameters': entry.value.parameters,
+        'delay_ms': entry.value.delayMs,
+        'fade_ms': entry.value.fadeMs,
+        'parallel': entry.value.parallel,
+        'continue_on_error': entry.value.continueOnError,
+        'sort_order': sortOrder,
+      });
+      sortOrder++;
+    }
 
     final data = <String, dynamic>{
       'name': _nameController.text.trim(),
@@ -203,6 +223,14 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                             style: theme.textTheme.titleLarge,
                           ),
                         ),
+                        if (_configuredCount > 0)
+                          Padding(
+                            padding: const EdgeInsets.only(right: 8),
+                            child: Chip(
+                              label: Text('$_configuredCount devices'),
+                              visualDensity: VisualDensity.compact,
+                            ),
+                          ),
                         TextButton(
                           onPressed: () => Navigator.pop(context),
                           child: const Text('Cancel'),
@@ -233,58 +261,82 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                   key: _formKey,
                   child: ListView(
                     controller: scrollController,
-                    padding: const EdgeInsets.all(16),
+                    padding: const EdgeInsets.symmetric(
+                        horizontal: 16, vertical: 8),
                     children: [
-                      // Name
-                      TextFormField(
-                        controller: _nameController,
-                        decoration: const InputDecoration(
-                          labelText: 'Name',
-                          border: OutlineInputBorder(),
-                        ),
-                        validator: (v) =>
-                            (v == null || v.trim().isEmpty) ? 'Required' : null,
+                      // Name + Room row
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Expanded(
+                            flex: 3,
+                            child: TextFormField(
+                              controller: _nameController,
+                              decoration: const InputDecoration(
+                                labelText: 'Name',
+                                border: OutlineInputBorder(),
+                                isDense: true,
+                              ),
+                              validator: (v) => (v == null || v.trim().isEmpty)
+                                  ? 'Required'
+                                  : null,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            flex: 2,
+                            child: locationAsync.when(
+                              data: (data) =>
+                                  DropdownButtonFormField<String?>(
+                                value: _roomId,
+                                decoration: const InputDecoration(
+                                  labelText: 'Room',
+                                  border: OutlineInputBorder(),
+                                  isDense: true,
+                                ),
+                                items: [
+                                  const DropdownMenuItem<String?>(
+                                    value: null,
+                                    child: Text('Global'),
+                                  ),
+                                  ...data.sortedRooms.map((room) =>
+                                      DropdownMenuItem<String?>(
+                                        value: room.id,
+                                        child: Text(room.name,
+                                            overflow: TextOverflow.ellipsis),
+                                      )),
+                                ],
+                                onChanged: (v) {
+                                  setState(() {
+                                    _roomId = v;
+                                    // Reset all modes when room changes
+                                    _deviceModes = {};
+                                  });
+                                  _loadDevices();
+                                },
+                              ),
+                              loading: () =>
+                                  const LinearProgressIndicator(),
+                              error: (_, _) =>
+                                  const Text('Failed to load rooms'),
+                            ),
+                          ),
+                        ],
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                      // Description
+                      // Description (single line)
                       TextFormField(
                         controller: _descController,
                         decoration: const InputDecoration(
                           labelText: 'Description (optional)',
                           border: OutlineInputBorder(),
+                          isDense: true,
                         ),
-                        maxLines: 2,
                       ),
-                      const SizedBox(height: 16),
+                      const SizedBox(height: 8),
 
-                      // Room dropdown
-                      locationAsync.when(
-                        data: (data) => DropdownButtonFormField<String?>(
-                          value: _roomId,
-                          decoration: const InputDecoration(
-                            labelText: 'Room (optional)',
-                            border: OutlineInputBorder(),
-                          ),
-                          items: [
-                            const DropdownMenuItem<String?>(
-                              value: null,
-                              child: Text('Global (no room)'),
-                            ),
-                            ...data.sortedRooms.map((room) =>
-                                DropdownMenuItem<String?>(
-                                  value: room.id,
-                                  child: Text(room.name),
-                                )),
-                          ],
-                          onChanged: (v) => setState(() => _roomId = v),
-                        ),
-                        loading: () => const LinearProgressIndicator(),
-                        error: (_, _) => const Text('Failed to load rooms'),
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Icon + Colour + Category row
+                      // Style row: Icon + Category + Colour
                       Row(
                         children: [
                           Expanded(
@@ -293,6 +345,7 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                               decoration: const InputDecoration(
                                 labelText: 'Icon',
                                 border: OutlineInputBorder(),
+                                isDense: true,
                               ),
                               items: [
                                 const DropdownMenuItem<String?>(
@@ -304,8 +357,8 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                                     value: entry.key,
                                     child: Row(
                                       children: [
-                                        Icon(entry.value, size: 18),
-                                        const SizedBox(width: 8),
+                                        Icon(entry.value, size: 16),
+                                        const SizedBox(width: 4),
                                         Text(entry.key),
                                       ],
                                     ),
@@ -314,122 +367,98 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                               onChanged: (v) => setState(() => _icon = v),
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: DropdownButtonFormField<String?>(
                               value: _category,
                               decoration: const InputDecoration(
                                 labelText: 'Category',
                                 border: OutlineInputBorder(),
+                                isDense: true,
                               ),
                               items: const [
                                 DropdownMenuItem<String?>(
                                     value: null, child: Text('None')),
                                 DropdownMenuItem(
-                                    value: 'lighting', child: Text('Lighting')),
+                                    value: 'lighting',
+                                    child: Text('Lighting')),
                                 DropdownMenuItem(
-                                    value: 'comfort', child: Text('Comfort')),
+                                    value: 'comfort',
+                                    child: Text('Comfort')),
                                 DropdownMenuItem(
                                     value: 'media', child: Text('Media')),
                                 DropdownMenuItem(
-                                    value: 'security', child: Text('Security')),
+                                    value: 'security',
+                                    child: Text('Security')),
                                 DropdownMenuItem(
-                                    value: 'custom', child: Text('Custom')),
+                                    value: 'custom',
+                                    child: Text('Custom')),
                               ],
                               onChanged: (v) =>
                                   setState(() => _category = v),
                             ),
                           ),
-                        ],
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Colour picker (simple hex input)
-                      TextFormField(
-                        initialValue: _colour ?? '',
-                        decoration: InputDecoration(
-                          labelText: 'Colour (hex, e.g. #FF9800)',
-                          border: const OutlineInputBorder(),
-                          prefixIcon: _colour != null
-                              ? Padding(
-                                  padding: const EdgeInsets.all(12),
-                                  child: Container(
-                                    width: 20,
-                                    height: 20,
-                                    decoration: BoxDecoration(
-                                      color: _parseColour(_colour),
-                                      borderRadius: BorderRadius.circular(4),
-                                      border: Border.all(
-                                          color: theme.colorScheme.outline),
-                                    ),
-                                  ),
-                                )
-                              : null,
-                        ),
-                        onChanged: (v) {
-                          final cleaned = v.trim();
-                          setState(() => _colour =
-                              cleaned.isEmpty ? null : cleaned);
-                        },
-                      ),
-                      const SizedBox(height: 16),
-
-                      // Enabled + Priority row
-                      Row(
-                        children: [
-                          Expanded(
-                            child: SwitchListTile(
-                              title: const Text('Enabled'),
-                              value: _enabled,
-                              onChanged: (v) => setState(() => _enabled = v),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
-                          const SizedBox(width: 16),
+                          const SizedBox(width: 8),
                           SizedBox(
                             width: 100,
                             child: TextFormField(
-                              initialValue: _priority.toString(),
-                              decoration: const InputDecoration(
-                                labelText: 'Priority',
-                                border: OutlineInputBorder(),
+                              initialValue: _colour ?? '',
+                              decoration: InputDecoration(
+                                labelText: 'Colour',
+                                hintText: '#FF9800',
+                                border: const OutlineInputBorder(),
+                                isDense: true,
+                                prefixIcon: _colour != null
+                                    ? Padding(
+                                        padding: const EdgeInsets.all(8),
+                                        child: Container(
+                                          width: 16,
+                                          height: 16,
+                                          decoration: BoxDecoration(
+                                            color: _parseColour(_colour),
+                                            borderRadius:
+                                                BorderRadius.circular(3),
+                                            border: Border.all(
+                                                color: theme
+                                                    .colorScheme.outline),
+                                          ),
+                                        ),
+                                      )
+                                    : null,
+                                prefixIconConstraints:
+                                    const BoxConstraints(
+                                        minWidth: 32, maxWidth: 32),
                               ),
-                              keyboardType: TextInputType.number,
                               onChanged: (v) {
-                                final p = int.tryParse(v);
-                                if (p != null) _priority = p;
+                                final cleaned = v.trim();
+                                setState(() => _colour =
+                                    cleaned.isEmpty ? null : cleaned);
                               },
                             ),
                           ),
                         ],
                       ),
-                      const SizedBox(height: 24),
+                      const SizedBox(height: 12),
 
-                      // Actions section
-                      Row(
-                        children: [
-                          Text('Actions', style: theme.textTheme.titleMedium),
-                          const Spacer(),
-                          TextButton.icon(
-                            icon: const Icon(Icons.add, size: 18),
-                            label: const Text('Add Action'),
-                            onPressed: _addAction,
-                          ),
-                        ],
-                      ),
+                      // Devices section — grouped by domain
+                      Text('Devices', style: theme.textTheme.titleMedium),
                       const SizedBox(height: 8),
 
-                      if (_actions.isEmpty)
+                      if (_devices == null)
+                        const Center(child: CircularProgressIndicator())
+                      else if (_devices!.where((d) => d.isSceneTarget).isEmpty)
                         Container(
-                          padding: const EdgeInsets.all(24),
+                          padding: const EdgeInsets.all(16),
                           decoration: BoxDecoration(
                             border: Border.all(
                                 color: theme.colorScheme.outlineVariant),
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: BorderRadius.circular(8),
                           ),
                           child: Center(
                             child: Text(
-                              'No actions yet. Add at least one action.',
+                              _roomId != null
+                                  ? 'No controllable devices in this room'
+                                  : 'Select a room to see devices',
                               style: theme.textTheme.bodySmall?.copyWith(
                                 color: theme.colorScheme.onSurfaceVariant,
                               ),
@@ -437,35 +466,9 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
                           ),
                         )
                       else
-                        ReorderableListView.builder(
-                          shrinkWrap: true,
-                          physics: const NeverScrollableScrollPhysics(),
-                          itemCount: _actions.length,
-                          onReorder: (oldIndex, newIndex) {
-                            setState(() {
-                              if (newIndex > oldIndex) newIndex--;
-                              final item = _actions.removeAt(oldIndex);
-                              _actions.insert(newIndex, item);
-                            });
-                          },
-                          itemBuilder: (context, index) {
-                            return SceneActionRow(
-                              key: ValueKey(
-                                  '${_actions[index].deviceId}_$index'),
-                              action: _actions[index],
-                              index: index,
-                              devices: _devices,
-                              onChanged: (updated) {
-                                setState(() => _actions[index] = updated);
-                              },
-                              onDelete: () {
-                                setState(() => _actions.removeAt(index));
-                              },
-                            );
-                          },
-                        ),
+                        ..._buildDeviceGrid(theme),
 
-                      const SizedBox(height: 80),
+                      const SizedBox(height: 40),
                     ],
                   ),
                 ),
@@ -475,6 +478,55 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
         );
       },
     );
+  }
+
+  /// Build device rows grouped by domain with section headers.
+  List<Widget> _buildDeviceGrid(ThemeData theme) {
+    final sceneTargets = _devices!.where((d) => d.isSceneTarget).toList();
+
+    // Group by domain
+    final grouped = <String, List<Device>>{};
+    for (final device in sceneTargets) {
+      grouped.putIfAbsent(device.domain, () => []).add(device);
+    }
+
+    // Sort domains and devices within each domain
+    final sortedDomains = grouped.keys.toList()..sort();
+    final widgets = <Widget>[];
+
+    for (final domain in sortedDomains) {
+      final devices = grouped[domain]!
+        ..sort((a, b) => a.name.compareTo(b.name));
+
+      // Domain header
+      widgets.add(Padding(
+        padding: const EdgeInsets.only(top: 8, bottom: 4),
+        child: Text(
+          _domainLabel(domain),
+          style: theme.textTheme.labelLarge?.copyWith(
+            color: theme.colorScheme.primary,
+          ),
+        ),
+      ));
+
+      // Device rows
+      for (final device in devices) {
+        final mode =
+            _deviceModes[device.id] ?? const DeviceSceneMode();
+        widgets.add(DeviceModeSelector(
+          key: ValueKey(device.id),
+          device: device,
+          mode: mode,
+          onChanged: (newMode) {
+            setState(() {
+              _deviceModes[device.id] = newMode;
+            });
+          },
+        ));
+      }
+    }
+
+    return widgets;
   }
 
   Widget _buildPresetsRow(BuildContext context) {
@@ -507,14 +559,11 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
   }
 
   void _applyPreset(_ScenePreset preset) {
-    // Get room devices if available
-    final devicesAsync = ref.read(roomDevicesProvider);
-    final devices = devicesAsync.value ?? <Device>[];
-
-    final actions = <SceneActionData>[];
+    final devices = _devices ?? <Device>[];
+    final modes = <String, DeviceSceneMode>{};
 
     for (final device in devices) {
-      if (!device.isCommandable) continue;
+      if (!device.isSceneTarget) continue;
 
       final template = preset.actionForDomain(device.domain);
       if (template == null) continue;
@@ -524,50 +573,30 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
 
       // Downgrade commands the device can't execute
       if ((command == 'set_level' || command == 'dim') && !device.hasDim) {
-        // Switch-only light: downgrade dim/set_level to on
         command = 'on';
         parameters = {};
       } else if (command == 'set_position' &&
           (!device.hasPosition || device.type == 'blind_switch')) {
-        // blind_switch or no position GA: downgrade to on/off
         final posValue = (template.parameters['position'] as num?) ?? 0;
         command = posValue > 50 ? 'on' : 'off';
         parameters = {};
       } else if (command == 'set_setpoint' && !device.hasTemperatureSet) {
-        continue; // Skip — device can't accept setpoints
+        continue;
       }
 
-      actions.add(SceneActionData(
-        deviceId: device.id,
-        command: command,
+      modes[device.id] = DeviceSceneMode(
+        mode: command,
         parameters: parameters,
-        delayMs: 0,
         fadeMs: template.fadeMs,
-        parallel: true,
-        continueOnError: true,
-      ));
+      );
     }
 
     setState(() {
+      _deviceModes = modes;
       _nameController.text = preset.name;
       _icon = preset.icon;
       _colour = preset.colour;
       _category = preset.category;
-      _actions = actions;
-    });
-  }
-
-  void _addAction() {
-    setState(() {
-      _actions.add(SceneActionData(
-        deviceId: '',
-        command: 'on',
-        parameters: {},
-        delayMs: 0,
-        fadeMs: 0,
-        parallel: false,
-        continueOnError: false,
-      ));
     });
   }
 
@@ -578,6 +607,23 @@ class _SceneEditorSheetState extends ConsumerState<SceneEditorSheet> {
     final value = int.tryParse(cleaned, radix: 16);
     if (value == null) return null;
     return Color(0xFF000000 | value);
+  }
+
+  String _domainLabel(String domain) {
+    switch (domain) {
+      case 'lighting':
+        return 'Lighting';
+      case 'blinds':
+        return 'Blinds';
+      case 'climate':
+        return 'Climate';
+      case 'security':
+        return 'Security';
+      case 'audio':
+        return 'Audio';
+      default:
+        return domain[0].toUpperCase() + domain.substring(1);
+    }
   }
 
   static const _iconOptions = <String, IconData>{
@@ -704,24 +750,3 @@ const _scenePresets = <_ScenePreset>[
     },
   ),
 ];
-
-/// Mutable action data used in the editor.
-class SceneActionData {
-  String deviceId;
-  String command;
-  Map<String, dynamic> parameters;
-  int delayMs;
-  int fadeMs;
-  bool parallel;
-  bool continueOnError;
-
-  SceneActionData({
-    required this.deviceId,
-    required this.command,
-    required this.parameters,
-    required this.delayMs,
-    required this.fadeMs,
-    required this.parallel,
-    required this.continueOnError,
-  });
-}

@@ -514,6 +514,93 @@ func TestRegistry_DeleteScene(t *testing.T) {
 	})
 }
 
+func TestRegistry_ActiveScene(t *testing.T) {
+	registry := NewRegistry(newMockRepository())
+
+	t.Run("set and get", func(t *testing.T) {
+		registry.SetActiveScene("room-living", "scene-cinema")
+		got := registry.GetActiveScene("room-living")
+		if got != "scene-cinema" {
+			t.Errorf("GetActiveScene = %q, want %q", got, "scene-cinema")
+		}
+	})
+
+	t.Run("last-wins", func(t *testing.T) {
+		registry.SetActiveScene("room-living", "scene-cinema")
+		registry.SetActiveScene("room-living", "scene-reading")
+		got := registry.GetActiveScene("room-living")
+		if got != "scene-reading" {
+			t.Errorf("GetActiveScene = %q, want %q (last-wins)", got, "scene-reading")
+		}
+	})
+
+	t.Run("clear", func(t *testing.T) {
+		registry.SetActiveScene("room-living", "scene-cinema")
+		registry.ClearActiveScene("room-living")
+		got := registry.GetActiveScene("room-living")
+		if got != "" {
+			t.Errorf("GetActiveScene after clear = %q, want empty", got)
+		}
+	})
+
+	t.Run("get nonexistent room", func(t *testing.T) {
+		got := registry.GetActiveScene("room-nonexistent")
+		if got != "" {
+			t.Errorf("GetActiveScene for nonexistent = %q, want empty", got)
+		}
+	})
+
+	t.Run("multiple rooms independent", func(t *testing.T) {
+		registry.SetActiveScene("room-living", "scene-a")
+		registry.SetActiveScene("room-bedroom", "scene-b")
+
+		if got := registry.GetActiveScene("room-living"); got != "scene-a" {
+			t.Errorf("living = %q, want scene-a", got)
+		}
+		if got := registry.GetActiveScene("room-bedroom"); got != "scene-b" {
+			t.Errorf("bedroom = %q, want scene-b", got)
+		}
+	})
+
+	t.Run("GetActiveScenes returns copy", func(t *testing.T) {
+		registry.SetActiveScene("room-living", "scene-x")
+		all := registry.GetActiveScenes()
+		all["room-living"] = "corrupted"
+		if got := registry.GetActiveScene("room-living"); got != "scene-x" {
+			t.Errorf("GetActiveScenes copy was not isolated: got %q", got)
+		}
+	})
+}
+
+func TestRegistry_DeleteScene_ClearsActive(t *testing.T) {
+	repo := newMockRepository()
+	roomID := "room-living"
+	repo.scenes["s1"] = &Scene{
+		ID: "s1", Name: "Active Scene", Slug: "active-scene",
+		RoomID: &roomID, Priority: 50, Enabled: true,
+		Actions: []SceneAction{{DeviceID: "d1", Command: "set", ContinueOnError: true}},
+	}
+
+	registry := NewRegistry(repo)
+	ctx := context.Background()
+	_ = registry.RefreshCache(ctx)
+
+	// Set s1 as active for room-living
+	registry.SetActiveScene(roomID, "s1")
+	if got := registry.GetActiveScene(roomID); got != "s1" {
+		t.Fatalf("active scene not set: got %q", got)
+	}
+
+	// Delete s1 — should clear active tracking
+	if err := registry.DeleteScene(ctx, "s1"); err != nil {
+		t.Fatalf("DeleteScene: %v", err)
+	}
+
+	if got := registry.GetActiveScene(roomID); got != "" {
+		t.Errorf("active scene not cleared after delete: got %q", got)
+	}
+}
+
 func TestRegistry_ConcurrentAccess(t *testing.T) {
 	repo := newMockRepository()
 	registry := NewRegistry(repo)

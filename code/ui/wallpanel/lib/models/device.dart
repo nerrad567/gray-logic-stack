@@ -206,6 +206,16 @@ class Device {
   bool get isCommandable =>
       capabilities.any((c) => _controlCapabilities.contains(c));
 
+  /// Device types that are controlled by HVAC loops, not user scenes.
+  static const _hvacInfrastructureTypes = {
+    'heating_actuator', 'valve_actuator',
+  };
+
+  /// True if device is a valid target for scene actions.
+  /// Excludes sensors (not commandable) and HVAC infrastructure (loop-controlled).
+  bool get isSceneTarget =>
+      isCommandable && !_hvacInfrastructureTypes.contains(type);
+
   /// Whether the device is considered reachable for UI interaction.
   /// Devices with 'unknown' health are treated as available (no health data yet).
   /// Only explicitly 'offline' devices are disabled.

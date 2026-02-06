@@ -30,21 +30,27 @@ func (noopLogger) Error(string, ...any) {}
 // The cache is populated on startup via RefreshCache() and kept in sync
 // by cache-invalidating CRUD operations.
 //
+// Active scene tracking (roomID -> sceneID) is in-memory only — deliberately
+// not persisted. On restart, no scene is considered active because physical
+// device state may have changed independently (wall switches, power cycles).
+//
 // All public methods are thread-safe.
 type Registry struct {
-	repo    Repository
-	cache   map[string]*Scene // Cached scenes by ID
-	cacheMu sync.RWMutex      // Protects cache
-	logger  Logger
+	repo         Repository
+	cache        map[string]*Scene  // Cached scenes by ID
+	activeScenes map[string]string  // roomID -> sceneID (in-memory only)
+	cacheMu      sync.RWMutex       // Protects cache and activeScenes
+	logger       Logger
 }
 
 // NewRegistry creates a new scene registry.
 // The repository is used for persistence; the registry adds caching.
 func NewRegistry(repo Repository) *Registry {
 	return &Registry{
-		repo:   repo,
-		cache:  make(map[string]*Scene),
-		logger: noopLogger{},
+		repo:         repo,
+		cache:        make(map[string]*Scene),
+		activeScenes: make(map[string]string),
+		logger:       noopLogger{},
 	}
 }
 
@@ -235,12 +241,20 @@ func (r *Registry) UpdateScene(ctx context.Context, scene *Scene) error {
 }
 
 // DeleteScene removes a scene from persistence and cache.
+// If the scene is the active scene for its room, the active tracking is cleared.
 func (r *Registry) DeleteScene(ctx context.Context, id string) error {
 	if err := r.repo.Delete(ctx, id); err != nil {
 		return err
 	}
 
 	r.cacheMu.Lock()
+	// Clear active tracking if this scene is currently active in any room
+	for roomID, activeID := range r.activeScenes {
+		if activeID == id {
+			delete(r.activeScenes, roomID)
+			break // A scene can only be active in one room
+		}
+	}
 	delete(r.cache, id)
 	r.cacheMu.Unlock()
 
@@ -253,4 +267,36 @@ func (r *Registry) GetSceneCount() int {
 	r.cacheMu.RLock()
 	defer r.cacheMu.RUnlock()
 	return len(r.cache)
+}
+
+// SetActiveScene records a scene as the active one for a room (last-wins).
+func (r *Registry) SetActiveScene(roomID, sceneID string) {
+	r.cacheMu.Lock()
+	r.activeScenes[roomID] = sceneID
+	r.cacheMu.Unlock()
+}
+
+// ClearActiveScene removes the active scene for a room.
+func (r *Registry) ClearActiveScene(roomID string) {
+	r.cacheMu.Lock()
+	delete(r.activeScenes, roomID)
+	r.cacheMu.Unlock()
+}
+
+// GetActiveScene returns the active scene ID for a room, or "" if none.
+func (r *Registry) GetActiveScene(roomID string) string {
+	r.cacheMu.RLock()
+	defer r.cacheMu.RUnlock()
+	return r.activeScenes[roomID]
+}
+
+// GetActiveScenes returns a copy of the active scenes map (roomID -> sceneID).
+func (r *Registry) GetActiveScenes() map[string]string {
+	r.cacheMu.RLock()
+	defer r.cacheMu.RUnlock()
+	result := make(map[string]string, len(r.activeScenes))
+	for k, v := range r.activeScenes {
+		result[k] = v
+	}
+	return result
 }

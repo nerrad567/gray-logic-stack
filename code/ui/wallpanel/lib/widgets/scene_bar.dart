@@ -29,6 +29,7 @@ class SceneBar extends ConsumerWidget {
     final enabled = scenes.where((s) => s.enabled).toList();
     final identity = ref.watch(identityProvider);
     final canEdit = identity?.isPanel != true;
+    final roomId = ref.watch(selectedRoomProvider);
 
     return SizedBox(
       height: 56,
@@ -42,6 +43,7 @@ class SceneBar extends ConsumerWidget {
             return Center(
               child: SceneButton(
                 scene: enabled[index],
+                roomId: roomId,
                 onLongPress: canEdit ? () => _openEditor(context, ref, enabled[index]) : null,
               ),
             );

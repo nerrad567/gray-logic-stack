@@ -25,14 +25,14 @@ void main() {
       mockRepo = MockSceneRepository();
     });
 
-    Widget buildWidget(Scene scene, {String? activeSceneId}) {
+    Widget buildWidget(Scene scene, {String? activatingSceneId}) {
       return ProviderScope(
         overrides: [
           sceneRepositoryProvider.overrideWithValue(mockRepo),
           tokenStorageProvider.overrideWithValue(MockTokenStorage()),
           apiClientProvider.overrideWithValue(MockApiClient()),
-          if (activeSceneId != null)
-            activeSceneIdProvider.overrideWith((ref) => activeSceneId),
+          if (activatingSceneId != null)
+            activatingSceneIdProvider.overrideWith((ref) => activatingSceneId),
         ],
         child: MaterialApp(
           home: Scaffold(
@@ -80,7 +80,7 @@ void main() {
         updatedAt: DateTime(2026),
       );
 
-      await tester.pumpWidget(buildWidget(scene, activeSceneId: 's1'));
+      await tester.pumpWidget(buildWidget(scene, activatingSceneId: 's1'));
       await tester.pump();
 
       expect(find.byType(CircularProgressIndicator), findsOneWidget);

@@ -19,6 +19,11 @@ class SceneRepository {
     return response.scenes;
   }
 
+  /// Get the full list response including active_scenes map.
+  Future<SceneListResponse> getScenesResponse({String? roomId}) async {
+    return _apiClient.getScenes(roomId: roomId);
+  }
+
   /// Get a single scene by ID.
   Future<Scene> getScene(String sceneId) async {
     return _apiClient.getScene(sceneId);

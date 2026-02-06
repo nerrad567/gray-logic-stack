@@ -21,6 +21,8 @@ const (
 )
 
 // handleListScenes returns all scenes, with optional query filters.
+// The response includes an "active_scenes" map (roomID -> sceneID) for
+// UI highlighting of the currently active scene per room.
 //
 // Query parameters:
 //   - room_id: filter by room
@@ -29,8 +31,30 @@ const (
 func (s *Server) handleListScenes(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 	scope := requestRoomScope(ctx)
-	handleScopedList(w, scope, "scenes", "failed to list scenes", func() ([]automation.Scene, string, error) {
-		return s.listScenesForRequest(ctx, r, scope)
+
+	if scope != nil && len(scope.RoomIDs) == 0 {
+		writeJSON(w, http.StatusOK, map[string]any{
+			"scenes":        []automation.Scene{},
+			"count":         0,
+			"active_scenes": map[string]string{},
+		})
+		return
+	}
+
+	scenes, badRequest, err := s.listScenesForRequest(ctx, r, scope)
+	if badRequest != "" {
+		writeBadRequest(w, badRequest)
+		return
+	}
+	if err != nil {
+		writeInternalError(w, "failed to list scenes")
+		return
+	}
+
+	writeJSON(w, http.StatusOK, map[string]any{
+		"scenes":        scenes,
+		"count":         len(scenes),
+		"active_scenes": s.sceneRegistry.GetActiveScenes(),
 	})
 }
 
@@ -258,6 +282,7 @@ func (s *Server) handleActivateScene(w http.ResponseWriter, r *http.Request) {
 
 	writeJSON(w, http.StatusAccepted, map[string]any{
 		"execution_id": executionID,
+		"room_id":      derefString(scene.RoomID),
 		"status":       "accepted",
 		"message":      "scene activation started, state updates will follow via WebSocket",
 	})
