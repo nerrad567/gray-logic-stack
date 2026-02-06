@@ -6,7 +6,7 @@ import '../models/auth.dart';
 import '../providers/auth_provider.dart';
 
 /// One-time configuration screen for setting up the panel.
-/// Collects: Core URL and login credentials.
+/// Supports two modes: User login (username/password) and Panel mode (panel token).
 class ConfigScreen extends ConsumerStatefulWidget {
   const ConfigScreen({super.key});
 
@@ -22,7 +22,9 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   );
   final _usernameController = TextEditingController(text: 'admin');
   final _passwordController = TextEditingController(text: 'admin');
+  final _panelTokenController = TextEditingController();
   bool _obscurePassword = true;
+  bool _panelMode = false;
 
   @override
   void initState() {
@@ -33,9 +35,14 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
   Future<void> _loadSavedConfig() async {
     final tokenStorage = ref.read(tokenStorageProvider);
     final url = await tokenStorage.getCoreUrl();
+    final mode = await tokenStorage.getAuthMode();
 
     if (url != null && url.isNotEmpty) {
       _coreUrlController.text = url;
+    }
+
+    if (mode == 'panel') {
+      setState(() => _panelMode = true);
     }
   }
 
@@ -44,6 +51,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     _coreUrlController.dispose();
     _usernameController.dispose();
     _passwordController.dispose();
+    _panelTokenController.dispose();
     super.dispose();
   }
 
@@ -79,11 +87,28 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                     ),
                     const SizedBox(height: 8),
                     Text(
-                      'Configure your wall panel connection',
+                      _panelMode
+                          ? 'Configure panel device connection'
+                          : 'Configure your wall panel connection',
                       textAlign: TextAlign.center,
                       style: Theme.of(context).textTheme.bodyLarge,
                     ),
-                    const SizedBox(height: 32),
+                    const SizedBox(height: 24),
+
+                    // Panel mode toggle
+                    SwitchListTile(
+                      title: const Text('Panel Mode'),
+                      subtitle: Text(
+                        _panelMode
+                            ? 'Authenticate with panel token'
+                            : 'Authenticate with user credentials',
+                        style: Theme.of(context).textTheme.bodySmall,
+                      ),
+                      value: _panelMode,
+                      onChanged: (v) => setState(() => _panelMode = v),
+                      contentPadding: EdgeInsets.zero,
+                    ),
+                    const SizedBox(height: 16),
 
                     // Core URL
                     TextFormField(
@@ -104,42 +129,62 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                     ),
                     const SizedBox(height: 16),
 
-                    // Username
-                    TextFormField(
-                      controller: _usernameController,
-                      decoration: const InputDecoration(
-                        labelText: 'Username',
-                        prefixIcon: Icon(Icons.person_outline),
-                        border: OutlineInputBorder(),
-                      ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Required';
-                        return null;
-                      },
-                    ),
-                    const SizedBox(height: 16),
-
-                    // Password
-                    TextFormField(
-                      controller: _passwordController,
-                      obscureText: _obscurePassword,
-                      decoration: InputDecoration(
-                        labelText: 'Password',
-                        prefixIcon: const Icon(Icons.lock_outline),
-                        border: const OutlineInputBorder(),
-                        suffixIcon: IconButton(
-                          icon: Icon(_obscurePassword
-                              ? Icons.visibility_off
-                              : Icons.visibility),
-                          onPressed: () => setState(
-                              () => _obscurePassword = !_obscurePassword),
+                    if (_panelMode) ...[
+                      // Panel token field
+                      TextFormField(
+                        controller: _panelTokenController,
+                        decoration: const InputDecoration(
+                          labelText: 'Panel Token',
+                          hintText: '64-character hex token',
+                          prefixIcon: Icon(Icons.vpn_key_outlined),
+                          border: OutlineInputBorder(),
                         ),
+                        maxLines: 1,
+                        style: const TextStyle(fontFamily: 'monospace', fontSize: 13),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Required';
+                          if (v.length < 16) return 'Token too short';
+                          return null;
+                        },
                       ),
-                      validator: (v) {
-                        if (v == null || v.isEmpty) return 'Required';
-                        return null;
-                      },
-                    ),
+                    ] else ...[
+                      // Username
+                      TextFormField(
+                        controller: _usernameController,
+                        decoration: const InputDecoration(
+                          labelText: 'Username',
+                          prefixIcon: Icon(Icons.person_outline),
+                          border: OutlineInputBorder(),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Required';
+                          return null;
+                        },
+                      ),
+                      const SizedBox(height: 16),
+
+                      // Password
+                      TextFormField(
+                        controller: _passwordController,
+                        obscureText: _obscurePassword,
+                        decoration: InputDecoration(
+                          labelText: 'Password',
+                          prefixIcon: const Icon(Icons.lock_outline),
+                          border: const OutlineInputBorder(),
+                          suffixIcon: IconButton(
+                            icon: Icon(_obscurePassword
+                                ? Icons.visibility_off
+                                : Icons.visibility),
+                            onPressed: () => setState(
+                                () => _obscurePassword = !_obscurePassword),
+                          ),
+                        ),
+                        validator: (v) {
+                          if (v == null || v.isEmpty) return 'Required';
+                          return null;
+                        },
+                      ),
+                    ],
                     const SizedBox(height: 8),
 
                     // Error message
@@ -172,7 +217,7 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
                                   color: Colors.white,
                                 ),
                               )
-                            : const Text('Connect'),
+                            : Text(_panelMode ? 'Connect Panel' : 'Connect'),
                       ),
                     ),
                   ],
@@ -189,10 +234,14 @@ class _ConfigScreenState extends ConsumerState<ConfigScreen> {
     if (!_formKey.currentState!.validate()) return;
 
     final coreUrl = _coreUrlController.text.trim();
-    final username = _usernameController.text.trim();
-    final password = _passwordController.text;
 
-    // Attempt login
-    await ref.read(authProvider.notifier).login(coreUrl, username, password);
+    if (_panelMode) {
+      final panelToken = _panelTokenController.text.trim();
+      await ref.read(authProvider.notifier).panelLogin(coreUrl, panelToken);
+    } else {
+      final username = _usernameController.text.trim();
+      final password = _passwordController.text;
+      await ref.read(authProvider.notifier).login(coreUrl, username, password);
+    }
   }
 }
