@@ -5,10 +5,12 @@ import '../models/scene.dart';
 import '../providers/scene_provider.dart';
 
 /// A button for activating a scene. Shows a brief pulse animation on activation.
+/// Long-press opens the scene editor.
 class SceneButton extends ConsumerWidget {
   final Scene scene;
+  final VoidCallback? onLongPress;
 
-  const SceneButton({super.key, required this.scene});
+  const SceneButton({super.key, required this.scene, this.onLongPress});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -29,6 +31,7 @@ class SceneButton extends ConsumerWidget {
           onTap: isActivating
               ? null
               : () => ref.read(roomScenesProvider.notifier).activateScene(scene.id),
+          onLongPress: onLongPress,
           child: Container(
             padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
             decoration: BoxDecoration(

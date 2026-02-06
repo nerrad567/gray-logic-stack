@@ -7,8 +7,10 @@ import 'discovery_tab.dart';
 import 'import_tab.dart';
 import 'locations_tab.dart';
 import 'metrics_tab.dart';
+import 'scenes_tab.dart';
 import 'site_tab.dart';
 import 'system_tab.dart';
+import 'users_tab.dart';
 
 /// Admin screen with tabbed interface for system management.
 ///
@@ -34,7 +36,7 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
   @override
   void initState() {
     super.initState();
-    _tabController = TabController(length: 8, vsync: this);
+    _tabController = TabController(length: 10, vsync: this);
   }
 
   @override
@@ -75,6 +77,14 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
               text: 'Devices',
             ),
             Tab(
+              icon: Icon(Icons.theaters_outlined),
+              text: 'Scenes',
+            ),
+            Tab(
+              icon: Icon(Icons.people_outline),
+              text: 'Users',
+            ),
+            Tab(
               icon: Icon(Icons.location_on_outlined),
               text: 'Locations',
             ),
@@ -106,6 +116,8 @@ class _AdminScreenState extends ConsumerState<AdminScreen>
           const MetricsTab(),
           const DiscoveryTab(),
           const DevicesTab(),
+          const ScenesTab(),
+          const UsersTab(),
           const LocationsTab(),
           ImportTab(onImportComplete: widget.onRefresh),
           const SiteTab(),

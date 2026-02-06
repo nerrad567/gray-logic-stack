@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import '../models/scene.dart';
+import '../providers/location_provider.dart';
 import '../providers/scene_provider.dart';
 import 'scene_button.dart';
+import 'scene_editor_sheet.dart';
 
 /// Horizontal scrollable row of scene activation buttons.
 /// Shown at the bottom of the room view.
@@ -15,28 +17,89 @@ class SceneBar extends ConsumerWidget {
     final scenesAsync = ref.watch(roomScenesProvider);
 
     return scenesAsync.when(
-      data: (scenes) => _buildBar(scenes),
+      data: (scenes) => _buildBar(context, ref, scenes),
       loading: () => const SizedBox(height: 56),
       error: (e, s) => const SizedBox(height: 56),
     );
   }
 
-  Widget _buildBar(List<Scene> scenes) {
-    if (scenes.isEmpty) return const SizedBox.shrink();
-
+  Widget _buildBar(BuildContext context, WidgetRef ref, List<Scene> scenes) {
     // Only show enabled scenes
     final enabled = scenes.where((s) => s.enabled).toList();
-    if (enabled.isEmpty) return const SizedBox.shrink();
+
+    // Always show bar if we have scenes or want to allow adding
+    if (enabled.isEmpty && scenes.isEmpty) return const SizedBox.shrink();
 
     return SizedBox(
       height: 56,
       child: ListView.separated(
         scrollDirection: Axis.horizontal,
         padding: const EdgeInsets.symmetric(horizontal: 12),
-        itemCount: enabled.length,
+        itemCount: enabled.length + 1, // +1 for add button
         separatorBuilder: (_, i) => const SizedBox(width: 8),
-        itemBuilder: (_, index) => Center(
-          child: SceneButton(scene: enabled[index]),
+        itemBuilder: (_, index) {
+          if (index < enabled.length) {
+            return Center(
+              child: SceneButton(
+                scene: enabled[index],
+                onLongPress: () => _openEditor(context, ref, enabled[index]),
+              ),
+            );
+          }
+          // Add button at end
+          return Center(child: _AddSceneButton(
+            onTap: () => _openEditor(context, ref, null),
+          ));
+        },
+      ),
+    );
+  }
+
+  void _openEditor(BuildContext context, WidgetRef ref, Scene? scene) async {
+    final roomId = ref.read(selectedRoomProvider);
+    final result = await showModalBottomSheet<bool>(
+      context: context,
+      isScrollControlled: true,
+      useSafeArea: true,
+      builder: (context) => SceneEditorSheet(
+        scene: scene,
+        preselectedRoomId: scene == null ? roomId : null,
+      ),
+    );
+    if (result == true && roomId != null) {
+      ref.read(roomScenesProvider.notifier).loadScenes(roomId);
+    }
+  }
+}
+
+class _AddSceneButton extends StatelessWidget {
+  final VoidCallback onTap;
+
+  const _AddSceneButton({required this.onTap});
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+      borderRadius: BorderRadius.circular(12),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(12),
+        onTap: onTap,
+        child: Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+          decoration: BoxDecoration(
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(
+              color: theme.colorScheme.outlineVariant,
+              style: BorderStyle.solid,
+            ),
+          ),
+          child: Icon(
+            Icons.add,
+            size: 18,
+            color: theme.colorScheme.onSurfaceVariant,
+          ),
         ),
       ),
     );

@@ -146,6 +146,71 @@ class SceneListResponse {
   }
 }
 
+/// A single execution record from GET /scenes/{id}/executions.
+class SceneExecution {
+  final String id;
+  final String sceneId;
+  final String status;
+  final String triggerType;
+  final String triggerSource;
+  final int actionCount;
+  final int successCount;
+  final int failureCount;
+  final int durationMs;
+  final DateTime startedAt;
+  final DateTime? completedAt;
+
+  const SceneExecution({
+    required this.id,
+    required this.sceneId,
+    required this.status,
+    required this.triggerType,
+    required this.triggerSource,
+    this.actionCount = 0,
+    this.successCount = 0,
+    this.failureCount = 0,
+    this.durationMs = 0,
+    required this.startedAt,
+    this.completedAt,
+  });
+
+  factory SceneExecution.fromJson(Map<String, dynamic> json) {
+    return SceneExecution(
+      id: json['id'] as String,
+      sceneId: json['scene_id'] as String,
+      status: json['status'] as String,
+      triggerType: json['trigger_type'] as String,
+      triggerSource: json['trigger_source'] as String,
+      actionCount: (json['action_count'] as num?)?.toInt() ?? 0,
+      successCount: (json['success_count'] as num?)?.toInt() ?? 0,
+      failureCount: (json['failure_count'] as num?)?.toInt() ?? 0,
+      durationMs: (json['duration_ms'] as num?)?.toInt() ?? 0,
+      startedAt: DateTime.parse(json['started_at'] as String),
+      completedAt: json['completed_at'] != null
+          ? DateTime.parse(json['completed_at'] as String)
+          : null,
+    );
+  }
+}
+
+/// Response wrapper for GET /scenes/{id}/executions.
+class SceneExecutionResponse {
+  final List<SceneExecution> executions;
+  final int count;
+
+  const SceneExecutionResponse({required this.executions, required this.count});
+
+  factory SceneExecutionResponse.fromJson(Map<String, dynamic> json) {
+    final list = (json['executions'] as List<dynamic>?) ?? [];
+    return SceneExecutionResponse(
+      executions: list
+          .map((e) => SceneExecution.fromJson(e as Map<String, dynamic>))
+          .toList(),
+      count: (json['count'] as num?)?.toInt() ?? list.length,
+    );
+  }
+}
+
 /// Response for POST /scenes/{id}/activate (202 Accepted).
 class ActivateResponse {
   final String executionId;
