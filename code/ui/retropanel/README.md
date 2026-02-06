@@ -24,10 +24,10 @@ $83/room complete vs $2,500+ for equivalent Crestron hardware.
 ```
 
 **Docked on wall**: Charges via PoE, uses wired Ethernet, screen always on,
-fixed to one room.
+shows its configured room.
 
-**Portable (lifted off)**: Runs on battery, switches to WiFi, room picker
-appears, charge via USB-C or Qi pad.
+**Portable (lifted off)**: Runs on battery, switches to WiFi, stays on same
+room. User login available for multi-room access. Charge via USB-C or Qi pad.
 
 ---
 
@@ -75,15 +75,73 @@ Undocking:
 3. WiFi STA starts connecting (pre-configured credentials)
 4. WiFi connects (~1-2 seconds)
 5. MQTT client reconnects via WiFi
-6. UI shows room picker (no longer locked to dock's room)
+6. UI stays on configured room (no auto-switch)
 
 Re-docking:
 1. Panel detects VCC pogo pin voltage → "docked" event
 2. W5500 Ethernet powered up, link established
 3. Network switches to Ethernet (lower latency)
 4. WiFi optionally powers down (faster battery charging)
-5. UI auto-loads the dock's configured room
+5. UI stays on configured room
 ```
+
+---
+
+## Identity & Room Access
+
+The panel uses the same auth model as the Flutter panel (M1.7). Two
+identity modes, with automatic timeout back to panel mode.
+
+### Panel Identity (default — no login)
+
+Every panel is registered in Gray Logic Core with an `X-Panel-Token`.
+The admin/installer assigns specific rooms to each panel token. This is
+the default operating mode — no user interaction needed.
+
+```
+Panel boots → loads token from NVS/env → authenticates as panel identity
+           → Core returns assigned room(s) → shows default room view
+```
+
+- **Single-room panel**: Shows that room. No room selector needed.
+- **Multi-room panel**: Admin assigned multiple rooms → room selector
+  available via settings menu. Panel remembers last-viewed room.
+- **Master panel**: Admin assigned all-room access → full house control.
+
+Each panel is configured individually by the installer. Room assignments
+are managed via the admin API (`PUT /panels/{id}/rooms`).
+
+### User Login (override — temporary)
+
+A user can authenticate on the panel to access rooms beyond the panel's
+default assignment. This is for "I've picked up the kitchen panel and
+want to control the bedroom" scenarios.
+
+```
+User taps login (settings / corner gesture)
+  → enters username + password on touchscreen
+  → panel authenticates via JWT (same as Flutter login)
+  → UI shows rooms the USER has access to (not the panel's rooms)
+  → after inactivity timeout, reverts to panel identity
+```
+
+**Timeout behaviour:**
+- User session auto-expires after configurable inactivity period
+  (default: 5 minutes, configurable per-panel in NVS)
+- Any touch resets the timer
+- On timeout: JWT discarded, panel reverts to panel identity + default room
+- Explicit logout also available via settings menu
+- No user credentials stored — JWT held in RAM only, lost on timeout/reboot
+
+This mirrors how a shared kiosk works: temporary user elevation with
+automatic revert to the device's base identity.
+
+### Auth Summary
+
+| Mode | Identity | Room Access | How It Starts | How It Ends |
+|------|----------|-------------|---------------|-------------|
+| **Panel** (default) | X-Panel-Token | Admin-assigned rooms | Boot / timeout / logout | User logs in |
+| **User** (temporary) | JWT access token | User's granted rooms | User authenticates | Inactivity timeout or logout |
 
 ---
 
@@ -223,7 +281,7 @@ The panel's own touchscreen shows a setup wizard:
 1. Scan and select WiFi network, enter password
 2. Enter Gray Logic Core server URL
 3. Enter panel authentication token
-4. Select default room (or leave as "roaming")
+4. Select assigned room (panel token determines room access)
 
 Config stored in NVS flash — survives reboots and power cycles.
 Triple-tap screen corner to re-enter setup wizard.
@@ -363,7 +421,7 @@ code/ui/retropanel/
 │   │   └── scanline_overlay.h/.c # CRT effect
 │   ├── screens/
 │   │   ├── scr_room_view.h/.c  # Main room control screen
-│   │   ├── scr_room_selector.h/.c # Room picker (portable mode)
+│   │   ├── scr_room_selector.h/.c # Room selector (multi-room panels / user login)
 │   │   └── scr_settings.h/.c   # First-boot wizard + settings
 │   ├── data/
 │   │   ├── data_model.h/.c     # C structs + demo data
@@ -411,7 +469,7 @@ code/ui/retropanel/
 | 1. Visual Theme | Done | Retro UI: Nixie fonts, VU meters, bakelite buttons, scanlines |
 | 2. Data Layer | Done | REST boot loading, MQTT live updates, cJSON parsing |
 | 3. Interactive Controls | Done | Touch events send commands via REST, optimistic UI |
-| 4. Room Selector Screen | Planned | Grid of rooms for portable mode |
+| 4. Room Selector Screen | Planned | Grid of rooms for multi-room panels or user login override |
 | 5. Settings Screen | Planned | First-boot wizard: WiFi, server, token, room |
 | 6. Power UI | Planned | Battery indicator, charging icon, WiFi/Ethernet icon |
 | 7. Polish & Effects | Planned | VU sweep animation, nixie glow pulse, screen warm-up |
@@ -454,7 +512,7 @@ code/ui/retropanel/
 | PMIC | AXP2101 | Multi-input (PoE/USB-C/Qi), fuel gauge, 15 power rails |
 | Prototype charger | TP5000 (solder jumper to 3.6V) | TP4056 is fixed 4.2V in silicon — cannot charge LiFePO4. TP5000 has selectable voltage |
 | Dock-to-panel data | 6 pogo pins (power + Ethernet) | Minimal, reliable, magnetic alignment |
-| Room context | Dock stores room ID; portable shows picker | Natural UX for both modes |
+| Room context | Panel stays on configured room; user login unlocks multi-room | Aligns with M1.7 auth: panel token = room scope, user JWT = user's room grants |
 | Dev board | Elecrow CrowPanel / Waveshare (ESP32-S3) | Sunton CYD rejected: regular ESP32, TN panel, no PSRAM. Both alternatives have S3 + 8MB PSRAM + IPS |
 | Battery format | 26650 LiFePO4 (4000mAh) over 18650 (1500mAh) | 2.7x capacity for 8mm wider diameter. Worth it for panel that needs all-day runtime |
 | LoRa / Meshtastic | Optional — Elecrow has modular slot for SX1262 | Panel becomes a mesh node + repeater. Secure control when WiFi is down. See `docs/resilience/mesh-comms.md` |
