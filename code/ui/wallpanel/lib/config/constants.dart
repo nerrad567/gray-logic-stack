@@ -21,6 +21,7 @@ class AppConstants {
   // Auth
   static const int ticketTtlSeconds = 60;
   static const String tokenStorageKey = 'auth_token';
+  static const String refreshTokenStorageKey = 'auth_refresh_token';
   static const String coreUrlStorageKey = 'core_base_url';
   static const String roomIdStorageKey = 'configured_room_id';
   static const String locationCacheKey = 'cached_location_data';

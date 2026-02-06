@@ -85,9 +85,14 @@ class AuthNotifier extends Notifier<AuthState> {
     }
   }
 
-  /// Logout and clear stored credentials.
+  /// Logout: revoke server session, then clear stored credentials.
   Future<void> logout() async {
-    await _authRepo.logout();
+    await _authRepo.serverLogout();
+    state = const AuthState();
+  }
+
+  /// Force re-login: clear local state without server call (used after password change).
+  void forceRelogin() {
     state = const AuthState();
   }
 

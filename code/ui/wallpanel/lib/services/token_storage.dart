@@ -30,6 +30,23 @@ class TokenStorage {
     await prefs.remove(AppConstants.tokenStorageKey);
   }
 
+  // --- Refresh Token ---
+
+  Future<String?> getRefreshToken() async {
+    final prefs = await _instance;
+    return prefs.getString(AppConstants.refreshTokenStorageKey);
+  }
+
+  Future<void> setRefreshToken(String token) async {
+    final prefs = await _instance;
+    await prefs.setString(AppConstants.refreshTokenStorageKey, token);
+  }
+
+  Future<void> clearRefreshToken() async {
+    final prefs = await _instance;
+    await prefs.remove(AppConstants.refreshTokenStorageKey);
+  }
+
   // --- Core URL ---
 
   Future<String?> getCoreUrl() async {
@@ -76,6 +93,7 @@ class TokenStorage {
   Future<void> clearAll() async {
     final prefs = await _instance;
     await prefs.remove(AppConstants.tokenStorageKey);
+    await prefs.remove(AppConstants.refreshTokenStorageKey);
     await prefs.remove(AppConstants.coreUrlStorageKey);
     await prefs.remove(AppConstants.roomIdStorageKey);
   }

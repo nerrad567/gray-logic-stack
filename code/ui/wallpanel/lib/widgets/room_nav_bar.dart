@@ -4,6 +4,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import '../providers/auth_provider.dart';
 import '../providers/location_provider.dart';
 import '../screens/admin/admin_screen.dart';
+import '../screens/change_password_screen.dart';
 import '../screens/ets_import_screen.dart';
 
 /// Horizontal scrollable navigation bar showing rooms grouped by area.
@@ -163,6 +164,15 @@ class _SettingsMenu extends StatelessWidget {
         ),
         const PopupMenuDivider(),
         const PopupMenuItem(
+          value: 'change_password',
+          child: ListTile(
+            leading: Icon(Icons.lock_outline),
+            title: Text('Change Password'),
+            dense: true,
+            contentPadding: EdgeInsets.zero,
+          ),
+        ),
+        const PopupMenuItem(
           value: 'refresh',
           child: ListTile(
             leading: Icon(Icons.refresh_outlined),
@@ -171,6 +181,7 @@ class _SettingsMenu extends StatelessWidget {
             contentPadding: EdgeInsets.zero,
           ),
         ),
+        const PopupMenuDivider(),
         const PopupMenuItem(
           value: 'logout',
           child: ListTile(
@@ -199,6 +210,13 @@ class _SettingsMenu extends StatelessWidget {
         Navigator.of(context).push(
           MaterialPageRoute(
             builder: (context) => const ETSImportScreen(),
+          ),
+        );
+        break;
+      case 'change_password':
+        Navigator.of(context).push(
+          MaterialPageRoute(
+            builder: (context) => const ChangePasswordScreen(),
           ),
         );
         break;
