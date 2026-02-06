@@ -6,6 +6,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import '../config/constants.dart';
 import '../models/area.dart';
+import '../models/auth.dart';
 import '../models/room.dart';
 import '../repositories/location_repository.dart';
 import 'auth_provider.dart';
@@ -70,9 +71,53 @@ class LocationData {
       return null;
     }
   }
+
+  /// Build LocationData from identity rooms (for non-admin users and panels).
+  /// Creates lightweight Area/Room objects from the identity data.
+  static LocationData fromIdentityRooms(List<IdentityRoom> identityRooms) {
+    final now = DateTime.now();
+    final areaMap = <String, Area>{};
+    final rooms = <Room>[];
+
+    for (var i = 0; i < identityRooms.length; i++) {
+      final ir = identityRooms[i];
+
+      // Build area if not seen yet
+      if (!areaMap.containsKey(ir.areaId)) {
+        areaMap[ir.areaId] = Area(
+          id: ir.areaId,
+          siteId: '',
+          name: ir.areaName,
+          slug: ir.areaId,
+          type: 'floor',
+          sortOrder: areaMap.length,
+          createdAt: now,
+          updatedAt: now,
+        );
+      }
+
+      // Build room
+      rooms.add(Room(
+        id: ir.id,
+        areaId: ir.areaId,
+        name: ir.name,
+        slug: ir.id,
+        type: 'standard',
+        sortOrder: i,
+        createdAt: now,
+        updatedAt: now,
+      ));
+    }
+
+    return LocationData(
+      areas: areaMap.values.toList(),
+      rooms: rooms,
+    );
+  }
 }
 
 /// Fetches and caches area+room data. Loaded once on app start.
+/// For admin/owner, fetches from the full API. For users/panels, builds from identity rooms.
 final locationDataProvider =
     NotifierProvider<LocationDataNotifier, AsyncValue<LocationData>>(
   LocationDataNotifier.new,
@@ -84,9 +129,22 @@ class LocationDataNotifier extends Notifier<AsyncValue<LocationData>> {
 
   LocationRepository get _repo => ref.read(locationRepositoryProvider);
 
-  /// Load areas and rooms from the API, falling back to cache on failure.
+  /// Load areas and rooms. Uses identity rooms for non-admin callers,
+  /// or falls back to the full API for admins.
   Future<void> load() async {
     state = const AsyncValue.loading();
+
+    // Check if we have identity data to build from
+    final identity = ref.read(identityProvider);
+    if (identity != null && !identity.isAdmin) {
+      // Non-admin user or panel: build from identity rooms (which are already filtered)
+      final data = LocationData.fromIdentityRooms(identity.rooms);
+      state = AsyncValue.data(data);
+      await _cacheLocally(data);
+      return;
+    }
+
+    // Admin/owner or no identity: use full API
     try {
       final areas = await _repo.getAreas();
       final rooms = await _repo.getRooms();
