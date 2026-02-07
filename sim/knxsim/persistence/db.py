@@ -1194,12 +1194,18 @@ class Database:
 
             # Normalize state field names for consistency
             # Runtime devices may use button_1/button_2, but channels use 'pressed'
+            # button_X_led maps to 'on' (LED feedback from actuator)
             # Also handle case where runtime state has both button_X AND pressed (stale)
             normalized_updates = {}
-            has_button_key = any(k.startswith("button_") for k in state_updates)
+            has_button_key = any(
+                k.startswith("button_") and not k.endswith("_led") for k in state_updates
+            )
 
             for key, value in state_updates.items():
-                if key.startswith("button_"):
+                if key.startswith("button_") and key.endswith("_led"):
+                    # Map button_X_led to 'on' for channel LED state
+                    normalized_updates["on"] = value
+                elif key.startswith("button_"):
                     # Map button_X to 'pressed' for channel state
                     normalized_updates["pressed"] = value
                 elif key == "pressed" and has_button_key:
