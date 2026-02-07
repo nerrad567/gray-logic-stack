@@ -114,22 +114,25 @@ MULTI_CHANNEL_TEMPLATES = {
         "channel_count": 2,
         "group_objects": [
             {"name": "switch", "dpt": "1.001", "flags": "CRT"},
+            {"name": "switch_status", "dpt": "1.001", "flags": "CWU"},
         ],
-        "state_fields": {"pressed": False},
+        "state_fields": {"pressed": False, "on": False},
     },
     "push_button_4fold": {
         "channel_count": 4,
         "group_objects": [
             {"name": "switch", "dpt": "1.001", "flags": "CRT"},
+            {"name": "switch_status", "dpt": "1.001", "flags": "CWU"},
         ],
-        "state_fields": {"pressed": False},
+        "state_fields": {"pressed": False, "on": False},
     },
     "push_button_6fold": {
         "channel_count": 6,
         "group_objects": [
             {"name": "switch", "dpt": "1.001", "flags": "CRT"},
+            {"name": "switch_status", "dpt": "1.001", "flags": "CWU"},
         ],
-        "state_fields": {"pressed": False},
+        "state_fields": {"pressed": False, "on": False},
     },
     "binary_input_4fold": {
         "channel_count": 4,
@@ -202,6 +205,7 @@ def _generate_channels_from_template(device_type: str, group_addresses: dict = N
                     f"{go['name']}_{label.lower()}",
                     f"{go['name']}_{i + 1}",
                     f"button_{i + 1}" if go["name"] == "switch" else None,
+                    f"button_{i + 1}_led" if go["name"] == "switch_status" else None,
                     f"led_{i + 1}" if go["name"] == "switch_status" else None,
                 ]:
                     if key_pattern and key_pattern in group_addresses:
