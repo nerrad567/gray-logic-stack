@@ -10,10 +10,12 @@ from collections.abc import Callable
 
 from devices.base import BaseDevice
 from devices.blind import Blind
+from devices.heating_actuator import HeatingActuator
 from devices.light_dimmer import LightDimmer
 from devices.light_switch import LightSwitch
 from devices.presence import PresenceSensor
 from devices.sensor import Sensor
+from devices.switch_actuator import SwitchActuator
 from devices.template_device import TemplateDevice
 from devices.thermostat import Thermostat
 from devices.valve_actuator import ValveActuator
@@ -35,23 +37,22 @@ DEVICE_TYPES = {
     "template_device": TemplateDevice,
 }
 
-# Multi-channel device types mapped to appropriate base classes
-# The multi-channel behavior is handled at DB/API level; runtime uses base class
+# Multi-channel device types — channel-aware classes for actuators,
+# base classes for inputs/buttons (which don't echo status)
 MULTI_CHANNEL_DEVICE_TYPES = {
-    # Switch actuators (2/4/8/12/16/24-fold)
-    "switch_actuator_2fold": LightSwitch,
-    "switch_actuator_4fold": LightSwitch,
-    "switch_actuator_6fold": LightSwitch,
-    "switch_actuator_8fold": LightSwitch,
-    "switch_actuator_12fold": LightSwitch,
-    "switch_actuator_16fold": LightSwitch,
-    "switch_actuator_24fold": LightSwitch,
-    # Heating actuators (valve control for UFH manifolds)
-    # ValveActuator accepts both binary (thermal) and percentage (modulating) input
-    "heating_actuator_2fold": ValveActuator,
-    "heating_actuator_4fold": ValveActuator,
-    "heating_actuator_6fold": ValveActuator,
-    "heating_actuator_8fold": ValveActuator,
+    # Switch actuators (2/4/8/12/16/24-fold) — multi-channel aware
+    "switch_actuator_2fold": SwitchActuator,
+    "switch_actuator_4fold": SwitchActuator,
+    "switch_actuator_6fold": SwitchActuator,
+    "switch_actuator_8fold": SwitchActuator,
+    "switch_actuator_12fold": SwitchActuator,
+    "switch_actuator_16fold": SwitchActuator,
+    "switch_actuator_24fold": SwitchActuator,
+    # Heating actuators (valve control for UFH manifolds) — multi-channel aware
+    "heating_actuator_2fold": HeatingActuator,
+    "heating_actuator_4fold": HeatingActuator,
+    "heating_actuator_6fold": HeatingActuator,
+    "heating_actuator_8fold": HeatingActuator,
     # Dimmer actuators (1/2/4-fold)
     "dimmer_actuator_1fold": LightDimmer,
     "dimmer_actuator_2fold": LightDimmer,
@@ -232,6 +233,8 @@ class Premise:
         if not devices:
             return
 
+        responses = []
+
         for device in devices:
             # Call the device's GroupWrite handler
             result = device.on_group_write(ga, payload)
@@ -240,13 +243,20 @@ class Premise:
             if self._on_state_change:
                 self._on_state_change(self.id, device.device_id, dict(device.state), ga)
 
-            # If device returned a response (status telegram), send it
-            if result and self.server:
+            # Collect responses for local dispatch + send to KNXnet/IP
+            if result:
                 if isinstance(result, bytes):
-                    self._send_telegram_with_hook(result)
+                    responses.append(result)
                 elif isinstance(result, list):
-                    for r in result:
-                        self._send_telegram_with_hook(r)
+                    responses.extend(result)
+
+        # Send responses to KNXnet/IP client AND dispatch locally.
+        # On a real KNX bus, a status telegram is multicast — all devices
+        # on that GA receive it, not just the external client.
+        for resp in responses:
+            if self.server:
+                self._send_telegram_with_hook(resp)
+            self._dispatch_response_locally(resp)
 
     def _dispatch_response_locally(self, cemi: bytes):
         """Dispatch a response telegram to local devices on its destination GA.
