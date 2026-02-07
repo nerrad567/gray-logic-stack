@@ -1019,6 +1019,8 @@ func TestBridgeReadStateRequest(t *testing.T) {
 	}
 	defer b.Stop()
 
+	// Let startup readAllDevices goroutine drain before clearing counters
+	time.Sleep(300 * time.Millisecond)
 	knxd.ClearSent()
 	mqtt.ClearPublished()
 
@@ -1077,6 +1079,8 @@ func TestBridgeReadAllRequest(t *testing.T) {
 	}
 	defer b.Stop()
 
+	// Let startup readAllDevices goroutine drain before clearing counters
+	time.Sleep(300 * time.Millisecond)
 	knxd.ClearSent()
 	mqtt.ClearPublished()
 

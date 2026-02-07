@@ -253,6 +253,12 @@ func (b *Bridge) Start(ctx context.Context) error {
 		"bridge_id", b.cfg.Bridge.ID,
 		"devices", deviceCount)
 
+	// Send initial read requests to populate device state from hardware.
+	// Run in background so Start() returns immediately.
+	if deviceCount > 0 {
+		go b.readAllDevices(b.ctx)
+	}
+
 	return nil
 }
 
