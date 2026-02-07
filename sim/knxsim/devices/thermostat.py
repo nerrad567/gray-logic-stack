@@ -100,8 +100,14 @@ class Thermostat(BaseDevice):
         return self._make_indication(ga, encode_dpt5(output))
 
     def _send_setpoint_status(self) -> bytes | None:
-        """Generate telegram for setpoint_status if GA is configured."""
+        """Generate telegram for setpoint_status if GA is configured.
+
+        Falls back to the setpoint GA when no dedicated status GA exists.
+        Real KNX thermostats echo on the same GA in this case.
+        """
         ga = self.group_addresses.get("setpoint_status")
+        if ga is None:
+            ga = self.group_addresses.get("setpoint")
         if ga is None:
             return None
         setpoint = self.state["setpoint"]
